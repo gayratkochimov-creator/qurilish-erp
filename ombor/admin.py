@@ -1,3 +1,6 @@
+﻿"""
+ombor/admin.py — Django admin interfeysi.
+"""
 from django.contrib import admin, messages
 from django.core.exceptions import ValidationError
 
@@ -6,6 +9,10 @@ from .models import (
     Issue, IssueItem, Material, MaterialCategory, Receipt, ReceiptItem,
     StockBalance, StockMovement, Supplier, Warehouse,
 )
+
+
+def _money(value):
+    return f"{value:,.2f}".replace(",", " ")
 
 
 @admin.register(MaterialCategory)
@@ -37,9 +44,17 @@ class ReceiptItemInline(admin.TabularInline):
     model = ReceiptItem
     extra = 3
     autocomplete_fields = ["material"]
+    fields = ["material", "quantity", "unit_price", "qator_summasi"]
+    readonly_fields = ["qator_summasi"]
+
+    @admin.display(description="Qator summasi")
+    def qator_summasi(self, obj):
+        if obj and obj.pk:
+            return _money(obj.total)
+        return "-"
 
 
-@admin.action(description="✓ Qayd qilish (ostatkaga kiritish)")
+@admin.action(description="Qayd qilish (ostatkaga kiritish)")
 def action_post_receipt(modeladmin, request, queryset):
     ok = 0
     for receipt in queryset:
@@ -52,7 +67,7 @@ def action_post_receipt(modeladmin, request, queryset):
         messages.success(request, f"{ok} ta prixod qayd qilindi.")
 
 
-@admin.action(description="✗ Qaydni bekor qilish")
+@admin.action(description="Qaydni bekor qilish")
 def action_unpost_receipt(modeladmin, request, queryset):
     for receipt in queryset:
         try:
@@ -64,11 +79,15 @@ def action_unpost_receipt(modeladmin, request, queryset):
 @admin.register(Receipt)
 class ReceiptAdmin(admin.ModelAdmin):
     inlines = [ReceiptItemInline]
-    list_display = ["id", "date", "warehouse", "supplier", "doc_number", "total", "is_posted"]
+    list_display = ["id", "date", "warehouse", "supplier", "doc_number", "umumiy_summa", "is_posted"]
     list_filter = ["is_posted", "warehouse", "supplier"]
     search_fields = ["doc_number"]
     date_hierarchy = "date"
     actions = [action_post_receipt, action_unpost_receipt]
+
+    @admin.display(description="Umumiy summa")
+    def umumiy_summa(self, obj):
+        return _money(obj.total)
 
     def get_readonly_fields(self, request, obj=None):
         if obj and obj.is_posted:
@@ -80,10 +99,17 @@ class IssueItemInline(admin.TabularInline):
     model = IssueItem
     extra = 3
     autocomplete_fields = ["material"]
-    readonly_fields = ["unit_cost"]
+    fields = ["material", "quantity", "unit_cost", "qator_summasi"]
+    readonly_fields = ["unit_cost", "qator_summasi"]
+
+    @admin.display(description="Qator summasi")
+    def qator_summasi(self, obj):
+        if obj and obj.pk:
+            return _money(obj.total)
+        return "-"
 
 
-@admin.action(description="✓ Qayd qilish (ostatkadan chiqarish)")
+@admin.action(description="Qayd qilish (ostatkadan chiqarish)")
 def action_post_issue(modeladmin, request, queryset):
     ok = 0
     for issue in queryset:
@@ -96,7 +122,7 @@ def action_post_issue(modeladmin, request, queryset):
         messages.success(request, f"{ok} ta rasxod qayd qilindi.")
 
 
-@admin.action(description="✗ Qaydni bekor qilish")
+@admin.action(description="Qaydni bekor qilish")
 def action_unpost_issue(modeladmin, request, queryset):
     for issue in queryset:
         try:
@@ -108,12 +134,16 @@ def action_unpost_issue(modeladmin, request, queryset):
 @admin.register(Issue)
 class IssueAdmin(admin.ModelAdmin):
     inlines = [IssueItemInline]
-    list_display = ["id", "date", "warehouse", "work_section", "recipient", "total", "is_posted"]
+    list_display = ["id", "date", "warehouse", "work_section", "recipient", "umumiy_summa", "is_posted"]
     list_filter = ["is_posted", "warehouse", "work_section__project"]
     search_fields = ["doc_number", "recipient"]
     date_hierarchy = "date"
     actions = [action_post_issue, action_unpost_issue]
     autocomplete_fields = ["work_section"]
+
+    @admin.display(description="Umumiy summa")
+    def umumiy_summa(self, obj):
+        return _money(obj.total)
 
     def get_readonly_fields(self, request, obj=None):
         if obj and obj.is_posted:
