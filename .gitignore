@@ -1,5 +1,7 @@
 ﻿venv/
-db.sqlite3
 __pycache__/
 *.pyc
+db.sqlite3
 .env
+admin_eski.py
+staticfiles/
