@@ -1,0 +1,68 @@
+{% extends "base_site.html" %}
+{% block title %}Grafik ishlar — Qurilish ERP{% endblock %}
+{% block page_title %}Grafik ishlar{% endblock %}
+
+{% block extra_head %}
+<style>
+  .db { display:flex; flex-direction:column; gap:20px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; box-shadow:var(--shadow-sm); }
+  .toolbar { display:flex; align-items:flex-end; gap:14px; flex-wrap:wrap; }
+  .fgrp { display:flex; flex-direction:column; gap:6px; }
+  .fgrp .fl { font-size:11.5px; font-weight:600; color:var(--mut); }
+  .fgrp select { padding:9px 12px; border:1px solid var(--line); border-radius:9px; font-size:13.5px; font-weight:500; background:var(--card); color:var(--ink); min-width:220px; cursor:pointer; }
+  .fgrp select:focus { outline:none; border-color:var(--brand); box-shadow:0 0 0 3px rgba(10,110,209,.18); }
+  .clr { font-size:12.5px; color:var(--mut); align-self:center; }
+  .tw { overflow:hidden; } .tw .th { padding:16px 22px 6px; }
+  .tw h3 { font-size:11px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:#475569; }
+  table { width:100%; border-collapse:collapse; }
+  th,td { padding:13px 20px; text-align:left; font-size:13.5px; }
+  th { color:#475569; font-weight:700; font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; border-bottom:1px solid var(--line); background:#fafbfc; }
+  td { border-bottom:1px solid #f1f5f9; }
+  tbody tr:last-child td { border-bottom:none; }
+  tbody tr:hover { background:#fafbff; }
+  .num { text-align:right; font-variant-numeric:tabular-nums; }
+  .lnk { color:var(--ink); font-weight:650; } .lnk:hover { color:var(--brand); }
+  .badge { display:inline-block; font-size:11px; font-weight:700; padding:2px 9px; border-radius:999px; }
+  .badge.has { background:#eaf3fb; color:var(--brand); }
+  .badge.no { background:#f1f5f9; color:#94a3b8; }
+  .open { background:var(--brand); color:#fff; border-radius:8px; padding:7px 14px; font-size:12.5px; font-weight:600; }
+  .open:hover { background:#0857a8; }
+  .empty { padding:44px; text-align:center; color:#94a3b8; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="db">
+  <form method="get" class="toolbar reveal">
+    <div class="fgrp">
+      <span class="fl">Firma</span>
+      <select name="firma" onchange="this.form.submit()">
+        <option value="">Barcha firmalar</option>
+        {% for f in firmalar %}<option value="{{ f.id }}" {% if sel_firma == f.id|stringformat:'s' %}selected{% endif %}>{{ f.name }}</option>{% endfor %}
+      </select>
+    </div>
+    {% if sel_firma %}<a class="clr" href="{% url 'grafik_list' %}">tozalash</a>{% endif %}
+  </form>
+
+  <div class="card tw reveal" style="animation-delay:.06s">
+    <div class="th"><h3>Obyektlar — {{ soni }} ta</h3></div>
+    <table>
+      <thead><tr><th>Kod</th><th>Obyekt</th><th>Firma</th><th class="num">Qatorlar</th><th>Boshi</th><th></th></tr></thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td><a class="lnk" href="{% url 'grafik_web' r.obj.id %}">{{ r.obj.code }}</a></td>
+          <td><a class="lnk" href="{% url 'grafik_web' r.obj.id %}">{{ r.obj.name }}</a></td>
+          <td>{{ r.firma }}</td>
+          <td class="num">{% if r.gcount %}<span class="badge has">{{ r.gcount }} qator</span>{% else %}<span class="badge no">bo'sh</span>{% endif %}</td>
+          <td>{% if r.start %}{{ r.start|date:"d.m.Y" }}{% else %}—{% endif %}</td>
+          <td class="num"><a class="open" href="{% url 'grafik_web' r.obj.id %}">Grafik ochish</a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="empty">Obyekt yo'q.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

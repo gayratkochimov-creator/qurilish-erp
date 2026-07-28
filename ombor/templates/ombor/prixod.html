@@ -1,0 +1,169 @@
+{% extends "base_site.html" %}
+{% block title %}Prixod (kirim) — Qurilish ERP{% endblock %}
+{% block page_title %}Prixod (kirim){% endblock %}
+
+{% block extra_head %}
+<style>
+  .msg { border-radius:12px; padding:11px 15px; font-size:14px; margin-bottom:14px; font-weight:600; }
+  .msg.success { background:#f5f6f8; color:#15803d; border:1px solid #e6e8ec; }
+  .msg.error { background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; }
+  .msg.info { background:#f5f6f8; color:#334155; border:1px solid #e6e8ec; }
+  .addbox { background:var(--card); border:1px solid var(--line); border-radius:14px; box-shadow:var(--shadow); padding:6px 16px; margin-bottom:20px; }
+  .addbox > summary { cursor:pointer; font-weight:700; font-size:15px; color:#334155; padding:12px 0; }
+  .hdr { display:flex; gap:14px; flex-wrap:wrap; margin:12px 0; }
+  .hdr label { display:flex; flex-direction:column; font-size:12px; color:var(--mut); gap:4px; font-weight:600; }
+  .hdr input, .hdr select { padding:8px 11px; border:1px solid var(--line); border-radius:9px; font-size:14px; min-width:180px; }
+  table { width:100%; border-collapse:collapse; }
+  th,td { padding:10px 14px; text-align:left; font-size:13.5px; }
+  th { background:#f8fafc; color:var(--mut); font-weight:600; border-bottom:1px solid var(--line); }
+  td { border-bottom:1px solid #f1f5f9; }
+  .num { text-align:right; }
+  .itbl input, .itbl select { width:100%; padding:7px 9px; border:1px solid #e5e7eb; border-radius:7px; font-size:13px; }
+  .rsum { font-weight:700; color:#15803d; font-variant-numeric:tabular-nums; }
+  .delrow { background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; border-radius:7px; width:26px; height:26px; cursor:pointer; font-weight:700; }
+  .addrow { background:#f5f6f8; color:#334155; border:1px solid #e6e8ec; border-radius:8px; padding:9px 15px; font-size:13px; font-weight:700; cursor:pointer; }
+  .savebtn { background:#334155; color:#fff; border:0; border-radius:9px; padding:10px 20px; font-size:14px; font-weight:700; cursor:pointer; }
+  .panel { background:var(--card); border:1px solid var(--line); border-radius:16px; box-shadow:var(--shadow); overflow:hidden; }
+  tbody tr:hover { background:#fafbff; }
+  .badge { display:inline-block; padding:3px 11px; border-radius:999px; font-size:12px; font-weight:700; }
+  .b-posted { background:#dcfce7; color:#15803d; } .b-draft { background:#f1f5f9; color:#64748b; }
+  .mini { font-size:12px; font-weight:600; border:1px solid #d1d5db; background:#fff; border-radius:6px; padding:4px 11px; cursor:pointer; }
+  .mini.ok { background:#15803d; color:#fff; border-color:#15803d; }
+  .mini.del { color:#b91c1c; border-color:#fecaca; }
+  .acts { display:inline-flex; gap:6px; } .acts form { display:inline; }
+  .empty { padding:40px; text-align:center; color:#94a3b8; }
+  .navlinks { display:flex; gap:8px; margin-bottom:16px; }
+  .navlinks a { font-size:13px; font-weight:600; padding:8px 14px; border-radius:9px; background:#fff; border:1px solid var(--line); }
+  .navlinks a.on { background:#f5f6f8; color:#334155; border-color:#e6e8ec; }
+  .ffilter { display:flex; align-items:center; gap:10px; background:var(--card); border:1px solid var(--line); border-radius:12px; box-shadow:var(--shadow); padding:12px 16px; margin-bottom:16px; }
+  .ffilter label { font-size:13px; font-weight:600; color:var(--mut); }
+  .ffilter select { padding:8px 11px; border:1px solid var(--line); border-radius:9px; font-size:14px; min-width:230px; }
+  .ffilter .clr { font-size:13px; color:var(--mut); }
+  .thumb { width:42px; height:42px; object-fit:cover; border-radius:8px; border:1px solid var(--line); display:block; transition:.15s; cursor:zoom-in; }
+  .thumb:hover { transform:scale(1.06); box-shadow:0 6px 16px rgba(0,0,0,.18); }
+</style>
+{% endblock %}
+
+{% block content %}
+  {% if messages %}{% for m in messages %}<div class="msg {{ m.tags }}">{{ m }}</div>{% endfor %}{% endif %}
+
+  <div class="navlinks">
+    <a href="{% url 'ombor' %}">Ostatka</a>
+    <a class="on" href="{% url 'prixod_list' %}">Prixod (kirim)</a>
+    <a href="{% url 'rasxod_list' %}">Rasxod (chiqim)</a>
+  </div>
+
+  <form method="get" class="ffilter">
+    <label>Firma:</label>
+    <select name="firma" onchange="this.form.project.value=''; this.form.submit()">
+      <option value="">— barcha firmalar —</option>
+      {% for f in firmalar %}<option value="{{ f.id }}" {% if sel_firma == f.id|stringformat:'s' %}selected{% endif %}>{{ f.name }}</option>{% endfor %}
+    </select>
+    <label>Obyekt:</label>
+    <select name="project" onchange="this.form.submit()">
+      <option value="">— barcha obyektlar —</option>
+      {% for o in obyektlar %}<option value="{{ o.id }}" {% if sel_project == o.id|stringformat:'s' %}selected{% endif %}>{{ o.code }} — {{ o.name }}</option>{% endfor %}
+    </select>
+    {% if sel_firma or sel_project %}<a class="clr" href="{% url 'prixod_list' %}">tozalash</a>{% endif %}
+  </form>
+
+  <details class="addbox">
+    <summary>Yangi prixod (kirim)</summary>
+    <form method="post" action="{% url 'prixod_add' %}" enctype="multipart/form-data">
+      {% csrf_token %}
+      <div class="hdr">
+        <label>Ombor<select name="warehouse" required><option value="">— tanlang —</option>{% for w in warehouses %}<option value="{{ w.id }}">{{ w.kod_nom }}</option>{% endfor %}</select></label>
+        <label>Yetkazib beruvchi (STIR bilan)<select name="supplier"><option value="">— (ixtiyoriy) —</option>{% for s in suppliers %}<option value="{{ s.id }}">{{ s.name }}{% if s.inn %} · STIR {{ s.inn }}{% endif %}</option>{% endfor %}</select></label>
+        <label>Sana<input type="date" name="date" value="{{ today }}" required></label>
+        <label>Hujjat / nakladnoy №<input type="text" name="doc_number" placeholder="№"></label>
+        <label>Izoh<input type="text" name="note" placeholder="izoh (ixtiyoriy)"></label>
+        <label>Mahsulot rasmi<input type="file" name="image" accept="image/*"></label>
+      </div>
+      <table class="itbl">
+        <thead><tr><th style="width:38%;">Material <span style="font-weight:400; color:var(--mut); font-size:11.5px;">(ro'yxatdan yoki qo'lda yozing)</span></th><th style="width:90px;">Birlik</th><th class="num" style="width:120px;">Miqdor</th><th class="num" style="width:140px;">Narxi</th><th class="num" style="width:140px;">Summa</th><th style="width:34px;"></th></tr></thead>
+        <tbody id="rows"></tbody>
+        <tfoot><tr><td colspan="4" class="num"><b>JAMI:</b></td><td class="num rsum"><b id="grand">0</b></td><td></td></tr></tfoot>
+      </table>
+      <datalist id="matlist">{% for m in materials %}<option value="{{ m.name }}" data-unit="{{ m.unit }}">{{ m.unit }}</option>{% endfor %}</datalist>
+      <div style="display:flex; gap:10px; margin:10px 0;">
+        <button type="button" class="addrow" id="addrow">Qator qo'shish</button>
+        <button type="submit" class="savebtn">Saqlash</button>
+      </div>
+    </form>
+    <template id="rowtpl">
+      <tr>
+        <td><input type="text" name="material" class="matinp" list="matlist" placeholder="material nomi..." autocomplete="off"></td>
+        <td><input type="text" name="munit" class="unitinp" placeholder="birlik"></td>
+        <td class="num"><input type="number" name="quantity" step="0.001" placeholder="0"></td>
+        <td class="num"><input type="number" name="unit_price" step="0.01" placeholder="0"></td>
+        <td class="num rsum">0</td>
+        <td><button type="button" class="delrow">×</button></td>
+      </tr>
+    </template>
+  </details>
+
+  <div class="panel">
+    <table>
+      <thead><tr><th>#</th><th>Sana</th><th>Firma</th><th>Ombor</th><th>Yetkazib beruvchi</th><th>Hujjat №</th><th>Rasm</th><th class="num">Summa</th><th>Holat</th><th>Amallar</th></tr></thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td>#{{ r.obj.id }}</td>
+          <td>{{ r.obj.date|date:"d.m.Y" }}</td>
+          <td style="font-weight:600;">{{ r.firma }}</td>
+          <td>{{ r.obj.warehouse.kod_nom }}</td>
+          <td>{{ r.supplier }}</td>
+          <td>{{ r.obj.doc_number|default:"—" }}</td>
+          <td>{% if r.obj.image %}<a href="{{ r.obj.image.url }}" target="_blank"><img class="thumb" src="{{ r.obj.image.url }}" alt="rasm"></a>{% else %}<span style="color:#cbd5e1;">—</span>{% endif %}</td>
+          <td class="num">{{ r.total_str }}</td>
+          <td>{% if r.obj.is_posted %}<span class="badge b-posted">Qayd qilingan</span>{% else %}<span class="badge b-draft">Qoralama</span>{% endif %}</td>
+          <td>
+            <span class="acts">
+              {% if r.obj.is_posted %}
+              <form method="post" action="{% url 'prixod_action' r.obj.id %}"><input type="hidden" name="action" value="unpost">{% csrf_token %}<button class="mini">Bekor qilish</button></form>
+              {% else %}
+              <form method="post" action="{% url 'prixod_action' r.obj.id %}"><input type="hidden" name="action" value="post">{% csrf_token %}<button class="mini ok">Qayd qilish</button></form>
+              <form method="post" action="{% url 'prixod_action' r.obj.id %}" onsubmit="return confirm('O`chirilsinmi?')"><input type="hidden" name="action" value="delete">{% csrf_token %}<button class="mini del">×</button></form>
+              {% endif %}
+            </span>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="10" class="empty">Hali prixod yo'q. «Yangi prixod» dan kiriting.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+  (function(){
+    var tb=document.getElementById('rows'), tpl=document.getElementById('rowtpl');
+    if(!tb||!tpl) return;
+    function fmt(n){ return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,' '); }
+    function recompute(){
+      var g=0;
+      tb.querySelectorAll('tr').forEach(function(tr){
+        var q=parseFloat(tr.querySelector('[name=quantity]').value)||0;
+        var p=parseFloat(tr.querySelector('[name=unit_price]').value)||0;
+        var s=q*p; tr.querySelector('.rsum').textContent=fmt(s); g+=s;
+      });
+      document.getElementById('grand').textContent=fmt(g);
+    }
+    // Mavjud material tanlansa/yozilsa — birlikni avtomatik to'ldiramiz
+    var UMAP={};
+    document.querySelectorAll('#matlist option').forEach(function(o){ UMAP[o.value.trim().toLowerCase()]=o.dataset.unit||''; });
+    function autoUnit(tr){
+        var m=tr.querySelector('[name=material]'), u=tr.querySelector('[name=munit]');
+        if(!m||!u) return;
+        var un=UMAP[(m.value||'').trim().toLowerCase()];
+        if(un) u.value=un;   // mavjud material -> birligi qo'yiladi
+    }
+    function addRow(){ tb.appendChild(tpl.content.cloneNode(true)); recompute(); }
+    document.getElementById('addrow').addEventListener('click', addRow);
+    tb.addEventListener('click', function(e){ if(e.target.classList.contains('delrow')){ if(tb.children.length>1){ e.target.closest('tr').remove(); recompute(); } } });
+    tb.addEventListener('input', function(e){ if(e.target.matches('[name=material]')) autoUnit(e.target.closest('tr')); recompute(); });
+    tb.addEventListener('change', function(e){ if(e.target.matches('[name=material]')) autoUnit(e.target.closest('tr')); });
+    for(var i=0;i<3;i++) addRow();
+  })();
+  </script>
+{% endblock %}

@@ -1,0 +1,251 @@
+{% load static %}<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Qurilish ERP{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'vendor/inter.css' %}">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    /* ===== "Executive Enterprise" dizayn tizimi — butun sayt ===== */
+    :root {
+      --bg:#f1f5f9; --card:#ffffff; --ink:#0a1828; --mut:#3b4252; --line:#e2e8f0;
+      --brand:#2563eb; --brand-soft:#eff4ff; --brand-dim:#b4c5ff; --r-card:12px; --r-ctl:8px; --r-hero:16px;
+      --ease-out:cubic-bezier(.22,1,.36,1); --ease-in-out:cubic-bezier(.77,0,.175,1);
+      --shadow:0 10px 15px -3px rgba(0,0,0,.08), 0 4px 6px -4px rgba(0,0,0,.05);
+      --shadow-sm:0 1px 3px rgba(0,0,0,.05), 0 1px 2px rgba(0,0,0,.03);
+      --side:#111827; --side-line:rgba(255,255,255,.08); --surface-navy:#213145;
+      --ok:#15803d; --warn:#b45309; --bad:#ba1a1a;
+    }
+    body { font-family:"Inter",system-ui,"Segoe UI",Roboto,sans-serif; color:var(--ink);
+      font-feature-settings:"cv02","cv03","cv04","cv11";
+      text-rendering:optimizeLegibility;
+      background:var(--bg);
+      /* Tiniqlik: butun interfeys ~10% kattaroq render bo'ladi — harflar keskinroq */
+      zoom:1.10; }
+    h1,h2,h3,.ptitle { letter-spacing:-.02em; }
+    a { text-decoration:none; color:var(--brand); }
+    ::-webkit-scrollbar { width:9px; height:9px; } ::-webkit-scrollbar-thumb { background:#d1d5db; border-radius:9px; }
+    svg { display:block; }
+    /* Global karta sayqali — yumshoq soya + nozik hover */
+    .card { box-shadow: var(--shadow-sm); transition: box-shadow .22s var(--ease-out), transform .2s var(--ease-out), border-color .18s ease; }
+    .card:hover { box-shadow: var(--shadow); }
+    /* Bosiladigan elementlar press-feedback (Emil: scale .97 on active) */
+    button, .btn, .logout, .savebtn, .mini, .addrow, .delrow, .tabbtn, .fchip { transition: transform .14s var(--ease-out), background .14s ease, border-color .14s ease, box-shadow .18s ease, color .14s ease; }
+    button:active:not(:disabled), .btn:active, .logout:active, .savebtn:active, .mini:active, .addrow:active { transform: scale(.97); }
+    ::selection { background:#cfe4fa; color:#0a2d52; }
+
+    /* SIDEBAR */
+    .sidebar { position:fixed; left:0; top:0; bottom:0; width:260px; background:var(--side);
+      color:#9ca3af; display:flex; flex-direction:column; z-index:30; border-right:1px solid var(--side-line);
+      box-shadow:1px 0 0 rgba(15,23,41,.04), 6px 0 24px -12px rgba(15,23,41,.18); }
+    .sidebar .logo { display:flex; align-items:center; gap:12px; padding:22px 20px 18px; border-bottom:1px solid var(--side-line); }
+    .sidebar .logo .mark { width:36px; height:36px; border-radius:9px; background:var(--brand); display:grid; place-items:center; color:#fff; border:1px solid rgba(255,255,255,.12); }
+    .sidebar .logo .mark svg { width:20px; height:20px; }
+    .sidebar .logo .nm { font-weight:700; font-size:15px; color:#fff; letter-spacing:-.2px; line-height:1.15; }
+    .sidebar .logo .nm small { display:block; font-size:10px; font-weight:600; color:#8b93a3; letter-spacing:.16em; margin-top:3px; }
+    .snav { padding:12px 12px; display:flex; flex-direction:column; gap:2px; flex:1; overflow-y:auto; }
+    .snav .cap { font-size:10px; text-transform:uppercase; letter-spacing:.16em; color:#7b8494; padding:18px 10px 6px; font-weight:600; }
+    .snav a { position:relative; display:flex; align-items:center; gap:11px; padding:9px 11px; border-radius:8px; color:#c3cad6; font-size:14px; font-weight:500; transition:.14s; }
+    .snav a .i { display:grid; place-items:center; color:currentColor; }
+    .snav a .i svg { width:18px; height:18px; stroke-width:1.8; }
+    .snav a:hover { background:rgba(255,255,255,.06); color:#fff; }
+    .snav a.active { background:#1e293b; color:#fff; font-weight:600; }
+    .snav a.active .i { color:var(--brand-dim); }
+    .snav a.active::before { content:""; position:absolute; left:-12px; top:50%; transform:translateY(-50%); width:3px; height:100%; border-radius:0 3px 3px 0; background:var(--brand); }
+    .snav a .sbadge { margin-left:auto; background:var(--bad); color:#fff; font-size:10.5px; font-weight:700; min-width:19px; height:19px; border-radius:999px; display:grid; place-items:center; padding:0 6px; }
+    .userbox { margin:12px; padding:11px 12px; border-radius:10px; background:rgba(255,255,255,.04); display:flex; align-items:center; gap:11px; border:1px solid var(--side-line); }
+    .userbox .av { width:38px; height:38px; border-radius:999px; background:var(--brand); display:grid; place-items:center; font-weight:700; color:#fff; font-size:14px; }
+    .userbox .u { line-height:1.25; min-width:0; }
+    .userbox .u .n { font-weight:600; color:#f1f5f9; font-size:13.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .userbox .u .r { font-size:11.5px; color:#9aa3b2; }
+
+    /* MAIN */
+    .main { margin-left:260px; min-height:100vh; }
+    .navbar { position:sticky; top:0; z-index:20; background:rgba(255,255,255,.92); backdrop-filter:saturate(1.2) blur(8px);
+      border-bottom:1px solid var(--line); display:flex; align-items:center; gap:18px; padding:13px 28px; }
+    .navbar > div:first-child { min-width:0; }
+    .navbar .ptitle { font-size:15px; font-weight:700; letter-spacing:-.01em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .navbar .date { white-space:nowrap; }
+    .navbar .date { font-size:12px; color:#4b5563; letter-spacing:.01em; margin-top:3px; }
+    .navbar .search { margin-left:16px; display:flex; align-items:center; gap:8px; background:#f6f7f9; border:1px solid var(--line); border-radius:10px; padding:8px 12px; color:#9aa1ac; min-width:220px; transition:.16s; }
+    .navbar .search:focus-within { background:#fff; border-color:var(--brand); box-shadow:0 0 0 3px rgba(15,98,254,.18); }
+    .navbar .search svg { width:16px; height:16px; stroke:#9aa1ac; stroke-width:2; flex:none; }
+    .navbar .search input { border:0; background:transparent; outline:none; font-size:13px; color:var(--ink); width:100%; }
+    .navbar .right { margin-left:auto; display:flex; align-items:center; gap:12px; }
+    .navbar .logout { background:#fff; border:1px solid var(--line); color:#374151; border-radius:9px; padding:9px 16px; font-size:13px; font-weight:600; cursor:pointer; transition:.14s; }
+    .navbar .logout:hover { background:#f9fafb; border-color:#cbd5e1; }
+    /* Til almashtirgich: Lotin / Кирилл */
+    .lang-sw { display:inline-flex; background:#f1f5f9; border:1px solid var(--line); border-radius:9px; padding:3px; gap:2px; }
+    .lang-sw button { border:0; background:transparent; color:#64748b; font-size:12px; font-weight:700; padding:6px 12px; border-radius:7px; cursor:pointer; transition:.14s; }
+    .lang-sw button:hover { color:var(--ink); }
+    .lang-sw button.on { background:#fff; color:var(--brand); box-shadow:0 1px 3px rgba(0,0,0,.08); }
+    .content { padding:26px 28px 44px; animation: pageIn .45s cubic-bezier(.16,1,.3,1) both; }
+    @keyframes pageIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+    @keyframes fadeUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:none; } }
+    .reveal { animation: fadeUp .5s cubic-bezier(.16,1,.3,1) both; }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+    }
+
+    @media (max-width: 900px) {
+      .sidebar { width:64px; }
+      .sidebar .logo .nm, .snav a span.t, .snav .cap, .userbox .u { display:none; }
+      .sidebar .logo { justify-content:center; padding:18px 0; }
+      .snav a { justify-content:center; padding:10px; }
+      .userbox { justify-content:center; } .main { margin-left:64px; }
+      .navbar .search { display:none; }
+    }
+  </style>
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="logo">
+      <span class="mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/></svg></span>
+      <span class="nm">Qurilish ERP<small>BOSHQARUV</small></span>
+    </div>
+    <nav class="snav">
+      <div class="cap">Boshqaruv</div>
+      <a href="{% url 'dashboard' %}" class="{% if request.resolver_match.url_name == 'dashboard' or request.resolver_match.url_name == 'project_detail' %}active{% endif %}"><span class="i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span><span class="t">Limitlar</span>{% if pending_total %}<span class="sbadge">{{ pending_total }}</span>{% endif %}</a>
+      <a href="{% url 'firmalar' %}" class="{% if request.resolver_match.url_name == 'firmalar' %}active{% endif %}"><span class="i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M6 21V5a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v16"/><path d="M14 9h3a1 1 0 0 1 1 1v11"/><line x1="9" y1="8" x2="10" y2="8"/><line x1="9" y1="12" x2="10" y2="12"/><line x1="9" y1="16" x2="10" y2="16"/></svg></span><span class="t">Obyektlar</span></a>
+      <a href="{% url 'ombor' %}" class="{% if request.resolver_match.url_name == 'ombor' %}active{% endif %}"><span class="i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></span><span class="t">Ombor (ostatka)</span></a>
+      <a href="{% url 'prixod_list' %}" class="{% if request.resolver_match.url_name == 'prixod_list' %}active{% endif %}"><span class="i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg></span><span class="t">Prixod (kirim)</span></a>
+      <a href="{% url 'rasxod_list' %}" class="{% if request.resolver_match.url_name == 'rasxod_list' %}active{% endif %}"><span class="i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg></span><span class="t">Rasxod (chiqim)</span></a>
+      <div class="cap">Hisobotlar</div>
+      <a href="{% url 'haftalik_tarix' %}" class="{% if request.resolver_match.url_name == 'haftalik_tarix' %}active{% endif %}"><span class="i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span><span class="t">Haftalik tarix</span></a>
+      <a href="{% url 'grafik_list' %}" class="{% if request.resolver_match.url_name == 'grafik_list' or request.resolver_match.url_name == 'grafik_web' %}active{% endif %}"><span class="i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></span><span class="t">Grafik ishlar</span></a>
+      <div class="cap">Tizim</div>
+      <a href="/admin/"><span class="i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span><span class="t">Admin panel</span></a>
+    </nav>
+    <div class="userbox">
+      <div class="av">{{ request.user.username|first|upper }}</div>
+      <div class="u">
+        <div class="n">{{ request.user.username }}</div>
+        <div class="r">{% if request.user.is_superuser %}Administrator{% else %}Foydalanuvchi{% endif %}</div>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="navbar">
+      <div>
+        <div class="ptitle">{% block page_title %}{% endblock %}</div>
+        <div class="date">{% now "l, d-F Y" %}</div>
+      </div>
+      <label class="search"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input type="text" placeholder="Qidirish..."></label>
+      <div class="right">
+        <div class="lang-sw" title="Interfeys tili / Интерфейс тили">
+          <button type="button" data-til="lat">Lotin</button>
+          <button type="button" data-til="kir">Кирилл</button>
+        </div>
+        <form method="post" action="{% url 'logout' %}" style="display:inline;">{% csrf_token %}<button class="logout" type="submit">Chiqish</button></form>
+      </div>
+    </header>
+    <main class="content">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+  <script>
+  // ===== Til almashtirgich: Lotin (asl) / Кирилл (avtomatik transliteratsiya) =====
+  // Faqat KO'RINISH o'zgaradi — bazaga, input qiymatlariga tegilmaydi.
+  (function(){
+    var KEY = 'qerp.til';
+
+    // Tartib MUHIM: avval o'/g' (apostrofni yutadi), keyin sh/ch/y+unli, keyin yakka harflar
+    var QOIDALAR = [
+      // istisno so'zlar (imlo: obyekt -> объект; brend nomlari)
+      [/OBYEKT/g,'ОБЪЕКТ'], [/Obyekt/g,'Объект'], [/obyekt/g,'объект'],
+      [/EXCEL/g,'ЭКСЕЛ'], [/Excel/g,'Эксел'], [/excel/g,'эксел'],
+      [/[oO][’'ʻʼ`]/g, function(m){ return m[0]==='O' ? 'Ў' : 'ў'; }],
+      [/[gG][’'ʻʼ`]/g, function(m){ return m[0]==='G' ? 'Ғ' : 'ғ'; }],
+      [/SH/g,'Ш'], [/Sh/g,'Ш'], [/sh/g,'ш'],
+      [/CH/g,'Ч'], [/Ch/g,'Ч'], [/ch/g,'ч'],
+      [/YO/g,'Ё'], [/Yo/g,'Ё'], [/yo/g,'ё'],
+      [/YA/g,'Я'], [/Ya/g,'Я'], [/ya/g,'я'],
+      [/YU/g,'Ю'], [/Yu/g,'Ю'], [/yu/g,'ю'],
+      [/YE/g,'Е'], [/Ye/g,'Е'], [/ye/g,'е'],
+      // qolgan tutuq belgisi (ta'minot -> таъминот)
+      [/(\p{L})[’'ʻʼ`](?=\p{L})/gu, '$1ъ'],
+      // so'z boshidagi e -> э (eksport -> экспорт)
+      [/(^|\P{L})e/gu, '$1э'], [/(^|\P{L})E/gu, '$1Э'],
+    ];
+    var YAKKA = {a:'а',b:'б',d:'д',e:'е',f:'ф',g:'г',h:'ҳ',i:'и',j:'ж',k:'к',l:'л',m:'м',n:'н',o:'о',p:'п',q:'қ',r:'р',s:'с',t:'т',u:'у',v:'в',w:'в',x:'х',y:'й',z:'з',c:'ц',
+                 A:'А',B:'Б',D:'Д',E:'Е',F:'Ф',G:'Г',H:'Ҳ',I:'И',J:'Ж',K:'К',L:'Л',M:'М',N:'Н',O:'О',P:'П',Q:'Қ',R:'Р',S:'С',T:'Т',U:'У',V:'В',W:'В',X:'Х',Y:'Й',Z:'З',C:'Ц'};
+
+    function kirlash(s){
+      if (!s || !/[A-Za-z]/.test(s)) return s;
+      for (var i=0;i<QOIDALAR.length;i++) s = s.replace(QOIDALAR[i][0], QOIDALAR[i][1]);
+      return s.replace(/[A-Za-z]/g, function(ch){ return YAKKA[ch] || ch; });
+    }
+
+    var ishlanmoqda = false;
+    function qollash(root){
+      ishlanmoqda = true;
+      try {
+        var w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+          acceptNode: function(n){
+            var p = n.parentNode;
+            if (!p) return NodeFilter.FILTER_REJECT;
+            var t = p.nodeName;
+            if (t==='SCRIPT'||t==='STYLE'||t==='TEXTAREA'||t==='NOSCRIPT') return NodeFilter.FILTER_REJECT;
+            return /[A-Za-z]/.test(n.nodeValue) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+          }
+        });
+        var node, ozgarish=[];
+        while ((node = w.nextNode())) ozgarish.push(node);
+        ozgarish.forEach(function(n){ var y = kirlash(n.nodeValue); if (y !== n.nodeValue) n.nodeValue = y; });
+        // placeholder va title atributlari ham (input QIYMATI emas!)
+        var els = (root.querySelectorAll ? root.querySelectorAll('[placeholder],[title]') : []);
+        Array.prototype.forEach.call(els, function(el){
+          if (el.placeholder) { var yp = kirlash(el.placeholder); if (yp !== el.placeholder) el.placeholder = yp; }
+          var ti = el.getAttribute('title');
+          if (ti) { var yt = kirlash(ti); if (yt !== ti) el.setAttribute('title', yt); }
+        });
+      } finally { ishlanmoqda = false; }
+    }
+
+    var til = localStorage.getItem(KEY) || 'lat';
+
+    // Tugmalar
+    var sw = document.querySelector('.lang-sw');
+    if (sw) {
+      sw.querySelectorAll('button').forEach(function(b){
+        b.classList.toggle('on', b.dataset.til === til);
+        b.addEventListener('click', function(){
+          if (b.dataset.til === til) return;
+          localStorage.setItem(KEY, b.dataset.til);
+          location.reload();   // asl (lotin) DOM bilan qayta boshlanadi
+        });
+      });
+    }
+
+    if (til === 'kir') {
+      qollash(document.body);
+      // Keyin qo'shilgan elementlar (qator qo'shish, xabarlar, dropdown) ham kirillga o'tadi
+      new MutationObserver(function(muts){
+        if (ishlanmoqda) return;
+        muts.forEach(function(m){
+          if (m.type === 'characterData' && m.target.nodeValue && /[A-Za-z]/.test(m.target.nodeValue)) {
+            var p = m.target.parentNode;
+            if (p && p.nodeName!=='SCRIPT' && p.nodeName!=='STYLE' && p.nodeName!=='TEXTAREA') {
+              ishlanmoqda = true;
+              try { var y = kirlash(m.target.nodeValue); if (y !== m.target.nodeValue) m.target.nodeValue = y; }
+              finally { ishlanmoqda = false; }
+            }
+          }
+          Array.prototype.forEach.call(m.addedNodes, function(n){
+            if (n.nodeType === 1) qollash(n);
+            else if (n.nodeType === 3 && /[A-Za-z]/.test(n.nodeValue)) {
+              ishlanmoqda = true;
+              try { n.nodeValue = kirlash(n.nodeValue); } finally { ishlanmoqda = false; }
+            }
+          });
+        });
+      }).observe(document.body, {childList:true, subtree:true, characterData:true});
+    }
+  })();
+  </script>
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

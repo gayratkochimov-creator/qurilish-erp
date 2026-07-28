@@ -1,0 +1,137 @@
+{% extends "base_site.html" %}
+{% load l10n %}
+{% block title %}Limit so'rovini tahrirlash — {{ p.code }}{% endblock %}
+{% block page_title %}Limit so'rovini tahrirlash{% endblock %}
+
+{% block extra_head %}
+<style>
+  .wrap { width:100%; }
+  .msg { border-radius:10px; padding:11px 15px; font-size:14px; margin-bottom:14px; font-weight:600; }
+  .msg.error { background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; }
+  .back { font-size:13px; color:var(--brand); font-weight:600; display:inline-block; margin-bottom:14px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:var(--r-card); padding:20px 22px; }
+  .hd { font-size:16px; font-weight:800; margin-bottom:4px; }
+  .sub { font-size:13px; color:var(--mut); margin-bottom:18px; }
+  table { width:100%; border-collapse:collapse; margin-bottom:12px; }
+  th { background:#f8fafc; font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:var(--mut); font-weight:600; padding:8px 10px; text-align:left; border-bottom:1px solid var(--line); }
+  td { padding:4px 5px; }
+  td.num { text-align:right; }
+  .addtable input, .addtable select { width:100%; padding:7px 9px; border:1px solid var(--line); border-radius:7px; font-size:13px; }
+  .addtable input:focus, .addtable select:focus { outline:none; border-color:var(--brand); box-shadow:0 0 0 3px rgba(37,99,235,.14); }
+  .addtable input[type=number] { text-align:right; }
+  .rsum { font-weight:700; color:#334155; font-variant-numeric:tabular-nums; padding-right:8px; }
+  tfoot td { border-top:2px solid var(--line); font-size:12.5px; color:var(--mut); padding-top:9px; }
+  tfoot #wg { font-size:15px; color:var(--ink); font-weight:800; }
+  .delrow { background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; border-radius:7px; width:28px; height:28px; cursor:pointer; font-weight:700; }
+  .delrow:hover { background:#fee2e2; }
+  .noteinp { width:100%; font-size:12.5px; background:#fffdf5; border:1px dashed #d9c9a3 !important; color:#6b5b2a; }
+  .noteinp:focus { border-style:solid !important; border-color:var(--brand) !important; background:#fff; }
+  .addrow { background:#eef2f7; color:#334155; border:1px solid #e6e8ec; border-radius:8px; padding:9px 15px; font-size:13px; font-weight:700; cursor:pointer; }
+  .savebtn { background:var(--brand); color:#fff; border:0; border-radius:9px; padding:11px 24px; font-size:14px; font-weight:700; cursor:pointer; }
+  .savebtn:hover { background:#0353e9; }
+  .actions { display:flex; gap:10px; align-items:center; margin-top:10px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="wrap">
+  <a class="back" href="{% url 'dashboard' %}?tab=tasdiqlar">← Tasdiqlar</a>
+  {% if messages %}{% for m in messages %}<div class="msg {{ m.tags }}">{{ m }}</div>{% endfor %}{% endif %}
+
+  <div class="card">
+    <div class="hd">Limit so'rovini tahrirlash — {{ p.code }} · {{ p.name }}</div>
+    <div class="sub">So'rovchi: {{ req.requested_by.username|default:"—" }} · {{ req.created_at|date:"d.m.Y H:i" }}{% if req.reason %} · «{{ req.reason }}»{% endif %}. Saqlangach Tasdiqlar sahifasida tasdiqlaysiz yoki rad etasiz.</div>
+
+    <form method="post" action="{% url 'limit_request_edit' req.id %}">
+      {% csrf_token %}
+      <table class="addtable">
+        <thead><tr><th style="width:140px;">Turi</th><th style="width:260px;">Nomi</th><th>Izoh (primechaniye)</th><th style="width:80px;">Birlik</th><th class="num" style="width:90px;">Miqdor</th><th class="num" style="width:110px;">Narxi</th><th class="num" style="width:120px;">Summa</th><th style="width:36px;"></th></tr></thead>
+        <tbody id="rows">
+          {% for it in items %}
+          <tr>
+            <td><select name="kind">
+              <option value="material" {% if it.kind == 'material' %}selected{% endif %}>Material</option>
+              <option value="labor" {% if it.kind == 'labor' %}selected{% endif %}>Ish haqi</option>
+              <option value="machinery" {% if it.kind == 'machinery' %}selected{% endif %}>Mashina chasti</option>
+            </select></td>
+            <td><input type="text" name="name" value="{{ it.name }}"></td>
+            <td><input type="text" name="item_note" class="noteinp" value="{{ it.note }}" placeholder="izoh..."></td>
+            <td><input type="text" name="unit" value="{{ it.unit }}"></td>
+            <td class="num"><input type="number" name="quantity" step="0.001" value="{{ it.quantity|unlocalize }}"></td>
+            <td class="num"><input type="number" name="unit_price" step="0.01" value="{{ it.unit_price|unlocalize }}"></td>
+            <td class="num rsum">0</td>
+            <td><button type="button" class="delrow" title="O'chirish">×</button></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr><td colspan="6" class="num">Toifa bo'yicha:</td><td colspan="2" id="wc" style="font-size:12px; color:var(--mut);">—</td></tr>
+          <tr><td colspan="6" class="num"><b>YANGI UMUMIY LIMIT:</b></td><td colspan="2"><b id="wg">0</b></td></tr>
+        </tfoot>
+      </table>
+
+      <div class="actions">
+        <button type="button" class="addrow" id="addrow">Qator qo'shish</button>
+        <button type="submit" class="savebtn">Saqlash</button>
+        <a class="back" style="margin:0;" href="{% url 'dashboard' %}?tab=tasdiqlar">Bekor qilish</a>
+      </div>
+    </form>
+
+    <template id="rowtpl">
+      <tr>
+        <td><select name="kind"><option value="material">Material</option><option value="labor">Ish haqi</option><option value="machinery">Mashina chasti</option></select></td>
+        <td><input type="text" name="name" placeholder="nomi"></td>
+        <td><input type="text" name="item_note" class="noteinp" placeholder="izoh..."></td>
+        <td><input type="text" name="unit" placeholder="birlik"></td>
+        <td class="num"><input type="number" name="quantity" step="0.001" placeholder="0"></td>
+        <td class="num"><input type="number" name="unit_price" step="0.01" placeholder="0"></td>
+        <td class="num rsum">0</td>
+        <td><button type="button" class="delrow" title="O'chirish">×</button></td>
+      </tr>
+    </template>
+  </div>
+</div>
+
+{{ unit_map|json_script:"unitMap" }}
+<datalist id="matnames">{% for n in mat_names %}<option value="{{ n }}"></option>{% endfor %}</datalist>
+<script>
+(function(){
+  var tbody=document.getElementById('rows'), tpl=document.getElementById('rowtpl');
+  var el=document.getElementById('unitMap'); var unitMap=el?JSON.parse(el.textContent):{};
+  var KIND_UNIT={labor:'kishi', machinery:'soat'}, STANDART=['kishi','soat'];
+  function fmt(n){ return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,' '); }
+  function autoUnit(tr){
+    var k=tr.querySelector('[name=kind]'), u=tr.querySelector('[name=unit]'), nm=tr.querySelector('[name=name]');
+    if(!k||!u||!nm) return;
+    if(k.value==='labor'||k.value==='machinery'){
+      var joriy=(u.value||'').trim();
+      if(!joriy || STANDART.indexOf(joriy)!==-1) u.value=KIND_UNIT[k.value];
+      nm.removeAttribute('list');
+    } else {
+      nm.setAttribute('list','matnames');
+      var m=unitMap[(nm.value||'').trim().toLowerCase()];
+      if(m && !u.value.trim()) u.value=m;
+    }
+  }
+  function recompute(){
+    var grand=0, cat={material:0,labor:0,machinery:0};
+    tbody.querySelectorAll('tr').forEach(function(tr){
+      var q=parseFloat(tr.querySelector('[name=quantity]').value)||0;
+      var pr=parseFloat(tr.querySelector('[name=unit_price]').value)||0;
+      var s=q*pr; tr.querySelector('.rsum').textContent=fmt(s);
+      var k=tr.querySelector('[name=kind]').value; cat[k]=(cat[k]||0)+s; grand+=s;
+    });
+    document.getElementById('wc').textContent='Material '+fmt(cat.material)+'  ·  Ish haqi '+fmt(cat.labor)+'  ·  Mashina '+fmt(cat.machinery);
+    document.getElementById('wg').textContent=fmt(grand);
+  }
+  function addRow(){ tbody.appendChild(tpl.content.cloneNode(true)); autoUnit(tbody.lastElementChild); recompute(); }
+  document.getElementById('addrow').addEventListener('click', addRow);
+  tbody.addEventListener('click', function(e){ if(e.target.classList.contains('delrow')){ if(tbody.children.length>1) e.target.closest('tr').remove(); recompute(); } });
+  tbody.addEventListener('input', function(e){ if(e.target.matches('[name=name]')) autoUnit(e.target.closest('tr')); recompute(); });
+  tbody.addEventListener('change', function(e){ if(e.target.matches('[name=kind],[name=name]')) autoUnit(e.target.closest('tr')); recompute(); });
+  tbody.querySelectorAll('tr').forEach(autoUnit);
+  if(tbody.children.length===0) addRow();
+  recompute();
+})();
+</script>
+{% endblock %}

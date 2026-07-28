@@ -5,3 +5,7 @@ db.sqlite3
 .env
 admin_eski.py
 staticfiles/
+
+# Telegram bot maxfiy sozlamasi
+telegram.json
+telegram_backup.log

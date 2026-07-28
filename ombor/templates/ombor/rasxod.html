@@ -1,0 +1,141 @@
+{% extends "base_site.html" %}
+{% block title %}Rasxod (chiqim) — Qurilish ERP{% endblock %}
+{% block page_title %}Rasxod (chiqim){% endblock %}
+
+{% block extra_head %}
+<style>
+  .msg { border-radius:12px; padding:11px 15px; font-size:14px; margin-bottom:14px; font-weight:600; }
+  .msg.success { background:#f5f6f8; color:#15803d; border:1px solid #e6e8ec; }
+  .msg.error { background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; }
+  .msg.info { background:#f5f6f8; color:#334155; border:1px solid #e6e8ec; }
+  .addbox { background:var(--card); border:1px solid var(--line); border-radius:14px; box-shadow:var(--shadow); padding:6px 16px; margin-bottom:20px; }
+  .addbox > summary { cursor:pointer; font-weight:700; font-size:15px; color:#b91c1c; padding:12px 0; }
+  .hdr { display:flex; gap:14px; flex-wrap:wrap; margin:12px 0; }
+  .hdr label { display:flex; flex-direction:column; font-size:12px; color:var(--mut); gap:4px; font-weight:600; }
+  .hdr input, .hdr select { padding:8px 11px; border:1px solid var(--line); border-radius:9px; font-size:14px; min-width:180px; }
+  table { width:100%; border-collapse:collapse; }
+  th,td { padding:10px 14px; text-align:left; font-size:13.5px; }
+  th { background:#f8fafc; color:var(--mut); font-weight:600; border-bottom:1px solid var(--line); }
+  td { border-bottom:1px solid #f1f5f9; }
+  .num { text-align:right; }
+  .itbl input, .itbl select { width:100%; padding:7px 9px; border:1px solid #e5e7eb; border-radius:7px; font-size:13px; }
+  .delrow { background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; border-radius:7px; width:26px; height:26px; cursor:pointer; font-weight:700; }
+  .addrow { background:#f5f6f8; color:#334155; border:1px solid #e6e8ec; border-radius:8px; padding:9px 15px; font-size:13px; font-weight:700; cursor:pointer; }
+  .savebtn { background:#334155; color:#fff; border:0; border-radius:9px; padding:10px 20px; font-size:14px; font-weight:700; cursor:pointer; }
+  .panel { background:var(--card); border:1px solid var(--line); border-radius:16px; box-shadow:var(--shadow); overflow:hidden; }
+  tbody tr:hover { background:#fafbff; }
+  .badge { display:inline-block; padding:3px 11px; border-radius:999px; font-size:12px; font-weight:700; }
+  .b-posted { background:#dcfce7; color:#15803d; } .b-draft { background:#f1f5f9; color:#64748b; }
+  .mini { font-size:12px; font-weight:600; border:1px solid #d1d5db; background:#fff; border-radius:6px; padding:4px 11px; cursor:pointer; }
+  .mini.ok { background:#15803d; color:#fff; border-color:#15803d; }
+  .mini.del { color:#b91c1c; border-color:#fecaca; }
+  .acts { display:inline-flex; gap:6px; } .acts form { display:inline; }
+  .empty { padding:40px; text-align:center; color:#94a3b8; }
+  .hint2 { font-size:12px; color:#94a3b8; margin-top:6px; }
+  .navlinks { display:flex; gap:8px; margin-bottom:16px; }
+  .navlinks a { font-size:13px; font-weight:600; padding:8px 14px; border-radius:9px; background:#fff; border:1px solid var(--line); }
+  .navlinks a.on { background:#f5f6f8; color:#334155; border-color:#e6e8ec; }
+  .ffilter { display:flex; align-items:center; gap:10px; background:var(--card); border:1px solid var(--line); border-radius:12px; box-shadow:var(--shadow); padding:12px 16px; margin-bottom:16px; }
+  .ffilter label { font-size:13px; font-weight:600; color:var(--mut); }
+  .ffilter select { padding:8px 11px; border:1px solid var(--line); border-radius:9px; font-size:14px; min-width:230px; }
+  .ffilter .clr { font-size:13px; color:var(--mut); }
+</style>
+{% endblock %}
+
+{% block content %}
+  {% if messages %}{% for m in messages %}<div class="msg {{ m.tags }}">{{ m }}</div>{% endfor %}{% endif %}
+
+  <div class="navlinks">
+    <a href="{% url 'ombor' %}">Ostatka</a>
+    <a href="{% url 'prixod_list' %}">Prixod (kirim)</a>
+    <a class="on" href="{% url 'rasxod_list' %}">Rasxod (chiqim)</a>
+  </div>
+
+  <form method="get" class="ffilter">
+    <label>Firma:</label>
+    <select name="firma" onchange="this.form.project.value=''; this.form.submit()">
+      <option value="">— barcha firmalar —</option>
+      {% for f in firmalar %}<option value="{{ f.id }}" {% if sel_firma == f.id|stringformat:'s' %}selected{% endif %}>{{ f.name }}</option>{% endfor %}
+    </select>
+    <label>Obyekt:</label>
+    <select name="project" onchange="this.form.submit()">
+      <option value="">— barcha obyektlar —</option>
+      {% for o in obyektlar %}<option value="{{ o.id }}" {% if sel_project == o.id|stringformat:'s' %}selected{% endif %}>{{ o.code }} — {{ o.name }}</option>{% endfor %}
+    </select>
+    {% if sel_firma or sel_project %}<a class="clr" href="{% url 'rasxod_list' %}">tozalash</a>{% endif %}
+  </form>
+
+  <details class="addbox">
+    <summary>Yangi rasxod (chiqim)</summary>
+    <form method="post" action="{% url 'rasxod_add' %}">
+      {% csrf_token %}
+      <div class="hdr">
+        <label>Ombor<select name="warehouse" required><option value="">— tanlang —</option>{% for w in warehouses %}<option value="{{ w.id }}">{{ w.kod_nom }}</option>{% endfor %}</select></label>
+        <label>Ish bo'limi<select name="work_section"><option value="">— (ixtiyoriy) —</option>{% for s in sections %}<option value="{{ s.id }}">{{ s.project.code }} / {{ s.name }}</option>{% endfor %}</select></label>
+        <label>Kim oldi<input type="text" name="recipient" placeholder="brigada / mas'ul"></label>
+        <label>Sana<input type="date" name="date" value="{{ today }}" required></label>
+        <label>Hujjat №<input type="text" name="doc_number" placeholder="№"></label>
+        <label>Izoh / asos<input type="text" name="note" placeholder="izoh (ixtiyoriy)"></label>
+      </div>
+      <table class="itbl">
+        <thead><tr><th style="width:60%;">Material</th><th class="num" style="width:160px;">Miqdor</th><th style="width:34px;"></th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+      <div class="hint2">Narx yozilmaydi — hisobiy (o'rtacha) narx «Qayd qilish»da avtomatik olinadi.</div>
+      <div style="display:flex; gap:10px; margin:10px 0;">
+        <button type="button" class="addrow" id="addrow">Qator qo'shish</button>
+        <button type="submit" class="savebtn">Saqlash</button>
+      </div>
+    </form>
+    <template id="rowtpl">
+      <tr>
+        <td><select name="material"><option value="">— material —</option>{% for m in materials %}<option value="{{ m.id }}">{{ m.name }} ({{ m.unit }})</option>{% endfor %}</select></td>
+        <td class="num"><input type="number" name="quantity" step="0.001" placeholder="0"></td>
+        <td><button type="button" class="delrow">×</button></td>
+      </tr>
+    </template>
+  </details>
+
+  <div class="panel">
+    <table>
+      <thead><tr><th>#</th><th>Sana</th><th>Firma</th><th>Ombor</th><th>Ish bo'limi</th><th>Kim oldi</th><th class="num">Summa</th><th>Holat</th><th>Amallar</th></tr></thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td>#{{ r.obj.id }}</td>
+          <td>{{ r.obj.date|date:"d.m.Y" }}</td>
+          <td style="font-weight:600;">{{ r.firma }}</td>
+          <td>{{ r.obj.warehouse.kod_nom }}</td>
+          <td>{{ r.bolim }}</td>
+          <td>{{ r.obj.recipient|default:"—" }}</td>
+          <td class="num">{{ r.total_str }}</td>
+          <td>{% if r.obj.is_posted %}<span class="badge b-posted">Qayd qilingan</span>{% else %}<span class="badge b-draft">Qoralama</span>{% endif %}</td>
+          <td>
+            <span class="acts">
+              {% if r.obj.is_posted %}
+              <form method="post" action="{% url 'rasxod_action' r.obj.id %}"><input type="hidden" name="action" value="unpost">{% csrf_token %}<button class="mini">Bekor qilish</button></form>
+              {% else %}
+              <form method="post" action="{% url 'rasxod_action' r.obj.id %}"><input type="hidden" name="action" value="post">{% csrf_token %}<button class="mini ok">Qayd qilish</button></form>
+              <form method="post" action="{% url 'rasxod_action' r.obj.id %}" onsubmit="return confirm('O`chirilsinmi?')"><input type="hidden" name="action" value="delete">{% csrf_token %}<button class="mini del">×</button></form>
+              {% endif %}
+            </span>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="9" class="empty">Hali rasxod yo'q. «Yangi rasxod» dan kiriting.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+  (function(){
+    var tb=document.getElementById('rows'), tpl=document.getElementById('rowtpl');
+    if(!tb||!tpl) return;
+    function addRow(){ tb.appendChild(tpl.content.cloneNode(true)); }
+    document.getElementById('addrow').addEventListener('click', addRow);
+    tb.addEventListener('click', function(e){ if(e.target.classList.contains('delrow')){ if(tb.children.length>1){ e.target.closest('tr').remove(); } } });
+    for(var i=0;i<3;i++) addRow();
+  })();
+  </script>
+{% endblock %}

@@ -50,6 +50,7 @@ class Supplier(models.Model):
 
 
 class Warehouse(models.Model):
+    code = models.CharField("Kod", max_length=64, blank=True)
     name = models.CharField("Nomi", max_length=255)
     project = models.ForeignKey(
         "projects.Project", null=True, blank=True,
@@ -61,10 +62,15 @@ class Warehouse(models.Model):
         verbose_name = "Ombor"
         verbose_name_plural = "Omborlar"
 
+    @property
+    def kod_nom(self):
+        return f"{self.code} — {self.name}" if self.code else self.name
+
     def __str__(self):
+        base = self.kod_nom
         if self.project_id:
-            return f"{self.name} — {self.project.code}"
-        return f"{self.name} (markaziy)"
+            return f"{base} ({self.project.code})"
+        return f"{base} (markaziy)"
 
 
 class Receipt(models.Model):
@@ -79,6 +85,7 @@ class Receipt(models.Model):
     doc_number = models.CharField("Hujjat / nakladnoy raqami", max_length=64, blank=True)
     date = models.DateField("Sana")
     note = models.CharField("Izoh", max_length=255, blank=True)
+    image = models.ImageField("Mahsulot rasmi", upload_to="prixod/%Y/%m/", null=True, blank=True)
     is_posted = models.BooleanField("Qayd qilingan", default=False, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
 

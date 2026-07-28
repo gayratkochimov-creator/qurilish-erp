@@ -1,0 +1,952 @@
+{% extends "base_site.html" %}
+{% load static l10n %}
+{% block title %}{{ p.code }} — {{ p.name }}{% endblock %}
+{% block page_title %}{{ p.code }} — {{ p.name }}{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'vendor/tom-select.min.css' %}">
+  <style>
+    /* Tom Select — SAP/grafit uslubga moslash */
+    .addtable .ts-wrapper { min-width:120px; }
+    .addtable .ts-control { border:1px solid var(--line); border-radius:8px; min-height:auto; padding:4px 8px; font-size:13px; box-shadow:none; }
+    .addtable .ts-control:focus-within { border-color:var(--brand); box-shadow:0 0 0 3px rgba(10,110,209,.18); }
+    .ts-dropdown { border:1px solid var(--line); border-radius:10px; box-shadow:var(--shadow); font-size:13px; }
+    .ts-dropdown .active { background:var(--brand-soft); color:var(--brand); }
+    .ts-dropdown .create { color:var(--brand); }
+    .wrap { max-width: 1100px; margin: 0 auto; }
+    input:focus, select:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px rgba(51,65,85,.12); }
+    a { color: var(--brand); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .back { font-size: 13px; font-weight: 600; display: inline-block; margin-bottom: 14px; }
+    .msg { border-radius: var(--r-ctl); padding: 11px 15px; font-size: 14px; font-weight: 500; margin-bottom: 12px; }
+    .msg.success { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
+    .msg.error { background: #fef2f2; color: var(--bad); border: 1px solid #fecaca; }
+    .msg.info { background: #f4f5f7; color: var(--brand); border: 1px solid var(--line); }
+
+    h1 { font-size: 24px; font-weight: 800; letter-spacing: -.02em; margin-bottom: 3px; }
+    .sub { color: var(--mut); font-size: 14px; margin-bottom: 20px; }
+    .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 12px; }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--r-card); padding: 18px 20px; box-shadow: var(--shadow-sm); }
+    .card .label { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--mut); }
+    .card .value { font-size: 24px; font-weight: 700; letter-spacing: -.02em; margin-top: 8px; font-variant-numeric: tabular-nums; }
+    .split { font-size: 12px; color: var(--mut); margin-top: 6px; line-height: 1.8; }
+    .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+    .dot.mat { background: #0a6ed1; } .dot.lab { background: #5899da; } .dot.mach { background: #89c3f0; }
+    .k-mach { background: #e6e8ec; color: #334155; }
+    .neg { color: var(--bad); font-weight: 700; }
+    .qoldiq-run { font-size: 12px; color: var(--ok); margin-top: 4px; }
+    .qoldiq-run.neg { color: var(--bad); }
+
+    .limitbox { background: var(--card); border: 1px solid var(--line); border-radius: var(--r-card); box-shadow: var(--shadow-sm); padding: 16px 18px; margin-bottom: 18px; }
+    .limitbox.pend { background: #fffbeb; border: 1px solid #fde68a; box-shadow: none; }
+    .limitbox .lbl { font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 8px; }
+    .limitbox .lrow { display: flex; gap: 10px; flex-wrap: wrap; }
+
+    .wk-top { display: flex; justify-content: space-between; align-items: flex-start; margin: 4px 0 12px; gap: 12px; flex-wrap: wrap; }
+    .wk-top h2 { font-size: 16px; font-weight: 800; letter-spacing: -.01em; }
+    .wk-sub { font-size: 12.5px; color: var(--mut); margin-top: 3px; }
+    .tarix-link { font-size: 13px; font-weight: 700; color: var(--brand); align-self: center; white-space: nowrap; }
+    .tarix-link:hover { text-decoration: underline; }
+    /* Umumiy + oxirgi haftalik limit xulosasi */
+    .wk-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px; }
+    .ws-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--r-card);
+               box-shadow: var(--shadow-sm); padding: 16px 18px; }
+    .ws-card.accent { border-left: 3px solid var(--brand); }
+    .ws-l { font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--mut); }
+    .ws-v { font-size: 24px; font-weight: 800; letter-spacing: -.5px; color: var(--ink); font-variant-numeric: tabular-nums; margin-top: 4px; }
+    .ws-s { font-size: 12.5px; color: var(--mut); margin-top: 5px; }
+    .ws-s b { color: var(--ink-soft, #475569); font-weight: 700; }
+    @media (max-width: 720px) { .wk-summary { grid-template-columns: 1fr; } }
+    .wk-sub b { color: var(--ink); }
+    .wk-audit { font-size: 11.5px; color: #64748b; margin-top: 4px; }
+    .wk-audit b { color: var(--ink); font-weight: 600; }
+    .seqno { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 7px; background: var(--brand); color: #fff; font-size: 12px; font-weight: 700; margin-right: 6px; vertical-align: middle; }
+    .wk-qoldiq { margin:10px 16px; padding:12px 14px; background:#f8fafc; border:1px solid var(--line); border-radius:10px; }
+    .wq-title { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.06em; color:var(--mut); margin-bottom:8px; display:flex; justify-content:space-between; }
+    .wq-title span:last-child { color:#9aa1ac; }
+    .wq-row { display:grid; grid-template-columns:1.1fr 1fr 1.3fr; align-items:center; font-size:13px; gap:10px; padding:4px 0; border-top:1px solid var(--line-2, #f1f5f9); }
+    .wq-row:first-of-type { border-top:0; }
+    .wq-k { color:var(--mut); font-weight:600; display:flex; align-items:center; gap:6px; }
+    .wq-rem { text-align:right; font-variant-numeric:tabular-nums; color:var(--ink); }
+    .wq-after { text-align:right; font-variant-numeric:tabular-nums; font-weight:700; color:var(--ok); }
+    .wq-after.neg { color:var(--bad); }
+    .wq-warn { margin-top:8px; font-size:12.5px; color:var(--bad); font-weight:600; }
+    .wk-dates { display: flex; gap: 14px; flex-wrap: wrap; margin: 10px 0; }
+    .wk-dates label { display: flex; flex-direction: column; font-size: 12px; color: var(--mut); gap: 5px; font-weight: 600; }
+    .wk-dates input { padding: 8px 11px; border: 1px solid var(--line); border-radius: var(--r-ctl); font-size: 14px; }
+    .addtable { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+    .addtable th { background: #fafbfc; font-size: 10.5px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--mut); padding: 8px 8px; text-align: left; border-bottom: 1px solid var(--line); }
+    .addtable td { padding: 3px 4px; }
+    .addtable input, .addtable select { width: 100%; padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; font-size: 13px; }
+    #wkBlock button[type=submit]:hover { filter: brightness(.93); }
+    .addtable .num { text-align: right; }
+    .addtable .rsum { font-weight: 700; color: var(--brand); font-variant-numeric: tabular-nums; padding-right: 8px; }
+    .addtable tfoot td { border-top: 2px solid var(--line); font-size: 12.5px; color: var(--mut); padding-top: 9px; }
+    .addtable tfoot #wk-grand, .addtable tfoot #li-grand { font-size: 15px; color: var(--ink); font-weight: 800; }
+    .delrow { background: #fef2f2; color: var(--bad); border: 1px solid #fecaca; border-radius: 8px; width: 28px; height: 28px; cursor: pointer; font-weight: 700; line-height: 1; }
+    .delrow:hover { background: #fee2e2; }
+    .addrow { background: #eef1f5; color: var(--brand); border: 1px solid var(--line); border-radius: var(--r-ctl); padding: 9px 15px; font-size: 13px; font-weight: 700; cursor: pointer; transition: .14s; }
+    .addrow:hover { background: #e6e8ec; }
+    /* Har bir qator uchun primechaniye (izoh) — standart holatda yashirin */
+    .rowacts { white-space: nowrap; display: flex; gap: 5px; align-items: center; }
+    .notebtn { background: var(--brand-soft); color: var(--brand); border: 1px solid #dbe1ff; border-radius: 8px;
+               width: 28px; height: 28px; cursor: pointer; font-size: 13px; line-height: 1; transition: .14s; }
+    .notebtn:hover { background: var(--brand); color: #fff; border-color: var(--brand); }
+    .notebtn.has { background: var(--brand); color: #fff; border-color: var(--brand); }
+    .noteinp { width: 100%; font-size: 12.5px; background: #fffdf5; border: 1px dashed #d9c9a3 !important; color: #6b5b2a; }
+    /* Qator sanasi — qachon qo'shilgan / o'zgartirilgan */
+    .lidate { font-size: 11.5px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .lidate .d-new { color: var(--mut); }
+    .lidate .d-chg { color: var(--warn); font-weight: 600; }
+    .noteinp:focus { border-style: solid !important; border-color: var(--brand) !important; background: #fff; }
+    /* Saqlangan qator izohi (ko'rish jadvalida) */
+    .itemnote { display: block; margin-top: 3px; font-size: 11.5px; color: #8a6d1f; font-style: italic; }
+    .itemnote::before { content: "✎ "; font-style: normal; }
+    .wk-actions { display: inline-flex; gap: 6px; margin-left: 8px; }
+    .wk-actions form { display: inline; }
+    .mini { font-size: 12px; font-weight: 600; border: 1px solid var(--line); background: var(--card); color: #374151; border-radius: 8px; padding: 4px 11px; cursor: pointer; transition: .14s; }
+    .mini:hover { background: #f8fafc; border-color: #cbd5e1; }
+    .mini.approve { background: var(--ok); color: #fff; border-color: var(--ok); }
+    .mini.approve:hover { background: #166534; }
+    .mini.del { color: var(--bad); border-color: #fecaca; }
+    .mini.del:hover { background: #fef2f2; }
+    /* Yashirish / Ko'rsatish */
+    .tgl { margin-left: auto; background: var(--card); border: 1px solid var(--line); color: var(--mut);
+           border-radius: var(--r-ctl); padding: 6px 12px; font-size: 12px; font-weight: 600; cursor: pointer; transition: .14s; white-space: nowrap; }
+    .tgl:hover { border-color: var(--brand); color: var(--brand); background: var(--brand-soft); }
+    .oldbar { display: flex; align-items: center; gap: 12px; background: var(--card); border: 1px solid var(--line);
+              border-radius: var(--r-card); padding: 11px 16px; margin-bottom: 14px; box-shadow: var(--shadow-sm); }
+    .oldbar .ob-txt { font-size: 13px; color: var(--mut); }
+    .oldbar .ob-txt b { color: var(--ink); }
+    .req.oldreq { display: none; }
+    .req.oldreq.shown { display: block; }
+    .past-badge { font-size: 10.5px; font-weight: 700; color: var(--mut); background: #eef2f7; border-radius: 999px; padding: 2px 9px; margin-left: 8px; vertical-align: middle; letter-spacing: .02em; }
+    .past-hide { margin-left: 8px; font-size: 11.5px; font-weight: 700; color: var(--bad); background: #fff; border: 1px solid #fecaca; border-radius: 7px; padding: 3px 10px; cursor: pointer; vertical-align: middle; }
+    .past-hide:hover { background: #fef2f2; }
+    /* Sana bo'yicha izlash — eski/yangi holatidan qat'i nazar yashiradi */
+    .req.hid-date { display: none !important; }
+    .datebar { display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; background: var(--card);
+               border: 1px solid var(--line); border-radius: var(--r-card); padding: 12px 16px; margin-bottom: 12px; box-shadow: var(--shadow-sm); }
+    .datebar .fl-lbl { font-size: 12.5px; font-weight: 600; color: var(--mut); align-self: center; }
+    .dlbl { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px; font-weight: 600; color: var(--mut); }
+    .dlbl input { border: 1px solid var(--line); border-radius: var(--r-ctl); padding: 7px 10px; font-size: 13px; color: var(--ink); }
+    .dlbl input:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px rgba(37,99,235,.15); }
+    .dinfo { font-size: 12.5px; font-weight: 600; color: var(--brand); align-self: center; }
+    .dinfo.none { color: var(--bad); }
+    /* Limit bloki sarlavhasidagi doimiy holat chiplari */
+    .lim-okchip { display:inline-flex; align-items:center; font-size:12px; font-weight:700; color:var(--ok);
+                  background:#f0fdf4; border:1px solid #bbf7d0; border-radius:999px; padding:5px 12px; white-space:nowrap; }
+    .lim-waitchip { display:inline-flex; align-items:center; font-size:12px; font-weight:700; color:var(--warn);
+                    background:#fffbeb; border:1px solid #fde68a; border-radius:999px; padding:5px 12px; white-space:nowrap; }
+    /* «Tasdiqlandi» xabari — so'rov egasiga bir marta, OK bosgunicha */
+    .okbox { display: flex; align-items: center; gap: 16px; background: #f0fdf4; border: 1px solid #bbf7d0;
+             border-left: 3px solid var(--ok); border-radius: var(--r-card); padding: 14px 18px; margin-bottom: 16px; }
+    .okbox .ok-main { flex: 1; min-width: 0; }
+    .okbox b { color: var(--ok); font-size: 13px; letter-spacing: .02em; text-transform: uppercase; }
+    .okbox .ok-sub { margin-top: 5px; font-size: 13px; color: #14532d; }
+    .okbox .ok-sub b { text-transform: none; letter-spacing: 0; font-size: 13px; color: #14532d; }
+    .rejbox { background: #fef2f2; border: 1px solid #fecaca; border-left: 3px solid var(--bad);
+              border-radius: var(--r-card); padding: 14px 18px; margin-bottom: 16px; }
+    .rejbox b { color: var(--bad); font-size: 13px; letter-spacing: .02em; text-transform: uppercase; }
+    .rejbox .rj-sabab { margin-top: 6px; font-size: 14px; font-weight: 600; color: #7f1d1d; }
+    .rejbox .rj-meta { margin-top: 4px; font-size: 12px; color: #9c6b6b; }
+    .mini.submit { background: var(--brand); color: #fff; border-color: var(--brand); }
+    .mini.submit:hover { background: #0353e9; }
+    .mini.over { background: var(--bad); color: #fff; border-color: var(--bad); }
+    .mini.over:hover { background: #8f1414; }
+    .overwarn { margin-top: 8px; background: #fef2f2; border: 1px solid #fecaca; border-left: 3px solid var(--bad); border-radius: var(--r-ctl); padding: 9px 12px; font-size: 12.5px; color: #7f1d1d; max-width: 620px; }
+    .overwarn b { display: block; margin-bottom: 3px; color: var(--bad); font-size: 11.5px; letter-spacing: .03em; text-transform: uppercase; }
+    .overwarn ul { margin: 0; padding-left: 16px; }
+    .overwarn li { margin-top: 2px; font-variant-numeric: tabular-nums; }
+    .bar { height: 8px; background: #eef0f3; border-radius: 999px; overflow: hidden; margin: 6px 0 24px; }
+    .bar > span { display: block; height: 100%; border-radius: 999px; }
+    .badge { display: inline-block; color: #fff; padding: 3px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 700; white-space: nowrap; }
+
+    .req { background: var(--card); border: 1px solid var(--line); border-radius: var(--r-card); box-shadow: var(--shadow-sm); margin-bottom: 16px; overflow: hidden; }
+    .req-head { display: flex; justify-content: space-between; align-items: center; padding: 15px 18px; border-bottom: 1px solid var(--line); gap: 12px; flex-wrap: wrap; }
+    .req-head .title { font-weight: 800; font-size: 15px; letter-spacing: -.01em; }
+    .req-head .meta { color: var(--mut); font-size: 13px; }
+    .req-sum { font-weight: 800; font-variant-numeric: tabular-nums; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 11px 16px; text-align: left; font-size: 13px; }
+    th { background: #fafbfc; color: var(--mut); font-weight: 600; font-size: 10.5px; letter-spacing: .05em; text-transform: uppercase; border-bottom: 1px solid var(--line); }
+    td { border-top: 1px solid #f4f6fa; }
+    tbody tr:hover { background: #fafbff; }
+    .num { text-align: right; font-variant-numeric: tabular-nums; }
+    .kind { display: inline-block; padding: 2px 9px; border-radius: 6px; font-size: 11.5px; font-weight: 600; }
+    .k-mat { background: #e8eaf0; color: #334155; }
+    .k-lab { background: #eef1f5; color: #64748b; }
+    .jami-row td { background: #fafbfc; border-top: 2px solid var(--line); font-weight: 700; padding: 12px 16px; }
+    .jami-row .split-lbl { font-size: 11.5px; color: var(--mut); font-weight: 600; }
+    .jami-row .jami-val { font-weight: 800; color: var(--ink); font-size: 14px; }
+    .wk-filter { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+    .wk-filter .fl-lbl { font-size: 13px; color: var(--mut); font-weight: 600; margin-right: 4px; }
+    /* Umumiy limit tarkibi filtri — wk-filter bilan bir xil uslub */
+    .lim-filter { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 12px 16px 4px; }
+    .lim-filter .fl-lbl { font-size: 13px; color: var(--mut); font-weight: 600; margin-right: 4px; }
+    .lim-search { border: 1px solid var(--line); border-radius: var(--r-ctl); padding: 7px 12px;
+                  font-size: 13px; color: var(--ink); min-width: 220px; }
+    .lim-search:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px rgba(37,99,235,.15); }
+    .lim-info { font-size: 12.5px; font-weight: 600; color: var(--brand); }
+    .lim-info.none { color: var(--bad); }
+    tr.lim-hid { display: none !important; }
+    .lim-export { text-decoration: none; }
+    .lim-export:hover { border-color: var(--ok); color: var(--ok); background: #f0fdf4; }
+    .fchip { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: #475569; background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 7px 14px; cursor: pointer; transition: .14s; }
+    .fchip:hover { background: #f8fafc; border-color: #cbd5e1; }
+    .fchip.active { background: var(--brand); color: #fff; border-color: var(--brand); box-shadow: var(--shadow-sm); }
+    .fchip.active .dot { box-shadow: 0 0 0 2px rgba(255,255,255,.5); }
+    .empty { padding: 44px 20px; text-align: center; color: #94a3b8; font-size: 14px; line-height: 1.7; background: var(--card); border: 1px solid var(--line); border-radius: var(--r-card); box-shadow: var(--shadow-sm); }
+    .draft { opacity: .62; }
+    .flag { font-size: 11px; color: #94a3b8; font-weight: 600; }
+    @media (max-width: 820px) { .cards { grid-template-columns: repeat(2, 1fr); } }
+  </style>
+{% endblock %}
+
+{% block content %}
+    <a class="back" href="{% url 'ombor' %}?project={{ p.id }}">Ombor / ostatka</a>
+    <a class="back" href="{% url 'grafik_web' p.id %}" style="margin-left:16px; font-weight:700; color:var(--brand);">Grafik ish (brauzerda)</a>
+    <a class="back" href="{% url 'grafik_rabota_obj' p.id %}" style="margin-left:16px; font-weight:700; color:#334155;">Excel yuklab olish</a>
+
+    {% if messages %}
+      {% for m in messages %}<div class="msg {{ m.tags }}">{{ m }}</div>{% endfor %}
+    {% endif %}
+
+    <h1>{{ p.code }} — {{ p.name }}</h1>
+    <div class="sub">Umumiy limit va haftalik so'rovlar bo'yicha holat</div>
+
+    <div class="cards">
+      <div class="card"><div class="label">Umumiy limit</div><div class="value">{{ limit_str }}</div></div>
+      <div class="card">
+        <div class="label">Sarflangan</div>
+        <div class="value">{{ sarf_str }}</div>
+      </div>
+      <div class="card"><div class="label">Qolgan</div><div class="value">{{ qoldiq_str }}</div></div>
+      <div class="card">
+        <div class="label">Holati ({{ foiz }}%)</div>
+        <div class="value" style="font-size:15px; margin-top:8px;">
+          <span class="badge" style="background: {{ rang }};">{{ holat }}</span>
+        </div>
+      </div>
+    </div>
+    <div class="bar"><span style="width: {{ foiz_bar }}%; background: {{ rang }};"></span></div>
+
+    <div class="req" style="margin-bottom:18px;">
+      <table>
+        <thead>
+          <tr><th>Kategoriya</th><th class="num">Limit</th><th class="num">Sarflangan</th><th class="num">Qolgan</th><th class="num">%</th></tr>
+        </thead>
+        <tbody>
+          {% for k in kategoriyalar %}
+          <tr>
+            <td><span class="dot {{ k.cls }}"></span>{{ k.nom }}</td>
+            <td class="num">{{ k.limit_str }}</td>
+            <td class="num">{{ k.sarf_str }}</td>
+            <td class="num {% if k.oshgan %}neg{% endif %}">{{ k.qoldiq_str }}</td>
+            <td class="num {% if k.oshgan %}neg{% endif %}">{{ k.foiz }}%</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if pending %}
+    <div class="limitbox pend">
+      <b>Limit o'zgartirish so'rovi kutilmoqda:</b> {{ limit_str }} → {{ pending_new_str }}
+      · <span class="flag">admin tasdig'ini kutmoqda</span>
+    </div>
+    {% endif %}
+
+    {% for t in tasdiq_wk %}
+    <div class="okbox">
+      <div class="ok-main">
+        <b>Haftalik so'rovingiz tasdiqlandi</b>
+        <div class="ok-sub">{{ t.week_start|date:"d.m.Y" }} — {{ t.week_end|date:"d.m.Y" }}{% if t.number %} · {{ t.number }}{% endif %} · Tasdiqladi: <b>{{ t.approved_by.username|default:"admin" }}</b> · {{ t.approved_at|date:"d.m.Y H:i" }} · limitdan ayirildi</div>
+      </div>
+    </div>
+    {% endfor %}
+
+    {% if tasdiq_lim %}
+    <div class="okbox">
+      <div class="ok-main">
+        <b>Umumiy limit so'rovingiz tasdiqlandi</b>
+        <div class="ok-sub">Yangi umumiy limit: <b>{{ limit_str }}</b> · Tasdiqladi: <b>{{ tasdiq_lim.decided_by.username|default:"admin" }}</b> · {{ tasdiq_lim.decided_at|date:"d.m.Y H:i" }}</div>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if rad_sorov and rad_sorov.decision_note %}
+    <div class="rejbox">
+      <b>Limit so'rovingiz rad etildi</b>
+      <div class="rj-sabab">Sabab: {{ rad_sorov.decision_note }}</div>
+      <div class="rj-meta">{{ rad_sorov.decided_by.username|default:"admin" }} · {{ rad_sorov.decided_at|date:"d.m.Y H:i" }}{% if rad_sorov.reason %} · sizning izohingiz: «{{ rad_sorov.reason }}»{% endif %}</div>
+    </div>
+    {% endif %}
+
+    <div class="req" id="limitBlock" style="margin-bottom:18px;">
+      <div class="req-head">
+        <div class="title">Umumiy limit ichi (tarkibi)</div>
+        <div class="meta">{% if limit_set %}Umumiy limit: <b>{{ limit_str }}</b>{% else %}Hali kiritilmagan{% endif %}</div>
+        {% if oxirgi_tasdiq %}
+        <span class="lim-okchip" title="So'rovchi: {{ oxirgi_tasdiq.requested_by.username|default:'—' }}">✓ Tasdiqlangan · {{ oxirgi_tasdiq.decided_at|date:"d.m.Y H:i" }} · {{ oxirgi_tasdiq.decided_by.username|default:"admin" }}</span>
+        {% elif pending %}
+        <span class="lim-waitchip">Admin tasdig'ini kutmoqda</span>
+        {% endif %}
+        <a class="tgl lim-export" href="{% url 'limit_export_obj' p.id %}" title="Umumiy limit + haftalik so'rovlar — Excel">⬇ Eksport</a>
+        <button type="button" class="tgl" data-target="limitBody" data-key="limitBody">Yashirish</button>
+      </div>
+      <div id="limitBody">
+
+      {% if is_pto and not pending %}
+      <form method="post" action="{% url 'limit_items_edit' p.id %}">
+        {% csrf_token %}
+        <div style="padding:12px 16px 0; font-size:12.5px; color:#64748b;">
+          {% if is_admin %}Limitni to'liq kiriting/o'zgartiring — <b>to'g'ridan-to'g'ri</b> qo'llanadi (admin). Har kategoriya limiti = shu qatorlar yig'indisi.{% else %}Limitni to'liq kiriting — <b>admin tasdig'iga</b> yuboriladi. Admin tasdiqlagach kuchga kiradi. Har kategoriya limiti = shu qatorlar yig'indisi.{% endif %}
+        </div>
+        {% include "projects/_limit_filter.html" %}
+        <table class="addtable" style="padding:0 8px;">
+          <thead><tr><th style="width:140px;">Turi</th><th style="width:260px;">Nomi</th><th>Izoh (primechaniye)</th><th style="width:80px;">Birlik</th><th class="num" style="width:90px;">Miqdor</th><th class="num" style="width:110px;">Narxi</th><th class="num" style="width:120px;">Summa</th><th style="width:104px;">Sana</th><th style="width:34px;"></th></tr></thead>
+          <tbody id="lirows">
+            {% for it in limit_items %}
+            <tr>
+              <td><select name="kind">
+                <option value="material" {% if it.kind == 'material' %}selected{% endif %}>Material</option>
+                <option value="labor" {% if it.kind == 'labor' %}selected{% endif %}>Ish haqi</option>
+                <option value="machinery" {% if it.kind == 'machinery' %}selected{% endif %}>Mashina chasti</option>
+              </select></td>
+              <td><input type="text" name="name" value="{{ it.name }}"></td>
+              <td><input type="text" name="item_note" class="noteinp" value="{{ it.note }}" placeholder="izoh..."></td>
+              <td><input type="text" name="unit" value="{{ it.unit }}"></td>
+              <td class="num"><input type="number" name="quantity" step="0.001" value="{{ it.quantity|unlocalize }}"></td>
+              <td class="num"><input type="number" name="unit_price" step="0.01" value="{{ it.price_raw|unlocalize }}"></td>
+              <td class="num rsum">0</td>
+              <td class="lidate">
+                {% if it.ozgargan %}
+                  <span class="d-chg" title="Qo'shilgan: {{ it.qoshilgan|date:'d.m.Y H:i' }}">o'zg. {{ it.ozgartirilgan|date:"d.m.Y" }}</span>
+                {% elif it.qoshilgan %}
+                  <span class="d-new" title="Qo'shilgan: {{ it.qoshilgan|date:'d.m.Y H:i' }}">{{ it.qoshilgan|date:"d.m.Y" }}</span>
+                {% else %}—{% endif %}
+              </td>
+              <td><button type="button" class="delrow" title="O'chirish">×</button></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+          <tfoot>
+            <tr><td colspan="6" class="num">Toifa bo'yicha:</td><td class="num" id="li-cats" colspan="3" style="text-align:left; font-size:12px;">—</td></tr>
+            <tr><td colspan="6" class="num"><b>UMUMIY LIMIT:</b></td><td class="num rsum" colspan="3" style="text-align:left;"><b id="li-grand">0</b></td></tr>
+          </tfoot>
+        </table>
+        <div style="padding:0 16px 14px;">
+          {% if not is_admin %}<input type="text" name="reason" placeholder="Sabab / izoh (ixtiyoriy)" style="width:100%; margin:6px 0; padding:8px 12px; border:1px solid #d1d5db; border-radius:8px; font-size:13px;">{% endif %}
+          <div style="display:flex; gap:10px; align-items:center; margin-top:6px;">
+            <button type="button" class="addrow" id="li-addrow">Qator qo'shish</button>
+            <button type="submit" style="background:{% if is_admin %}#15803d{% else %}#0a6ed1{% endif %}; color:#fff; border:0; border-radius:8px; padding:9px 18px; font-size:14px; font-weight:600; cursor:pointer;">{% if is_admin %}Saqlash{% else %}Admin tasdig'iga yuborish{% endif %}</button>
+          </div>
+        </div>
+      </form>
+      <template id="li-rowtpl">
+        <tr>
+          <td><select name="kind"><option value="material">Material</option><option value="labor">Ish haqi</option><option value="machinery">Mashina chasti</option></select></td>
+          <td><input type="text" name="name" placeholder="nomi"></td>
+          <td><input type="text" name="item_note" class="noteinp" placeholder="izoh..."></td>
+          <td><input type="text" name="unit" placeholder="birlik"></td>
+          <td class="num"><input type="number" name="quantity" step="0.001" placeholder="0"></td>
+          <td class="num"><input type="number" name="unit_price" step="0.01" placeholder="0"></td>
+          <td class="num rsum">0</td>
+          <td class="lidate"><span class="d-new">yangi</span></td>
+          <td><button type="button" class="delrow" title="O'chirish">×</button></td>
+        </tr>
+      </template>
+      <script>
+      (function(){
+        var tbody=document.getElementById('lirows'), tpl=document.getElementById('li-rowtpl');
+        if(!tbody||!tpl) return;
+        function fmt(n){ return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,' '); }
+        function recompute(){
+          var grand=0, cat={material:0,labor:0,machinery:0};
+          tbody.querySelectorAll('tr').forEach(function(tr){
+            var q=parseFloat(tr.querySelector('[name=quantity]').value)||0;
+            var pr=parseFloat(tr.querySelector('[name=unit_price]').value)||0;
+            var s=q*pr; tr.querySelector('.rsum').textContent=fmt(s);
+            var k=tr.querySelector('[name=kind]').value; cat[k]=(cat[k]||0)+s; grand+=s;
+          });
+          document.getElementById('li-cats').textContent='Material '+fmt(cat.material)+'  ·  Ish haqi '+fmt(cat.labor)+'  ·  Mashina '+fmt(cat.machinery);
+          document.getElementById('li-grand').textContent=fmt(grand);
+        }
+        function addRow(){ tbody.appendChild(tpl.content.cloneNode(true)); recompute(); }
+        document.getElementById('li-addrow').addEventListener('click', addRow);
+        tbody.addEventListener('click', function(e){ if(e.target.classList.contains('delrow')){ if(tbody.children.length>1){ e.target.closest('tr').remove(); } recompute(); } });
+        tbody.addEventListener('input', recompute);
+        tbody.addEventListener('change', recompute);
+        if(tbody.children.length===0){ for(var i=0;i<3;i++) addRow(); } else { recompute(); }
+      })();
+      </script>
+      {% else %}
+      {% include "projects/_limit_filter.html" %}
+      <table>
+        <thead><tr><th>Turi</th><th>Nomi</th><th>Birlik</th><th class="num">Miqdor</th><th class="num">Narxi</th><th class="num">Summa</th><th style="width:104px;">Sana</th></tr></thead>
+        <tbody>
+          {% for it in limit_items %}
+          <tr data-lkind="{{ it.kind }}" data-lname="{{ it.name|lower }}"><td><span class="kind k-{{ it.cls }}">{{ it.kind_disp }}</span></td><td>{{ it.name }}{% if it.note %}<span class="itemnote">{{ it.note }}</span>{% endif %}</td><td>{{ it.unit }}</td><td class="num">{{ it.qty_str }}</td><td class="num">{{ it.price_str }}</td><td class="num">{{ it.sum_str }}</td><td class="lidate">{% if it.ozgargan %}<span class="d-chg" title="Qo'shilgan: {{ it.qoshilgan|date:'d.m.Y H:i' }}">o'zg. {{ it.ozgartirilgan|date:"d.m.Y" }}</span>{% elif it.qoshilgan %}<span class="d-new">{{ it.qoshilgan|date:"d.m.Y" }}</span>{% else %}—{% endif %}</td></tr>
+          {% empty %}
+          <tr><td colspan="6" style="text-align:center; color:#9ca3af; padding:20px;">Limit tarkibi hali kiritilmagan.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% if pending %}<div style="padding:10px 16px; font-size:12px; color:#b45309;">Tarkibni o'zgartirishga so'rov yuborilgan — admin tasdig'ini kutmoqda.</div>{% endif %}
+      {% endif %}
+      </div>{# /limitBody #}
+    </div>
+
+    <div class="wk-top">
+      <div>
+        <h2 style="font-size:16px;">Haftalik so'rovlar ({{ soni }})</h2>
+        <div class="wk-sub">Umumiy limit bitta · har hafta ketma-ket ayiriladi</div>
+      </div>
+      <a class="tarix-link" href="{% url 'haftalik_tarix' %}?obyekt={{ p.id }}">Haftalik tarix →</a>
+    </div>
+
+    {% if is_pto %}
+    {# «Yangi haftalik so'rov» — umumiy limit ichi bilan BIR XIL qolib (sahifada, karta ichida) #}
+    <div class="req" id="wkBlock" style="margin-bottom:18px;">
+      <div class="req-head">
+        <div class="title">Yangi haftalik so'rov</div>
+        <div class="meta">Joriy qolgan: <b>{{ qoldiq_str }}</b></div>
+        <button type="button" class="tgl" data-target="wkBody" data-key="wkBody">Yashirish</button>
+      </div>
+      <div id="wkBody">
+        <form method="post" action="{% url 'weekly_add' p.id %}">
+          {% csrf_token %}
+          <div style="padding:12px 16px 0; font-size:12.5px; color:#64748b;">
+            {% if is_admin %}Haftalik so'rovni to'liq kiriting — <b>to'g'ridan-to'g'ri</b> qo'llanadi (admin) va limitdan ayiriladi.{% else %}Haftalik so'rovni to'liq kiriting — <b>admin tasdig'iga</b> yuboriladi. Admin tasdiqlagach limitdan ayiriladi.{% endif %}
+            {% if limit_set and has_items %}<br>Maslahat: «Nomi»ni <b>umumiy limit tarkibidan</b> tanlang — turi, birlik va narx avtomat to'ladi. Pastda qolgan limit jonli ko'rinadi.{% endif %}
+          </div>
+          <div class="wk-dates" style="padding:0 16px;">
+            <label>Hafta boshi<input type="date" name="week_start" required></label>
+            <label>Hafta oxiri<input type="date" name="week_end" required></label>
+            <label>Hujjat №<input type="text" name="number" placeholder="masalan 3-hafta"></label>
+            <label style="flex:1; min-width:220px;">Izoh<input type="text" name="note" placeholder="izoh (ixtiyoriy)"></label>
+          </div>
+          <table class="addtable" style="padding:0 8px;">
+            <thead><tr><th style="width:140px;">Turi</th><th style="width:260px;">Nomi</th><th>Izoh (primechaniye)</th><th style="width:80px;">Birlik</th><th class="num" style="width:90px;">Miqdor</th><th class="num" style="width:110px;">Narxi</th><th class="num" style="width:120px;">Summa</th><th style="width:104px;">Sana</th><th style="width:34px;"></th></tr></thead>
+            <tbody id="wkrows"></tbody>
+            <tfoot>
+              <tr><td colspan="6" class="num">Toifa bo'yicha:</td><td class="num" id="wk-cats" colspan="3" style="text-align:left; font-size:12px;">—</td></tr>
+              <tr><td colspan="6" class="num"><b>JAMI:</b></td><td class="num rsum" colspan="3" style="text-align:left;"><b id="wk-grand">0</b></td></tr>
+            </tfoot>
+          </table>
+          {% if limit_set %}
+          <div class="wk-qoldiq" id="wk-qoldiq">
+            <div class="wq-title"><span>Umumiy limitdan qolgan</span><span>so'rovdan keyin</span></div>
+            <div class="wq-row"><span class="wq-k">Umumiy</span><span class="wq-rem">{{ qoldiq_str }}</span><span class="wq-after" id="wq-total">—</span></div>
+            <div class="wq-row"><span class="wq-k"><span class="dot mat"></span>Material</span><span class="wq-rem">{{ rem_mat_str }}</span><span class="wq-after" id="wq-material">—</span></div>
+            <div class="wq-row"><span class="wq-k"><span class="dot lab"></span>Ish haqi</span><span class="wq-rem">{{ rem_lab_str }}</span><span class="wq-after" id="wq-labor">—</span></div>
+            <div class="wq-row"><span class="wq-k"><span class="dot mach"></span>Mashina chasti</span><span class="wq-rem">{{ rem_mach_str }}</span><span class="wq-after" id="wq-machinery">—</span></div>
+            <div class="wq-warn" id="wq-warn" style="display:none;">Diqqat: bu so'rov qolgan limitdan oshib ketadi.</div>
+          </div>
+          {{ qoldiq_json|json_script:"qoldiqData" }}
+          {% endif %}
+          <div style="display:flex; gap:10px; align-items:center; padding:6px 16px 14px;">
+            <button type="button" class="addrow" id="wk-addrow">Qator qo'shish</button>
+            <button type="submit" style="background:{% if is_admin %}#15803d{% else %}#0a6ed1{% endif %}; color:#fff; border:0; border-radius:8px; padding:9px 18px; font-size:14px; font-weight:600; cursor:pointer;">{% if is_admin %}Saqlash{% else %}Admin tasdig'iga yuborish{% endif %}</button>
+          </div>
+        </form>
+        </div>{# /wkBody #}
+        <template id="wk-rowtpl">
+          <tr>
+            <td><select name="kind">
+              <option value="material">Material</option>
+              <option value="labor">Ish haqi</option>
+              <option value="machinery">Mashina chasti</option>
+            </select></td>
+            <td><input type="text" name="name" placeholder="nomi"></td>
+            <td><input type="text" name="item_note" class="noteinp" placeholder="izoh..."></td>
+            <td><input type="text" name="unit" placeholder="birlik"></td>
+            <td class="num"><input type="number" name="quantity" step="0.001" placeholder="0"></td>
+            <td class="num"><input type="number" name="unit_price" step="0.01" placeholder="0"></td>
+            <td class="num rsum">0</td>
+            <td class="lidate"><span class="d-new">yangi</span></td>
+            <td><button type="button" class="delrow" title="O'chirish">×</button></td>
+          </tr>
+        </template>
+        <script>
+        (function(){
+          var tbody=document.getElementById('wkrows'), tpl=document.getElementById('wk-rowtpl');
+          if(!tbody||!tpl) return;
+          function fmt(n){ var neg=n<0; n=Math.abs(Math.round(n)); var s=n.toString().replace(/\B(?=(\d{3})+(?!\d))/g,' '); return (neg?'−':'')+s; }
+          var qEl=document.getElementById('qoldiqData');
+          var QREM=qEl?JSON.parse(qEl.textContent):null;
+          function recompute(){
+            var grand=0, cat={material:0,labor:0,machinery:0};
+            tbody.querySelectorAll('tr').forEach(function(tr){
+              var q=parseFloat(tr.querySelector('[name=quantity]').value)||0;
+              var pr=parseFloat(tr.querySelector('[name=unit_price]').value)||0;
+              var s=q*pr; tr.querySelector('.rsum').textContent=fmt(s);
+              var k=tr.querySelector('[name=kind]').value; cat[k]=(cat[k]||0)+s; grand+=s;
+            });
+            document.getElementById('wk-cats').textContent='Material '+fmt(cat.material)+'  ·  Ish haqi '+fmt(cat.labor)+'  ·  Mashina '+fmt(cat.machinery);
+            document.getElementById('wk-grand').textContent=fmt(grand);
+            if(QREM){
+              var after={total:QREM.total-grand, material:QREM.material-cat.material, labor:QREM.labor-cat.labor, machinery:QREM.machinery-cat.machinery};
+              var neg=false;
+              ['total','material','labor','machinery'].forEach(function(k){
+                var el=document.getElementById('wq-'+k); if(!el) return;
+                el.textContent=fmt(after[k]); var isn=after[k]<-0.005; el.classList.toggle('neg',isn); if(isn) neg=true;
+              });
+              var w=document.getElementById('wq-warn'); if(w) w.style.display=neg?'':'none';
+            }
+          }
+          function addRow(){ tbody.appendChild(tpl.content.cloneNode(true)); recompute(); }
+          document.getElementById('wk-addrow').addEventListener('click', addRow);
+          tbody.addEventListener('click', function(e){ if(e.target.classList.contains('delrow')){ if(tbody.children.length>1){ e.target.closest('tr').remove(); recompute(); } } });
+          tbody.addEventListener('input', recompute);
+          tbody.addEventListener('change', recompute);
+          for(var i=0;i<3;i++) addRow();
+        })();
+        </script>
+        <script>
+        // Hafta oxirini avtomat to'ldirish (boshi + 6 kun). Eski (o'tgan) sanalar ham mumkin.
+        (function(){
+          var ws=document.querySelector('input[name=week_start]'), we=document.querySelector('input[name=week_end]');
+          if(!ws||!we) return;
+          ws.addEventListener('change', function(){
+            if(!ws.value) return;
+            var d=new Date(ws.value); d.setDate(d.getDate()+6);
+            var iso=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+            if(!we.value || we.value < ws.value) we.value=iso;
+          });
+        })();
+        </script>
+    </div>{# /wkBlock #}
+    {% endif %}
+
+    <div class="wk-filter">
+      <span class="fl-lbl">Turi bo'yicha:</span>
+      <button type="button" class="fchip active" data-f="all">Barchasi</button>
+      <button type="button" class="fchip" data-f="mat"><span class="dot mat"></span>Material</button>
+      <button type="button" class="fchip" data-f="lab"><span class="dot lab"></span>Ish haqi</button>
+      <button type="button" class="fchip" data-f="mach"><span class="dot mach"></span>Mashina chasti</button>
+    </div>
+
+    <div class="datebar">
+      <span class="fl-lbl">Sana bo'yicha izlash:</span>
+      <label class="dlbl">Sanadan<input type="date" id="fd1"></label>
+      <label class="dlbl">Sanagacha<input type="date" id="fd2"></label>
+      <button type="button" class="tgl" id="dclear" hidden>Tozalash</button>
+      <span class="dinfo" id="dinfo"></span>
+    </div>
+
+    {# Umumiy limit + oxirgi haftalik limit — ro'yxat ustida yaqqol ko'rinib turadi #}
+    <div class="wk-summary">
+      <div class="ws-card">
+        <div class="ws-l">Umumiy limit</div>
+        <div class="ws-v">{{ limit_str }}</div>
+        <div class="ws-s">Joriy qolgan: <b>{{ qoldiq_str }}</b></div>
+      </div>
+      <div class="ws-card {% if oxirgi_haftalik %}accent{% endif %}">
+        <div class="ws-l">Oxirgi haftalik limit</div>
+        {% if oxirgi_haftalik %}
+        <div class="ws-v">{{ oxirgi_haftalik.jami_str }}</div>
+        <div class="ws-s">{{ oxirgi_haftalik.obj.week_start|date:"d.m.Y" }} — {{ oxirgi_haftalik.obj.week_end|date:"d.m.Y" }}{% if oxirgi_haftalik.obj.number %} · {{ oxirgi_haftalik.obj.number }}{% endif %}</div>
+        {% else %}
+        <div class="ws-v" style="color:#94a3b8;">—</div>
+        <div class="ws-s">Hali tasdiqlangan haftalik so'rov yo'q</div>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if eski_soni %}
+    <div class="oldbar">
+      <span class="ob-txt">O'tgan haftalik limitlar: <b>{{ eski_soni }}</b> ta (faqat oxirgisi ochiq)</span>
+      <button type="button" class="tgl" id="oldToggle">Ko'rsatish</button>
+    </div>
+    {% endif %}
+
+    {% for s in sorovlar %}
+    <div class="req {% if not s.is_approved %}draft{% endif %}{% if s.is_old %} oldreq{% endif %}"
+         data-ws="{{ s.obj.week_start|date:'Y-m-d' }}" data-we="{{ s.obj.week_end|date:'Y-m-d' }}">
+      <div class="req-head">
+        <div>
+          <div class="title">
+            <span class="seqno" title="Ketma-ket raqami">{{ s.seq }}</span>
+            {{ s.obj.week_start|date:"d.m.Y" }} — {{ s.obj.week_end|date:"d.m.Y" }}
+            {% if s.obj.number %}<span class="meta">· {{ s.obj.number }}</span>{% endif %}
+            {% if s.is_old %}<span class="past-badge">o'tgan hafta</span><button type="button" class="past-hide" title="Bu o'tgan haftalarni yashirish">Yashirish ✕</button>{% endif %}
+          </div>
+          {% if s.obj.note %}<div style="font-size:12.5px; color:#64748b; margin-top:3px;">Izoh: {{ s.obj.note }}</div>{% endif %}
+          <div class="wk-audit">Kiritdi: <b>{{ s.obj.created_by.username|default:"—" }}</b> · {{ s.obj.created_at|date:"d.m.Y H:i" }}{% if s.is_approved and s.obj.approved_by %} &nbsp;|&nbsp; Tasdiqladi: <b>{{ s.obj.approved_by.username }}</b> · {{ s.obj.approved_at|date:"d.m.Y H:i" }}{% endif %}</div>
+          {% if s.oshgan %}
+          <div class="overwarn">
+            <b>Limitdan oshadi</b>
+            <ul>{% for o in s.oshgan %}<li>{{ o }}</li>{% endfor %}</ul>
+          </div>
+          {% endif %}
+          <div class="meta">
+            {% if s.is_approved %}
+              <span class="badge" style="background:#15803d;">Tasdiqlangan</span>
+            {% elif s.is_submitted %}
+              <span class="badge" style="background:#15803d;">Admin tasdig'ida</span>
+              <span class="flag">— direktordan o'tdi, admin tasdig'i kutilmoqda</span>
+            {% elif s.is_dir %}
+              <span class="badge" style="background:var(--brand);">Direktor tasdig'ida</span>
+              <span class="flag">— direktor tasdig'i kutilmoqda</span>
+            {% else %}
+              <span class="badge" style="background:#94a3b8;">Qoralama</span>
+              <span class="flag">— yuborilmagan, limitdan ayirilmaydi</span>
+            {% endif %}
+            {% if s.obj.reject_note and not s.is_approved %}<span class="flag" style="color:var(--bad);">✕ Rad etilgan: {{ s.obj.reject_note }}</span>{% endif %}
+            <span class="wk-actions">
+              {# PTO: qoralama bilan ishlaydi #}
+              {% if is_pto %}
+                {% if not s.is_approved and not s.is_submitted and not s.is_dir %}
+                  <form method="post" action="{% url 'weekly_action' s.obj.id %}"><input type="hidden" name="action" value="submit">{% csrf_token %}<button class="mini submit">Direktorga yuborish</button></form>
+                  <form method="post" action="{% url 'weekly_action' s.obj.id %}" onsubmit="return confirm('O`chirilsinmi?')"><input type="hidden" name="action" value="delete">{% csrf_token %}<button class="mini del">O'chirish</button></form>
+                {% endif %}
+                {% if s.is_dir and not is_director %}
+                  <form method="post" action="{% url 'weekly_action' s.obj.id %}"><input type="hidden" name="action" value="recall">{% csrf_token %}<button class="mini">Qaytarib olish</button></form>
+                {% endif %}
+              {% endif %}
+              {# DIREKTOR: dir bosqichida tasdiqlaydi/rad etadi #}
+              {% if is_director and s.is_dir %}
+                <form method="post" action="{% url 'weekly_action' s.obj.id %}"><input type="hidden" name="action" value="dir_approve">{% csrf_token %}<button class="mini approve">Direktor tasdiqlash</button></form>
+                <form method="post" action="{% url 'weekly_action' s.obj.id %}" onsubmit="var v=prompt('Rad etish sababi:'); if(!v){return false;} this.reject_note.value=v;"><input type="hidden" name="action" value="dir_reject"><input type="hidden" name="reject_note">{% csrf_token %}<button class="mini del">Rad etish</button></form>
+              {% endif %}
+              {# ADMIN: submitted bosqichida yakuniy tasdiqlaydi #}
+              {% if is_admin %}
+                {% if s.is_submitted %}
+                  <a class="mini" href="{% url 'weekly_edit' s.obj.id %}">Tahrirlash</a>
+                  {% if s.oshgan %}
+                    <form method="post" action="{% url 'weekly_action' s.obj.id %}" onsubmit="return confirm('Bu so\'rov limitdan oshadi. Baribir tasdiqlaysizmi?');"><input type="hidden" name="action" value="approve"><input type="hidden" name="confirm_over" value="1">{% csrf_token %}<button class="mini over" title="{% for o in s.oshgan %}{{ o }}&#10;{% endfor %}">Limitdan oshsa ham tasdiqlash</button></form>
+                  {% else %}
+                    <form method="post" action="{% url 'weekly_action' s.obj.id %}"><input type="hidden" name="action" value="approve">{% csrf_token %}<button class="mini approve">Admin tasdiqlash</button></form>
+                  {% endif %}
+                {% endif %}
+                {% if s.is_approved %}
+                  <a class="mini" href="{% url 'weekly_edit' s.obj.id %}">Tahrirlash</a>
+                  <form method="post" action="{% url 'weekly_action' s.obj.id %}"><input type="hidden" name="action" value="draft">{% csrf_token %}<button class="mini">Bekor qilish</button></form>
+                {% endif %}
+              {% endif %}
+            </span>
+          </div>
+        </div>
+        <div style="text-align:right;">
+          <div class="req-sum">−{{ s.jami_str }}</div>
+          <div class="split"><span class="dot mat"></span>{{ s.mat_str }} · <span class="dot lab"></span>{{ s.lab_str }} · <span class="dot mach"></span>{{ s.mach_str }}</div>
+          {% if s.is_approved %}<div class="qoldiq-run {% if s.qoldiq_neg %}neg{% endif %}">Qolgan limit: <b>{{ s.qoldiq_str }}</b></div>{% endif %}
+        </div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Turi</th><th>Nomi</th><th>Birlik</th>
+            <th class="num">Miqdor</th><th class="num">Narxi</th><th class="num">Summa</th>
+            <th style="width:104px;">Sana</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for q in s.qatorlar %}
+          <tr data-kind="{{ q.cls }}">
+            <td><span class="kind k-{{ q.cls }}">{{ q.kind }}</span></td>
+            <td>{{ q.nomi }}{% if q.izoh %}<span class="itemnote">{{ q.izoh }}</span>{% endif %}</td>
+            <td>{{ q.birlik }}</td>
+            <td class="num">{{ q.miqdor }}</td>
+            <td class="num">{{ q.narx_str }}</td>
+            <td class="num">{{ q.summa_str }}</td>
+            <td class="lidate">{% if q.sana %}<span class="d-new">{{ q.sana|date:"d.m.Y" }}</span>{% else %}—{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr class="jami-row">
+            <td colspan="2">JAMI (bu so'rov)</td>
+            <td colspan="3" class="split-lbl"><span class="dot mat"></span>{{ s.mat_str }} · <span class="dot lab"></span>{{ s.lab_str }} · <span class="dot mach"></span>{{ s.mach_str }}</td>
+            <td class="num jami-val">{{ s.jami_str }}</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    {% empty %}
+    <div class="empty">Bu obyektda hali haftalik so'rov yo'q. Admin paneldan qo'shing.</div>
+    {% endfor %}
+
+    <script>
+    (function(){
+      // FAQAT haftalik filtri (.wk-filter ichidagilar) — aks holda limit bloki
+      // chiplari ham shu yerga tushib, ikkala filtr bir-birini buzardi
+      var chips = document.querySelectorAll('.wk-filter .fchip');
+      chips.forEach(function(b){
+        b.addEventListener('click', function(){
+          chips.forEach(function(x){ x.classList.remove('active'); });
+          b.classList.add('active');
+          var f = b.dataset.f;
+          document.querySelectorAll('tr[data-kind]').forEach(function(tr){
+            tr.style.display = (f === 'all' || tr.dataset.kind === f) ? '' : 'none';
+          });
+        });
+      });
+    })();
+    </script>
+
+    <script>
+    // Umumiy limit tarkibi filtri — turi bo'yicha + nom bo'yicha izlash.
+    // Faqat KO'RSATISHNI yashiradi: yashirin qatorlar ham saqlanadi va JAMI'ga kiradi.
+    (function(){
+      var blok = document.getElementById('limitBlock');
+      if(!blok) return;
+      var chips = blok.querySelectorAll('.fchip[data-lf]');
+      var qidiruv = blok.querySelector('#limSearch');
+      var info = blok.querySelector('#limInfo');
+      var joriy = 'all';
+
+      function qatorlar(){ return blok.querySelectorAll('tbody tr'); }
+      function turi(tr){
+        var sel = tr.querySelector('[name=kind]');
+        return sel ? sel.value : (tr.dataset.lkind || '');
+      }
+      function nomi(tr){
+        var inp = tr.querySelector('[name=name]');
+        return (inp ? inp.value : (tr.dataset.lname || '')).trim().toLowerCase();
+      }
+      function qolla(){
+        var q = (qidiruv && qidiruv.value || '').trim().toLowerCase();
+        var korindi = 0, jami = 0;
+        qatorlar().forEach(function(tr){
+          if(tr.querySelector('td[colspan]')) return;   // «bo'sh» qatori
+          jami++;
+          var mos = (joriy === 'all' || turi(tr) === joriy) && (!q || nomi(tr).indexOf(q) !== -1);
+          tr.classList.toggle('lim-hid', !mos);
+          if(mos) korindi++;
+        });
+        if(info){
+          var faol = (joriy !== 'all') || q;
+          info.textContent = faol ? korindi + ' / ' + jami + ' qator' : '';
+          info.classList.toggle('none', faol && korindi === 0);
+        }
+      }
+      chips.forEach(function(b){
+        b.addEventListener('click', function(){
+          chips.forEach(function(x){ x.classList.remove('active'); });
+          b.classList.add('active');
+          joriy = b.dataset.lf;
+          qolla();
+        });
+      });
+      if(qidiruv) qidiruv.addEventListener('input', qolla);
+      // qator qo'shilganda/nomi yozilganda ham qayta hisoblanadi
+      blok.addEventListener('input', function(e){
+        if(e.target.matches('[name=name]')) qolla();
+      });
+      blok.addEventListener('change', function(e){
+        if(e.target.matches('[name=kind]')) qolla();
+      });
+      var tb = document.getElementById('lirows');
+      if(tb) new MutationObserver(qolla).observe(tb, {childList:true});
+      qolla();
+    })();
+    </script>
+
+    {{ unit_map|json_script:"unitMap" }}
+    <datalist id="matnames">{% for n in mat_names %}<option value="{{ n }}"></option>{% endfor %}</datalist>
+    <script>
+    // Birlikni avtomatik to'ldirish: material -> nom bo'yicha (katalog), ish haqi -> "kishi", mashina -> "soat"
+    (function(){
+      var el = document.getElementById('unitMap');
+      var unitMap = el ? JSON.parse(el.textContent) : {};
+      var KIND_UNIT = { labor: 'kishi', machinery: 'soat' };
+      var STANDART = ['kishi', 'soat'];   // avtomat qo'yiladigan qiymatlar
+      function apply(tr, force){
+        if(!tr) return;
+        var kindEl=tr.querySelector('[name=kind]'), unitEl=tr.querySelector('[name=unit]'), nameEl=tr.querySelector('[name=name]');
+        if(!kindEl||!unitEl||!nameEl) return;
+        var kind=kindEl.value;
+        if(kind==='labor'||kind==='machinery'){
+          var joriy=(unitEl.value||'').trim();
+          // Avtomat to'ldiramiz, LEKIN foydalanuvchi o'zi yozgan birlikni ustidan yozmaymiz
+          // (masalan «стежка иши» uchun «м2» kerak bo'lishi mumkin)
+          if(!joriy || STANDART.indexOf(joriy)!==-1) unitEl.value=KIND_UNIT[kind];
+          unitEl.readOnly=false;                       // qulf yo'q — tahrirlash mumkin
+          unitEl.style.background=''; unitEl.style.color='';
+          unitEl.title='Avtomat to\'ldirildi — kerak bo\'lsa o\'zgartiring';
+          nameEl.removeAttribute('list');
+        } else {
+          unitEl.readOnly=false; unitEl.style.background=''; unitEl.style.color='';
+          unitEl.removeAttribute('title');
+          nameEl.setAttribute('list','matnames');
+          var u=unitMap[(nameEl.value||'').trim().toLowerCase()];
+          if(u && (force || !unitEl.value.trim())) unitEl.value=u;
+        }
+      }
+      document.addEventListener('change', function(e){
+        if(e.target.matches('.addtable [name=kind], .addtable [name=name]')) apply(e.target.closest('tr'), true);
+      });
+      document.addEventListener('input', function(e){
+        if(e.target.matches('.addtable [name=name]')) apply(e.target.closest('tr'), false);
+      });
+      function initAll(){ document.querySelectorAll('.addtable tbody tr').forEach(function(tr){ apply(tr, false); }); }
+      initAll();
+      document.addEventListener('click', function(e){
+        if(e.target.id==='li-addrow' || e.target.id==='wk-addrow') setTimeout(initAll, 0);
+      });
+    })();
+    </script>
+
+    {{ limit_item_map|json_script:"limitMap" }}
+    <script>
+    // Haftalik so'rov: nomni umumiy limit tarkibidan tanlaganda — turi, birlik, narx avtomat to'ladi
+    (function(){
+      var el=document.getElementById('limitMap');
+      var LMAP=el?JSON.parse(el.textContent):{};
+      var wk=document.getElementById('wkrows');
+      if(!wk || !Object.keys(LMAP).length) return;
+      function fill(tr){
+        if(!tr) return;
+        var nm=tr.querySelector('[name=name]'); if(!nm) return;
+        var m=LMAP[(nm.value||'').trim().toLowerCase()]; if(!m) return;
+        var k=tr.querySelector('[name=kind]'), u=tr.querySelector('[name=unit]'), pr=tr.querySelector('[name=unit_price]');
+        if(k) k.value=m.kind;
+        if(u){ u.value=m.unit; u.readOnly=false; u.style.background=''; u.style.color=''; }
+        if(pr && !pr.value.trim()) pr.value=m.price;
+        tr.dispatchEvent(new Event('input',{bubbles:true}));
+      }
+      document.addEventListener('change', function(e){
+        if(e.target.matches('#wkrows [name=name]')) fill(e.target.closest('tr'));
+      });
+    })();
+    </script>
+
+    <script src="{% static 'vendor/tom-select.min.js' %}"></script>
+    {{ mat_names|json_script:"nameOptions" }}
+    {{ proj_names|json_script:"projNames" }}
+    <script>
+    // Material «Nomi» maydoniga qidiruvli tanlagich (Tom Select) — limit tarkibi + katalogdan
+    (function(){
+      if (typeof TomSelect === 'undefined') return;
+      var el=document.getElementById('nameOptions');
+      var names=el?JSON.parse(el.textContent):[];
+      var pel=document.getElementById('projNames');
+      var projNames=pel?JSON.parse(pel.textContent):[];
+      var projSet={}; projNames.forEach(function(n){ projSet[n]=1; });
+      // Loyihaning o'z materiallari birinchi guruhda, qolgan katalog ostida
+      var opts=[];
+      projNames.forEach(function(n){ opts.push({value:n,text:n,grp:'loyiha'}); });
+      names.forEach(function(n){ if(!projSet[n]) opts.push({value:n,text:n,grp:'katalog'}); });
+      var GRUHLAR=[{value:'loyiha',label:'Loyiha limiti materiallari'},
+                   {value:'katalog',label:'Umumiy katalog'}];
+      function tsInit(inp){
+        if(!inp || inp.tomselect) return;
+        var val=inp.value;
+        var o=opts.slice();
+        if(val && names.indexOf(val)===-1) o.push({value:val,text:val,grp:'loyiha'});
+        try {
+          new TomSelect(inp, {
+            options:o, optgroups:GRUHLAR, optgroupField:'grp', lockOptgroupOrder:true,
+            items: val?[val]:[], create:true, persist:false, maxItems:1,
+            // MUHIM: createOnBlur bo'lmasa, erkin yozilgan nom fokus ketganda tashlab yuboriladi
+            // va qator saqlanmay yo'qoladi.
+            createOnBlur:true,
+            placeholder:'nomi...',
+            onChange:function(){
+              this.input.dispatchEvent(new Event('change',{bubbles:true}));
+              this.input.dispatchEvent(new Event('input',{bubbles:true}));
+            },
+            // Yozilayotgan matn ham «nom bor» deb hisoblansin (✎ tugmasi darrov chiqadi)
+            onType:function(){ this.input.dispatchEvent(new Event('input',{bubbles:true})); }
+          });
+        } catch(e){}
+      }
+      document.querySelectorAll('.addtable tbody [name=name]').forEach(tsInit);
+      ['wkrows','lirows'].forEach(function(id){
+        var tb=document.getElementById(id); if(!tb) return;
+        new MutationObserver(function(muts){
+          muts.forEach(function(m){ Array.prototype.forEach.call(m.addedNodes, function(n){
+            if(n.querySelectorAll) n.querySelectorAll('[name=name]').forEach(tsInit);
+          }); });
+        }).observe(tb, {childList:true});
+      });
+    })();
+    </script>
+
+    <script>
+    // Yashirish / Ko'rsatish — holat brauzerda eslab qolinadi (obyekt bo'yicha alohida)
+    (function(){
+      var NS = 'qerp.detail.{{ p.id }}.';
+      function saqla(k, v){ try { localStorage.setItem(NS+k, v ? '1' : '0'); } catch(e){} }
+      function oqi(k, standart){
+        try { var v = localStorage.getItem(NS+k); return v === null ? standart : v === '1'; }
+        catch(e){ return standart; }
+      }
+
+      // 1) «Umumiy limit ichi» bloki — standart holatda ochiq
+      document.querySelectorAll('.tgl[data-target]').forEach(function(btn){
+        var body = document.getElementById(btn.dataset.target);
+        if(!body) return;
+        function qolla(ochiq){
+          body.style.display = ochiq ? '' : 'none';
+          btn.textContent = ochiq ? 'Yashirish' : 'Ko\'rsatish';
+        }
+        var ochiq = oqi(btn.dataset.key, true);
+        qolla(ochiq);
+        btn.addEventListener('click', function(){
+          ochiq = !ochiq; qolla(ochiq); saqla(btn.dataset.key, ochiq);
+        });
+      });
+
+      // «Yangi haftalik so'rov» endi modal emas — umumiy limit ichi kabi sahifada,
+      // Yashirish/Ko'rsatish tugmasi yuqoridagi umumiy toggle bilan boshqariladi.
+
+      // 2) O'tgan (eski) haftalik limitlar + 3) sana bo'yicha izlash — birga boshqariladi
+      var oldBtn = document.getElementById('oldToggle');
+      var eski = document.querySelectorAll('.req.oldreq');
+      var ochiqEski = oqi('eski', false);
+      var d1El = document.getElementById('fd1'), d2El = document.getElementById('fd2');
+      var clearBtn = document.getElementById('dclear'), info = document.getElementById('dinfo');
+
+      function izlashFaolmi(){
+        return !!((d1El && d1El.value) || (d2El && d2El.value));
+      }
+      function qollaEski(){
+        // Izlash faol bo'lsa — eskilar ham ko'rinadi (aks holda topilgan natija yashirin qolardi)
+        var ochiq = ochiqEski || izlashFaolmi();
+        eski.forEach(function(el){ el.classList.toggle('shown', ochiq); });
+        if(oldBtn) oldBtn.textContent = ochiqEski ? 'Yashirish' : 'Ko\'rsatish';
+      }
+      if(oldBtn){
+        oldBtn.addEventListener('click', function(){
+          ochiqEski = !ochiqEski; saqla('eski', ochiqEski); qollaEski();
+        });
+      }
+      // Har bir o'tgan karta ichidagi «Yashirish ✕» — hammasini yig'adi (qulaylik uchun)
+      document.querySelectorAll('.past-hide').forEach(function(b){
+        b.addEventListener('click', function(){
+          ochiqEski = false; saqla('eski', false); qollaEski();
+          if(oldBtn) oldBtn.scrollIntoView({block:'center', behavior:'smooth'});
+        });
+      });
+
+      function qollaSana(){
+        var d1 = d1El ? d1El.value : '', d2 = d2El ? d2El.value : '';
+        var faol = izlashFaolmi(), topildi = 0;
+        document.querySelectorAll('.req[data-ws]').forEach(function(el){
+          var ws = el.dataset.ws, we = el.dataset.we || ws;
+          // hafta oralig'i izlanayotgan oraliq bilan KESISHSA — topilgan hisoblanadi
+          var mos = (!d1 || we >= d1) && (!d2 || ws <= d2);
+          el.classList.toggle('hid-date', faol && !mos);
+          if(faol && mos) topildi++;
+        });
+        if(clearBtn) clearBtn.hidden = !faol;
+        if(info){
+          info.textContent = faol ? (topildi ? topildi + ' ta hafta topildi' : 'Hech narsa topilmadi') : '';
+          info.classList.toggle('none', faol && !topildi);
+        }
+        qollaEski();
+      }
+      if(d1El) d1El.addEventListener('change', qollaSana);
+      if(d2El) d2El.addEventListener('change', qollaSana);
+      if(clearBtn) clearBtn.addEventListener('click', function(){
+        if(d1El) d1El.value=''; if(d2El) d2El.value=''; qollaSana();
+      });
+      qollaSana();
+    })();
+    </script>
+{% endblock %}

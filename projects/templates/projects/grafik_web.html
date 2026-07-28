@@ -1,0 +1,205 @@
+{% extends "base_site.html" %}
+{% block title %}Grafik ish — {{ p.code }}{% endblock %}
+{% block page_title %}Grafik ish — {{ p.code }} · {{ p.name }}{% endblock %}
+
+{% block extra_head %}
+<style>
+  .bar { display:flex; align-items:center; gap:12px; flex-wrap:wrap; justify-content:space-between; margin-bottom:16px; }
+  .bar .l { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .bar label { font-size:12.5px; color:var(--mut); font-weight:600; display:flex; align-items:center; gap:7px; }
+  .bar input[type=date] { padding:8px 11px; border:1px solid var(--line); border-radius:9px; font-size:13.5px; }
+  .bar input[type=date]:focus { outline:none; border-color:var(--brand); box-shadow:0 0 0 3px rgba(10,110,209,.18); }
+  .btn { font-size:13px; color:#374151; background:var(--card); border:1px solid var(--line); border-radius:9px; padding:9px 15px; font-weight:600; cursor:pointer; }
+  .btn:hover { background:#f9fafb; border-color:#cbd5e1; }
+  .btn.primary { background:var(--brand); color:#fff; border-color:var(--brand); }
+  .btn.primary:hover { background:#0857a8; }
+  .btn.ok { background:var(--ok); color:#fff; border-color:var(--ok); }
+  .btn.ok:hover { background:#166534; }
+
+  .msg { border-radius:10px; padding:10px 14px; font-size:14px; margin-bottom:12px; font-weight:600; }
+  .msg.success { background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; }
+
+  .wrap { background:var(--card); border:1px solid var(--line); border-radius:12px; box-shadow:var(--shadow-sm); overflow:auto; }
+  table.g { border-collapse:collapse; width:100%; font-size:13px; table-layout:auto; }
+  table.g th, table.g td { border:1px solid #e5e7eb; padding:8px 11px; text-align:center; white-space:nowrap; }
+  table.g thead th { background:#dae3f3; color:#1f2d3d; font-weight:700; position:sticky; top:0; z-index:2; padding:10px 11px; line-height:1.25; }
+  /* Hafta guruh sarlavhasi */
+  table.g thead tr.wkrow th.wkgrp { background:#c7d4ee; border-bottom:2px solid #a9bce0; font-size:12px; }
+  table.g thead tr.wkrow th.wkgrp small { font-weight:500; font-size:10.5px; color:#42506b; }
+  table.g thead tr.wkrow th.wkspace { background:#eef2f8; border:0; }
+  /* O'tgan kunlar yashirilganda */
+  table.g.hide-past .past-col { display:none; }
+  table.g th.nm, table.g td.nm { text-align:left; white-space:normal; min-width:260px; max-width:380px; }
+  table.g td.nm input { text-align:left; }
+  table.g .no { color:var(--mut); width:38px; font-variant-numeric:tabular-nums; }
+  table.g input { width:100%; border:1px solid transparent; background:transparent; font-size:13px; padding:7px 9px; border-radius:6px; font-family:inherit; }
+  table.g input:hover { border-color:#e5e7eb; }
+  table.g input:focus { outline:none; border-color:var(--brand); background:#fff; box-shadow:0 0 0 2px rgba(10,110,209,.14); }
+  /* Excel kabi: raqam o'qlarini olib tashlash, o'ngga tekislash, tabular */
+  table.g input.numinp { text-align:right; font-variant-numeric:tabular-nums; width:auto; min-width:5ch; }
+  /* Mas'ul shaxs — ism-familiya to'liq ko'rinsin: keng min-kenglik + avtokengayish */
+  table.g td.resp { min-width:250px; }
+  table.g input.respinp { text-align:left; width:100%; min-width:230px; white-space:nowrap; }
+  table.g td.d { min-width:54px; } table.g td.d input { text-align:right; }
+  table.g td.num { min-width:80px; }
+  table.g td.foiz, table.g td.qoldiq { text-align:right; }
+  table.g td.foiz { font-weight:700; font-variant-numeric:tabular-nums; background:#f8fafc; }
+  table.g td.foiz.warn { color:var(--warn); } table.g td.foiz.done { color:var(--ok); } table.g td.foiz.over { color:var(--bad); }
+  table.g td.qoldiq { font-weight:700; font-variant-numeric:tabular-nums; background:#fafbfc; }
+  table.g td.num input { text-align:right; }
+  table.g col.qcol { width:78px; }
+  table.g .del { background:#fef2f2; color:var(--bad); border:1px solid #fecaca; border-radius:6px; width:24px; height:24px; cursor:pointer; font-weight:700; line-height:1; }
+  table.g tbody tr:hover td { background:#fafbff; }
+  table.g tbody tr:hover td.foiz { background:#eef4fb; }
+  .savebar { position:sticky; bottom:0; background:rgba(245,246,248,.94); backdrop-filter:blur(8px); padding:12px 4px; margin-top:12px; display:flex; gap:12px; align-items:center; justify-content:flex-end; border-top:1px solid var(--line); }
+  .hint { font-size:12.5px; color:var(--mut); }
+  @media print { .bar .btn, .savebar, .sidebar, .navbar, .del, .addcol { display:none !important; } .main{margin:0!important;} }
+</style>
+{% endblock %}
+
+{% block content %}
+  <a class="hint" href="{% url 'project_detail' p.id %}" style="color:var(--brand); font-weight:600; display:inline-block; margin-bottom:12px;">← {{ p.code }} — {{ p.name }}</a>
+  {% if messages %}{% for m in messages %}<div class="msg {{ m.tags }}">{{ m }}</div>{% endfor %}{% endif %}
+
+  <form method="post" action="{% url 'grafik_web' p.id %}">
+    {% csrf_token %}
+    <div class="bar">
+      <div class="l">
+        <label>Grafik boshi <input type="date" name="grafik_start" id="gstart" value="{{ grafik_start }}" {% if not can_edit %}disabled{% endif %}></label>
+        {% if can_edit %}<button type="button" class="btn" id="addrow">+ Qator qo'shish</button>{% endif %}
+        {% if eski_kun %}<button type="button" class="btn" id="pastToggle">O'tgan kunlarni yashirish ({{ eski_kun }})</button>{% endif %}
+        <button type="button" class="btn" onclick="window.print()">Chop etish</button>
+        <a class="btn" href="{% url 'grafik_rabota_obj' p.id %}">Excel yuklab olish</a>
+      </div>
+    </div>
+
+    <div class="wrap">
+      <table class="g">
+        <thead>
+          <tr class="wkrow">
+            <th colspan="6" class="wkspace"></th>
+            {% for wg in week_groups %}<th class="wkgrp{% if wg.all_past %} past-col{% endif %}" colspan="{{ wg.span }}" data-week="{{ wg.week }}">{{ wg.week|add:1 }}-hafta<br><small>{{ wg.label }}</small></th>{% endfor %}
+            <th colspan="4" class="wkspace"></th>
+          </tr>
+          <tr>
+            <th>№</th><th class="nm">наименование</th><th>ед.изм</th><th>кол-во</th><th>кун<br>план</th><th>бажарилган<br>иш фоизи</th>
+            {% for d in days %}<th class="dhead{% if d.is_past %} past-col{% endif %}" data-i="{{ d.i }}">{{ d.label }}</th>{% endfor %}
+            <th>Қолдиқ<br>иш</th><th>маъсул<br>шахс</th><th>иш прагнози</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="grows">
+          {% for g in grows %}
+          <tr>
+            <td class="no">{{ forloop.counter }}</td>
+            <td class="nm"><input type="text" name="name" value="{{ g.r.name }}" {% if not can_edit %}readonly{% endif %}></td>
+            <td><input type="text" name="unit" value="{{ g.r.unit }}" {% if not can_edit %}readonly{% endif %}></td>
+            <td class="num"><input type="text" inputmode="decimal" class="numinp" name="qty" value="{{ g.r.qty|floatformat:'-3' }}" {% if not can_edit %}readonly{% endif %}></td>
+            <td class="num"><input type="text" inputmode="decimal" class="numinp" name="plan" value="{{ g.r.plan|floatformat:'-3' }}" {% if not can_edit %}readonly{% endif %}></td>
+            <td class="foiz">0%</td>
+            {% for dv in g.days %}<td class="d" data-i="{{ forloop.counter0 }}"><input type="text" inputmode="decimal" class="numinp" name="d{{ forloop.counter0 }}" value="{{ dv }}" {% if not can_edit %}readonly{% endif %}></td>{% endfor %}
+            <td class="qoldiq">0</td>
+            <td class="resp"><input type="text" class="respinp" name="responsible" value="{{ g.r.responsible }}" {% if not can_edit %}readonly{% endif %}></td>
+            <td class="nm"><input type="text" name="note" value="{{ g.r.note }}" {% if not can_edit %}readonly{% endif %}></td>
+            <td>{% if can_edit %}<button type="button" class="del">×</button>{% endif %}</td>
+          </tr>
+          {% empty %}{% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if can_edit %}
+    <div class="savebar">
+      <span class="hint" id="cnt"></span>
+      <button type="submit" class="btn ok">Saqlash</button>
+    </div>
+    {% endif %}
+
+    <template id="rowtpl">
+      <tr>
+        <td class="no"></td>
+        <td class="nm"><input type="text" name="name"></td>
+        <td><input type="text" name="unit"></td>
+        <td class="num"><input type="text" inputmode="decimal" class="numinp" name="qty"></td>
+        <td class="num"><input type="text" inputmode="decimal" class="numinp" name="plan"></td>
+        <td class="foiz">0%</td>
+        {% for j in N_range %}<td class="d" data-i="{{ j }}"><input type="text" inputmode="decimal" class="numinp" name="d{{ j }}"></td>{% endfor %}
+        <td class="qoldiq">0</td>
+        <td class="resp"><input type="text" class="respinp" name="responsible"></td>
+        <td class="nm"><input type="text" name="note"></td>
+        <td><button type="button" class="del">×</button></td>
+      </tr>
+    </template>
+  </form>
+
+<script>
+(function(){
+  // O'tgan (bugundan oldingi) kun ustunlari: sarlavhada past-col bor —
+  // shu indekslarni tana katakchalariga ham beramiz, so'ng bitta tugma bilan yashiramiz.
+  var tbl=document.querySelector('table.g');
+  var pastIdx={};
+  tbl.querySelectorAll('thead tr:last-child th.dhead.past-col').forEach(function(th){ pastIdx[th.dataset.i]=1; });
+  function markPast(root){
+    (root||tbl).querySelectorAll('td.d[data-i]').forEach(function(td){
+      if(pastIdx[td.dataset.i]) td.classList.add('past-col');
+    });
+  }
+  markPast();
+  var KEY='qerp.grafik.hidepast.{{ p.id }}';
+  var pb=document.getElementById('pastToggle');
+  if(pb){
+    function apply(hide){
+      tbl.classList.toggle('hide-past', hide);
+      pb.textContent = (hide?'O\'tgan kunlarni ko\'rsatish':'O\'tgan kunlarni yashirish')+' ({{ eski_kun }})';
+    }
+    var hidden = localStorage.getItem(KEY)==='1';
+    apply(hidden);
+    pb.addEventListener('click', function(){
+      hidden=!hidden; localStorage.setItem(KEY, hidden?'1':'0'); apply(hidden);
+    });
+  }
+})();
+(function(){
+  var tbody=document.getElementById('grows'), tpl=document.getElementById('rowtpl');
+  var N={{ N }};
+  var PAST_MARK=(function(){ var s={}; document.querySelectorAll('table.g thead tr:last-child th.dhead.past-col').forEach(function(th){s[th.dataset.i]=1;}); return s; })();
+  function num(el){ var v=parseFloat((el&&el.value||'').replace(',','.')); return isNaN(v)?0:v; }
+  function fmt(n){ var neg=n<0; n=Math.abs(Math.round(n*1000)/1000); var s=(''+n).replace(/\B(?=(\d{3})+(?!\d))/g,' '); return (neg?'−':'')+s; }
+  function autosize(inp){
+    if(!inp || !inp.classList) return;
+    var l=(inp.value||'').length;
+    if(inp.classList.contains('numinp')){
+      inp.style.width=(Math.max(4, l)+2.5)+'ch';   // Excel kabi: son sig'masa katak kengayadi
+    } else if(inp.classList.contains('respinp')){
+      inp.style.width=(Math.max(24, l)+2)+'ch';    // ism-familiya to'liq ko'rinsin
+    }
+  }
+  function autosizeAll(){ tbody.querySelectorAll('input.numinp, input.respinp').forEach(autosize); }
+  function calc(tr){
+    var qty=num(tr.querySelector('[name=qty]'));
+    var sum=0; tr.querySelectorAll('td.d input').forEach(function(i){ sum+=num(i); });
+    var fc=tr.querySelector('.foiz'); var foiz=qty>0?Math.round(sum/qty*100):0;
+    fc.textContent=foiz+'%'; fc.className='foiz'+(foiz>100?' over':foiz>=100?' done':foiz>=90?' warn':'');
+    tr.querySelector('.qoldiq').textContent=fmt(qty-sum);
+  }
+  function renumber(){ var i=1; tbody.querySelectorAll('tr').forEach(function(tr){ tr.querySelector('.no').textContent=i++; }); var c=document.getElementById('cnt'); if(c) c.textContent=tbody.children.length+' qator'; }
+  function calcAll(){ tbody.querySelectorAll('tr').forEach(calc); }
+  function updateDates(){
+    var v=document.getElementById('gstart').value;
+    document.querySelectorAll('.dhead').forEach(function(th){
+      var i=+th.dataset.i;
+      if(v){ var d=new Date(v); d.setDate(d.getDate()+i); th.textContent=String(d.getDate()).padStart(2,'0')+'.'+String(d.getMonth()+1).padStart(2,'0'); }
+      else { th.textContent=(i+1)+'-kun'; }
+    });
+  }
+  var addBtn=document.getElementById('addrow');
+  function markRowPast(tr){ tr.querySelectorAll('td.d[data-i]').forEach(function(td){ if(PAST_MARK[td.dataset.i]) td.classList.add('past-col'); }); }
+  if(addBtn) addBtn.addEventListener('click', function(){ tbody.appendChild(tpl.content.cloneNode(true)); markRowPast(tbody.lastElementChild); renumber(); autosizeAll(); });
+  tbody.addEventListener('click', function(e){ if(e.target.classList.contains('del')){ e.target.closest('tr').remove(); renumber(); } });
+  tbody.addEventListener('input', function(e){ autosize(e.target); var tr=e.target.closest('tr'); if(tr) calc(tr); });
+  var gs=document.getElementById('gstart'); if(gs){ gs.addEventListener('change', updateDates); gs.addEventListener('input', updateDates); }
+  // boshlang'ich: kamida bitta qator
+  if(tbody.children.length===0 && addBtn){ for(var k=0;k<8;k++){ tbody.appendChild(tpl.content.cloneNode(true)); markRowPast(tbody.lastElementChild); } }
+  renumber(); calcAll(); updateDates(); autosizeAll();
+})();
+</script>
+{% endblock %}

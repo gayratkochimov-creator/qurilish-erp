@@ -1,0 +1,14 @@
+{% comment %}
+Umumiy limit tarkibi uchun filtr — haftalik ro'yxatdagi filtr bilan bir xil uslubda.
+Tugmalar type="button" (formani yubormaydi), qidiruv inputida name YO'Q (POST'ga tushmaydi).
+Diqqat: {# #} izohi bir qatorlik — ko'p qatorda matn bo'lib chiqib ketadi.
+{% endcomment %}
+<div class="lim-filter">
+  <span class="fl-lbl">Turi bo'yicha:</span>
+  <button type="button" class="fchip active" data-lf="all">Barchasi</button>
+  <button type="button" class="fchip" data-lf="material"><span class="dot mat"></span>Material</button>
+  <button type="button" class="fchip" data-lf="labor"><span class="dot lab"></span>Ish haqi</button>
+  <button type="button" class="fchip" data-lf="machinery"><span class="dot mach"></span>Mashina chasti</button>
+  <input type="text" id="limSearch" class="lim-search" placeholder="Nomi bo'yicha izlash...">
+  <span class="lim-info" id="limInfo"></span>
+</div>

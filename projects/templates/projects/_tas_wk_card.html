@@ -1,0 +1,49 @@
+{% comment %}Haftalik so'rov kartasi. Kirish: w (so'rov), stage ('dir'|'adm'){% endcomment %}
+<div class="tcard">
+  <div class="tmain">
+    <div class="pname">{{ w.obj.project.code }} — {{ w.obj.project.name }}</div>
+    <div class="tmeta">{{ w.obj.week_start|date:"d.m.Y" }} — {{ w.obj.week_end|date:"d.m.Y" }}{% if w.obj.number %} · {{ w.obj.number }}{% endif %} · {{ w.soni }} qator · <a class="plink" href="{% url 'project_detail' w.obj.project_id %}">obyekt ichi</a><br>Kiritdi: <b>{{ w.obj.created_by.username|default:"—" }}</b> · {{ w.obj.created_at|date:"d.m.Y H:i" }}{% if w.obj.note %} · Izoh: {{ w.obj.note }}{% endif %}{% if stage == 'adm' and w.obj.director_by %}<br>✓ Direktor tasdiqladi: <b>{{ w.obj.director_by.username }}</b> · {{ w.obj.director_at|date:"d.m.Y H:i" }}{% endif %}</div>
+    {% if w.oshgan %}
+    <div class="overwarn">
+      <b>Limitdan oshadi</b>
+      <ul>{% for o in w.oshgan %}<li>{{ o }}</li>{% endfor %}</ul>
+    </div>
+    {% endif %}
+    {% if w.items %}
+    <table class="pitems">
+      <thead><tr><th>Turi</th><th>Nomi</th><th>Birlik</th><th class="num">Miqdor</th><th class="num">Narxi</th><th class="num">Summa</th><th>Holat</th><th>Sana</th><th></th></tr></thead>
+      <tbody>{% for it in w.items %}<tr {% if it.holat == 'yangi' %}class="pi-newrow"{% elif it.holat == 'ozgargan' %}class="pi-chgrow"{% endif %}>
+        <td>{{ it.kind_disp }}</td>
+        <td>{{ it.name }}{% if it.izoh %}<span class="pnote">✎ {{ it.izoh }}</span>{% endif %}</td>
+        <td>{{ it.unit }}</td>
+        <td class="num">{{ it.qty_str }}</td>
+        <td class="num">{{ it.price_str }}</td>
+        <td class="num">{{ it.sum_str }}</td>
+        <td>{% if it.holat == 'yangi' %}<span class="pi-chip new" title="{{ it.eski_str }}">YANGI</span>{% elif it.holat == 'ozgargan' %}<span class="pi-chip chg" title="{{ it.eski_str }}">BOSHQA NARX</span>{% else %}<span class="pi-chip old">—</span>{% endif %}</td>
+        <td class="pi-sana">{{ it.sana|date:"d.m.Y H:i" }}</td>
+        <td><form method="post" action="{% url 'weekly_action' w.obj.id %}" onsubmit="return confirm('«{{ it.name }}» qatori so\'rovdan o\'chirilsinmi?');"><input type="hidden" name="action" value="delitem"><input type="hidden" name="item_id" value="{{ it.id }}"><input type="hidden" name="next" value="tasdiqlar">{% csrf_token %}<button class="pi-del" title="Qatorni o'chirish">×</button></form></td>
+      </tr>{% endfor %}</tbody>
+    </table>
+    {% endif %}
+  </div>
+  <div class="totbox">
+    <div class="l">So'rov summasi</div>
+    <div class="new">{{ w.jami_str }}</div>
+  </div>
+  <div class="tacts">
+    {% if stage == 'dir' %}
+      <form method="post" action="{% url 'weekly_action' w.obj.id %}"><input type="hidden" name="action" value="dir_approve"><input type="hidden" name="next" value="tasdiqlar">{% csrf_token %}<button class="btn-ok">Direktor tasdiqlash</button></form>
+      <form method="post" action="{% url 'weekly_action' w.obj.id %}" class="rejform" onsubmit="var s=this.querySelector('[name=reject_note]'); if(!s.value.trim()){ alert('Rad etish sababini yozing.'); s.focus(); return false; }">
+        <input type="hidden" name="action" value="dir_reject"><input type="hidden" name="next" value="tasdiqlar">{% csrf_token %}
+        <input type="text" name="reject_note" class="rejnote" placeholder="Rad etish sababi...">
+        <button class="btn-no">Rad etish</button>
+      </form>
+    {% else %}
+      {% if w.oshgan %}
+      <form method="post" action="{% url 'weekly_action' w.obj.id %}" onsubmit="return confirm('Bu so\'rov limitdan oshadi. Baribir tasdiqlaysizmi?');"><input type="hidden" name="action" value="approve"><input type="hidden" name="confirm_over" value="1"><input type="hidden" name="next" value="tasdiqlar">{% csrf_token %}<button class="btn-over">Limitdan oshsa ham tasdiqlash</button></form>
+      {% else %}
+      <form method="post" action="{% url 'weekly_action' w.obj.id %}"><input type="hidden" name="action" value="approve"><input type="hidden" name="next" value="tasdiqlar">{% csrf_token %}<button class="btn-ok">Admin tasdiqlash</button></form>
+      {% endif %}
+    {% endif %}
+  </div>
+</div>

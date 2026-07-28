@@ -24,7 +24,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-v8^=)q#blulnj&#6rd(%##p+_#v7ka&(j6oy*66^$ylixp)$xc')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DEBUG', 'False') == 'True'
+DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '127.0.0.1,localhost').split(',')
 
@@ -32,6 +32,7 @@ ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '127.0.0.1,localhost').split(','
 # Application definition
 
 INSTALLED_APPS = [
+    'jazzmin',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -50,6 +51,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'core.middleware.NoHTMLCacheMiddleware',
 ]
 
 ROOT_URLCONF = 'core.urls'
@@ -64,6 +66,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'projects.context_processors.approvals',
             ],
         },
     },
@@ -117,8 +120,71 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
 
 
+
+
+
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# Media (yuklangan rasmlar)
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+
+# Authentication / login
+LOGIN_URL = 'login'
+LOGIN_REDIRECT_URL = 'dashboard'
+LOGOUT_REDIRECT_URL = 'login'
+
+
+# Jazzmin — zamonaviy admin panel dizayni
+JAZZMIN_SETTINGS = {
+    "site_title": "Qurilish ERP",
+    "site_header": "Qurilish ERP",
+    "site_brand": "Qurilish ERP",
+    "site_logo": None,
+    "welcome_sign": "Qurilish ERP boshqaruv paneli",
+    "copyright": "Qurilish ERP",
+    "search_model": ["projects.Project", "projects.Firma"],
+    "topmenu_links": [
+        {"name": "Sayt (Limitlar)", "url": "/", "new_window": False},
+        {"name": "Obyektlar", "url": "/firmalar/", "new_window": False},
+        {"name": "Ombor", "url": "/ombor/", "new_window": False},
+    ],
+    "icons": {
+        "auth.user": "fas fa-user",
+        "auth.Group": "fas fa-users",
+        "projects.Firma": "fas fa-building",
+        "projects.Project": "fas fa-city",
+        "projects.WorkSection": "fas fa-layer-group",
+        "projects.WeeklyRequest": "fas fa-calendar-week",
+        "projects.LimitChangeRequest": "fas fa-sliders-h",
+        "ombor.Material": "fas fa-boxes-stacked",
+        "ombor.MaterialCategory": "fas fa-tags",
+        "ombor.Supplier": "fas fa-truck",
+        "ombor.Warehouse": "fas fa-warehouse",
+        "ombor.Receipt": "fas fa-arrow-down",
+        "ombor.Issue": "fas fa-arrow-up",
+        "ombor.StockBalance": "fas fa-scale-balanced",
+        "ombor.StockMovement": "fas fa-right-left",
+    },
+    "default_icon_parents": "fas fa-chevron-circle-right",
+    "default_icon_children": "fas fa-circle",
+    "related_modal_active": True,
+    "show_ui_builder": False,
+}
+
+JAZZMIN_UI_TWEAKS = {
+    "theme": "flatly",
+    "dark_mode_theme": None,
+    "navbar": "navbar-white navbar-light",
+    "sidebar": "sidebar-dark-primary",
+    "brand_colour": "navbar-primary",
+    "accent": "accent-primary",
+    "sidebar_nav_flat_style": True,
+    "actions_sticky_top": True,
+}
 
 

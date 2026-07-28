@@ -61,6 +61,19 @@ def post_receipt(receipt: Receipt):
 def unpost_receipt(receipt: Receipt):
     if not receipt.is_posted:
         raise ValidationError("Bu prixod qayd qilinmagan.")
+    # Qaytarish ombordagi qoldiqni MINUSGA tushirmasin: kirim allaqachon
+    # rasxod bilan ishlatilgan bo'lsa — avval o'sha rasxod qaydi bekor qilinsin.
+    for mv in StockMovement.objects.filter(doc_type="receipt", doc_id=receipt.id):
+        bal = StockBalance.objects.filter(
+            warehouse_id=mv.warehouse_id, material_id=mv.material_id
+        ).first()
+        joriy = bal.quantity if bal else Decimal("0")
+        if joriy - mv.quantity < 0:
+            raise ValidationError(
+                f"Qaydni bekor qilib bo'lmaydi: «{mv.material.name}» qoldig'i "
+                f"{joriy} — bu kirim ({mv.quantity}) allaqachon rasxodda ishlatilgan. "
+                "Avval tegishli rasxod qaydini bekor qiling."
+            )
     _reverse_movements("receipt", receipt.id)
     receipt.is_posted = False
     receipt.save(update_fields=["is_posted"])

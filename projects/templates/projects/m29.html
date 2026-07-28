@@ -1,0 +1,162 @@
+{% extends "base_site.html" %}
+{% block title %}M-29 · Reja-fakt — Qurilish ERP{% endblock %}
+{% block page_title %}M-29 · Material reja-fakt tahlili{% endblock %}
+
+{% block extra_head %}
+<style>
+  .db { display:flex; flex-direction:column; gap:20px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; }
+  .cap { font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--mut); }
+
+  .toolbar { display:flex; align-items:flex-end; gap:14px; flex-wrap:wrap; justify-content:space-between; }
+  .fgrp { display:flex; flex-direction:column; gap:6px; }
+  .fgrp .fl { font-size:11.5px; font-weight:600; color:var(--mut); }
+  .fgrp select, .fgrp input { padding:9px 12px; border:1px solid var(--line); border-radius:9px; font-size:13.5px; font-weight:500; background:var(--card); color:var(--ink); }
+  .fgrp select { min-width:210px; cursor:pointer; }
+  .fgrp input[type=date] { min-width:150px; }
+  .fgrp select:focus, .fgrp input:focus { outline:none; border-color:var(--brand); box-shadow:0 0 0 3px rgba(51,65,85,.1); }
+  .frow { display:flex; align-items:flex-end; gap:12px; flex-wrap:wrap; }
+  .btn { font-size:13px; color:#374151; background:var(--card); border:1px solid var(--line); border-radius:9px; padding:9px 15px; font-weight:600; cursor:pointer; transition:.14s; }
+  .btn:hover { background:#f9fafb; border-color:#cbd5e1; }
+  .btn.primary { background:var(--brand); color:#fff; border-color:var(--brand); }
+  .btn.primary:hover { background:#0857a8; border-color:#0857a8; }
+  .clr { font-size:12.5px; color:var(--mut); align-self:center; }
+
+  .kpis { display:grid; grid-template-columns:repeat(3,1fr); gap:18px; }
+  .kpi { padding:20px 22px; }
+  .kpi .val { font-size:30px; font-weight:700; letter-spacing:-.02em; margin-top:9px; font-variant-numeric:tabular-nums; line-height:1; }
+  .kpi .sub2 { font-size:12px; color:var(--mut); margin-top:10px; }
+  .kpi.pos .val { color:#15803d; } .kpi.neg .val { color:#b91c1c; }
+
+  .scope { font-size:12.5px; color:var(--mut); }
+  .scope b { color:var(--ink); font-weight:700; }
+
+  .tw { overflow:hidden; } .tw .th { padding:18px 22px 6px; display:flex; align-items:center; justify-content:space-between; }
+  .tw h3 { font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--mut); }
+  .tscroll { overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; }
+  th,td { padding:12px 16px; text-align:left; font-size:13px; white-space:nowrap; }
+  th { color:var(--mut); font-weight:600; font-size:10.5px; letter-spacing:.05em; text-transform:uppercase; border-bottom:1px solid var(--line); background:#fafbfc; }
+  th.num, td.num { text-align:right; font-variant-numeric:tabular-nums; }
+  td { border-bottom:1px solid #f4f6fa; }
+  td.nm { white-space:normal; min-width:220px; font-weight:600; }
+  tbody tr:last-child td { border-bottom:none; }
+  tbody tr:hover { background:#fafbff; }
+  tfoot td { border-top:2px solid var(--line); font-weight:800; font-size:13px; background:#fafbfc; }
+  .badge { display:inline-block; color:#fff; padding:3px 10px; border-radius:999px; font-size:11px; font-weight:700; white-space:nowrap; }
+  .fq.neg { color:#15803d; font-weight:700; } .fq.pos { color:#b91c1c; font-weight:700; } .fq.zero { color:#94a3b8; }
+  .empty { padding:50px 20px; text-align:center; color:#94a3b8; font-size:14px; line-height:1.7; }
+  @media print { .toolbar, .sidebar, .navbar { display:none !important; } .main { margin:0 !important; } }
+  @media (max-width:900px){ .kpis{grid-template-columns:1fr;} }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="db">
+  <form method="get" class="toolbar reveal" style="animation-delay:.02s">
+    <div class="frow">
+      <div class="fgrp">
+        <span class="fl">Firma</span>
+        <select name="firma" onchange="this.form.submit()">
+          <option value="">Barcha firmalar</option>
+          {% for f in firmalar %}<option value="{{ f.id }}" {% if sel_firma == f.id|stringformat:'s' %}selected{% endif %}>{{ f.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="fgrp">
+        <span class="fl">Obyekt</span>
+        <select name="obyekt" onchange="this.form.submit()">
+          <option value="">Barcha obyektlar</option>
+          {% for o in obyektlar %}<option value="{{ o.id }}" {% if sel_obj == o.id|stringformat:'s' %}selected{% endif %}>{{ o.code }} — {{ o.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="fgrp">
+        <span class="fl">Sanadan</span>
+        <input type="date" name="d1" value="{{ d1 }}">
+      </div>
+      <div class="fgrp">
+        <span class="fl">Sanagacha</span>
+        <input type="date" name="d2" value="{{ d2 }}">
+      </div>
+      <button class="btn primary" type="submit">Ko'rish</button>
+      {% if sel_firma or sel_obj or d1 or d2 %}<a class="clr" href="{% url 'm29' %}">tozalash</a>{% endif %}
+    </div>
+    <button class="btn" type="button" onclick="window.print()">Chop etish</button>
+  </form>
+
+  <div class="kpis">
+    <div class="card kpi reveal" style="animation-delay:.06s">
+      <div class="cap">Reja (haftalik so'rov)</div>
+      <div class="val">{{ reja_jami }}</div>
+      <div class="sub2">Tasdiqlangan material qatorlari</div>
+    </div>
+    <div class="card kpi reveal" style="animation-delay:.1s">
+      <div class="cap">Fakt (ombor chiqimi)</div>
+      <div class="val">{{ fakt_jami }}</div>
+      <div class="sub2">Rasxod bo'yicha haqiqiy sarf</div>
+    </div>
+    <div class="card kpi reveal {% if farq_zero %}{% elif farq_neg %}pos{% else %}neg{% endif %}" style="animation-delay:.14s">
+      <div class="cap">Farq (fakt − reja)</div>
+      <div class="val">{% if farq_zero %}0{% elif farq_neg %}−{{ farq_jami }}{% else %}+{{ farq_jami }}{% endif %}</div>
+      <div class="sub2">{% if farq_neg %}Ekonomiya · {{ n_ekon }} pozitsiya tejamkor{% elif farq_zero %}Reja = fakt{% else %}Pererasxod · {{ n_perer }} pozitsiya oshgan{% endif %}</div>
+    </div>
+  </div>
+
+  <div class="card tw reveal" style="animation-delay:.18s">
+    <div class="th">
+      <h3>M-29 — material sarfi</h3>
+      <span class="scope">{% if sel_obj_name %}Obyekt: <b>{{ sel_obj_name }}</b>{% else %}<b>Barcha obyektlar</b>{% endif %} · {{ soni }} pozitsiya</span>
+    </div>
+    <div class="tscroll">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Material nomi</th>
+          <th>Birlik</th>
+          <th class="num">Reja miqdor</th>
+          <th class="num">Reja summa</th>
+          <th class="num">Fakt miqdor</th>
+          <th class="num">Fakt summa</th>
+          <th class="num">Farq (summa)</th>
+          <th>Holati</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td class="num" style="color:var(--mut);">{{ forloop.counter }}</td>
+          <td class="nm">{{ r.name }}</td>
+          <td>{{ r.unit }}</td>
+          <td class="num">{{ r.reja_qty }}</td>
+          <td class="num">{{ r.reja_sum }}</td>
+          <td class="num">{{ r.fakt_qty }}</td>
+          <td class="num">{{ r.fakt_sum }}</td>
+          <td class="num fq {% if r.farq_zero %}zero{% elif r.farq_neg %}neg{% else %}pos{% endif %}">
+            {% if r.farq_zero %}0{% elif r.farq_neg %}−{{ r.farq_sum }}{% else %}+{{ r.farq_sum }}{% endif %}
+          </td>
+          <td><span class="badge" style="background:{{ r.rang }};">{{ r.holat }}</span></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="9" class="empty">Tanlangan filtrlar bo'yicha ma'lumot yo'q.<br>Reja uchun — tasdiqlangan haftalik so'rovlar, fakt uchun — ombordan chiqim (rasxod) kerak.</td></tr>
+        {% endfor %}
+      </tbody>
+      {% if rows %}
+      <tfoot>
+        <tr>
+          <td></td>
+          <td>JAMI</td>
+          <td></td>
+          <td class="num">—</td>
+          <td class="num">{{ reja_jami }}</td>
+          <td class="num">—</td>
+          <td class="num">{{ fakt_jami }}</td>
+          <td class="num fq {% if farq_zero %}zero{% elif farq_neg %}neg{% else %}pos{% endif %}">{% if farq_zero %}0{% elif farq_neg %}−{{ farq_jami }}{% else %}+{{ farq_jami }}{% endif %}</td>
+          <td></td>
+        </tr>
+      </tfoot>
+      {% endif %}
+    </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

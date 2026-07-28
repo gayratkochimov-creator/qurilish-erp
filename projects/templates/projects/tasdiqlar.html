@@ -1,0 +1,103 @@
+{% extends "base_site.html" %}
+{% block title %}Tasdiqlar — Qurilish ERP{% endblock %}
+{% block page_title %}Tasdiqlar markazi{% endblock %}
+
+{% block extra_head %}
+<style>
+  .msg { border-radius:12px; padding:11px 15px; font-size:14px; margin-bottom:14px; font-weight:600; }
+  .msg.success { background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; }
+  .msg.info { background:#eff6ff; color:#1e40af; border:1px solid #bfdbfe; }
+  .sec { margin-bottom:26px; }
+  .sec h3 { font-size:12px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--mut); margin-bottom:14px; display:flex; align-items:center; gap:8px; }
+  .sec h3 .c { background:var(--bad); color:#fff; font-size:11px; font-weight:800; border-radius:999px; padding:1px 8px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:16px; box-shadow:var(--shadow); padding:18px 20px; margin-bottom:14px; display:flex; gap:16px; align-items:center; flex-wrap:wrap; }
+  .card .main { flex:1; min-width:220px; }
+  .card .pname { font-weight:800; font-size:15px; }
+  .card .meta { font-size:12.5px; color:var(--mut); margin-top:3px; }
+  .cats { display:flex; gap:14px; flex-wrap:wrap; margin-top:10px; }
+  .cats .cat { font-size:12.5px; }
+  .cats .cat .n { color:var(--mut); }
+  .cats .cat .v { font-weight:700; }
+  .cats .cat .arr { color:#94a3b8; margin:0 4px; }
+  .cats .cat .new { color:#4338ca; }
+  .totbox { text-align:right; }
+  .totbox .l { font-size:11px; color:var(--mut); text-transform:uppercase; letter-spacing:.05em; }
+  .totbox .old { font-size:13px; color:#94a3b8; text-decoration:line-through; }
+  .totbox .new { font-size:20px; font-weight:800; color:var(--ink); }
+  .acts { display:flex; gap:8px; }
+  .acts form { display:inline; }
+  .btn-ok { background:#15803d; color:#fff; border:1px solid #15803d; border-radius:8px; padding:9px 17px; font-size:13px; font-weight:600; cursor:pointer; transition:.14s; }
+  .btn-no { background:#fff; color:#b91c1c; border:1px solid #e6e8ec; border-radius:8px; padding:9px 15px; font-size:13px; font-weight:600; cursor:pointer; transition:.14s; }
+  .btn-ok:hover { background:#166534; } .btn-no:hover { background:#fef2f2; border-color:#fecaca; }
+  .pitems { width:100%; border-collapse:collapse; margin-top:10px; }
+  .pitems th { text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color:var(--mut); font-weight:600; padding:6px 10px; border-bottom:1px solid var(--line); }
+  .pitems td { font-size:12.5px; padding:6px 10px; border-bottom:1px solid #f4f6fa; }
+  .pitems .num { text-align:right; font-variant-numeric:tabular-nums; }
+  .plink { color:var(--brand); font-weight:700; font-size:12.5px; }
+  .empty { background:var(--card); border:1px dashed var(--line); border-radius:16px; padding:40px; text-align:center; color:#94a3b8; font-size:14px; }
+  .empty .big { font-size:38px; margin-bottom:8px; }
+</style>
+{% endblock %}
+
+{% block content %}
+  {% if messages %}{% for m in messages %}<div class="msg {{ m.tags }}">{{ m }}</div>{% endfor %}{% endif %}
+
+  <div class="sec reveal" style="animation-delay:.04s">
+    <h3>Limit o'zgartirish so'rovlari {% if lim_list %}<span class="c">{{ lim_list|length }}</span>{% endif %}</h3>
+    {% for r in lim_list %}
+    <div class="card">
+      <div class="main">
+        <div class="pname">{{ r.obj.project.code }} — {{ r.obj.project.name }}</div>
+        <div class="meta">So'rovchi: {{ r.obj.requested_by.username|default:"—" }} · {{ r.obj.created_at|date:"d.m.Y H:i" }}{% if r.obj.reason %} · «{{ r.obj.reason }}»{% endif %}</div>
+        <div class="cats">
+          {% for nom, old, new in r.cats %}
+          <span class="cat"><span class="n">{{ nom }}:</span> <span class="v">{{ old }}</span><span class="arr">→</span><span class="v new">{{ new }}</span></span>
+          {% endfor %}
+        </div>
+        {% if r.items %}
+        <table class="pitems">
+          <thead><tr><th>Turi</th><th>Nomi</th><th>Birlik</th><th class="num">Miqdor</th><th class="num">Narxi</th><th class="num">Summa</th></tr></thead>
+          <tbody>
+            {% for it in r.items %}
+            <tr><td>{{ it.kind_disp }}</td><td>{{ it.name }}</td><td>{{ it.unit }}</td><td class="num">{{ it.qty_str }}</td><td class="num">{{ it.price_str }}</td><td class="num">{{ it.sum_str }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% endif %}
+      </div>
+      <div class="totbox">
+        <div class="l">Umumiy</div>
+        <div class="old">{{ r.old_str }}</div>
+        <div class="new">{{ r.new_str }}</div>
+      </div>
+      <div class="acts">
+        <form method="post" action="{% url 'limit_request_action' r.obj.id %}"><input type="hidden" name="action" value="approve">{% csrf_token %}<button class="btn-ok">Tasdiqlash</button></form>
+        <form method="post" action="{% url 'limit_request_action' r.obj.id %}"><input type="hidden" name="action" value="reject">{% csrf_token %}<button class="btn-no">Rad etish</button></form>
+      </div>
+    </div>
+    {% empty %}
+    <div class="empty">Kutilayotgan limit o'zgarishi yo'q.</div>
+    {% endfor %}
+  </div>
+
+  <div class="sec reveal" style="animation-delay:.1s">
+    <h3>Haftalik so'rovlar (tasdiqlanmagan) {% if wk_list %}<span class="c">{{ wk_list|length }}</span>{% endif %}</h3>
+    {% for w in wk_list %}
+    <div class="card">
+      <div class="main">
+        <div class="pname">{{ w.obj.project.code }} — {{ w.obj.project.name }}</div>
+        <div class="meta">{{ w.obj.week_start|date:"d.m.Y" }} — {{ w.obj.week_end|date:"d.m.Y" }}{% if w.obj.number %} · {{ w.obj.number }}{% endif %} · {{ w.soni }} qator · <a class="plink" href="{% url 'project_detail' w.obj.project_id %}">obyekt ichi</a><br>Kiritdi: <b>{{ w.obj.created_by.username|default:"—" }}</b> · {{ w.obj.created_at|date:"d.m.Y H:i" }}{% if w.obj.note %} · Izoh: {{ w.obj.note }}{% endif %}</div>
+      </div>
+      <div class="totbox">
+        <div class="l">So'rov summasi</div>
+        <div class="new">{{ w.jami_str }}</div>
+      </div>
+      <div class="acts">
+        <form method="post" action="{% url 'weekly_action' w.obj.id %}"><input type="hidden" name="action" value="approve"><input type="hidden" name="next" value="tasdiqlar">{% csrf_token %}<button class="btn-ok">Tasdiqlash</button></form>
+      </div>
+    </div>
+    {% empty %}
+    <div class="empty">Tasdiqlanmagan haftalik so'rov yo'q.</div>
+    {% endfor %}
+  </div>
+{% endblock %}

@@ -1,0 +1,91 @@
+{% extends "base_site.html" %}
+{% block title %}Virtual ofis — Qurilish ERP{% endblock %}
+{% block page_title %}Virtual ofis{% endblock %}
+
+{% block extra_head %}
+<style>
+  .db { display:flex; flex-direction:column; gap:22px; }
+  .intro { font-size:13.5px; color:var(--mut); max-width:760px; line-height:1.6; }
+  .intro b { color:var(--ink); }
+
+  .stripe { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+  .st { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px; }
+  .st .n { font-size:26px; font-weight:700; letter-spacing:-.02em; font-variant-numeric:tabular-nums; }
+  .st .l { font-size:12px; color:var(--mut); font-weight:600; margin-top:3px; }
+  .st.warn .n { color:var(--warn); } .st.ok .n { color:var(--ok); }
+
+  .agents { display:grid; grid-template-columns:repeat(2,1fr); gap:18px; }
+  .agents .agent:nth-child(1){animation-delay:.04s} .agents .agent:nth-child(2){animation-delay:.1s}
+  .agents .agent:nth-child(3){animation-delay:.16s} .agents .agent:nth-child(4){animation-delay:.22s}
+  .agents .agent:nth-child(5){animation-delay:.28s} .agents .agent:nth-child(6){animation-delay:.34s}
+  .agent { background:var(--card); border:1px solid var(--line); border-radius:16px; overflow:hidden; display:flex; flex-direction:column; }
+  .ahead { display:flex; align-items:center; gap:13px; padding:18px 20px; border-bottom:1px solid var(--line); }
+  .av { width:44px; height:44px; border-radius:12px; background:var(--brand); color:#fff; display:grid; place-items:center; font-weight:700; font-size:18px; flex:none; }
+  .agent.ok .av { background:var(--ok); }
+  .agent.busy .av { background:var(--warn); }
+  .agent.alert .av { background:var(--bad); }
+  .ai { flex:1; min-width:0; }
+  .ai .nm { font-size:15.5px; font-weight:800; letter-spacing:-.2px; }
+  .ai .rl { font-size:12.5px; color:var(--mut); margin-top:2px; }
+  .status { font-size:11.5px; font-weight:700; padding:4px 11px; border-radius:999px; white-space:nowrap; }
+  .status.ok { background:#ecfdf5; color:#065f46; }
+  .status.busy { background:#fffbeb; color:#b45309; }
+  .status.alert { background:#fef2f2; color:#b91c1c; }
+
+  .tasks { padding:8px 10px; display:flex; flex-direction:column; gap:2px; max-height:340px; overflow-y:auto; }
+  .task { display:flex; align-items:flex-start; gap:10px; padding:11px 12px; border-radius:10px; font-size:13px; color:var(--ink); transition:.14s; }
+  .task:hover { background:#f8fafc; }
+  .task .dot { width:8px; height:8px; border-radius:50%; margin-top:5px; flex:none; }
+  .task .dot.bad { background:var(--bad); } .task .dot.warn { background:var(--warn); }
+  .task .tx { flex:1; line-height:1.45; }
+  .task .go { font-size:11.5px; color:var(--brand); font-weight:700; white-space:nowrap; opacity:0; transition:.14s; }
+  .task:hover .go { opacity:1; }
+  .idle { padding:26px 20px; text-align:center; color:#94a3b8; font-size:13px; }
+  .idle .big { font-size:22px; color:#15803d; font-weight:800; margin-bottom:4px; }
+  @media (max-width:900px){ .stripe{grid-template-columns:1fr;} .agents{grid-template-columns:1fr;} }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="db">
+  <div class="intro reveal" style="animation-delay:.02s">
+    Bu yerda <b>virtual agentlar</b> ishlaydi — har biri o'z vazifasiga ega. Ular tizim ma'lumotini doim kuzatib, e'tibor talab qiladigan holatlarni topib beradi. Har bir vazifaga bosib, tegishli sahifaga o'tasiz.
+  </div>
+
+  <div class="stripe reveal" style="animation-delay:.06s">
+    <div class="st"><div class="n">{{ agent_soni }}</div><div class="l">Virtual agent</div></div>
+    <div class="st {% if band_agent %}warn{% else %}ok{% endif %}"><div class="n">{{ band_agent }}</div><div class="l">E'tibor talab qilyapti</div></div>
+    <div class="st {% if jami_vazifa %}warn{% else %}ok{% endif %}"><div class="n">{{ jami_vazifa }}</div><div class="l">Jami vazifa / ogohlantirish</div></div>
+  </div>
+
+  <div class="agents">
+    {% for a in agents %}
+    <div class="agent {% if a.ok %}ok{% elif a.bad %}alert{% else %}busy{% endif %} reveal">
+      <div class="ahead">
+        <div class="av">{{ a.av }}</div>
+        <div class="ai">
+          <div class="nm">{{ a.name }}</div>
+          <div class="rl">{{ a.role }}</div>
+        </div>
+        {% if a.ok %}<span class="status ok">Hammasi joyida</span>
+        {% elif a.bad %}<span class="status alert">{{ a.count }} ta e'tibor</span>
+        {% else %}<span class="status busy">{{ a.count }} ta vazifa</span>{% endif %}
+      </div>
+      {% if a.tasks %}
+      <div class="tasks">
+        {% for t in a.tasks %}
+        <a class="task" href="{{ t.url }}">
+          <span class="dot {{ t.level }}"></span>
+          <span class="tx">{{ t.text }}</span>
+          <span class="go">o'tish</span>
+        </a>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="idle">Vazifa yo'q — hammasi nazoratda.</div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

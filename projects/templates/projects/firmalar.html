@@ -1,0 +1,203 @@
+{% extends "base_site.html" %}
+{% block title %}Obyektlar — Qurilish ERP{% endblock %}
+{% block page_title %}Obyektlar{% endblock %}
+
+{% block extra_head %}
+<style>
+  .panel { background:var(--card); border:1px solid var(--line); border-radius:14px; box-shadow:var(--shadow); overflow:hidden; }
+  .ftabs { display:flex; gap:2px; overflow-x:auto; padding:8px 10px 0; background:linear-gradient(#fbfcfe,#fff); border-bottom:1px solid var(--line); }
+  .ftab { white-space:nowrap; display:inline-flex; align-items:center; gap:8px; font-size:13.5px; font-weight:600; color:var(--mut); background:transparent; border:0; border-bottom:3px solid transparent; padding:12px 18px; cursor:pointer; border-radius:10px 10px 0 0; transition:.15s; }
+  .ftab:hover { background:#f8fafc; color:var(--ink); }
+  .ftab.active { color:var(--brand); border-bottom-color:var(--brand); }
+  .ftab .badge { min-width:22px; text-align:center; background:#eef2f7; color:#475569; border-radius:999px; font-size:11.5px; font-weight:700; padding:1px 8px; }
+  .ftab.active .badge { background:var(--brand); color:#fff; }
+  .pane { display:none; padding:22px; }
+  .pane.active { display:block; animation:fade .25s ease; }
+  @keyframes fade { from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:none;} }
+
+  .fhead { display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap;
+    background:var(--surface-navy); color:#fff; border-radius:var(--r-hero); padding:24px 28px; margin-bottom:24px;
+    position:relative; overflow:hidden; }
+  .fhead::after { content:""; position:absolute; right:-70px; top:-110px; width:320px; height:320px; border-radius:50%; background:radial-gradient(circle,rgba(37,99,235,.28),transparent 68%); }
+  .fh-left { display:flex; align-items:center; gap:14px; z-index:1; }
+  .fh-name { font-size:19px; font-weight:800; letter-spacing:-.3px; }
+  .fh-info { font-size:12.5px; color:rgba(255,255,255,.85); margin-top:4px; }
+  .fh-stats { display:flex; gap:10px; flex-wrap:wrap; z-index:1; }
+  .stat { background:rgba(255,255,255,.10); border:1px solid rgba(255,255,255,.16); border-radius:var(--r-ctl); padding:10px 16px; text-align:center; min-width:100px; position:relative; z-index:1; }
+  .stat .sl { display:block; font-size:11px; color:rgba(255,255,255,.82); }
+  .stat .sv { display:block; font-size:15px; font-weight:800; margin-top:2px; }
+
+  .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:18px; }
+
+  /* Obyekt kartasi — butun karta bosiladigan, ichida limit progressi */
+  .obj { position:relative; display:flex; flex-direction:column; background:#fff; border:1px solid var(--line);
+         border-radius:var(--r-card); padding:16px 18px 14px; box-shadow:var(--shadow-sm); color:var(--ink);
+         transition:box-shadow .18s var(--ease-out), transform .18s var(--ease-out), border-color .16s; overflow:hidden; }
+  .obj::after { content:""; position:absolute; inset:0 0 auto 0; height:3px; background:var(--brand); opacity:0; transition:.16s; }
+  .obj:hover { box-shadow:var(--shadow); transform:translateY(-2px); border-color:#c7d4ee; }
+  .obj:hover::after { opacity:1; }
+  .obj .oh { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+  .obj .oname { font-size:15px; font-weight:800; line-height:1.3; letter-spacing:-.2px;
+                display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; min-height:20px; }
+  .pill { display:inline-flex; align-items:center; gap:5px; font-size:10.5px; font-weight:700; padding:3px 9px; border-radius:999px; white-space:nowrap; flex:none; margin-top:1px; }
+  .pill i { width:6px; height:6px; border-radius:50%; background:currentColor; }
+  .pill.active { background:#dcfce7; color:#15803d; }
+  .pill.paused { background:#ffedd5; color:#b45309; }
+  .pill.done { background:#e6e8ec; color:#334155; }
+  .ofirma { margin-top:4px; font-size:11.5px; font-weight:600; color:var(--mut); display:flex; align-items:center; gap:6px; }
+  .ofirma::before { content:""; width:5px; height:5px; border-radius:50%; background:#94a3b8; flex:none; }
+  /* limit bloki */
+  .lim { margin-top:14px; padding-top:12px; border-top:1px solid #f1f5f9; }
+  .lim-top { display:flex; justify-content:space-between; align-items:baseline; }
+  .lim-top .ll { font-size:10.5px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:var(--mut); }
+  .lim-top .lp { font-size:13px; font-weight:800; font-variant-numeric:tabular-nums; }
+  .lim-val { font-size:19px; font-weight:800; letter-spacing:-.4px; font-variant-numeric:tabular-nums; margin-top:2px; }
+  .track { height:5px; background:#eef2f7; border-radius:999px; overflow:hidden; margin-top:8px; }
+  .track > span { display:block; height:100%; border-radius:999px; }
+  .lim-sub { display:flex; justify-content:space-between; font-size:11.5px; color:var(--mut); margin-top:6px; font-variant-numeric:tabular-nums; }
+  .nolim { margin-top:14px; padding:10px 12px; border:1px dashed var(--line); border-radius:var(--r-ctl);
+           font-size:12px; font-weight:600; color:#94a3b8; text-align:center; }
+  .metaline { margin-top:10px; display:flex; flex-wrap:wrap; gap:6px 14px; font-size:11.5px; color:var(--mut); }
+  .metaline b { color:var(--ink-soft, #475569); font-weight:600; }
+  .go { margin-top:12px; padding-top:10px; border-top:1px solid #f1f5f9; display:flex; align-items:center; justify-content:space-between;
+        font-size:12.5px; font-weight:700; color:var(--brand); }
+  .go .arr { transition:transform .18s var(--ease-out); }
+  .obj:hover .go .arr { transform:translateX(4px); }
+  .empty { padding:60px 20px; text-align:center; color:#94a3b8; font-size:14px; line-height:1.7; }
+  @media (max-width:980px){ .grid{grid-template-columns:repeat(2,1fr);} }
+  @media (max-width:660px){ .grid{grid-template-columns:1fr;} }
+</style>
+{% endblock %}
+
+{% block content %}
+  <div class="panel reveal" style="animation-delay:.05s">
+    <div class="ftabs">
+      <button class="ftab active" data-tab="hammasi">
+        Hammasi<span class="badge">{{ hammasi.count }}</span>
+      </button>
+      {% for f in firmalar %}
+      <button class="ftab" data-tab="f{{ f.obj.id }}">
+        {{ f.obj.name }}<span class="badge">{{ f.count }}</span>
+      </button>
+      {% endfor %}
+    </div>
+
+    <div class="pane active" id="hammasi">
+      <div class="fhead">
+        <div class="fh-left">
+          <div>
+            <div class="fh-name">Barcha obyektlar</div>
+            <div class="fh-info">{{ soni }} ta firma bo'yicha jami ko'rsatkichlar</div>
+          </div>
+        </div>
+        <div class="fh-stats">
+          <div class="stat"><span class="sl">Obyektlar</span><span class="sv">{{ hammasi.count }}</span></div>
+          <div class="stat"><span class="sl">Umumiy limit</span><span class="sv">{{ hammasi.limit_str }}</span></div>
+          <div class="stat"><span class="sl">Sarflangan</span><span class="sv">{{ hammasi.sarf_str }}</span></div>
+          <div class="stat"><span class="sl">Qolgan</span><span class="sv">{{ hammasi.qoldiq_str }}</span></div>
+        </div>
+      </div>
+      {% if hammasi.objects %}
+      <div class="grid">
+        {% for o in hammasi.objects %}
+        <a class="obj" href="{% url 'project_detail' o.obj.id %}">
+          <div class="oh">
+            <div class="oname">{{ o.obj.name }}</div>
+            <span class="pill {{ o.status_key }}"><i></i>{{ o.status }}</span>
+          </div>
+          <div class="ofirma">{{ o.obj.code }} · {{ o.firma_name }}</div>
+          {% if o.has_limit %}
+          <div class="lim">
+            <div class="lim-top"><span class="ll">Umumiy limit</span><span class="lp" style="color:{{ o.rang }};">{{ o.foiz }}%</span></div>
+            <div class="lim-val">{{ o.limit_str }}</div>
+            <div class="track"><span style="width:{{ o.bar }}%; background:{{ o.rang }};"></span></div>
+            <div class="lim-sub"><span>Sarflangan: {{ o.sarf_str }}</span><span>Qolgan: {{ o.qoldiq_str }}</span></div>
+          </div>
+          {% else %}
+          <div class="nolim">Limit hali kiritilmagan</div>
+          {% endif %}
+          {% if o.location or o.start or o.end %}
+          <div class="metaline">
+            {% if o.location %}<span>Manzil: <b>{{ o.location }}</b></span>{% endif %}
+            {% if o.start or o.end %}<span>Muddat: <b>{% if o.start %}{{ o.start|date:"d.m.Y" }}{% endif %} — {% if o.end %}{{ o.end|date:"d.m.Y" }}{% endif %}</b></span>{% endif %}
+          </div>
+          {% endif %}
+          <div class="go"><span>Batafsil</span><span class="arr">→</span></div>
+        </a>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty">Hozircha obyekt yo'q.<br>Admin panel · Obyektlar orqali qo'shing.</div>
+      {% endif %}
+    </div>
+
+    {% for f in firmalar %}
+    <div class="pane" id="f{{ f.obj.id }}">
+      <div class="fhead">
+        <div class="fh-left">
+          <div>
+            <div class="fh-name">{{ f.obj.name }}</div>
+            <div class="fh-info">
+              {% if f.obj.director %}{{ f.obj.director }}{% else %}Rahbar kiritilmagan{% endif %}
+              {% if f.obj.phone %} &nbsp;·&nbsp; {{ f.obj.phone }}{% endif %}
+              {% if f.obj.inn %} &nbsp;·&nbsp; STIR {{ f.obj.inn }}{% endif %}
+            </div>
+          </div>
+        </div>
+        <div class="fh-stats">
+          <div class="stat"><span class="sl">Obyektlar</span><span class="sv">{{ f.count }}</span></div>
+          <div class="stat"><span class="sl">Umumiy limit</span><span class="sv">{{ f.limit_str }}</span></div>
+          <div class="stat"><span class="sl">Sarflangan</span><span class="sv">{{ f.sarf_str }}</span></div>
+          <div class="stat"><span class="sl">Qolgan</span><span class="sv">{{ f.qoldiq_str }}</span></div>
+        </div>
+      </div>
+      {% if f.objects %}
+      <div class="grid">
+        {% for o in f.objects %}
+        <a class="obj" href="{% url 'project_detail' o.obj.id %}">
+          <div class="oh">
+            <div class="oname">{{ o.obj.name }}</div>
+            <span class="pill {{ o.status_key }}"><i></i>{{ o.status }}</span>
+          </div>
+          <div class="ofirma">{{ o.obj.code }}</div>
+          {% if o.has_limit %}
+          <div class="lim">
+            <div class="lim-top"><span class="ll">Umumiy limit</span><span class="lp" style="color:{{ o.rang }};">{{ o.foiz }}%</span></div>
+            <div class="lim-val">{{ o.limit_str }}</div>
+            <div class="track"><span style="width:{{ o.bar }}%; background:{{ o.rang }};"></span></div>
+            <div class="lim-sub"><span>Sarflangan: {{ o.sarf_str }}</span><span>Qolgan: {{ o.qoldiq_str }}</span></div>
+          </div>
+          {% else %}
+          <div class="nolim">Limit hali kiritilmagan</div>
+          {% endif %}
+          {% if o.location or o.start or o.end %}
+          <div class="metaline">
+            {% if o.location %}<span>Manzil: <b>{{ o.location }}</b></span>{% endif %}
+            {% if o.start or o.end %}<span>Muddat: <b>{% if o.start %}{{ o.start|date:"d.m.Y" }}{% endif %} — {% if o.end %}{{ o.end|date:"d.m.Y" }}{% endif %}</b></span>{% endif %}
+          </div>
+          {% endif %}
+          <div class="go"><span>Batafsil</span><span class="arr">→</span></div>
+        </a>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty">Bu firmaga hali obyekt biriktirilmagan.<br>Admin panel · Obyektlar · obyektni shu firmaga biriktiring.</div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  document.querySelectorAll('.ftab').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      document.querySelectorAll('.ftab').forEach(function (b) { b.classList.remove('active'); });
+      document.querySelectorAll('.pane').forEach(function (p) { p.classList.remove('active'); });
+      btn.classList.add('active');
+      var pane = document.getElementById(btn.dataset.tab);
+      if (pane) pane.classList.add('active');
+    });
+  });
+</script>
+{% endblock %}
