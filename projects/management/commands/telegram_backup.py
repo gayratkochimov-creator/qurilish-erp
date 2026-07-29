@@ -83,6 +83,22 @@ def _sqlite_snapshot(db_path):
     return tmp
 
 
+def _disk_usage(quota_mb):
+    """Home papkadagi jami hajm (MB) va foizini qaytaradi (hech narsa o'chirmaydi).
+       PythonAnywhere bepul kvota 512 MB — quota_mb shu bilan taqqoslaydi."""
+    home = os.path.expanduser("~")
+    total = 0
+    for root, _dirs, files in os.walk(home):
+        for f in files:
+            try:
+                total += os.path.getsize(os.path.join(root, f))
+            except OSError:
+                pass
+    used_mb = total / (1024 * 1024)
+    pct = (used_mb / quota_mb * 100) if quota_mb else 0
+    return used_mb, pct
+
+
 class Command(BaseCommand):
     help = "db.sqlite3 zaxirasini Telegram botga yuboradi"
 
@@ -90,6 +106,10 @@ class Command(BaseCommand):
         parser.add_argument("--test", action="store_true", help="Faqat test xabari yuboradi")
         parser.add_argument("--faqat-baza", action="store_true", dest="faqat_baza",
                             help="Faqat db.sqlite3 yuboradi (hisobotlar ZIP'siz)")
+        parser.add_argument("--disk-quota-mb", type=int, default=512, dest="disk_quota_mb",
+                            help="Disk kvotasi (MB), foiz shu bilan hisoblanadi. Default 512 (PythonAnywhere bepul)")
+        parser.add_argument("--disk-warn", type=int, default=90, dest="disk_warn",
+                            help="Necha foizda ogohlantirish yuborilsin. Default 90")
 
     def handle(self, *args, **opts):
         token, chat = _token_chat()
@@ -100,6 +120,15 @@ class Command(BaseCommand):
             )
 
         now = timezone.localtime().strftime("%d.%m.%Y %H:%M")
+
+        # Disk holati (hech narsa o'chirilmaydi — faqat hisoblash + ogohlantirish)
+        quota_mb = opts.get("disk_quota_mb") or 512
+        warn_pct = opts.get("disk_warn") or 90
+        try:
+            used_mb, disk_pct = _disk_usage(quota_mb)
+            disk_str = f"💽 Disk: {used_mb:.0f}/{quota_mb} MB ({disk_pct:.0f}%)"
+        except Exception:
+            used_mb, disk_pct, disk_str = 0, 0, "💽 Disk: —"
 
         if opts["test"]:
             res = _api(token, "sendMessage", fields={
@@ -120,7 +149,7 @@ class Command(BaseCommand):
             fname = f"qurilish_erp_{timezone.localtime().strftime('%Y%m%d_%H%M')}.sqlite3"
             res = _api(token, "sendDocument",
                        fields={"chat_id": chat,
-                               "caption": f"🗄 Qurilish ERP zaxirasi\n{now} · {size_mb:.1f} MB"},
+                               "caption": f"🗄 Qurilish ERP zaxirasi\n{now} · {size_mb:.1f} MB\n{disk_str}"},
                        files={"document": (fname, data)})
             if '"ok":true' not in res:
                 raise CommandError(f"Telegram xatosi: {res[:300]}")
@@ -150,3 +179,18 @@ class Command(BaseCommand):
                 raise
             except Exception as e:
                 self.stdout.write(self.style.WARNING(f"Hisobotlar ZIP yuborilmadi: {e}"))
+
+        # Disk 90% (yoki belgilangan chegara) ga yetsa — ogohlantirish (hech narsa o'chirilmaydi)
+        if disk_pct >= warn_pct:
+            try:
+                _api(token, "sendMessage", fields={
+                    "chat_id": chat,
+                    "text": (f"⚠️ DIQQAT — Disk {disk_pct:.0f}% to'ldi ({used_mb:.0f}/{quota_mb} MB)\n"
+                             f"Zaxira yuqorida saqlandi. Joy bo'shatish kerak — eski rasm/log/backup fayllarni "
+                             f"tekshiring. Biznes ma'lumot (obyekt/limit) O'CHIRILMADI."),
+                })
+                self.stdout.write(self.style.WARNING(f"Disk {disk_pct:.0f}% — ogohlantirish yuborildi"))
+            except Exception as e:
+                self.stdout.write(self.style.WARNING(f"Ogohlantirish yuborilmadi: {e}"))
+        else:
+            self.stdout.write(self.style.SUCCESS(f"Disk holati: {disk_pct:.0f}% (chegara {warn_pct}%)"))
