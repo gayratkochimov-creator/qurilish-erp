@@ -12,7 +12,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.core.exceptions import PermissionDenied
 
 from projects.models import Firma, Project, WorkSection
-from projects.roles import is_pto
+from projects.roles import is_pto, user_firma, visible_firmas, visible_projects
 from . import services
 
 
@@ -20,6 +20,28 @@ def _pto_kerak(user):
     """Ombor hujjatlarini faqat PTO/admin o'zgartiradi — oddiy foydalanuvchi emas."""
     if not is_pto(user):
         raise PermissionDenied("Ombor hujjatlarini faqat PTO yoki admin o'zgartiradi.")
+
+
+def _visible_warehouses(user):
+    """Foydalanuvchi ko'ra oladigan omborlar (o'z firmasi obyektlariga tegishli).
+    Admin — hammasi. Firma izolyatsiyasi shu yerdan boshqariladi."""
+    qs = Warehouse.objects.all()
+    if user.is_superuser:
+        return qs
+    f = user_firma(user)
+    return qs.filter(project__firma=f) if f else qs.none()
+
+
+def _warehouse_yoki_403(user, warehouse):
+    """Ombor foydalanuvchi firmasiga tegishli bo'lmasa 403."""
+    if user.is_superuser:
+        return warehouse
+    f = user_firma(user)
+    ok = bool(f and warehouse is not None
+              and warehouse.project_id and warehouse.project.firma_id == f.pk)
+    if not ok:
+        raise PermissionDenied("Bu ombor sizning firmangizga tegishli emas.")
+    return warehouse
 from .models import (
     Issue, IssueItem, Material, Receipt, ReceiptItem, StockBalance,
     StockMovement, Supplier, Warehouse,
@@ -69,10 +91,20 @@ def _qty(v):
     return s
 
 
-def _ombor_data(firma_id, project_id, warehouse_id):
-    """Filtrlangan kirim/chiqim/qoldiq ma'lumoti + pul yig'indilari."""
+def _ombor_data(firma_id, project_id, warehouse_id, user=None):
+    """Filtrlangan kirim/chiqim/qoldiq ma'lumoti + pul yig'indilari.
+    user berilsa — faqat o'sha foydalanuvchi firmasidagi omborlar (admin=hammasi)."""
     moves = StockMovement.objects.all()
     balances = StockBalance.objects.all()
+    # Firma izolyatsiyasi (majburiy — GET filtridan qat'i nazar)
+    if user is not None and not user.is_superuser:
+        f = user_firma(user)
+        if f:
+            moves = moves.filter(warehouse__project__firma=f)
+            balances = balances.filter(warehouse__project__firma=f)
+        else:
+            moves = moves.none()
+            balances = balances.none()
     if firma_id:
         moves = moves.filter(warehouse__project__firma_id=firma_id)
         balances = balances.filter(warehouse__project__firma_id=firma_id)
@@ -144,14 +176,14 @@ def ombor(request):
     firma_id = request.GET.get("firma") or ""
     project_id = request.GET.get("project") or ""
     warehouse_id = request.GET.get("warehouse") or ""
-    d = _ombor_data(firma_id, project_id, warehouse_id)
+    d = _ombor_data(firma_id, project_id, warehouse_id, user=request.user)
 
     q = request.GET.urlencode()
     kontekst = {
         "rows": d["rows"],
-        "firmalar": Firma.objects.order_by("name"),
-        "projects": Project.objects.order_by("code"),
-        "warehouses": Warehouse.objects.select_related("project").order_by("name"),
+        "firmalar": visible_firmas(request.user).order_by("name"),
+        "projects": visible_projects(request.user).order_by("code"),
+        "warehouses": _visible_warehouses(request.user).select_related("project").order_by("name"),
         "sel_firma": firma_id,
         "sel_project": project_id,
         "sel_warehouse": warehouse_id,
@@ -165,13 +197,13 @@ def ombor(request):
     return render(request, "ombor/ombor.html", kontekst)
 
 
-def _ombor_wb(firma="", project="", warehouse=""):
+def _ombor_wb(firma="", project="", warehouse="", user=None):
     """Ombor jadvalini (ixtiyoriy filtr bilan) openpyxl Workbook qaytaradi."""
     import openpyxl
     from openpyxl.styles import Font, PatternFill
     from openpyxl.utils import get_column_letter
 
-    d = _ombor_data(firma or "", project or "", warehouse or "")
+    d = _ombor_data(firma or "", project or "", warehouse or "", user=user)
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Ombor"
@@ -193,7 +225,7 @@ def _ombor_wb(firma="", project="", warehouse=""):
 def ombor_export(request):
     """Ombor jadvalini (filtr bilan) Excel'ga eksport."""
     wb = _ombor_wb(request.GET.get("firma") or "", request.GET.get("project") or "",
-                   request.GET.get("warehouse") or "")
+                   request.GET.get("warehouse") or "", user=request.user)
     buf = io.BytesIO()
     wb.save(buf)
     buf.seek(0)
@@ -211,12 +243,14 @@ def prixod_list(request):
     receipts = (Receipt.objects.select_related(
         "warehouse", "supplier", "warehouse__project", "warehouse__project__firma")
         .prefetch_related("items"))
+    if not request.user.is_superuser:
+        receipts = receipts.filter(warehouse__in=_visible_warehouses(request.user))
     if firma_id:
         receipts = receipts.filter(warehouse__project__firma_id=firma_id)
     if project_id:
         receipts = receipts.filter(warehouse__project_id=project_id)
     receipts = receipts.order_by("-date", "-id")
-    projects = Project.objects.order_by("code")
+    projects = visible_projects(request.user).order_by("code")
     if firma_id:
         projects = projects.filter(firma_id=firma_id)
     rows = []
@@ -236,11 +270,11 @@ def prixod_list(request):
         })
     return render(request, "ombor/prixod.html", {
         "rows": rows,
-        "firmalar": Firma.objects.order_by("name"),
+        "firmalar": visible_firmas(request.user).order_by("name"),
         "obyektlar": projects,
         "sel_firma": firma_id,
         "sel_project": project_id,
-        "warehouses": Warehouse.objects.select_related("project").order_by("name"),
+        "warehouses": _visible_warehouses(request.user).select_related("project").order_by("name"),
         "suppliers": Supplier.objects.order_by("name"),
         "materials": Material.objects.order_by("name"),
         "today": datetime.date.today().isoformat(),
@@ -255,6 +289,8 @@ def prixod_add(request):
         if not wh:
             messages.error(request, "Ombor tanlang.")
             return redirect("prixod_list")
+        # Firma izolyatsiyasi: tanlangan ombor foydalanuvchi firmasiga tegishli bo'lsin
+        _warehouse_yoki_403(request.user, get_object_or_404(Warehouse, pk=wh))
         try:
             date = datetime.date.fromisoformat(request.POST.get("date", ""))
         except ValueError:
@@ -296,6 +332,7 @@ def prixod_add(request):
 def prixod_action(request, pk):
     _pto_kerak(request.user)
     r = get_object_or_404(Receipt, pk=pk)
+    _warehouse_yoki_403(request.user, r.warehouse)
     if request.method == "POST":
         a = request.POST.get("action")
         try:
@@ -324,12 +361,14 @@ def rasxod_list(request):
     issues = (Issue.objects.select_related(
         "warehouse", "work_section", "work_section__project",
         "warehouse__project", "warehouse__project__firma").prefetch_related("items"))
+    if not request.user.is_superuser:
+        issues = issues.filter(warehouse__in=_visible_warehouses(request.user))
     if firma_id:
         issues = issues.filter(warehouse__project__firma_id=firma_id)
     if project_id:
         issues = issues.filter(warehouse__project_id=project_id)
     issues = issues.order_by("-date", "-id")
-    projects = Project.objects.order_by("code")
+    projects = visible_projects(request.user).order_by("code")
     if firma_id:
         projects = projects.filter(firma_id=firma_id)
     rows = []
@@ -344,12 +383,13 @@ def rasxod_list(request):
         })
     return render(request, "ombor/rasxod.html", {
         "rows": rows,
-        "firmalar": Firma.objects.order_by("name"),
+        "firmalar": visible_firmas(request.user).order_by("name"),
         "obyektlar": projects,
         "sel_firma": firma_id,
         "sel_project": project_id,
-        "warehouses": Warehouse.objects.select_related("project").order_by("name"),
-        "sections": WorkSection.objects.select_related("project").order_by("project__code", "name"),
+        "warehouses": _visible_warehouses(request.user).select_related("project").order_by("name"),
+        "sections": WorkSection.objects.filter(
+            project__in=visible_projects(request.user)).select_related("project").order_by("project__code", "name"),
         "materials": Material.objects.order_by("name"),
         "today": datetime.date.today().isoformat(),
     })
@@ -363,13 +403,21 @@ def rasxod_add(request):
         if not wh:
             messages.error(request, "Ombor tanlang.")
             return redirect("rasxod_list")
+        # Firma izolyatsiyasi: ombor foydalanuvchi firmasiga tegishli bo'lsin
+        _warehouse_yoki_403(request.user, get_object_or_404(Warehouse, pk=wh))
+        # Ish bo'limi (bo'lsa) ham o'z firmasi obyektiga tegishli bo'lsin
+        ws_id = request.POST.get("work_section") or None
+        if ws_id and not request.user.is_superuser:
+            ws = get_object_or_404(WorkSection, pk=ws_id)
+            if ws.project_id not in set(visible_projects(request.user).values_list("id", flat=True)):
+                raise PermissionDenied("Bu ish bo'limi sizning firmangizga tegishli emas.")
         try:
             date = datetime.date.fromisoformat(request.POST.get("date", ""))
         except ValueError:
             messages.error(request, "Sanani to'g'ri kiriting.")
             return redirect("rasxod_list")
         x = Issue.objects.create(
-            warehouse_id=wh, work_section_id=(request.POST.get("work_section") or None),
+            warehouse_id=wh, work_section_id=ws_id,
             recipient=(request.POST.get("recipient") or "").strip(),
             date=date, doc_number=(request.POST.get("doc_number") or "").strip(),
             note=(request.POST.get("note") or "").strip(),
@@ -397,6 +445,7 @@ def rasxod_add(request):
 def rasxod_action(request, pk):
     _pto_kerak(request.user)
     x = get_object_or_404(Issue, pk=pk)
+    _warehouse_yoki_403(request.user, x.warehouse)
     if request.method == "POST":
         a = request.POST.get("action")
         try:

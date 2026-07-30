@@ -2,11 +2,13 @@
 projects/admin.py — Obyektlar (Project) va ish bo'limlari uchun admin.
 """
 from django.contrib import admin, messages
+from django.contrib.auth import get_user_model
+from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django.utils.html import format_html
 
 from .models import (
     Firma, LimitChangeItem, LimitChangeRequest, LimitItem, Project,
-    WeeklyRequest, WeeklyRequestItem, WorkSection,
+    UserProfile, WeeklyRequest, WeeklyRequestItem, WorkSection,
 )
 
 
@@ -240,3 +242,28 @@ class WeeklyRequestAdmin(admin.ModelAdmin):
     @admin.display(description="Jami summa")
     def jami_summa(self, obj):
         return _money(obj.jami)
+
+
+# ---- Foydalanuvchini firmaga biriktirish (login yaratganda) ----
+class UserProfileInline(admin.StackedInline):
+    model = UserProfile
+    can_delete = False
+    fk_name = "user"
+    verbose_name = "Firma biriktirish"
+    verbose_name_plural = "Firma biriktirish (direktor/PTO faqat shu firmani ko'radi)"
+    autocomplete_fields = ["firma"]
+
+
+class UserAdmin(DjangoUserAdmin):
+    inlines = [UserProfileInline]
+    list_display = DjangoUserAdmin.list_display + ("firma_nomi",)
+
+    @admin.display(description="Firma")
+    def firma_nomi(self, obj):
+        prof = getattr(obj, "profile", None)
+        return prof.firma if prof and prof.firma_id else "—"
+
+
+User = get_user_model()
+admin.site.unregister(User)
+admin.site.register(User, UserAdmin)

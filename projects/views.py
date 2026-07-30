@@ -15,7 +15,10 @@ from django.db.models import Sum
 from .models import (_LINE_TOTAL, Firma, GrafikRow, LimitChangeItem,
                      LimitChangeRequest, LimitItem, Project, WeeklyRequest,
                      WeeklyRequestItem, sync_limit_items)
-from .roles import is_admin, is_director, is_pto
+from .roles import (
+    can_access_project, is_admin, is_director, is_pto,
+    user_firma, visible_firmas, visible_projects,
+)
 
 
 def _to_dec(v):
@@ -35,6 +38,13 @@ def _to_dec(v):
 
 def _money(value):
     return f"{value:,.0f}".replace(",", " ")
+
+
+def _firma_yoki_403(request, project):
+    """Obyekt foydalanuvchining firmasiga tegishli bo'lmasa 403 (firma izolyatsiyasi)."""
+    if not can_access_project(request.user, project):
+        raise PermissionDenied("Bu obyekt sizning firmangizga tegishli emas.")
+    return project
 
 # eslatma: _qty pastda (bitta joyda) aniqlangan — oldin shu yerda dublikat bor edi
 
@@ -164,7 +174,7 @@ def _holat(limit, sarf):
 @login_required
 def dashboard(request):
     firma_id = request.GET.get("firma") or ""
-    obyektlar = Project.objects.all().order_by("code")
+    obyektlar = visible_projects(request.user).order_by("code")
     if firma_id:
         obyektlar = obyektlar.filter(firma_id=firma_id)
     qatorlar = []
@@ -203,7 +213,9 @@ def dashboard(request):
     _LT = ExpressionWrapper(F("quantity") * F("unit_price"),
                             output_field=DecimalField(max_digits=20, decimal_places=2))
 
-    _lq = Project.objects.filter(firma_id=firma_id) if firma_id else Project.objects.all()
+    _lq = visible_projects(request.user)
+    if firma_id:
+        _lq = _lq.filter(firma_id=firma_id)
     la = _lq.aggregate(m=Sum("limit_material"), l=Sum("limit_labor"), k=Sum("limit_machinery"))
     lim_mat = la["m"] or Decimal("0")
     lim_lab = la["l"] or Decimal("0")
@@ -231,7 +243,8 @@ def dashboard(request):
     ]
 
     # haftalik sarf grafigi (tasdiqlangan)
-    _cq = WeeklyRequestItem.objects.filter(request__status="approved")
+    _cq = WeeklyRequestItem.objects.filter(
+        request__status="approved", request__project__in=visible_projects(request.user))
     if firma_id:
         _cq = _cq.filter(request__project__firma_id=firma_id)
     crows = list(
@@ -259,7 +272,8 @@ def dashboard(request):
     oshgan = sum(1 for q in qatorlar if q["holat"] == "RUXSAT KERAK")
     yaqin = sum(1 for q in qatorlar if q["holat"] == "limitga yaqin")
     limitli = sum(1 for q in qatorlar if q["obj"].budget_total > 0)
-    _pq = LimitChangeRequest.objects.filter(status__in=LIM_JARAYON)
+    _pq = LimitChangeRequest.objects.filter(
+        status__in=LIM_JARAYON, project__in=visible_projects(request.user))
     if firma_id:
         _pq = _pq.filter(project__firma_id=firma_id)
     pending_count = _pq.count()
@@ -272,7 +286,7 @@ def dashboard(request):
 
     # --- «Limit kiritish» tab (bitta oynada) ---
     admin_u = request.user.is_superuser
-    _fqs = Firma.objects.order_by("name").prefetch_related("projects")
+    _fqs = visible_firmas(request.user).order_by("name").prefetch_related("projects")
     if firma_id:
         _fqs = _fqs.filter(id=firma_id)
     entry_firms = []
@@ -282,10 +296,10 @@ def dashboard(request):
         if _rows:
             entry_firms.append({"firma": f, "rows": _rows})
     entry_no_firm = []
-    if not firma_id:
-        entry_no_firm = [{"p": pp, "editable": admin_u or pp.budget_total <= 0}
+    if not firma_id and admin_u:
+        entry_no_firm = [{"p": pp, "editable": True}
                          for pp in Project.objects.filter(firma__isnull=True).order_by("code")]
-    _all = list(Project.objects.all())
+    _all = list(visible_projects(request.user))
     _tab = request.GET.get("tab")
     if _tab == "kiritish" and is_pto(request.user):
         active_tab = "kiritish"
@@ -300,9 +314,9 @@ def dashboard(request):
     _adm = is_admin(request.user)
     tas_lim, tas_wk, tas_lim2, tas_wk2 = [], [], [], []
     if _dir:
-        tas_lim, tas_wk = _tasdiqlar_data("dir")
+        tas_lim, tas_wk = _tasdiqlar_data("dir", user=request.user)
     if _adm:
-        tas_lim2, tas_wk2 = _tasdiqlar_data("adm")
+        tas_lim2, tas_wk2 = _tasdiqlar_data("adm", user=request.user)
     tas_show = _dir or _adm
     from django.utils import timezone as _tz
     _h = _tz.localtime().hour
@@ -343,12 +357,12 @@ def dashboard(request):
         "chart_h": H,
         "chart_labels": labels,
         "obyektlar_soni": len(qatorlar),
-        "firmalar_soni": 1 if firma_id else Firma.objects.count(),
+        "firmalar_soni": 1 if firma_id else visible_firmas(request.user).count(),
         "limitli": limitli,
         "oshgan": oshgan,
         "yaqin": yaqin,
         "pending_count": pending_count,
-        "firmalar": Firma.objects.order_by("name"),
+        "firmalar": visible_firmas(request.user).order_by("name"),
         "sel_firma": firma_id,
     }
     return render(request, "projects/dashboard.html", kontekst)
@@ -361,7 +375,7 @@ def firmalar(request):
     all_objs = []
     tot_limit = Decimal("0")
     tot_sarf = Decimal("0")
-    for f in Firma.objects.all().order_by("name").prefetch_related("projects"):
+    for f in visible_firmas(request.user).order_by("name").prefetch_related("projects"):
         objs = []
         f_limit = Decimal("0")
         f_sarf = Decimal("0")
@@ -442,7 +456,7 @@ def m29(request):
     d1 = request.GET.get("d1") or ""
     d2 = request.GET.get("d2") or ""
 
-    projs = Project.objects.all().order_by("code")
+    projs = visible_projects(request.user).order_by("code")
     if firma_id:
         projs = projs.filter(firma_id=firma_id)
 
@@ -450,6 +464,7 @@ def m29(request):
     reja_q = WeeklyRequestItem.objects.filter(
         request__status=WeeklyRequest.Status.APPROVED,
         kind=WeeklyRequestItem.Kind.MATERIAL,
+        request__project__in=visible_projects(request.user),
     )
     if firma_id:
         reja_q = reja_q.filter(request__project__firma_id=firma_id)
@@ -462,7 +477,8 @@ def m29(request):
     reja_rows = reja_q.values("name", "unit").annotate(qty=Sum("quantity"), summa=Sum(_LT))
 
     # --- FAKT: ombor chiqimi (OUT — miqdor/summa manfiy ishorali) ---
-    fakt_q = StockMovement.objects.filter(direction=StockMovement.OUT)
+    fakt_q = StockMovement.objects.filter(
+        direction=StockMovement.OUT, project__in=visible_projects(request.user))
     if firma_id:
         fakt_q = fakt_q.filter(project__firma_id=firma_id)
     if obj_id:
@@ -544,7 +560,7 @@ def m29(request):
         "farq_zero": farq_jami == 0,
         "n_perer": n_perer,
         "n_ekon": n_ekon,
-        "firmalar": Firma.objects.order_by("name"),
+        "firmalar": visible_firmas(request.user).order_by("name"),
         "obyektlar": projs,
         "sel_firma": firma_id,
         "sel_obj": obj_id,
@@ -571,7 +587,7 @@ def virtual_ofis(request):
 
     # 1) Limit nazoratchisi
     tasks = []
-    for p in Project.objects.select_related("firma").all():
+    for p in visible_projects(request.user).select_related("firma"):
         lim = p.budget_total
         if lim <= 0:
             continue
@@ -587,8 +603,9 @@ def virtual_ofis(request):
 
     # 2) Tasdiq kotibi
     tasks = []
-    lc = LimitChangeRequest.objects.filter(status__in=LIM_JARAYON).count()
-    wc = WeeklyRequest.objects.filter(status="submitted").count()
+    _vp = visible_projects(request.user)
+    lc = LimitChangeRequest.objects.filter(status__in=LIM_JARAYON, project__in=_vp).count()
+    wc = WeeklyRequest.objects.filter(status="submitted", project__in=_vp).count()
     if lc:
         tasks.append({"text": f"{lc} ta limit o'zgartirish so'rovi tasdiq kutmoqda",
                       "level": "warn", "url": _rev("tasdiqlar")})
@@ -601,7 +618,10 @@ def virtual_ofis(request):
     # 3) Ombor nazoratchisi
     tasks = []
     low = (StockBalance.objects.select_related("material", "warehouse")
-           .filter(quantity__lte=0).order_by("warehouse__name")[:30])
+           .filter(quantity__lte=0))
+    if not request.user.is_superuser:
+        low = low.filter(warehouse__project__in=visible_projects(request.user))
+    low = low.order_by("warehouse__name")[:30]
     for b in low:
         tasks.append({"text": f"{b.material.name} — {b.warehouse.kod_nom}: qoldiq {_qty(b.quantity)} (tugagan)",
                       "level": "bad", "url": _rev("ombor")})
@@ -610,7 +630,7 @@ def virtual_ofis(request):
 
     # 4) Muddat agenti
     tasks = []
-    for p in Project.objects.filter(status="active").exclude(end_date__isnull=True):
+    for p in visible_projects(request.user).filter(status="active").exclude(end_date__isnull=True):
         if p.end_date < today:
             tasks.append({"text": f"{p.code} — {p.name}: muddati o'tgan ({p.end_date:%d.%m.%Y})",
                           "level": "bad", "url": _u_obj(p.id)})
@@ -624,7 +644,7 @@ def virtual_ofis(request):
     tasks = []
     KAT = [("Material", "limit_material", "material"), ("Ish haqi", "limit_labor", "labor"),
            ("Mashina chasti", "limit_machinery", "machinery")]
-    for p in Project.objects.all():
+    for p in visible_projects(request.user):
         if p.budget_total <= 0:
             continue
         split = p.sarf_by_kind()
@@ -660,7 +680,7 @@ def haftalik_tarix(request):
     d2 = request.GET.get("d2") or ""
     holat = request.GET.get("holat") or "approved"  # approved / submitted / draft / all
 
-    projs = Project.objects.all().order_by("code")
+    projs = visible_projects(request.user).order_by("code")
     if firma_id:
         projs = projs.filter(firma_id=firma_id)
 
@@ -705,7 +725,7 @@ def haftalik_tarix(request):
     sel_obj = projs.filter(id=obj_id).first() if obj_id else None
     kontekst = {
         "rows": rows, "soni": len(rows), "jami_str": _money(t_jami),
-        "firmalar": Firma.objects.order_by("name"), "obyektlar": projs,
+        "firmalar": visible_firmas(request.user).order_by("name"), "obyektlar": projs,
         "sel_firma": firma_id, "sel_obj": obj_id,
         "sel_obj_name": (f"{sel_obj.code} — {sel_obj.name}") if sel_obj else "",
         "d1": d1, "d2": d2, "holat": holat,
@@ -715,7 +735,7 @@ def haftalik_tarix(request):
 
 @login_required
 def project_detail(request, pk):
-    p = get_object_or_404(Project, pk=pk)
+    p = _firma_yoki_403(request, get_object_or_404(Project, pk=pk))
 
     pending = p.limit_requests.filter(status__in=LIM_JARAYON).first()
     # Oxirgi rad etilgan so'rov — PTO sababini ko'rsin (kutilayotgani bo'lmasa)
@@ -923,7 +943,7 @@ def project_detail(request, pk):
 @login_required
 def limit_edit(request, pk):
     """PTO limit kiritadi. Limit allaqachon bo'lsa — o'zgartirishga so'rov (admin tasdiqlaydi)."""
-    p = get_object_or_404(Project, pk=pk)
+    p = _firma_yoki_403(request, get_object_or_404(Project, pk=pk))
     if not is_pto(request.user):
         raise PermissionDenied("Limitni faqat PTO kiritadi.")
     if request.method != "POST":
@@ -966,7 +986,7 @@ def limit_edit(request, pk):
 def limit_items_edit(request, pk):
     """PTO umumiy limit ichini (tarkibini) kiritadi/o'zgartiradi.
     Limit yo'q bo'lsa — to'g'ridan-to'g'ri. Bor bo'lsa — admin tasdig'i kerak."""
-    p = get_object_or_404(Project, pk=pk)
+    p = _firma_yoki_403(request, get_object_or_404(Project, pk=pk))
     if not is_pto(request.user):
         raise PermissionDenied("Limit ichini faqat PTO kiritadi.")
     if request.method != "POST":
@@ -1025,12 +1045,16 @@ def limit_items_edit(request, pk):
     return redirect("project_detail", pk=pk)
 
 
-def _tasdiqlar_data(status="dir"):
+def _tasdiqlar_data(status="dir", user=None):
     """Tasdiqlash markazi ma'lumoti: limit o'zgarishlari + haftalik so'rovlar.
-    status='dir' — direktor navbati; status='adm' (limit) / 'submitted' (haftalik) — admin navbati."""
+    status='dir' — direktor navbati; status='adm' (limit) / 'submitted' (haftalik) — admin navbati.
+    user berilsa — faqat o'sha foydalanuvchi firmasidagi so'rovlar (admin=hammasi)."""
     wk_status = "submitted" if status == "adm" else status
-    lreqs = (LimitChangeRequest.objects.filter(status=status)
-             .select_related("project", "requested_by", "director_by")
+    _proj_qs = visible_projects(user) if user is not None else None
+    lreqs = LimitChangeRequest.objects.filter(status=status)
+    if _proj_qs is not None:
+        lreqs = lreqs.filter(project__in=_proj_qs)
+    lreqs = (lreqs.select_related("project", "requested_by", "director_by")
              .prefetch_related("proposed_items").order_by("-created_at"))
     LI_CLS = {"material": "mat", "labor": "lab", "machinery": "mach"}
     lim_list = []
@@ -1073,8 +1097,11 @@ def _tasdiqlar_data(status="dir"):
             ],
             "items": items,
         })
-    wreqs = (WeeklyRequest.objects.filter(status=wk_status)
-             .select_related("project", "created_by", "director_by").prefetch_related("items").order_by("-week_start"))
+    wreqs = WeeklyRequest.objects.filter(status=wk_status)
+    if _proj_qs is not None:
+        wreqs = wreqs.filter(project__in=_proj_qs)
+    wreqs = (wreqs.select_related("project", "created_by", "director_by")
+             .prefetch_related("items").order_by("-week_start"))
     wk_list = []
     for w in wreqs:
         # Qatorlar — umumiy limit tarkibi bilan solishtiriladi.
@@ -1127,6 +1154,7 @@ def tasdiqlar(request):
 def limit_request_action(request, pk):
     """Limit o'zgartirish so'rovini tasdiqlash / rad etish (admin)."""
     req = get_object_or_404(LimitChangeRequest, pk=pk)
+    _firma_yoki_403(request, req.project)
     # «ack» — so'rov EGASI xabarni yopadi (admin bo'lishi shart emas)
     if request.method == "POST" and request.POST.get("action") == "ack":
         if req.requested_by_id == request.user.id:
@@ -1296,7 +1324,7 @@ def limit_bulk(request):
     if request.method == "POST":
         n = 0
         sorov = 0
-        for p in Project.objects.all():
+        for p in visible_projects(request.user):
             editable = admin or p.budget_total <= 0
             if not editable:
                 continue
@@ -1331,11 +1359,11 @@ def limit_bulk(request):
         return redirect(url + q)
 
     # xulosa: nechta obyektga limit belgilangan
-    all_projects = list(Project.objects.all())
+    all_projects = list(visible_projects(request.user))
     jami_obj = len(all_projects)
     limitli_obj = sum(1 for p in all_projects if p.budget_total > 0)
 
-    firmalar_qs = Firma.objects.order_by("name").prefetch_related("projects")
+    firmalar_qs = visible_firmas(request.user).order_by("name").prefetch_related("projects")
     if firma_id:
         firmalar_qs = firmalar_qs.filter(id=firma_id)
     firms = []
@@ -1344,12 +1372,12 @@ def limit_bulk(request):
         if rows:
             firms.append({"firma": f, "rows": rows})
     no_firm = []
-    if not firma_id:
-        no_firm = [{"p": p, "editable": admin or p.budget_total <= 0}
+    if not firma_id and admin:
+        no_firm = [{"p": p, "editable": True}
                    for p in Project.objects.filter(firma__isnull=True).order_by("code")]
     return render(request, "projects/limit_bulk.html", {
         "firms": firms, "no_firm": no_firm, "admin": admin,
-        "firmalar": Firma.objects.order_by("name"),
+        "firmalar": visible_firmas(request.user).order_by("name"),
         "sel_firma": firma_id,
         "jami_obj": jami_obj, "limitli_obj": limitli_obj,
     })
@@ -1358,7 +1386,7 @@ def limit_bulk(request):
 @login_required
 def weekly_add(request, pk):
     """PTO yangi haftalik so'rov (limit) qo'shadi — qoralama sifatida."""
-    p = get_object_or_404(Project, pk=pk)
+    p = _firma_yoki_403(request, get_object_or_404(Project, pk=pk))
     if not is_pto(request.user):
         raise PermissionDenied("Haftalik so'rovni faqat PTO qo'shadi.")
     if request.method != "POST":
@@ -1460,6 +1488,7 @@ def weekly_action(request, pk):
     """Haftalik so'rov oqimi: PTO yuboradi → Direktor tasdiqlaydi → Admin tasdiqlaydi."""
     from .roles import is_admin, is_director
     req = get_object_or_404(WeeklyRequest, pk=pk)
+    _firma_yoki_403(request, req.project)
     WS = WeeklyRequest.Status
     proj_id = req.project_id
     if request.method == "POST":
@@ -1707,17 +1736,20 @@ def weekly_edit(request, pk):
     })
 
 
-def build_hisobotlar_zip():
+def build_hisobotlar_zip(user=None):
     """Barcha hisobotlarni bitta ZIP (bytes) qilib qaytaradi:
        - Umumiy_limitlar.xlsx (barcha obyektlar jadvali)
        - Obyektlar/<kod>_limit.xlsx (har obyekt: limit ichi + haftalik)
        - Ombor_qoldiq.xlsx (joriy qoldiq), agar mavjud bo'lsa.
-       View ham, Telegram bot ham shu funksiyani ishlatadi."""
+       View ham, Telegram bot ham shu funksiyani ishlatadi.
+       user berilsa — faqat o'sha foydalanuvchi firmasidagi obyektlar (bot=None=hammasi)."""
     import zipfile
 
     import openpyxl
     from openpyxl.styles import Font, PatternFill
     from openpyxl.utils import get_column_letter
+
+    proj_qs = visible_projects(user) if user is not None else Project.objects.all()
 
     zbuf = io.BytesIO()
     with zipfile.ZipFile(zbuf, "w", zipfile.ZIP_DEFLATED) as z:
@@ -1730,7 +1762,7 @@ def build_hisobotlar_zip():
         for c in ws[1]:
             c.font = Font(bold=True, color="FFFFFF")
             c.fill = PatternFill("solid", fgColor="213145")
-        for p in Project.objects.select_related("firma").all().order_by("code"):
+        for p in proj_qs.select_related("firma").order_by("code"):
             sarf = p.sarflangan()
             lim = p.budget_total or Decimal("0")
             ws.append([p.code, p.name, p.firma.name if p.firma_id else "—",
@@ -1743,17 +1775,18 @@ def build_hisobotlar_zip():
         z.writestr("Umumiy_limitlar.xlsx", b.getvalue())
 
         # 2) Har obyekt uchun batafsil (faqat limiti yoki haftaligi bo'lganlar)
-        for p in Project.objects.all().order_by("code"):
+        for p in proj_qs.order_by("code"):
             if p.budget_total <= 0 and not p.weekly_requests.exists() and not p.limit_items.exists():
                 continue
             b = io.BytesIO(); _obj_limit_wb(p).save(b)
             fn = f"Obyektlar/{p.code}_limit.xlsx".replace(" ", "_")
             z.writestr(fn, b.getvalue())
 
-        # 3) Ombor qoldig'i (barcha omborlar)
+        # 3) Ombor qoldig'i (foydalanuvchi firmasi bo'yicha; bot=hammasi)
         try:
             from ombor.views import _ombor_wb
-            b = io.BytesIO(); _ombor_wb().save(b)
+            _uf = user_firma(user) if (user is not None and not user.is_superuser) else None
+            b = io.BytesIO(); _ombor_wb(firma=str(_uf.id) if _uf else "").save(b)
             z.writestr("Ombor_qoldiq.xlsx", b.getvalue())
         except Exception:
             pass
@@ -1765,7 +1798,7 @@ def build_hisobotlar_zip():
 def hisobotlar_zip(request):
     """Barcha hisobotlarni bitta ZIP faylga jamlab yuklab olish."""
     from django.utils import timezone as _tz
-    resp = HttpResponse(build_hisobotlar_zip(), content_type="application/zip")
+    resp = HttpResponse(build_hisobotlar_zip(user=request.user), content_type="application/zip")
     stamp = _tz.localtime().strftime("%Y%m%d_%H%M")
     resp["Content-Disposition"] = f'attachment; filename="hisobotlar_{stamp}.zip"'
     return resp
@@ -1782,7 +1815,7 @@ def limit_export(request):
     ws.title = "Limitlar"
     headers = ["Kod", "Nomi", "Material limiti", "Ish haqi limiti", "Mashina chasti limiti", "Umumiy limit", "Sarflangan", "Qolgan"]
     ws.append(headers)
-    for p in Project.objects.all().order_by("code"):
+    for p in visible_projects(request.user).order_by("code"):
         sarf = p.sarflangan()
         limit = p.budget_total or Decimal("0")
         ws.append([
@@ -1917,7 +1950,7 @@ def _obj_limit_wb(p):
 @login_required
 def limit_export_obj(request, pk):
     """Bitta obyekt limit hisoboti — Excel."""
-    p = get_object_or_404(Project, pk=pk)
+    p = _firma_yoki_403(request, get_object_or_404(Project, pk=pk))
     buf = io.BytesIO()
     _obj_limit_wb(p).save(buf)
     buf.seek(0)
@@ -1946,7 +1979,7 @@ def limit_template(request):
         cell.font = Font(bold=True, color="FFFFFF")
         cell.fill = PatternFill("solid", fgColor="2563EB")
 
-    for p in Project.objects.all().order_by("code"):
+    for p in visible_projects(request.user).order_by("code"):
         ws.append([p.code, p.name, float(p.limit_material or 0), float(p.limit_labor or 0), float(p.limit_machinery or 0)])
     # bo'sh namuna qatorlari (yangi obyekt qo'shish uchun)
     for _ in range(3):
@@ -2139,7 +2172,7 @@ def grafik_list(request):
     """Grafik ishlar — obyektlar ro'yxati, har biriga bosib grafik ochiladi."""
     from django.db.models import Count
     firma_id = request.GET.get("firma") or ""
-    projs = (Project.objects.select_related("firma")
+    projs = (visible_projects(request.user).select_related("firma")
              .annotate(gcount=Count("grafik_rows")).order_by("code"))
     if firma_id:
         projs = projs.filter(firma_id=firma_id)
@@ -2151,14 +2184,14 @@ def grafik_list(request):
     } for p in projs]
     return render(request, "projects/grafik_list.html", {
         "rows": rows, "soni": len(rows),
-        "firmalar": Firma.objects.order_by("name"), "sel_firma": firma_id,
+        "firmalar": visible_firmas(request.user).order_by("name"), "sel_firma": firma_id,
     })
 
 
 @login_required
 def grafik_web(request, pk):
     """Ish grafigi — brauzerda (namunadagi «график работа» kabi tahrirlanadigan jadval)."""
-    p = get_object_or_404(Project, pk=pk)
+    p = _firma_yoki_403(request, get_object_or_404(Project, pk=pk))
     can_edit = is_pto(request.user)
     N = GRAFIK_N
 
@@ -2252,7 +2285,7 @@ def grafik_rabota(request, pk=None):
     start = None
     fname = "grafik_rabota.xlsx"
     if pk:
-        p = get_object_or_404(Project, pk=pk)
+        p = _firma_yoki_403(request, get_object_or_404(Project, pk=pk))
         obj_name = p.name
         start = p.start_date
         fname = "grafik_rabota_%s.xlsx" % p.code
@@ -2362,7 +2395,8 @@ def limit_import(request):
             if c_nom is not None and c_nom < len(row) and row[c_nom]:
                 nom = str(row[c_nom]).strip()
 
-            p = Project.objects.filter(code=kod).first()
+            # Firma izolyatsiyasi: PTO faqat o'z firmasidagi obyekt kodini yangilaydi
+            p = visible_projects(request.user).filter(code=kod).first()
             if p:
                 eski = (p.limit_material, p.limit_labor, p.limit_machinery)
                 yangi = (mat, lab, mach)

@@ -471,3 +471,28 @@ class LimitChangeItem(models.Model):
     @property
     def total(self):
         return (self.quantity * self.unit_price).quantize(Decimal("0.01"))
+
+
+class UserProfile(models.Model):
+    """Foydalanuvchini bitta firmaga biriktiradi.
+
+    Superuser (admin) — hamma firmani ko'radi (profil shart emas).
+    Direktor/PTO — faqat o'z firmasining ma'lumotini ko'radi.
+    Firma biriktirilmagan oddiy user — hech narsa ko'rmaydi (xavfsiz default).
+    """
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name="profile", verbose_name="Foydalanuvchi",
+    )
+    firma = models.ForeignKey(
+        Firma, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="users", verbose_name="Firma",
+    )
+
+    class Meta:
+        verbose_name = "Foydalanuvchi firmasi"
+        verbose_name_plural = "Foydalanuvchi firmalari"
+
+    def __str__(self):
+        return f"{self.user} — {self.firma or 'firmasiz'}"
