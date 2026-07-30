@@ -16,7 +16,7 @@ from .models import (_LINE_TOTAL, Firma, GrafikRow, LimitChangeItem,
                      LimitChangeRequest, LimitItem, Project, WeeklyRequest,
                      WeeklyRequestItem, sync_limit_items)
 from .roles import (
-    can_access_project, is_admin, is_director, is_pto,
+    can_access_project, is_admin, is_director, is_prorab, is_pto,
     user_firma, visible_firmas, visible_projects,
 )
 
@@ -2448,3 +2448,150 @@ def limit_import(request):
             "jami": len(ozgarishlar),
         }
     return render(request, "projects/limit_import.html", {"natija": natija})
+
+
+# ===================== PRORAB -> PTO material so'rovi =====================
+
+def _qty_str(x):
+    return _qty(x)
+
+
+@login_required
+def material_sorov(request):
+    """Material so'rovlari ro'yxati.
+    Prorab — o'zi yuborgan so'rovlar. PTO — o'z obyektlariga kelgan so'rovlar."""
+    from .models import MaterialRequest
+    vp = visible_projects(request.user)
+    reqs = (MaterialRequest.objects.filter(project__in=vp)
+            .select_related("project", "created_by", "decided_by")
+            .prefetch_related("items"))
+    prorab = is_prorab(request.user)
+    pto = is_pto(request.user)
+    STATUS_CLS = {"pending": "warn", "accepted": "ok", "rejected": "bad"}
+    rows = []
+    for r in reqs:
+        rows.append({
+            "obj": r,
+            "status_disp": r.get_status_display(),
+            "status_cls": STATUS_CLS.get(r.status, ""),
+            "soni": r.items.count(),
+            "is_pending": r.status == MaterialRequest.Status.PENDING,
+        })
+    return render(request, "projects/material_sorov.html", {
+        "rows": rows,
+        "is_prorab": prorab,
+        "is_pto": pto,
+        "kutayotgan": sum(1 for x in rows if x["is_pending"]),
+    })
+
+
+@login_required
+def material_sorov_add(request):
+    """Prorab yangi material so'rovini yaratadi va PTOga yuboradi."""
+    from .models import MaterialRequest, MaterialRequestItem
+    if not (is_prorab(request.user) or request.user.is_superuser):
+        raise PermissionDenied("Material so'rovini faqat prorab yuboradi.")
+    vp = visible_projects(request.user).order_by("code")
+    if request.method == "POST":
+        pid = request.POST.get("project") or ""
+        p = vp.filter(pk=pid).first()
+        if not p:
+            messages.error(request, "Obyekt tanlang (faqat sizga biriktirilgan).")
+            return redirect("material_sorov_add")
+        names = request.POST.getlist("name")
+        units = request.POST.getlist("unit")
+        qtys = request.POST.getlist("quantity")
+        notes = request.POST.getlist("note")
+        satrlar = []
+        for i in range(len(names)):
+            nom = (names[i] or "").strip()
+            if not nom:
+                continue
+            q = _to_dec(qtys[i] if i < len(qtys) else None)
+            if q is None or q <= 0:
+                continue
+            satrlar.append(MaterialRequestItem(
+                name=nom, unit=(units[i] if i < len(units) else "").strip()[:32],
+                quantity=q, note=(notes[i] if i < len(notes) else "").strip()[:500],
+            ))
+        if not satrlar:
+            messages.error(request, "Kamida bitta material qatori kiriting.")
+            return redirect("material_sorov_add")
+        req = MaterialRequest.objects.create(
+            project=p, created_by=request.user,
+            note=(request.POST.get("note_umumiy") or "").strip()[:500],
+        )
+        for it in satrlar:
+            it.request = req
+        MaterialRequestItem.objects.bulk_create(satrlar)
+        messages.success(request, f"Material so'rovi PTOga yuborildi ({len(satrlar)} qator).")
+        return redirect("material_sorov")
+    return render(request, "projects/material_sorov_add.html", {"obyektlar": vp})
+
+
+@login_required
+def material_sorov_korish(request, pk):
+    """So'rovni ko'rish. PTO tahrirlab qabul/rad qilishi mumkin."""
+    from .models import MaterialRequest
+    req = get_object_or_404(
+        MaterialRequest.objects.select_related("project", "created_by", "decided_by"), pk=pk)
+    _firma_yoki_403(request, req.project)
+    pto = is_pto(request.user)
+    return render(request, "projects/material_sorov_korish.html", {
+        "req": req,
+        "items": req.items.all(),
+        "status_disp": req.get_status_display(),
+        "can_decide": pto and req.status == MaterialRequest.Status.PENDING,
+    })
+
+
+@login_required
+def material_sorov_action(request, pk):
+    """PTO material so'rovini tahrirlab QABUL yoki RAD qiladi."""
+    from django.utils import timezone
+
+    from .models import MaterialRequest
+    req = get_object_or_404(MaterialRequest.objects.select_related("project"), pk=pk)
+    _firma_yoki_403(request, req.project)
+    if not (is_pto(request.user) or request.user.is_superuser):
+        raise PermissionDenied("So'rovni faqat PTO qabul/rad qiladi.")
+    if request.method != "POST":
+        return redirect("material_sorov_korish", pk=pk)
+    action = request.POST.get("action")
+    S = MaterialRequest.Status
+    if req.status != S.PENDING:
+        messages.error(request, "Bu so'rov allaqachon hal qilingan.")
+        return redirect("material_sorov_korish", pk=pk)
+
+    # PTO tahriri: qator miqdorlarini yangilash (qabul qilishdan oldin)
+    if action in ("accept", "save"):
+        for it in req.items.all():
+            q = _to_dec(request.POST.get(f"qty_{it.id}"))
+            nm = (request.POST.get(f"name_{it.id}") or "").strip()
+            un = (request.POST.get(f"unit_{it.id}") or "").strip()[:32]
+            changed = False
+            if q is not None and q > 0 and q != it.quantity:
+                it.quantity = q; changed = True
+            if nm and nm != it.name:
+                it.name = nm; changed = True
+            if un != it.unit:
+                it.unit = un; changed = True
+            if changed:
+                it.save(update_fields=["quantity", "name", "unit"])
+
+    if action == "accept":
+        req.status = S.ACCEPTED
+        req.decided_by = request.user
+        req.decided_at = timezone.now()
+        req.save(update_fields=["status", "decided_by", "decided_at"])
+        messages.success(request, "So'rov qabul qilindi (ro'yxatga saqlandi).")
+    elif action == "reject":
+        req.status = S.REJECTED
+        req.decided_by = request.user
+        req.decided_at = timezone.now()
+        req.reject_note = (request.POST.get("reject_note") or "").strip()[:500]
+        req.save(update_fields=["status", "decided_by", "decided_at", "reject_note"])
+        messages.info(request, "So'rov rad etildi.")
+    elif action == "save":
+        messages.success(request, "O'zgarishlar saqlandi.")
+    return redirect("material_sorov_korish", pk=pk)

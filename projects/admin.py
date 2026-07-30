@@ -7,8 +7,9 @@ from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django.utils.html import format_html
 
 from .models import (
-    Firma, LimitChangeItem, LimitChangeRequest, LimitItem, Project,
-    UserProfile, WeeklyRequest, WeeklyRequestItem, WorkSection,
+    Firma, LimitChangeItem, LimitChangeRequest, LimitItem, MaterialRequest,
+    MaterialRequestItem, Project, UserProfile, WeeklyRequest, WeeklyRequestItem,
+    WorkSection,
 )
 
 
@@ -249,14 +250,19 @@ class UserProfileInline(admin.StackedInline):
     model = UserProfile
     can_delete = False
     fk_name = "user"
-    verbose_name = "Firma biriktirish"
-    verbose_name_plural = "Firma biriktirish (direktor/PTO faqat shu firmani ko'radi)"
+    verbose_name = "Biriktirish"
+    verbose_name_plural = "Biriktirish (Direktor→firma; PTO/Prorab→obyektlar)"
     autocomplete_fields = ["firma"]
+    filter_horizontal = ["projects"]
 
 
 class UserAdmin(DjangoUserAdmin):
     inlines = [UserProfileInline]
     list_display = DjangoUserAdmin.list_display + ("firma_nomi",)
+
+    class Media:
+        # Login/parol jonli tekshiruvi (yashil/qizil)
+        js = ("projects/admin_userform.js",)
 
     @admin.display(description="Firma")
     def firma_nomi(self, obj):
@@ -267,3 +273,18 @@ class UserAdmin(DjangoUserAdmin):
 User = get_user_model()
 admin.site.unregister(User)
 admin.site.register(User, UserAdmin)
+
+
+class MaterialRequestItemInline(admin.TabularInline):
+    model = MaterialRequestItem
+    extra = 0
+    fields = ["name", "unit", "quantity", "note"]
+
+
+@admin.register(MaterialRequest)
+class MaterialRequestAdmin(admin.ModelAdmin):
+    list_display = ["id", "project", "created_by", "status", "created_at", "decided_by", "decided_at"]
+    list_filter = ["status", "project"]
+    search_fields = ["project__code", "project__name"]
+    readonly_fields = ["created_by", "created_at", "decided_by", "decided_at"]
+    inlines = [MaterialRequestItemInline]

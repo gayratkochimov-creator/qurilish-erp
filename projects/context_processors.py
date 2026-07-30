@@ -7,14 +7,22 @@ def approvals(request):
     u = getattr(request, "user", None)
     if not (u and u.is_authenticated):
         return {}
-    from .roles import is_admin, is_director, visible_projects
+    from .roles import is_admin, is_director, is_prorab, is_pto, visible_projects
     _dir = is_director(u)
     _adm = is_admin(u)
-    if not (_dir or _adm):
-        return {}
-    from .models import LimitChangeRequest, WeeklyRequest
-    # Firma izolyatsiyasi: direktor faqat o'z firmasidagi navbatni ko'radi (admin=hammasi)
+    _pto = is_pto(u)
+    _prorab = is_prorab(u)
+    from .models import LimitChangeRequest, MaterialRequest, WeeklyRequest
+    # Firma/obyekt izolyatsiyasi: har kim faqat o'z navbatini ko'radi (admin=hammasi)
     _vp = visible_projects(u)
+    ctx = {"nav_is_pto": _pto, "nav_is_prorab": _prorab,
+           "nav_is_director": _dir, "nav_is_admin": _adm}
+    # Prorab -> PTO material so'rovlari (PTO uchun kutayotgan soni)
+    if _pto:
+        ctx["pending_mat"] = MaterialRequest.objects.filter(
+            project__in=_vp, status="pending").count()
+    if not (_dir or _adm):
+        return ctx
     lc = wc = 0
     if _dir:
         lc += LimitChangeRequest.objects.filter(status="dir", project__in=_vp).count()
@@ -22,4 +30,5 @@ def approvals(request):
     if _adm:
         lc += LimitChangeRequest.objects.filter(status="adm", project__in=_vp).count()
         wc += WeeklyRequest.objects.filter(status="submitted", project__in=_vp).count()
-    return {"pending_lc": lc, "pending_wc": wc, "pending_total": lc + wc}
+    ctx.update({"pending_lc": lc, "pending_wc": wc, "pending_total": lc + wc})
+    return ctx

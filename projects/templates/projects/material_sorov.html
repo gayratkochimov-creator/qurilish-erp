@@ -1,0 +1,59 @@
+{% extends "base_site.html" %}
+{% block title %}Material so'rovlari — Qurilish ERP{% endblock %}
+{% block page_title %}Material so'rovlari (Prorab → PTO){% endblock %}
+
+{% block extra_head %}
+<style>
+  .wrap { display:flex; flex-direction:column; gap:18px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; }
+  .toolbar { display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; }
+  .btn { font-size:13px; color:#374151; background:var(--card); border:1px solid var(--line); border-radius:9px; padding:9px 15px; font-weight:600; cursor:pointer; text-decoration:none; transition:.14s; }
+  .btn:hover { background:#f9fafb; border-color:#cbd5e1; }
+  .btn.primary { background:var(--brand); color:#fff; border-color:var(--brand); }
+  .btn.primary:hover { background:#0857a8; }
+  table.g { width:100%; border-collapse:collapse; }
+  table.g th, table.g td { padding:12px 16px; text-align:left; font-size:13.5px; border-bottom:1px solid var(--line); }
+  table.g th { font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--mut); font-weight:600; }
+  table.g tr:last-child td { border-bottom:none; }
+  .badge { display:inline-block; padding:2px 10px; border-radius:20px; font-size:12px; font-weight:600; color:#fff; }
+  .badge.warn { background:#b45309; } .badge.ok { background:#16a34a; } .badge.bad { background:#dc2626; }
+  .empty { padding:40px; text-align:center; color:var(--mut); }
+  .hint { font-size:12.5px; color:var(--mut); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="wrap">
+  <div class="toolbar">
+    <div class="hint">
+      {% if is_pto %}Sizning obyektlaringizga kelgan so'rovlar. Kutayotgan: <b>{{ kutayotgan }}</b>{% endif %}
+      {% if is_prorab %}Siz yuborgan material so'rovlari{% endif %}
+    </div>
+    {% if is_prorab %}<a class="btn primary" href="{% url 'material_sorov_add' %}">+ Yangi so'rov</a>{% endif %}
+  </div>
+
+  <div class="card">
+    {% if rows %}
+    <table class="g">
+      <thead><tr><th>Obyekt</th><th>Prorab</th><th>Qatorlar</th><th>Holati</th><th>Sana</th><th></th></tr></thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td><b>{{ r.obj.project.code }}</b> — {{ r.obj.project.name }}</td>
+          <td>{{ r.obj.created_by.get_full_name|default:r.obj.created_by.username }}</td>
+          <td>{{ r.soni }}</td>
+          <td><span class="badge {{ r.status_cls }}">{{ r.status_disp }}</span></td>
+          <td>{{ r.obj.created_at|date:"d.m.Y H:i" }}</td>
+          <td><a class="btn" href="{% url 'material_sorov_korish' r.obj.id %}">Ko'rish</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty">Hozircha material so'rovi yo'q.
+      {% if is_prorab %}<br><a class="btn primary" style="margin-top:12px; display:inline-block;" href="{% url 'material_sorov_add' %}">+ Birinchi so'rovni yuborish</a>{% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

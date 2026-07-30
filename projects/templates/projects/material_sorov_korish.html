@@ -1,0 +1,87 @@
+{% extends "base_site.html" %}
+{% block title %}Material so'rovi #{{ req.id }} — Qurilish ERP{% endblock %}
+{% block page_title %}Material so'rovi #{{ req.id }}{% endblock %}
+
+{% block extra_head %}
+<style>
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:22px; max-width:960px; }
+  .meta { display:flex; gap:26px; flex-wrap:wrap; margin-bottom:18px; }
+  .meta .m .l { font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--mut); font-weight:600; }
+  .meta .m .v { font-size:14.5px; font-weight:600; margin-top:3px; }
+  .badge { display:inline-block; padding:3px 12px; border-radius:20px; font-size:12.5px; font-weight:600; color:#fff; }
+  .badge.pending { background:#b45309; } .badge.accepted { background:#16a34a; } .badge.rejected { background:#dc2626; }
+  table.m { width:100%; border-collapse:collapse; margin-top:6px; }
+  table.m th { font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--mut); font-weight:600; text-align:left; padding:8px; border-bottom:1px solid var(--line); }
+  table.m td { padding:7px 8px; border-bottom:1px solid var(--line); font-size:13.5px; }
+  table.m input { padding:7px 9px; border:1px solid var(--line); border-radius:8px; font-size:13.5px; background:var(--card); color:var(--ink); }
+  input.nm { width:100%; } input.un { width:80px; } input.qt { width:100px; }
+  .btn { font-size:13px; color:#374151; background:var(--card); border:1px solid var(--line); border-radius:9px; padding:10px 16px; font-weight:600; cursor:pointer; text-decoration:none; }
+  .btn:hover { background:#f9fafb; }
+  .btn.ok { background:#16a34a; color:#fff; border-color:#16a34a; }
+  .btn.bad { background:#dc2626; color:#fff; border-color:#dc2626; }
+  .btn.save { background:var(--brand); color:#fff; border-color:var(--brand); }
+  .acts { display:flex; gap:10px; margin-top:18px; flex-wrap:wrap; align-items:center; }
+  .rejbox { margin-top:14px; padding:14px; border:1px solid #fecaca; background:#fef2f2; border-radius:10px; }
+  .rejbox textarea { width:100%; padding:9px; border:1px solid var(--line); border-radius:8px; font-family:inherit; font-size:13.5px; }
+  .note { margin-top:12px; font-size:13px; color:var(--mut); }
+  .warnmsg { margin-top:12px; padding:12px 14px; background:#fef3c7; border:1px solid #fde68a; border-radius:10px; font-size:13px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="meta">
+    <div class="m"><div class="l">Obyekt</div><div class="v">{{ req.project.code }} — {{ req.project.name }}</div></div>
+    <div class="m"><div class="l">Prorab</div><div class="v">{{ req.created_by.get_full_name|default:req.created_by.username }}</div></div>
+    <div class="m"><div class="l">Yuborilgan</div><div class="v">{{ req.created_at|date:"d.m.Y H:i" }}</div></div>
+    <div class="m"><div class="l">Holati</div><div class="v"><span class="badge {{ req.status }}">{{ status_disp }}</span></div></div>
+  </div>
+  {% if req.note %}<div class="note">Izoh: {{ req.note }}</div>{% endif %}
+
+  {% if can_decide %}
+  <form method="post" action="{% url 'material_sorov_action' req.id %}">
+    {% csrf_token %}
+    <table class="m">
+      <thead><tr><th style="width:46%">Material</th><th>Birlik</th><th>Miqdor</th><th>Prorab izohi</th></tr></thead>
+      <tbody>
+        {% for it in items %}
+        <tr>
+          <td><input class="nm" name="name_{{ it.id }}" value="{{ it.name }}"></td>
+          <td><input class="un" name="unit_{{ it.id }}" value="{{ it.unit }}"></td>
+          <td><input class="qt" name="qty_{{ it.id }}" value="{{ it.quantity|floatformat:'-3' }}" inputmode="decimal"></td>
+          <td>{{ it.note }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <div class="warnmsg">PTO sifatida miqdor/nomni to'g'rilab, <b>Qabul qilish</b> yoki <b>Rad etish</b> tugmasini bosing.</div>
+    <div class="acts">
+      <button type="submit" name="action" value="accept" class="btn ok">✓ Qabul qilish</button>
+      <button type="submit" name="action" value="save" class="btn save">O'zgarishni saqlash</button>
+      <a class="btn" href="{% url 'material_sorov' %}">Orqaga</a>
+    </div>
+    <div class="rejbox">
+      <label style="font-size:12px; font-weight:600; color:#b91c1c;">Rad etish sababi (rad etsangiz)</label>
+      <textarea name="reject_note" rows="2" placeholder="Nima uchun rad etilyapti"></textarea>
+      <div class="acts" style="margin-top:10px;">
+        <button type="submit" name="action" value="reject" class="btn bad">✕ Rad etish</button>
+      </div>
+    </div>
+  </form>
+  {% else %}
+  <table class="m">
+    <thead><tr><th style="width:46%">Material</th><th>Birlik</th><th>Miqdor</th><th>Izoh</th></tr></thead>
+    <tbody>
+      {% for it in items %}
+      <tr><td>{{ it.name }}</td><td>{{ it.unit|default:"—" }}</td><td>{{ it.quantity|floatformat:'-3' }}</td><td>{{ it.note }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% if req.status == 'rejected' and req.reject_note %}
+  <div class="rejbox" style="margin-top:16px;"><b>Rad etish sababi:</b> {{ req.reject_note }}</div>
+  {% endif %}
+  {% if req.decided_by %}<div class="note">Qaror: {{ req.decided_by.get_full_name|default:req.decided_by.username }} · {{ req.decided_at|date:"d.m.Y H:i" }}</div>{% endif %}
+  <div class="acts"><a class="btn" href="{% url 'material_sorov' %}">Orqaga</a></div>
+  {% endif %}
+</div>
+{% endblock %}

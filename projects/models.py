@@ -487,12 +487,77 @@ class UserProfile(models.Model):
     )
     firma = models.ForeignKey(
         Firma, null=True, blank=True, on_delete=models.SET_NULL,
-        related_name="users", verbose_name="Firma",
+        related_name="users", verbose_name="Firma (direktor uchun)",
+    )
+    projects = models.ManyToManyField(
+        Project, blank=True, related_name="assigned_users",
+        verbose_name="Biriktirilgan obyektlar (PTO/Prorab uchun)",
     )
 
     class Meta:
-        verbose_name = "Foydalanuvchi firmasi"
-        verbose_name_plural = "Foydalanuvchi firmalari"
+        verbose_name = "Foydalanuvchi biriktirish"
+        verbose_name_plural = "Foydalanuvchi biriktirish"
 
     def __str__(self):
         return f"{self.user} — {self.firma or 'firmasiz'}"
+
+
+class MaterialRequest(models.Model):
+    """Prorab -> PTO material so'rovi.
+
+    Prorab o'ziga biriktirilgan obyekt uchun kerakli materiallar ro'yxatini
+    yuboradi. PTO tahrirlab QABUL yoki RAD qiladi. Qabul qilingani — ro'yxat
+    bo'lib saqlanadi (PTO keyin haftalik so'rovga o'zi kiritadi)."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "PTO ko'rib chiqishida"
+        ACCEPTED = "accepted", "Qabul qilingan"
+        REJECTED = "rejected", "Rad etilgan"
+
+    project = models.ForeignKey(
+        Project, on_delete=models.CASCADE,
+        related_name="material_requests", verbose_name="Obyekt",
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL,
+        related_name="material_requests_created", verbose_name="Prorab",
+    )
+    status = models.CharField(
+        "Holati", max_length=16, choices=Status.choices, default=Status.PENDING,
+    )
+    note = models.CharField("Izoh", max_length=500, blank=True)
+    created_at = models.DateTimeField("Yuborilgan sana", auto_now_add=True)
+    decided_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="material_requests_decided", verbose_name="PTO",
+    )
+    decided_at = models.DateTimeField("Qaror sanasi", null=True, blank=True)
+    reject_note = models.CharField("Rad etish sababi", max_length=500, blank=True)
+
+    class Meta:
+        verbose_name = "Material so'rovi (Prorab)"
+        verbose_name_plural = "Material so'rovlari (Prorab)"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.project.code} — {self.get_status_display()} ({self.created_at:%d.%m.%Y})"
+
+
+class MaterialRequestItem(models.Model):
+    """Prorab material so'rovi qatori."""
+
+    request = models.ForeignKey(
+        MaterialRequest, on_delete=models.CASCADE,
+        related_name="items", verbose_name="So'rov",
+    )
+    name = models.CharField("Material nomi", max_length=255)
+    unit = models.CharField("O'lchov birligi", max_length=32, blank=True)
+    quantity = models.DecimalField("Miqdor", **QTY)
+    note = models.CharField("Izoh", max_length=500, blank=True)
+
+    class Meta:
+        verbose_name = "So'rov qatori"
+        verbose_name_plural = "So'rov qatorlari"
+
+    def __str__(self):
+        return f"{self.name} — {self.quantity}"

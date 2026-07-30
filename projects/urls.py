@@ -27,4 +27,9 @@ urlpatterns = [
     path("grafik/", views.grafik_list, name="grafik_list"),
     path("obyekt/<int:pk>/grafik/", views.grafik_web, name="grafik_web"),
     path("limit/import/", views.limit_import, name="limit_import"),
+    # Prorab -> PTO material so'rovi
+    path("material-sorov/", views.material_sorov, name="material_sorov"),
+    path("material-sorov/yangi/", views.material_sorov_add, name="material_sorov_add"),
+    path("material-sorov/<int:pk>/", views.material_sorov_korish, name="material_sorov_korish"),
+    path("material-sorov/<int:pk>/amal/", views.material_sorov_action, name="material_sorov_action"),
 ]

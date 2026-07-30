@@ -5,6 +5,7 @@ Tasdiqlash zanjiri: PTO kiritadi → Direktor tasdiqlaydi → Admin tasdiqlaydi.
 
 PTO_GROUP = "PTO"
 DIREKTOR_GROUP = "Direktor"
+PRORAB_GROUP = "Prorab"
 
 
 def is_pto(user):
@@ -28,6 +29,15 @@ def is_admin(user):
     return bool(user.is_authenticated and user.is_superuser)
 
 
+def is_prorab(user):
+    """Prorab — o'z obyektiga material so'rovi yaratib PTOga yuboradi."""
+    return bool(
+        user.is_authenticated
+        and not user.is_superuser
+        and user.groups.filter(name=PRORAB_GROUP).exists()
+    )
+
+
 # ---------------------------------------------------------------------------
 # Firma bo'yicha ko'rish chegarasi (multi-tenant)
 # Admin (superuser) — hammasini ko'radi. Direktor/PTO — faqat o'z firmasini.
@@ -43,25 +53,37 @@ def user_firma(user):
 
 
 def visible_projects(user, qs=None):
-    """Foydalanuvchi ko'ra oladigan obyektlar (Project) queryset."""
+    """Foydalanuvchi ko'ra oladigan obyektlar (Project) queryset.
+
+    Admin (superuser) — hammasi.
+    Direktor — o'z firmasining barcha obyektlari.
+    PTO / Prorab — faqat unga biriktirilgan obyektlar (UserProfile.projects).
+    """
     from .models import Project
     if qs is None:
         qs = Project.objects.all()
     if user.is_superuser:
         return qs
-    f = user_firma(user)
-    return qs.filter(firma=f) if f else qs.none()
+    # Direktor — firma darajasi
+    if user.groups.filter(name=DIREKTOR_GROUP).exists():
+        f = user_firma(user)
+        return qs.filter(firma=f) if f else qs.none()
+    # PTO / Prorab — faqat biriktirilgan obyektlar
+    prof = getattr(user, "profile", None)
+    if prof is not None:
+        return qs.filter(pk__in=prof.projects.values_list("pk", flat=True))
+    return qs.none()
 
 
 def visible_firmas(user, qs=None):
-    """Foydalanuvchi ko'ra oladigan firmalar (dropdown/filtr uchun)."""
+    """Foydalanuvchi ko'ra oladigan firmalar (dropdown/filtr uchun) —
+    ko'rinadigan obyektlaridan kelib chiqadi."""
     from .models import Firma
     if qs is None:
         qs = Firma.objects.all()
     if user.is_superuser:
         return qs
-    f = user_firma(user)
-    return qs.filter(pk=f.pk) if f else qs.none()
+    return qs.filter(projects__in=visible_projects(user)).distinct()
 
 
 def can_access_project(user, project):
@@ -70,5 +92,4 @@ def can_access_project(user, project):
         return True
     if project is None:
         return False
-    f = user_firma(user)
-    return bool(f and getattr(project, "firma_id", None) == f.pk)
+    return visible_projects(user).filter(pk=project.pk).exists()
