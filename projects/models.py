@@ -481,13 +481,23 @@ class UserProfile(models.Model):
     Firma biriktirilmagan oddiy user — hech narsa ko'rmaydi (xavfsiz default).
     """
 
+    class Role(models.TextChoices):
+        NONE = "", "— (lavozim yo'q)"
+        DIRECTOR = "director", "Direktor"
+        PTO = "pto", "PTO"
+        PRORAB = "prorab", "Prorab"
+
+    # Rol -> Django guruh nomi (is_pto/is_director/is_prorab guruh bo'yicha ishlaydi)
+    ROLE_GROUP = {"director": "Direktor", "pto": "PTO", "prorab": "Prorab"}
+
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
         related_name="profile", verbose_name="Foydalanuvchi",
     )
+    role = models.CharField("Lavozim", max_length=16, choices=Role.choices, blank=True)
     firma = models.ForeignKey(
         Firma, null=True, blank=True, on_delete=models.SET_NULL,
-        related_name="users", verbose_name="Firma (direktor uchun)",
+        related_name="users", verbose_name="Firma (Direktor uchun)",
     )
     projects = models.ManyToManyField(
         Project, blank=True, related_name="assigned_users",
@@ -499,7 +509,24 @@ class UserProfile(models.Model):
         verbose_name_plural = "Foydalanuvchi biriktirish"
 
     def __str__(self):
-        return f"{self.user} — {self.firma or 'firmasiz'}"
+        return f"{self.user} — {self.get_role_display() or 'lavozimsiz'}"
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        self.sync_groups()
+
+    def sync_groups(self):
+        """Tanlangan lavozimga qarab userni to'g'ri Django guruhiga qo'yadi
+        (boshqa rol-guruhlaridan chiqaradi)."""
+        from django.contrib.auth.models import Group
+        for gname in self.ROLE_GROUP.values():
+            g = Group.objects.filter(name=gname).first()
+            if g:
+                self.user.groups.remove(g)
+        target = self.ROLE_GROUP.get(self.role)
+        if target:
+            g, _ = Group.objects.get_or_create(name=target)
+            self.user.groups.add(g)
 
 
 class MaterialRequest(models.Model):

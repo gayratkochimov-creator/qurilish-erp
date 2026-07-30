@@ -250,8 +250,9 @@ class UserProfileInline(admin.StackedInline):
     model = UserProfile
     can_delete = False
     fk_name = "user"
-    verbose_name = "Biriktirish"
-    verbose_name_plural = "Biriktirish (Direktor→firma; PTO/Prorab→obyektlar)"
+    verbose_name = "Lavozim va biriktirish"
+    verbose_name_plural = "Lavozim va biriktirish (Direktor→firma; PTO/Prorab→obyektlar)"
+    fields = ["role", "firma", "projects"]
     autocomplete_fields = ["firma"]
     filter_horizontal = ["projects"]
 
