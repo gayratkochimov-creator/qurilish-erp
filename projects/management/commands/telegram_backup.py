@@ -84,14 +84,20 @@ def _sqlite_snapshot(db_path):
 
 
 def _disk_usage(quota_mb):
-    """Home papkadagi jami hajm (MB) va foizini qaytaradi (hech narsa o'chirmaydi).
-       PythonAnywhere bepul kvota 512 MB — quota_mb shu bilan taqqoslaydi."""
-    home = os.path.expanduser("~")
+    """Loyiha papkasidagi (baza + media + kod + venv) jami hajm (MB) va foizi.
+       Hech narsa o'chirmaydi. Faqat BASE_DIR sanaladi — home'dagi tizim
+       simlinklari (PythonAnywhere umumiy paketlari) hisobga QO'SHILMAYDI,
+       aks holda hajm noto'g'ri (o'nlab GB) chiqadi."""
+    from django.conf import settings
+    base = str(settings.BASE_DIR)
     total = 0
-    for root, _dirs, files in os.walk(home):
+    for root, _dirs, files in os.walk(base):
         for f in files:
+            fp = os.path.join(root, f)
             try:
-                total += os.path.getsize(os.path.join(root, f))
+                if os.path.islink(fp):   # simlinklarni sanamaymiz
+                    continue
+                total += os.path.getsize(fp)
             except OSError:
                 pass
     used_mb = total / (1024 * 1024)
