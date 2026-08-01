@@ -59,6 +59,7 @@ class Project(models.Model):
     limit_material = models.DecimalField("Material limiti", max_digits=18, decimal_places=2, default=0)
     limit_labor = models.DecimalField("Ish haqi limiti", max_digits=18, decimal_places=2, default=0)
     limit_machinery = models.DecimalField("Mashina chasti limiti", max_digits=18, decimal_places=2, default=0)
+    limit_other = models.DecimalField("Ko'zda tutilmagan xarajatlar limiti", max_digits=18, decimal_places=2, default=0)
     grafik_start = models.DateField("Grafik boshlanish sanasi", null=True, blank=True)
     created_at = models.DateTimeField("Yaratilgan", auto_now_add=True)
 
@@ -71,26 +72,30 @@ class Project(models.Model):
 
     @property
     def budget_total(self):
-        """Umumiy limit = material + ish haqi + mashina chasti."""
-        return (self.limit_material or Decimal("0")) + (self.limit_labor or Decimal("0")) + (self.limit_machinery or Decimal("0"))
+        """Umumiy limit = material + ish haqi + mashina chasti + ko'zda tutilmagan."""
+        return ((self.limit_material or Decimal("0")) + (self.limit_labor or Decimal("0"))
+                + (self.limit_machinery or Decimal("0")) + (self.limit_other or Decimal("0")))
 
     def recompute_limits(self, save=True):
         """Kategoriya limitlarini «limit ichi» (LimitItem) yig'indisidan qayta hisoblash."""
         agg = (LimitItem.objects.filter(project=self)
                .values("kind").annotate(s=Sum(_LINE_TOTAL)))
-        d = {"material": Decimal("0.00"), "labor": Decimal("0.00"), "machinery": Decimal("0.00")}
+        d = {"material": Decimal("0.00"), "labor": Decimal("0.00"),
+             "machinery": Decimal("0.00"), "other": Decimal("0.00")}
         for r in agg:
             d[r["kind"]] = r["s"] or Decimal("0.00")
         self.limit_material = d["material"]
         self.limit_labor = d["labor"]
         self.limit_machinery = d["machinery"]
+        self.limit_other = d["other"]
         if save:
-            self.save(update_fields=["limit_material", "limit_labor", "limit_machinery"])
+            self.save(update_fields=["limit_material", "limit_labor", "limit_machinery", "limit_other"])
         return d
 
     def sarf_by_kind(self):
-        """Material · ish haqi · mashina chasti bo'yicha alohida sarf (bitta so'rov)."""
-        d = {"material": Decimal("0.00"), "labor": Decimal("0.00"), "machinery": Decimal("0.00")}
+        """Turlar bo'yicha alohida sarf (bitta so'rov)."""
+        d = {"material": Decimal("0.00"), "labor": Decimal("0.00"),
+             "machinery": Decimal("0.00"), "other": Decimal("0.00")}
         rows = (
             WeeklyRequestItem.objects.filter(
                 request__project=self,
@@ -164,9 +169,11 @@ class LimitChangeRequest(models.Model):
     old_material = models.DecimalField("Eski material", max_digits=18, decimal_places=2, default=0)
     old_labor = models.DecimalField("Eski ish haqi", max_digits=18, decimal_places=2, default=0)
     old_machinery = models.DecimalField("Eski mashina chasti", max_digits=18, decimal_places=2, default=0)
+    old_other = models.DecimalField("Eski ko'zda tutilmagan", max_digits=18, decimal_places=2, default=0)
     new_material = models.DecimalField("Yangi material", max_digits=18, decimal_places=2, default=0)
     new_labor = models.DecimalField("Yangi ish haqi", max_digits=18, decimal_places=2, default=0)
     new_machinery = models.DecimalField("Yangi mashina chasti", max_digits=18, decimal_places=2, default=0)
+    new_other = models.DecimalField("Yangi ko'zda tutilmagan", max_digits=18, decimal_places=2, default=0)
     reason = models.CharField("Sabab / izoh", max_length=255, blank=True)
     status = models.CharField(
         "Holati", max_length=16, choices=Status.choices, default=Status.DIR,
@@ -196,11 +203,11 @@ class LimitChangeRequest(models.Model):
 
     @property
     def old_total(self):
-        return self.old_material + self.old_labor + self.old_machinery
+        return self.old_material + self.old_labor + self.old_machinery + self.old_other
 
     @property
     def new_total(self):
-        return self.new_material + self.new_labor + self.new_machinery
+        return self.new_material + self.new_labor + self.new_machinery + self.new_other
 
     def __str__(self):
         return f"{self.project.code}: {self.old_total} → {self.new_total} ({self.get_status_display()})"
@@ -224,7 +231,8 @@ class LimitChangeRequest(models.Model):
             p.limit_material = self.new_material
             p.limit_labor = self.new_labor
             p.limit_machinery = self.new_machinery
-            p.save(update_fields=["limit_material", "limit_labor", "limit_machinery"])
+            p.limit_other = self.new_other
+            p.save(update_fields=["limit_material", "limit_labor", "limit_machinery", "limit_other"])
         self.status = self.Status.APPROVED
         self.decided_by = admin_user
         self.decided_at = timezone.now()
@@ -301,6 +309,7 @@ class WeeklyRequestItem(models.Model):
         MATERIAL = "material", "Material"
         LABOR = "labor", "Ish haqi"
         MACHINERY = "machinery", "Mashina chasti"
+        OTHER = "other", "Ko'zda tutilmagan xarajatlar"
 
     request = models.ForeignKey(
         WeeklyRequest, on_delete=models.CASCADE,
@@ -339,6 +348,7 @@ class LimitItem(models.Model):
         MATERIAL = "material", "Material"
         LABOR = "labor", "Ish haqi"
         MACHINERY = "machinery", "Mashina chasti"
+        OTHER = "other", "Ko'zda tutilmagan xarajatlar"
 
     project = models.ForeignKey(
         Project, on_delete=models.CASCADE,

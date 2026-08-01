@@ -53,6 +53,7 @@
               <option value="material" {% if it.kind == 'material' %}selected{% endif %}>Material</option>
               <option value="labor" {% if it.kind == 'labor' %}selected{% endif %}>Ish haqi</option>
               <option value="machinery" {% if it.kind == 'machinery' %}selected{% endif %}>Mashina chasti</option>
+              <option value="other" {% if it.kind == 'other' %}selected{% endif %}>Ko'zda tutilmagan</option>
             </select></td>
             <td><input type="text" name="name" value="{{ it.name }}"></td>
             <td><input type="text" name="item_note" class="noteinp" value="{{ it.note }}" placeholder="izoh..."></td>
@@ -79,7 +80,7 @@
 
     <template id="rowtpl">
       <tr>
-        <td><select name="kind"><option value="material">Material</option><option value="labor">Ish haqi</option><option value="machinery">Mashina chasti</option></select></td>
+        <td><select name="kind"><option value="material">Material</option><option value="labor">Ish haqi</option><option value="machinery">Mashina chasti</option><option value="other">Ko'zda tutilmagan</option></select></td>
         <td><input type="text" name="name" placeholder="nomi"></td>
         <td><input type="text" name="item_note" class="noteinp" placeholder="izoh..."></td>
         <td><input type="text" name="unit" placeholder="birlik"></td>
@@ -114,14 +115,14 @@
     }
   }
   function recompute(){
-    var grand=0, cat={material:0,labor:0,machinery:0};
+    var grand=0, cat={material:0,labor:0,machinery:0,other:0};
     tbody.querySelectorAll('tr').forEach(function(tr){
       var q=parseFloat(tr.querySelector('[name=quantity]').value)||0;
       var pr=parseFloat(tr.querySelector('[name=unit_price]').value)||0;
       var s=q*pr; tr.querySelector('.rsum').textContent=fmt(s);
       var k=tr.querySelector('[name=kind]').value; cat[k]=(cat[k]||0)+s; grand+=s;
     });
-    document.getElementById('wc').textContent='Material '+fmt(cat.material)+'  ·  Ish haqi '+fmt(cat.labor)+'  ·  Mashina '+fmt(cat.machinery);
+    document.getElementById('wc').textContent='Material '+fmt(cat.material)+'  ·  Ish haqi '+fmt(cat.labor)+'  ·  Mashina '+fmt(cat.machinery)+'  ·  Ko\'zda tutilmagan '+fmt(cat.other);
     document.getElementById('wg').textContent=fmt(grand);
   }
   function addRow(){ tbody.appendChild(tpl.content.cloneNode(true)); autoUnit(tbody.lastElementChild); recompute(); }

@@ -80,7 +80,7 @@
   .usebar > span { display:block; height:100%; background:var(--brand); border-radius:999px; transition:width .8s cubic-bezier(.16,1,.3,1); }
   .catmini { display:flex; gap:14px; flex-wrap:wrap; margin-top:14px; }
   .dot { width:7px; height:7px; border-radius:50%; display:inline-block; margin-right:5px; vertical-align:middle; }
-  .dot.mat{background:#2563eb;} .dot.lab{background:#60a5fa;} .dot.mach{background:#bfdbfe;}
+  .dot.mat{background:#2563eb;} .dot.lab{background:#60a5fa;} .dot.mach{background:#bfdbfe;} .dot.oth{background:#d1d5db;}
 
   /* two-col */
   .cols { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
@@ -174,7 +174,7 @@
   #pane-kiritish .rtot, #pane-kiritish .ftot { font-weight:800; color:#334155; font-variant-numeric:tabular-nums; }
   #pane-kiritish .ro { color:#64748b; font-variant-numeric:tabular-nums; }
   #pane-kiritish .dotm{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:middle;}
-  #pane-kiritish .dotm.mat{background:#0a6ed1;} #pane-kiritish .dotm.lab{background:#5899da;} #pane-kiritish .dotm.mach{background:#89c3f0;}
+  #pane-kiritish .dotm.mat{background:#0a6ed1;} #pane-kiritish .dotm.lab{background:#5899da;} #pane-kiritish .dotm.mach{background:#89c3f0;} #pane-kiritish .dotm.oth{background:#9ca3af;}
   #pane-kiritish .savebar { position:sticky; bottom:0; background:rgba(245,246,248,.92); backdrop-filter:blur(8px); padding:14px 4px; margin-top:6px; display:flex; align-items:center; justify-content:flex-end; gap:20px; border-top:1px solid var(--line); }
   #pane-kiritish .grandbox { font-size:14px; color:var(--mut); }
   #pane-kiritish .grandbox b { font-size:20px; color:var(--ink); font-weight:800; margin-left:6px; font-variant-numeric:tabular-nums; }
@@ -328,7 +328,7 @@
     var dEl = document.getElementById('catDoughnut');
     if (dEl && cat.some(function(v){return v>0;})) {
       new Chart(dEl, { type:'doughnut',
-        data:{ labels:['Material',"Ish haqi",'Mashina chasti'], datasets:[{ data:cat, backgroundColor:['#2563eb','#60a5fa','#bfdbfe'], borderColor:'#fff', borderWidth:4, spacing:1, hoverOffset:8 }]},
+        data:{ labels:['Material',"Ish haqi",'Mashina chasti',"Ko'zda tutilmagan"], datasets:[{ data:cat, backgroundColor:['#2563eb','#60a5fa','#bfdbfe','#d1d5db'], borderColor:'#fff', borderWidth:4, spacing:1, hoverOffset:8 }]},
         options:{ cutout:'70%', responsive:true, maintainAspectRatio:false,
           plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:function(c){ return c.label+': '+nf(c.raw); } } } } } });
     }
@@ -431,7 +431,7 @@
       <div class="fblock">
         <div class="ft">{{ fb.firma.name }}<span class="cnt">{{ fb.rows|length }} obyekt</span></div>
         <table>
-          <thead><tr><th>Obyekt</th><th class="num"><span class="dotm mat"></span>Material</th><th class="num"><span class="dotm lab"></span>Ish haqi</th><th class="num"><span class="dotm mach"></span>Mashina chasti</th><th class="num">Umumiy</th></tr></thead>
+          <thead><tr><th>Obyekt</th><th class="num"><span class="dotm mat"></span>Material</th><th class="num"><span class="dotm lab"></span>Ish haqi</th><th class="num"><span class="dotm mach"></span>Mashina chasti</th><th class="num"><span class="dotm oth"></span>Ko'zda tutilmagan</th><th class="num">Umumiy</th></tr></thead>
           <tbody>
             {% for r in fb.rows %}
             <tr class="orow" data-name="{{ r.p.name|lower }}" data-limit="{% if r.p.budget_total > 0 %}1{% else %}0{% endif %}">
@@ -440,17 +440,19 @@
               <td class="num"><input type="number" step="0.01" min="0" placeholder="0" name="m_{{ r.p.id }}" value="{{ r.p.limit_material|default_if_none:''|unlocalize }}"></td>
               <td class="num"><input type="number" step="0.01" min="0" placeholder="0" name="l_{{ r.p.id }}" value="{{ r.p.limit_labor|default_if_none:''|unlocalize }}"></td>
               <td class="num"><input type="number" step="0.01" min="0" placeholder="0" name="k_{{ r.p.id }}" value="{{ r.p.limit_machinery|default_if_none:''|unlocalize }}"></td>
+              <td class="num"><input type="number" step="0.01" min="0" placeholder="0" name="o_{{ r.p.id }}" value="{{ r.p.limit_other|default_if_none:''|unlocalize }}"></td>
               {% else %}
               <td><a class="objlink" href="{% url 'project_detail' r.p.id %}">{{ r.p.name }}</a> <a class="ichi" href="{% url 'project_detail' r.p.id %}">ichi</a></td>
               <td class="num ro">{{ r.p.limit_material|floatformat:0 }}</td>
               <td class="num ro">{{ r.p.limit_labor|floatformat:0 }}</td>
               <td class="num ro">{{ r.p.limit_machinery|floatformat:0 }}</td>
+              <td class="num ro">{{ r.p.limit_other|floatformat:0 }}</td>
               {% endif %}
               <td class="num rtot">0</td>
             </tr>
             {% endfor %}
           </tbody>
-          <tfoot><tr><td>Jami — {{ fb.firma.name }}</td><td></td><td></td><td></td><td class="num ftot">0</td></tr></tfoot>
+          <tfoot><tr><td>Jami — {{ fb.firma.name }}</td><td></td><td></td><td></td><td></td><td class="num ftot">0</td></tr></tfoot>
         </table>
       </div>
       {% endfor %}
@@ -459,7 +461,7 @@
       <div class="fblock">
         <div class="ft">Firmasiz obyektlar<span class="cnt">{{ entry_no_firm|length }} obyekt</span></div>
         <table>
-          <thead><tr><th>Obyekt</th><th class="num"><span class="dotm mat"></span>Material</th><th class="num"><span class="dotm lab"></span>Ish haqi</th><th class="num"><span class="dotm mach"></span>Mashina chasti</th><th class="num">Umumiy</th></tr></thead>
+          <thead><tr><th>Obyekt</th><th class="num"><span class="dotm mat"></span>Material</th><th class="num"><span class="dotm lab"></span>Ish haqi</th><th class="num"><span class="dotm mach"></span>Mashina chasti</th><th class="num"><span class="dotm oth"></span>Ko'zda tutilmagan</th><th class="num">Umumiy</th></tr></thead>
           <tbody>
             {% for r in entry_no_firm %}
             <tr class="orow" data-name="{{ r.p.name|lower }}" data-limit="{% if r.p.budget_total > 0 %}1{% else %}0{% endif %}">
@@ -468,17 +470,19 @@
               <td class="num"><input type="number" step="0.01" min="0" placeholder="0" name="m_{{ r.p.id }}" value="{{ r.p.limit_material|default_if_none:''|unlocalize }}"></td>
               <td class="num"><input type="number" step="0.01" min="0" placeholder="0" name="l_{{ r.p.id }}" value="{{ r.p.limit_labor|default_if_none:''|unlocalize }}"></td>
               <td class="num"><input type="number" step="0.01" min="0" placeholder="0" name="k_{{ r.p.id }}" value="{{ r.p.limit_machinery|default_if_none:''|unlocalize }}"></td>
+              <td class="num"><input type="number" step="0.01" min="0" placeholder="0" name="o_{{ r.p.id }}" value="{{ r.p.limit_other|default_if_none:''|unlocalize }}"></td>
               {% else %}
               <td><a class="objlink" href="{% url 'project_detail' r.p.id %}">{{ r.p.name }}</a> <a class="ichi" href="{% url 'project_detail' r.p.id %}">ichi</a></td>
               <td class="num ro">{{ r.p.limit_material|floatformat:0 }}</td>
               <td class="num ro">{{ r.p.limit_labor|floatformat:0 }}</td>
               <td class="num ro">{{ r.p.limit_machinery|floatformat:0 }}</td>
+              <td class="num ro">{{ r.p.limit_other|floatformat:0 }}</td>
               {% endif %}
               <td class="num rtot">0</td>
             </tr>
             {% endfor %}
           </tbody>
-          <tfoot><tr><td>Jami — Firmasiz</td><td></td><td></td><td></td><td class="num ftot">0</td></tr></tfoot>
+          <tfoot><tr><td>Jami — Firmasiz</td><td></td><td></td><td></td><td></td><td class="num ftot">0</td></tr></tfoot>
         </table>
       </div>
       {% endif %}
@@ -568,7 +572,7 @@
         var fsum = 0;
         b.querySelectorAll('tbody tr').forEach(function(tr){
           var tds = tr.querySelectorAll('td');
-          var t = cellNum(tds[1]) + cellNum(tds[2]) + cellNum(tds[3]);
+          var t = cellNum(tds[1]) + cellNum(tds[2]) + cellNum(tds[3]) + cellNum(tds[4]);
           var rt = tr.querySelector('.rtot'); if(rt) rt.textContent = fmt(t);
           fsum += t;
         });

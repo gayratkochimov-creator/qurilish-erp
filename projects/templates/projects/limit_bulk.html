@@ -43,7 +43,7 @@
   .roname a { font-size:11.5px; color:#94a3b8; margin-left:6px; }
   .ro { color:#64748b; font-variant-numeric:tabular-nums; }
   .dotm{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:middle;}
-  .dotm.mat{background:#0a6ed1;}.dotm.lab{background:#5899da;}.dotm.mach{background:#89c3f0;}
+  .dotm.mat{background:#0a6ed1;}.dotm.lab{background:#5899da;}.dotm.mach{background:#89c3f0;}.dotm.oth{background:#9ca3af;}
   .savebar { position:sticky; bottom:0; background:rgba(238,241,248,.92); backdrop-filter:blur(8px); padding:14px 4px; margin-top:6px; display:flex; align-items:center; justify-content:flex-end; gap:20px; border-top:1px solid var(--line); }
   .grandbox { font-size:14px; color:var(--mut); }
   .grandbox b { font-size:20px; color:var(--ink); font-weight:800; margin-left:6px; font-variant-numeric:tabular-nums; }
@@ -55,7 +55,7 @@
   {% if messages %}{% for m in messages %}<div class="msg {{ m.tags }}">{{ m }}</div>{% endfor %}{% endif %}
 
   <div class="hint">
-    Bir ekranda barcha obyektlar limitini kiriting. Ustunlar: <span class="dotm mat"></span>Material · <span class="dotm lab"></span>Ish haqi · <span class="dotm mach"></span>Mashina chasti. <b>«Umumiy»</b> va <b>«Jami»</b> yozayotganda avtomatik hisoblanadi.
+    Bir ekranda barcha obyektlar limitini kiriting. Ustunlar: <span class="dotm mat"></span>Material · <span class="dotm lab"></span>Ish haqi · <span class="dotm mach"></span>Mashina chasti · <span class="dotm oth"></span>Ko'zda tutilmagan. <b>«Umumiy»</b> va <b>«Jami»</b> yozayotganda avtomatik hisoblanadi.
     {% if not admin %}<br>Mavjud limitni o'zgartirish uchun obyekt sahifasiga o'ting (admin tasdig'i kerak). Bu yerda faqat <b>yangi</b> limitlar kiritiladi.{% endif %}
   </div>
 
@@ -78,7 +78,7 @@
     <div class="fblock">
       <div class="ft">{{ fb.firma.name }}<span class="cnt">{{ fb.rows|length }} obyekt</span></div>
       <table>
-        <thead><tr><th>Obyekt</th><th class="num"><span class="dotm mat"></span>Material</th><th class="num"><span class="dotm lab"></span>Ish haqi</th><th class="num"><span class="dotm mach"></span>Mashina chasti</th><th class="num">Umumiy</th></tr></thead>
+        <thead><tr><th>Obyekt</th><th class="num"><span class="dotm mat"></span>Material</th><th class="num"><span class="dotm lab"></span>Ish haqi</th><th class="num"><span class="dotm mach"></span>Mashina chasti</th><th class="num"><span class="dotm oth"></span>Ko'zda tutilmagan</th><th class="num">Umumiy</th></tr></thead>
         <tbody>
           {% for r in fb.rows %}
           <tr class="orow" data-name="{{ r.p.name|lower }}" data-limit="{% if r.p.budget_total > 0 %}1{% else %}0{% endif %}">
@@ -87,17 +87,19 @@
             <td class="num"><input type="number" step="0.01" min="0" placeholder="0" name="m_{{ r.p.id }}" value="{{ r.p.limit_material|default_if_none:''|unlocalize }}"></td>
             <td class="num"><input type="number" step="0.01" min="0" placeholder="0" name="l_{{ r.p.id }}" value="{{ r.p.limit_labor|default_if_none:''|unlocalize }}"></td>
             <td class="num"><input type="number" step="0.01" min="0" placeholder="0" name="k_{{ r.p.id }}" value="{{ r.p.limit_machinery|default_if_none:''|unlocalize }}"></td>
+            <td class="num"><input type="number" step="0.01" min="0" placeholder="0" name="o_{{ r.p.id }}" value="{{ r.p.limit_other|default_if_none:''|unlocalize }}"></td>
             {% else %}
             <td><a class="objlink" href="{% url 'project_detail' r.p.id %}">{{ r.p.name }}</a> <a class="ichi" href="{% url 'project_detail' r.p.id %}">ichi</a></td>
             <td class="num ro">{{ r.p.limit_material|floatformat:0 }}</td>
             <td class="num ro">{{ r.p.limit_labor|floatformat:0 }}</td>
             <td class="num ro">{{ r.p.limit_machinery|floatformat:0 }}</td>
+            <td class="num ro">{{ r.p.limit_other|floatformat:0 }}</td>
             {% endif %}
             <td class="num rtot">0</td>
           </tr>
           {% endfor %}
         </tbody>
-        <tfoot><tr><td>Jami — {{ fb.firma.name }}</td><td></td><td></td><td></td><td class="num ftot">0</td></tr></tfoot>
+        <tfoot><tr><td>Jami — {{ fb.firma.name }}</td><td></td><td></td><td></td><td></td><td class="num ftot">0</td></tr></tfoot>
       </table>
     </div>
     {% endfor %}
@@ -122,7 +124,7 @@
         var fsum = 0;
         b.querySelectorAll('tbody tr').forEach(function(tr){
           var tds = tr.querySelectorAll('td');
-          var t = cellNum(tds[1]) + cellNum(tds[2]) + cellNum(tds[3]);
+          var t = cellNum(tds[1]) + cellNum(tds[2]) + cellNum(tds[3]) + cellNum(tds[4]);
           var rt = tr.querySelector('.rtot'); if(rt) rt.textContent = fmt(t);
           fsum += t;
         });

@@ -31,8 +31,9 @@
     .card .value { font-size: 24px; font-weight: 700; letter-spacing: -.02em; margin-top: 8px; font-variant-numeric: tabular-nums; }
     .split { font-size: 12px; color: var(--mut); margin-top: 6px; line-height: 1.8; }
     .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
-    .dot.mat { background: #0a6ed1; } .dot.lab { background: #5899da; } .dot.mach { background: #89c3f0; }
+    .dot.mat { background: #0a6ed1; } .dot.lab { background: #5899da; } .dot.mach { background: #89c3f0; } .dot.oth { background: #d1d5db; }
     .k-mach { background: #e6e8ec; color: #334155; }
+    .k-oth { background: #e2e8f0; color: #334155; }
     .neg { color: var(--bad); font-weight: 700; }
     .qoldiq-run { font-size: 12px; color: var(--ok); margin-top: 4px; }
     .qoldiq-run.neg { color: var(--bad); }
@@ -313,6 +314,7 @@
                 <option value="material" {% if it.kind == 'material' %}selected{% endif %}>Material</option>
                 <option value="labor" {% if it.kind == 'labor' %}selected{% endif %}>Ish haqi</option>
                 <option value="machinery" {% if it.kind == 'machinery' %}selected{% endif %}>Mashina chasti</option>
+                <option value="other" {% if it.kind == 'other' %}selected{% endif %}>Ko'zda tutilmagan</option>
               </select></td>
               <td><input type="text" name="name" value="{{ it.name }}"></td>
               <td><input type="text" name="item_note" class="noteinp" value="{{ it.note }}" placeholder="izoh..."></td>
@@ -346,7 +348,7 @@
       </form>
       <template id="li-rowtpl">
         <tr>
-          <td><select name="kind"><option value="material">Material</option><option value="labor">Ish haqi</option><option value="machinery">Mashina chasti</option></select></td>
+          <td><select name="kind"><option value="material">Material</option><option value="labor">Ish haqi</option><option value="machinery">Mashina chasti</option><option value="other">Ko'zda tutilmagan</option></select></td>
           <td><input type="text" name="name" placeholder="nomi"></td>
           <td><input type="text" name="item_note" class="noteinp" placeholder="izoh..."></td>
           <td><input type="text" name="unit" placeholder="birlik"></td>
@@ -363,14 +365,14 @@
         if(!tbody||!tpl) return;
         function fmt(n){ return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,' '); }
         function recompute(){
-          var grand=0, cat={material:0,labor:0,machinery:0};
+          var grand=0, cat={material:0,labor:0,machinery:0,other:0};
           tbody.querySelectorAll('tr').forEach(function(tr){
             var q=parseFloat(tr.querySelector('[name=quantity]').value)||0;
             var pr=parseFloat(tr.querySelector('[name=unit_price]').value)||0;
             var s=q*pr; tr.querySelector('.rsum').textContent=fmt(s);
             var k=tr.querySelector('[name=kind]').value; cat[k]=(cat[k]||0)+s; grand+=s;
           });
-          document.getElementById('li-cats').textContent='Material '+fmt(cat.material)+'  ·  Ish haqi '+fmt(cat.labor)+'  ·  Mashina '+fmt(cat.machinery);
+          document.getElementById('li-cats').textContent='Material '+fmt(cat.material)+'  ·  Ish haqi '+fmt(cat.labor)+'  ·  Mashina '+fmt(cat.machinery)+'  ·  Ko\'zda tutilmagan '+fmt(cat.other);
           document.getElementById('li-grand').textContent=fmt(grand);
         }
         function addRow(){ tbody.appendChild(tpl.content.cloneNode(true)); recompute(); }
@@ -442,6 +444,7 @@
             <div class="wq-row"><span class="wq-k"><span class="dot mat"></span>Material</span><span class="wq-rem">{{ rem_mat_str }}</span><span class="wq-after" id="wq-material">—</span></div>
             <div class="wq-row"><span class="wq-k"><span class="dot lab"></span>Ish haqi</span><span class="wq-rem">{{ rem_lab_str }}</span><span class="wq-after" id="wq-labor">—</span></div>
             <div class="wq-row"><span class="wq-k"><span class="dot mach"></span>Mashina chasti</span><span class="wq-rem">{{ rem_mach_str }}</span><span class="wq-after" id="wq-machinery">—</span></div>
+            <div class="wq-row"><span class="wq-k"><span class="dot oth"></span>Ko'zda tutilmagan</span><span class="wq-rem">{{ rem_oth_str }}</span><span class="wq-after" id="wq-other">—</span></div>
             <div class="wq-warn" id="wq-warn" style="display:none;">Diqqat: bu so'rov qolgan limitdan oshib ketadi.</div>
           </div>
           {{ qoldiq_json|json_script:"qoldiqData" }}
@@ -458,6 +461,7 @@
               <option value="material">Material</option>
               <option value="labor">Ish haqi</option>
               <option value="machinery">Mashina chasti</option>
+              <option value="other">Ko'zda tutilmagan</option>
             </select></td>
             <td><input type="text" name="name" placeholder="nomi"></td>
             <td><input type="text" name="item_note" class="noteinp" placeholder="izoh..."></td>
@@ -477,19 +481,19 @@
           var qEl=document.getElementById('qoldiqData');
           var QREM=qEl?JSON.parse(qEl.textContent):null;
           function recompute(){
-            var grand=0, cat={material:0,labor:0,machinery:0};
+            var grand=0, cat={material:0,labor:0,machinery:0,other:0};
             tbody.querySelectorAll('tr').forEach(function(tr){
               var q=parseFloat(tr.querySelector('[name=quantity]').value)||0;
               var pr=parseFloat(tr.querySelector('[name=unit_price]').value)||0;
               var s=q*pr; tr.querySelector('.rsum').textContent=fmt(s);
               var k=tr.querySelector('[name=kind]').value; cat[k]=(cat[k]||0)+s; grand+=s;
             });
-            document.getElementById('wk-cats').textContent='Material '+fmt(cat.material)+'  ·  Ish haqi '+fmt(cat.labor)+'  ·  Mashina '+fmt(cat.machinery);
+            document.getElementById('wk-cats').textContent='Material '+fmt(cat.material)+'  ·  Ish haqi '+fmt(cat.labor)+'  ·  Mashina '+fmt(cat.machinery)+'  ·  Ko\'zda tutilmagan '+fmt(cat.other);
             document.getElementById('wk-grand').textContent=fmt(grand);
             if(QREM){
-              var after={total:QREM.total-grand, material:QREM.material-cat.material, labor:QREM.labor-cat.labor, machinery:QREM.machinery-cat.machinery};
+              var after={total:QREM.total-grand, material:QREM.material-cat.material, labor:QREM.labor-cat.labor, machinery:QREM.machinery-cat.machinery, other:QREM.other-cat.other};
               var neg=false;
-              ['total','material','labor','machinery'].forEach(function(k){
+              ['total','material','labor','machinery','other'].forEach(function(k){
                 var el=document.getElementById('wq-'+k); if(!el) return;
                 el.textContent=fmt(after[k]); var isn=after[k]<-0.005; el.classList.toggle('neg',isn); if(isn) neg=true;
               });
@@ -526,6 +530,7 @@
       <button type="button" class="fchip" data-f="mat"><span class="dot mat"></span>Material</button>
       <button type="button" class="fchip" data-f="lab"><span class="dot lab"></span>Ish haqi</button>
       <button type="button" class="fchip" data-f="mach"><span class="dot mach"></span>Mashina chasti</button>
+      <button type="button" class="fchip" data-f="oth"><span class="dot oth"></span>Ko'zda tutilmagan</button>
     </div>
 
     <div class="datebar">

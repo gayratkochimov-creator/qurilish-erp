@@ -49,7 +49,9 @@ def _firma_yoki_403(request, project):
 # eslatma: _qty pastda (bitta joyda) aniqlangan — oldin shu yerda dublikat bor edi
 
 
-KIND_NOMI = {"material": "Material", "labor": "Ish haqi", "machinery": "Mashina chasti"}
+KIND_NOMI = {"material": "Material", "labor": "Ish haqi", "machinery": "Mashina chasti",
+             "other": "Ko'zda tutilmagan xarajatlar"}
+KINDS = ("material", "labor", "machinery", "other")
 
 # Tasdiqlash zanjirida «jarayonda» (direktor yoki admin ko'rib chiqmoqda) statuslar
 LIM_JARAYON = ["dir", "adm"]
@@ -57,7 +59,7 @@ LIM_JARAYON = ["dir", "adm"]
 
 def _items_by_kind(items):
     """Qatorlarni kategoriya bo'yicha yig'ish: {kind: summa}."""
-    d = {"material": Decimal("0.00"), "labor": Decimal("0.00"), "machinery": Decimal("0.00")}
+    d = {k: Decimal("0.00") for k in KINDS}
     for it in items:
         k = it.kind if it.kind in d else "material"
         d[k] += (it.quantity or Decimal("0")) * (it.unit_price or Decimal("0"))
@@ -79,7 +81,7 @@ def _limit_oshish(project, qoshimcha, exclude_request_id=None):
     )
     if exclude_request_id:
         qs = qs.exclude(request_id=exclude_request_id)
-    sarf = {"material": Decimal("0.00"), "labor": Decimal("0.00"), "machinery": Decimal("0.00")}
+    sarf = {k: Decimal("0.00") for k in KINDS}
     for r in qs.values("kind").annotate(s=Sum(_LINE_TOTAL)):
         if r["kind"] in sarf:
             sarf[r["kind"]] = r["s"] or Decimal("0.00")
@@ -88,9 +90,10 @@ def _limit_oshish(project, qoshimcha, exclude_request_id=None):
         "material": project.limit_material or Decimal("0.00"),
         "labor": project.limit_labor or Decimal("0.00"),
         "machinery": project.limit_machinery or Decimal("0.00"),
+        "other": project.limit_other or Decimal("0.00"),
     }
     oshgan = []
-    for k in ("material", "labor", "machinery"):
+    for k in KINDS:
         so_ralgan = qoshimcha.get(k, Decimal("0.00"))
         if so_ralgan <= 0 or lim[k] <= 0:
             continue
@@ -182,10 +185,11 @@ def dashboard(request):
     jami_mat = Decimal("0.00")
     jami_lab = Decimal("0.00")
     jami_mach = Decimal("0.00")
+    jami_oth = Decimal("0.00")
     for p in obyektlar:
         split = p.sarf_by_kind()
-        mat, lab, mach = split["material"], split["labor"], split["machinery"]
-        sarf = mat + lab + mach
+        mat, lab, mach, oth = split["material"], split["labor"], split["machinery"], split["other"]
+        sarf = mat + lab + mach + oth
         limit = p.budget_total or Decimal("0.00")
         holat = _holat(limit, sarf)
         foiz = float(sarf) / float(limit) * 100 if limit else 0
@@ -193,6 +197,7 @@ def dashboard(request):
         jami_mat += mat
         jami_lab += lab
         jami_mach += mach
+        jami_oth += oth
         qatorlar.append({
             "obj": p,
             "limit_str": _money(limit),
@@ -200,6 +205,7 @@ def dashboard(request):
             "mat_str": _money(mat),
             "lab_str": _money(lab),
             "mach_str": _money(mach),
+            "oth_str": _money(oth),
             "qoldiq_str": _money(limit - sarf),
             "holat": holat,
             "rang": RANGLAR.get(holat, "#6c757d"),
@@ -207,7 +213,7 @@ def dashboard(request):
             "foiz": round(foiz),
             "foiz_bar": min(round(foiz), 100),
         })
-    jami_sarf = jami_mat + jami_lab + jami_mach
+    jami_sarf = jami_mat + jami_lab + jami_mach + jami_oth
 
     from django.db.models import DecimalField, ExpressionWrapper, F, Sum
     _LT = ExpressionWrapper(F("quantity") * F("unit_price"),
@@ -216,10 +222,12 @@ def dashboard(request):
     _lq = visible_projects(request.user)
     if firma_id:
         _lq = _lq.filter(firma_id=firma_id)
-    la = _lq.aggregate(m=Sum("limit_material"), l=Sum("limit_labor"), k=Sum("limit_machinery"))
+    la = _lq.aggregate(m=Sum("limit_material"), l=Sum("limit_labor"),
+                       k=Sum("limit_machinery"), o=Sum("limit_other"))
     lim_mat = la["m"] or Decimal("0")
     lim_lab = la["l"] or Decimal("0")
     lim_mach = la["k"] or Decimal("0")
+    lim_oth = la["o"] or Decimal("0")
 
     def _pct(part, whole):
         return round(float(part) / float(whole) * 100) if whole else 0
@@ -230,8 +238,10 @@ def dashboard(request):
     tot = jami_limit or Decimal("1")
     c1 = float(lim_mat) / float(tot) * 100
     c2 = c1 + float(lim_lab) / float(tot) * 100
-    donut = ("conic-gradient(#0a6ed1 0 %.2f%%, #5899da %.2f%% %.2f%%, #89c3f0 %.2f%% 100%%)"
-             % (c1, c1, c2, c2))
+    c3 = c2 + float(lim_mach) / float(tot) * 100
+    donut = ("conic-gradient(#0a6ed1 0 %.2f%%, #5899da %.2f%% %.2f%%, "
+             "#89c3f0 %.2f%% %.2f%%, #c7d9ee %.2f%% 100%%)"
+             % (c1, c1, c2, c2, c3, c3))
 
     kategoriyalar = [
         {"nom": "Material", "rang": "#2563eb", "limit_str": _money(lim_mat), "sarf_str": _money(jami_mat),
@@ -240,6 +250,8 @@ def dashboard(request):
          "pct": _pct(jami_lab, lim_lab), "bar": min(_pct(jami_lab, lim_lab), 100)},
         {"nom": "Mashina chasti", "rang": "#bfdbfe", "limit_str": _money(lim_mach), "sarf_str": _money(jami_mach),
          "pct": _pct(jami_mach, lim_mach), "bar": min(_pct(jami_mach, lim_mach), 100)},
+        {"nom": "Ko'zda tutilmagan", "rang": "#c7d9ee", "limit_str": _money(lim_oth), "sarf_str": _money(jami_oth),
+         "pct": _pct(jami_oth, lim_oth), "bar": min(_pct(jami_oth, lim_oth), 100)},
     ]
 
     # haftalik sarf grafigi (tasdiqlangan)
@@ -280,7 +292,7 @@ def dashboard(request):
     qolgan_foiz = max(0, 100 - foiz_used)
 
     # Chart.js uchun raqamli ma'lumot
-    cat_values = [float(lim_mat), float(lim_lab), float(lim_mach)]
+    cat_values = [float(lim_mat), float(lim_lab), float(lim_mach), float(lim_oth)]
     wk_labels = [r["request__week_start"].strftime("%d.%m") for r in crows]
     wk_values = [float(r["s"] or 0) for r in crows]
 
@@ -344,6 +356,7 @@ def dashboard(request):
         "jami_mat_str": _money(jami_mat),
         "jami_lab_str": _money(jami_lab),
         "jami_mach_str": _money(jami_mach),
+        "jami_oth_str": _money(jami_oth),
         "jami_qoldiq_str": _money(jami_limit - jami_sarf),
         "soni": len(qatorlar),
         "foiz_used": foiz_used,
@@ -643,7 +656,8 @@ def virtual_ofis(request):
     # 5) Sarf tahlilchisi (kategoriya bo'yicha pererasxod)
     tasks = []
     KAT = [("Material", "limit_material", "material"), ("Ish haqi", "limit_labor", "labor"),
-           ("Mashina chasti", "limit_machinery", "machinery")]
+           ("Mashina chasti", "limit_machinery", "machinery"),
+           ("Ko'zda tutilmagan", "limit_other", "other")]
     for p in visible_projects(request.user):
         if p.budget_total <= 0:
             continue
@@ -702,12 +716,12 @@ def haftalik_tarix(request):
     rows = []
     t_jami = Decimal("0")
     for w in qs:
-        s = {"material": Decimal("0"), "labor": Decimal("0"), "machinery": Decimal("0")}
+        s = {k: Decimal("0") for k in KINDS}
         cnt = 0
         for it in w.items.all():
             s[it.kind] = s.get(it.kind, Decimal("0")) + it.total
             cnt += 1
-        jami = s["material"] + s["labor"] + s["machinery"]
+        jami = s["material"] + s["labor"] + s["machinery"] + s["other"]
         t_jami += jami
         rows.append({
             "id": w.id, "obj": w.project,
@@ -720,7 +734,8 @@ def haftalik_tarix(request):
             "tasdiq_sana": w.approved_at,
             "is_approved": w.status == "approved",
             "mat_str": _money(s["material"]), "lab_str": _money(s["labor"]),
-            "mach_str": _money(s["machinery"]), "jami_str": _money(jami), "soni": cnt,
+            "mach_str": _money(s["machinery"]), "oth_str": _money(s["other"]),
+            "jami_str": _money(jami), "soni": cnt,
         })
 
     sel_obj = projs.filter(id=obj_id).first() if obj_id else None
@@ -763,16 +778,17 @@ def project_detail(request, pk):
                          .select_related("decided_by").order_by("-decided_at").first())
 
     split = p.sarf_by_kind()
-    sarf = split["material"] + split["labor"] + split["machinery"]
+    sarf = split["material"] + split["labor"] + split["machinery"] + split["other"]
     limit = p.budget_total or Decimal("0.00")
     holat = _holat(limit, sarf)
     foiz = float(sarf) / float(limit) * 100 if limit else 0
 
-    # kategoriyalar: limit vs sarf (material / ish haqi / mashina chasti)
+    # kategoriyalar: limit vs sarf (material / ish haqi / mashina / ko'zda tutilmagan)
     kats = [
         ("Material", p.limit_material or Decimal("0"), split["material"], "mat"),
         ("Ish haqi", p.limit_labor or Decimal("0"), split["labor"], "lab"),
         ("Mashina chasti", p.limit_machinery or Decimal("0"), split["machinery"], "mach"),
+        ("Ko'zda tutilmagan", p.limit_other or Decimal("0"), split["other"], "oth"),
     ]
     kategoriyalar = []
     for nom, klimit, ksarf, cls in kats:
@@ -802,7 +818,7 @@ def project_detail(request, pk):
     mat_names = sorted({m.name for m in Material.objects.all()})
 
     # Umumiy limit ichi (tarkibi)
-    LI_CLS = {"material": "mat", "labor": "lab", "machinery": "mach"}
+    LI_CLS = {"material": "mat", "labor": "lab", "machinery": "mach", "other": "oth"}
     limit_items = []
     for it in p.limit_items.all().order_by("kind", "id"):
         limit_items.append({
@@ -834,10 +850,10 @@ def project_detail(request, pk):
         .prefetch_related("items", "items__work_section")
         .order_by("-week_start", "-id")
     )
-    KIND_CLS = {"labor": "lab", "machinery": "mach", "material": "mat"}
+    KIND_CLS = {"labor": "lab", "machinery": "mach", "material": "mat", "other": "oth"}
     for r in requests:
         qatorlar = []
-        r_sum = {"material": Decimal("0"), "labor": Decimal("0"), "machinery": Decimal("0")}
+        r_sum = {k: Decimal("0") for k in KINDS}
         for it in r.items.all():
             summa = it.total
             r_sum[it.kind] = r_sum.get(it.kind, Decimal("0")) + summa
@@ -860,6 +876,7 @@ def project_detail(request, pk):
             "mat_str": _money(r_sum["material"]),
             "lab_str": _money(r_sum["labor"]),
             "mach_str": _money(r_sum["machinery"]),
+            "oth_str": _money(r_sum["other"]),
             "is_approved": r.status == "approved",
             "is_dir": r.status == "dir",            # direktor tasdig'ida
             "is_submitted": r.status == "submitted",  # admin tasdig'ida (direktordan o'tgan)
@@ -933,10 +950,12 @@ def project_detail(request, pk):
             "material": float((p.limit_material or Decimal("0")) - split["material"]),
             "labor": float((p.limit_labor or Decimal("0")) - split["labor"]),
             "machinery": float((p.limit_machinery or Decimal("0")) - split["machinery"]),
+            "other": float((p.limit_other or Decimal("0")) - split["other"]),
         },
         "rem_mat_str": _money((p.limit_material or Decimal("0")) - split["material"]),
         "rem_lab_str": _money((p.limit_labor or Decimal("0")) - split["labor"]),
         "rem_mach_str": _money((p.limit_machinery or Decimal("0")) - split["machinery"]),
+        "rem_oth_str": _money((p.limit_other or Decimal("0")) - split["other"]),
     }
     return render(request, "projects/detail.html", kontekst)
 
@@ -953,18 +972,19 @@ def limit_edit(request, pk):
     mat = _to_dec(request.POST.get("material"))
     lab = _to_dec(request.POST.get("labor"))
     mach = _to_dec(request.POST.get("machinery"))
+    oth = _to_dec(request.POST.get("other")) or Decimal("0")
     sabab = (request.POST.get("reason") or "").strip()
-    if None in (mat, lab, mach) or mat < 0 or lab < 0 or mach < 0:
+    if None in (mat, lab, mach) or mat < 0 or lab < 0 or mach < 0 or oth < 0:
         messages.error(request, "Limit noto'g'ri kiritildi.")
         return redirect("project_detail", pk=pk)
 
-    eski = (p.limit_material, p.limit_labor, p.limit_machinery)
-    yangi = (mat, lab, mach)
+    eski = (p.limit_material, p.limit_labor, p.limit_machinery, p.limit_other)
+    yangi = (mat, lab, mach, oth)
     if is_admin(request.user):
         # Admin — to'g'ridan-to'g'ri (u tasdiqlovchi)
-        p.limit_material, p.limit_labor, p.limit_machinery = yangi
-        p.save(update_fields=["limit_material", "limit_labor", "limit_machinery"])
-        messages.success(request, f"Limit belgilandi: {_money(mat + lab + mach)}")
+        p.limit_material, p.limit_labor, p.limit_machinery, p.limit_other = yangi
+        p.save(update_fields=["limit_material", "limit_labor", "limit_machinery", "limit_other"])
+        messages.success(request, f"Limit belgilandi: {_money(mat + lab + mach + oth)}")
     elif yangi == eski:
         messages.info(request, "Limit o'zgarmadi.")
     else:
@@ -975,8 +995,9 @@ def limit_edit(request, pk):
         else:
             LimitChangeRequest.objects.create(
                 project=p,
-                old_material=p.limit_material, old_labor=p.limit_labor, old_machinery=p.limit_machinery,
-                new_material=mat, new_labor=lab, new_machinery=mach,
+                old_material=p.limit_material, old_labor=p.limit_labor,
+                old_machinery=p.limit_machinery, old_other=p.limit_other,
+                new_material=mat, new_labor=lab, new_machinery=mach, new_other=oth,
                 reason=sabab, requested_by=request.user,
             )
             messages.success(request, f"So'rov yuborildi. Admin tasdig'i kutilmoqda.")
@@ -1000,9 +1021,9 @@ def limit_items_edit(request, pk):
     prices = request.POST.getlist("unit_price")
     inotes = request.POST.getlist("item_note")
 
-    valid = {"material", "labor", "machinery"}
+    valid = set(KINDS)
     items = []
-    sums = {"material": Decimal("0"), "labor": Decimal("0"), "machinery": Decimal("0")}
+    sums = {k: Decimal("0") for k in KINDS}
     for i in range(len(names)):
         nm = (names[i] or "").strip()
         if not nm:
@@ -1037,8 +1058,10 @@ def limit_items_edit(request, pk):
         with transaction.atomic():
             req = LimitChangeRequest.objects.create(
                 project=p,
-                old_material=p.limit_material, old_labor=p.limit_labor, old_machinery=p.limit_machinery,
-                new_material=sums["material"], new_labor=sums["labor"], new_machinery=sums["machinery"],
+                old_material=p.limit_material, old_labor=p.limit_labor,
+                old_machinery=p.limit_machinery, old_other=p.limit_other,
+                new_material=sums["material"], new_labor=sums["labor"],
+                new_machinery=sums["machinery"], new_other=sums["other"],
                 reason=reason, requested_by=request.user,
             )
             LimitChangeItem.objects.bulk_create([LimitChangeItem(request=req, **it) for it in items])
@@ -1057,7 +1080,7 @@ def _tasdiqlar_data(status="dir", user=None):
         lreqs = lreqs.filter(project__in=_proj_qs)
     lreqs = (lreqs.select_related("project", "requested_by", "director_by")
              .prefetch_related("proposed_items").order_by("-created_at"))
-    LI_CLS = {"material": "mat", "labor": "lab", "machinery": "mach"}
+    LI_CLS = {"material": "mat", "labor": "lab", "machinery": "mach", "other": "oth"}
     lim_list = []
     for r in lreqs:
         # Joriy tarkib bilan solishtirish — tasdiqlashdagi juftlash bilan BIR XIL tartibda,
@@ -1095,6 +1118,7 @@ def _tasdiqlar_data(status="dir", user=None):
                 ("Material", _money(r.old_material), _money(r.new_material)),
                 ("Ish haqi", _money(r.old_labor), _money(r.new_labor)),
                 ("Mashina chasti", _money(r.old_machinery), _money(r.new_machinery)),
+                ("Ko'zda tutilmagan", _money(r.old_other), _money(r.new_other)),
             ],
             "items": items,
         })
@@ -1187,13 +1211,14 @@ def limit_request_action(request, pk):
                 nom = it.name
                 with transaction.atomic():
                     it.delete()
-                    sums = {"material": Decimal("0"), "labor": Decimal("0"), "machinery": Decimal("0")}
+                    sums = {k: Decimal("0") for k in KINDS}
                     for x in req.proposed_items.all():
                         sums[x.kind] += x.total
                     req.new_material = sums["material"]
                     req.new_labor = sums["labor"]
                     req.new_machinery = sums["machinery"]
-                    req.save(update_fields=["new_material", "new_labor", "new_machinery"])
+                    req.new_other = sums["other"]
+                    req.save(update_fields=["new_material", "new_labor", "new_machinery", "new_other"])
                 messages.info(request, f"«{nom}» qatori o'chirildi. Yangi umumiy: {_money(req.new_total)}.")
             return redirect(reverse("dashboard") + "?tab=tasdiqlar")
         from django.utils import timezone
@@ -1262,9 +1287,9 @@ def limit_request_edit(request, pk):
         qtys = request.POST.getlist("quantity")
         prices = request.POST.getlist("unit_price")
         inotes = request.POST.getlist("item_note")
-        valid = {"material", "labor", "machinery"}
+        valid = set(KINDS)
         items = []
-        sums = {"material": Decimal("0"), "labor": Decimal("0"), "machinery": Decimal("0")}
+        sums = {k: Decimal("0") for k in KINDS}
         for i in range(len(names)):
             nm = (names[i] or "").strip()
             if not nm:
@@ -1290,7 +1315,8 @@ def limit_request_edit(request, pk):
             req.new_material = sums["material"]
             req.new_labor = sums["labor"]
             req.new_machinery = sums["machinery"]
-            req.save(update_fields=["new_material", "new_labor", "new_machinery"])
+            req.new_other = sums["other"]
+            req.save(update_fields=["new_material", "new_labor", "new_machinery", "new_other"])
         messages.success(
             request,
             f"So'rov tahrirlandi (yangi umumiy: {_money(req.new_total)}). "
@@ -1338,13 +1364,14 @@ def limit_bulk(request):
             mat = _to_dec(request.POST.get(f"m_{p.id}"))
             lab = _to_dec(request.POST.get(f"l_{p.id}"))
             mach = _to_dec(request.POST.get(f"k_{p.id}"))
-            if None in (mat, lab, mach) or mat < 0 or lab < 0 or mach < 0:
+            oth = _to_dec(request.POST.get(f"o_{p.id}")) or Decimal("0")
+            if None in (mat, lab, mach) or mat < 0 or lab < 0 or mach < 0 or oth < 0:
                 continue
-            if (mat, lab, mach) == (p.limit_material, p.limit_labor, p.limit_machinery):
+            if (mat, lab, mach, oth) == (p.limit_material, p.limit_labor, p.limit_machinery, p.limit_other):
                 continue
             if admin:
-                p.limit_material, p.limit_labor, p.limit_machinery = mat, lab, mach
-                p.save(update_fields=["limit_material", "limit_labor", "limit_machinery"])
+                p.limit_material, p.limit_labor, p.limit_machinery, p.limit_other = mat, lab, mach, oth
+                p.save(update_fields=["limit_material", "limit_labor", "limit_machinery", "limit_other"])
                 n += 1
             else:
                 # PTO — har qanday limit admin tasdig'iga so'rov bo'lib boradi
@@ -1352,8 +1379,9 @@ def limit_bulk(request):
                     continue
                 LimitChangeRequest.objects.create(
                     project=p,
-                    old_material=p.limit_material, old_labor=p.limit_labor, old_machinery=p.limit_machinery,
-                    new_material=mat, new_labor=lab, new_machinery=mach,
+                    old_material=p.limit_material, old_labor=p.limit_labor,
+                    old_machinery=p.limit_machinery, old_other=p.limit_other,
+                    new_material=mat, new_labor=lab, new_machinery=mach, new_other=oth,
                     reason="Limit kiritish (jadval)", requested_by=request.user,
                 )
                 sorov += 1
@@ -1425,7 +1453,7 @@ def weekly_add(request, pk):
     prices = request.POST.getlist("unit_price")
     # Qator izohi — «note» so'rovning umumiy izohi uchun band, shuning uchun «item_note»
     inotes = request.POST.getlist("item_note")
-    valid_kinds = {"material", "labor", "machinery"}
+    valid_kinds = set(KINDS)
     n = 0
     tashlangan = []   # nomi bor, lekin miqdor/narxi to'liq emas — indamay yo'qotmaymiz
     for i in range(len(names)):
@@ -1686,7 +1714,7 @@ def weekly_edit(request, pk):
         qtys = request.POST.getlist("quantity")
         prices = request.POST.getlist("unit_price")
         inotes = request.POST.getlist("item_note")
-        valid = {"material", "labor", "machinery"}
+        valid = set(KINDS)
         new_items = []
         for i in range(len(names)):
             nm = (names[i] or "").strip()
@@ -1772,7 +1800,7 @@ def build_hisobotlar_zip(user=None):
         ws = wb.active
         ws.title = "Limitlar"
         ws.append(["Kod", "Nomi", "Firma", "Material", "Ish haqi", "Mashina chasti",
-                   "Umumiy limit", "Sarflangan", "Qolgan"])
+                   "Ko'zda tutilmagan", "Umumiy limit", "Sarflangan", "Qolgan"])
         for c in ws[1]:
             c.font = Font(bold=True, color="FFFFFF")
             c.fill = PatternFill("solid", fgColor="213145")
@@ -1780,10 +1808,11 @@ def build_hisobotlar_zip(user=None):
             sarf = p.sarflangan()
             lim = p.budget_total or Decimal("0")
             ws.append([p.code, p.name, p.firma.name if p.firma_id else "—",
-                       float(p.limit_material or 0), float(p.limit_labor or 0), float(p.limit_machinery or 0),
+                       float(p.limit_material or 0), float(p.limit_labor or 0),
+                       float(p.limit_machinery or 0), float(p.limit_other or 0),
                        float(lim), float(sarf), float(lim - sarf)])
         ws.freeze_panes = "A2"
-        for i, w in enumerate([16, 30, 22, 16, 16, 18, 18, 18, 18], start=1):
+        for i, w in enumerate([16, 30, 22, 16, 16, 18, 18, 18, 18, 18], start=1):
             ws.column_dimensions[get_column_letter(i)].width = w
         b = io.BytesIO(); wb.save(b)
         z.writestr("Umumiy_limitlar.xlsx", b.getvalue())
@@ -1826,17 +1855,19 @@ def limit_export(request):
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Limitlar"
-    headers = ["Kod", "Nomi", "Material limiti", "Ish haqi limiti", "Mashina chasti limiti", "Umumiy limit", "Sarflangan", "Qolgan"]
+    headers = ["Kod", "Nomi", "Material limiti", "Ish haqi limiti", "Mashina chasti limiti",
+               "Ko'zda tutilmagan limiti", "Umumiy limit", "Sarflangan", "Qolgan"]
     ws.append(headers)
     for p in visible_projects(request.user).order_by("code"):
         sarf = p.sarflangan()
         limit = p.budget_total or Decimal("0")
         ws.append([
             p.code, p.name,
-            float(p.limit_material or 0), float(p.limit_labor or 0), float(p.limit_machinery or 0),
+            float(p.limit_material or 0), float(p.limit_labor or 0),
+            float(p.limit_machinery or 0), float(p.limit_other or 0),
             float(limit), float(sarf), float(limit - sarf),
         ])
-    for i, w in enumerate([16, 30, 18, 18, 20, 18, 18, 18], start=1):
+    for i, w in enumerate([16, 30, 18, 18, 20, 20, 18, 18, 18], start=1):
         ws.column_dimensions[get_column_letter(i)].width = w
 
     buf = io.BytesIO()
@@ -1857,7 +1888,7 @@ def _obj_limit_wb(p):
     from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
     from openpyxl.utils import get_column_letter
 
-    KIND = {"material": "Material", "labor": "Ish haqi", "machinery": "Mashina chasti"}
+    KIND = dict(KIND_NOMI)
     STATUS = {"draft": "Qoralama", "dir": "Direktor tasdig'ida",
               "submitted": "Admin tasdig'ida", "approved": "Tasdiqlangan"}
 
@@ -1907,10 +1938,10 @@ def _obj_limit_wb(p):
             c.border = border
     # kategoriya bo'yicha jami
     ws1.append([])
-    d = {"material": Decimal("0"), "labor": Decimal("0"), "machinery": Decimal("0")}
+    d = {k: Decimal("0") for k in KINDS}
     for it in p.limit_items.all():
         d[it.kind] = d.get(it.kind, Decimal("0")) + it.total
-    for k in ("material", "labor", "machinery"):
+    for k in KINDS:
         rr = ws1.max_row + 1
         ws1.cell(rr, 6, KIND[k] + " jami:").font = tot_font
         c = ws1.cell(rr, 7, float(d[k])); c.number_format = money; c.font = tot_font; c.fill = tot_fill
@@ -1986,20 +2017,22 @@ def limit_template(request):
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Limit"
-    headers = ["Kod", "Nomi", "Material limiti", "Ish haqi limiti", "Mashina chasti limiti"]
+    headers = ["Kod", "Nomi", "Material limiti", "Ish haqi limiti", "Mashina chasti limiti",
+               "Ko'zda tutilmagan limiti"]
     ws.append(headers)
     for cell in ws[1]:
         cell.font = Font(bold=True, color="FFFFFF")
         cell.fill = PatternFill("solid", fgColor="2563EB")
 
     for p in visible_projects(request.user).order_by("code"):
-        ws.append([p.code, p.name, float(p.limit_material or 0), float(p.limit_labor or 0), float(p.limit_machinery or 0)])
+        ws.append([p.code, p.name, float(p.limit_material or 0), float(p.limit_labor or 0),
+                   float(p.limit_machinery or 0), float(p.limit_other or 0)])
     # bo'sh namuna qatorlari (yangi obyekt qo'shish uchun)
     for _ in range(3):
-        ws.append(["", "", "", "", ""])
+        ws.append(["", "", "", "", "", ""])
 
     ws.freeze_panes = "A2"
-    for i, w in enumerate([18, 34, 18, 18, 20], start=1):
+    for i, w in enumerate([18, 34, 18, 18, 20, 20], start=1):
         ws.column_dimensions[get_column_letter(i)].width = w
 
     buf = io.BytesIO()
@@ -2384,6 +2417,7 @@ def limit_import(request):
         c_mat = _find_col(header, "material", "материал")
         c_lab = _find_col(header, "ish haqi", "ish", "иш", exclude=("mashina", "машина"))
         c_mach = _find_col(header, "mashina", "chasti", "машина", "механизм")
+        c_oth = _find_col(header, "tutilmagan", "kutilmagan", "прочие", "непредвиден")
         if c_kod is None or (c_mat is None and c_lab is None and c_mach is None):
             return render(request, "projects/limit_import.html", {
                 "xato": "«Kod» va kamida bitta limit ustuni (Material / Ish haqi / Mashina chasti) topilmadi.",
@@ -2402,8 +2436,8 @@ def limit_import(request):
             kod = str(row[c_kod]).strip() if row[c_kod] is not None else ""
             if not kod:
                 continue
-            mat, lab, mach = cell(row, c_mat), cell(row, c_lab), cell(row, c_mach)
-            jami = mat + lab + mach
+            mat, lab, mach, oth = cell(row, c_mat), cell(row, c_lab), cell(row, c_mach), cell(row, c_oth)
+            jami = mat + lab + mach + oth
             nom = ""
             if c_nom is not None and c_nom < len(row) and row[c_nom]:
                 nom = str(row[c_nom]).strip()
@@ -2411,15 +2445,19 @@ def limit_import(request):
             # Firma izolyatsiyasi: PTO faqat o'z firmasidagi obyekt kodini yangilaydi
             p = visible_projects(request.user).filter(code=kod).first()
             if p:
-                eski = (p.limit_material, p.limit_labor, p.limit_machinery)
-                yangi = (mat, lab, mach)
+                # Faylda «Ko'zda tutilmagan» ustuni bo'lmasa — mavjud qiymat saqlanadi
+                if c_oth is None:
+                    oth = p.limit_other or Decimal("0")
+                    jami = mat + lab + mach + oth
+                eski = (p.limit_material, p.limit_labor, p.limit_machinery, p.limit_other)
+                yangi = (mat, lab, mach, oth)
                 if eski == yangi:
                     amal = "o'zgarishsiz"
                 elif admin:
                     # faqat asosiy admin — to'g'ridan-to'g'ri (PTO birinchi limit ham tasdiq bilan)
                     if not dry:
-                        p.limit_material, p.limit_labor, p.limit_machinery = mat, lab, mach
-                        p.save(update_fields=["limit_material", "limit_labor", "limit_machinery"])
+                        p.limit_material, p.limit_labor, p.limit_machinery, p.limit_other = mat, lab, mach, oth
+                        p.save(update_fields=["limit_material", "limit_labor", "limit_machinery", "limit_other"])
                     amal = "yangilandi"
                     yangilandi += 1
                 elif p.limit_requests.filter(status__in=LIM_JARAYON).exists():
@@ -2429,8 +2467,9 @@ def limit_import(request):
                     if not dry:
                         LimitChangeRequest.objects.create(
                             project=p,
-                            old_material=p.limit_material, old_labor=p.limit_labor, old_machinery=p.limit_machinery,
-                            new_material=mat, new_labor=lab, new_machinery=mach,
+                            old_material=p.limit_material, old_labor=p.limit_labor,
+                            old_machinery=p.limit_machinery, old_other=p.limit_other,
+                            new_material=mat, new_labor=lab, new_machinery=mach, new_other=oth,
                             reason="Excel import", requested_by=request.user,
                         )
                     amal = "so'rov yuborildi (admin tasdig'i)"
@@ -2441,7 +2480,8 @@ def limit_import(request):
                 # yangi obyekt — faqat asosiy admin yaratadi
                 if not dry:
                     Project.objects.create(code=kod, name=nom or kod,
-                                           limit_material=mat, limit_labor=lab, limit_machinery=mach)
+                                           limit_material=mat, limit_labor=lab,
+                                           limit_machinery=mach, limit_other=oth)
                 yaratildi += 1
                 ozgarishlar.append({"kod": kod, "nomi": nom or kod, "amal": "yaratildi",
                                     "mat": _money(mat), "lab": _money(lab), "mach": _money(mach), "jami": _money(jami)})
