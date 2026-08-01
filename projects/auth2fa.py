@@ -69,6 +69,25 @@ def tg_send(chat_id, text):
     return _api_json("sendMessage", {"chat_id": chat_id, "text": text})
 
 
+def tg_send_kb(chat_id, text, keyboard):
+    """Inline tugmali xabar (admin tasdiqlash/rad etish uchun)."""
+    return _api_json("sendMessage", {
+        "chat_id": chat_id, "text": text,
+        "reply_markup": {"inline_keyboard": keyboard},
+    })
+
+
+def tg_edit(chat_id, message_id, text):
+    """Xabar matnini yangilash (tugmalarni olib tashlab natijani yozish)."""
+    return _api_json("editMessageText",
+                     {"chat_id": chat_id, "message_id": message_id, "text": text})
+
+
+def tg_answer_cb(cb_id, text=""):
+    """Callback tugma bosilganiga javob (soatcha belgisini o'chiradi)."""
+    return _api_json("answerCallbackQuery", {"callback_query_id": cb_id, "text": text})
+
+
 def tg_delete(chat_id, message_id):
     """Xabarni o'chirish (parol xabari uchun) — xato bo'lsa jim."""
     return _api_json("deleteMessage", {"chat_id": chat_id, "message_id": message_id})
@@ -196,6 +215,12 @@ BOT_XATO = "❌ Login yoki parol noto'g'ri.\nQaytadan boshlash: /start"
 BOT_BLOK = f"⛔ Juda ko'p xato urinish. {BIND_BLOK_DAQIQA} daqiqadan keyin /start bosing."
 BOT_BOR = "Siz ro'yxatdan o'tgansiz ✅\nKod saytga kirish paytida keladi.\nQayta bog'lash: /start"
 BOT_YOQ = "Ro'yxatdan o'tish uchun /start bosing."
+BOT_KUTISH = ("⏳ So'rovingiz ADMIN tasdig'iga yuborildi.\n"
+              "Admin tasdiqlagach shu yerda xabar olasiz — shundan keyin "
+              "saytga kirishda kod kela boshlaydi.")
+BOT_ADMIN_YOQ = "❌ Admin chati sozlanmagan — admin bilan bog'laning."
+BOT_TASDIQ = "✅ Admin tasdiqladi!\nEndi saytga kirishda 6 xonali kod shu yerga keladi."
+BOT_RAD = "❌ Admin so'rovingizni rad etdi.\nAdmin bilan bog'laning."
 
 
 @csrf_exempt
@@ -210,6 +235,12 @@ def telegram_hook(request, secret):
     try:
         update = json.loads(request.body.decode("utf-8"))
     except Exception:
+        return HttpResponse("ok")
+
+    # --- Admin tugmalari: ✅ Tasdiqlash / ❌ Rad etish (callback_query) ---
+    cb = update.get("callback_query")
+    if cb:
+        _bind_callback(cb)
         return HttpResponse("ok")
 
     msg = update.get("message") or {}
@@ -260,18 +291,89 @@ def telegram_hook(request, secret):
                 state.save()
                 tg_send(chat_id, BOT_XATO)
             return HttpResponse("ok")
+        # Login/parol TO'G'RI — lekin darhol bog'lamaymiz: ADMIN tasdig'i kerak
+        admin_chat = _token_chat()[1]
+        if not admin_chat:
+            state.pending_user = None
+            state.save()
+            tg_send(chat_id, BOT_ADMIN_YOQ)
+            return HttpResponse("ok")
         state.fails = 0
+        state.pending_user = user
         state.save()
-        prof, _ = UserProfile.objects.get_or_create(user=user)
-        prof.telegram_chat_id = chat_id
-        prof.save(update_fields=["telegram_chat_id"])
-        tg_send(chat_id,
-                f"✅ Muvaffaqiyatli bog'landi!\n"
-                f"👤 {user.username} — {_rol_nomi(user)}\n\n"
-                f"Endi saytga kirishda 6 xonali tasdiqlash kodi shu yerga keladi.")
+        tg_send(chat_id, BOT_KUTISH)
+        kimdan = msg.get("from") or {}
+        ism = " ".join(x for x in [kimdan.get("first_name", ""), kimdan.get("last_name", "")] if x).strip()
+        nik = ("@" + kimdan["username"]) if kimdan.get("username") else ""
+        tg_send_kb(
+            admin_chat,
+            f"🔔 2FA bog'lanish so'rovi\n"
+            f"👤 Tizimda: {user.username} — {_rol_nomi(user)}\n"
+            f"💬 Telegram: {ism} {nik} (chat {chat_id})\n\n"
+            f"Shu odamga kirish kodlari yuborilishini tasdiqlaysizmi?",
+            [[{"text": "✅ Tasdiqlash", "callback_data": f"b1:{state.id}"},
+              {"text": "❌ Rad etish", "callback_data": f"b0:{state.id}"}]],
+        )
         return HttpResponse("ok")
 
     # Suhbatdan tashqari istalgan matn
+    if state.pending_user_id:
+        tg_send(chat_id, BOT_KUTISH)
+        return HttpResponse("ok")
     bogliq = UserProfile.objects.filter(telegram_chat_id=chat_id).exists()
     tg_send(chat_id, BOT_BOR if bogliq else BOT_YOQ)
     return HttpResponse("ok")
+
+
+def _bind_callback(cb):
+    """Admin chatidagi ✅/❌ tugmasi bosilganda: bog'lashni yakunlash yoki rad etish."""
+    from .models import TelegramBindState, UserProfile
+
+    admin_chat = _token_chat()[1]
+    cb_msg = cb.get("message") or {}
+    cb_chat = str(((cb_msg.get("chat")) or {}).get("id") or "")
+    cb_mid = cb_msg.get("message_id")
+    data = cb.get("data") or ""
+    cb_id = cb.get("id") or ""
+
+    # Faqat ADMIN chatidan kelgan tugma qabul qilinadi
+    if not admin_chat or cb_chat != str(admin_chat):
+        tg_answer_cb(cb_id, "Ruxsat yo'q")
+        return
+    if not (data.startswith("b1:") or data.startswith("b0:")):
+        tg_answer_cb(cb_id)
+        return
+    try:
+        state_id = int(data.split(":", 1)[1])
+    except ValueError:
+        tg_answer_cb(cb_id)
+        return
+    state = TelegramBindState.objects.filter(id=state_id).select_related("pending_user").first()
+    if state is None or state.pending_user is None:
+        tg_answer_cb(cb_id, "So'rov topilmadi yoki allaqachon ko'rilgan")
+        if cb_mid:
+            tg_edit(admin_chat, cb_mid, "⚠️ Bu so'rov allaqachon ko'rib chiqilgan.")
+        return
+
+    user = state.pending_user
+    if data.startswith("b1:"):
+        prof, _ = UserProfile.objects.get_or_create(user=user)
+        prof.telegram_chat_id = state.chat_id
+        prof.save(update_fields=["telegram_chat_id"])
+        state.pending_user = None
+        state.save(update_fields=["pending_user", "updated_at"])
+        if cb_mid:
+            tg_edit(admin_chat, cb_mid,
+                    f"✅ TASDIQLANDI\n👤 {user.username} — {_rol_nomi(user)}\n"
+                    f"Endi kirish kodlari shu foydalanuvchining Telegramiga boradi.")
+        tg_send(state.chat_id, BOT_TASDIQ)
+        tg_answer_cb(cb_id, "Tasdiqlandi ✓")
+    else:
+        chat = state.chat_id
+        state.pending_user = None
+        state.save(update_fields=["pending_user", "updated_at"])
+        if cb_mid:
+            tg_edit(admin_chat, cb_mid,
+                    f"❌ RAD ETILDI\n👤 {user.username} — bog'lanish bekor qilindi.")
+        tg_send(chat, BOT_RAD)
+        tg_answer_cb(cb_id, "Rad etildi")

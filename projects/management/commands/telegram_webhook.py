@@ -50,7 +50,8 @@ class Command(BaseCommand):
             res = _get(token, "setWebhook", {
                 "url": url,
                 "secret_token": secret,
-                "allowed_updates": '["message"]',
+                # message — bog'lash suhbati; callback_query — admin ✅/❌ tugmalari
+                "allowed_updates": '["message","callback_query"]',
             })
             if not res.get("ok"):
                 raise CommandError(f"Xato: {res}")

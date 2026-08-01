@@ -557,6 +557,12 @@ class TelegramBindState(models.Model):
     login_tmp = models.CharField("Vaqtinchalik login", max_length=150, blank=True)
     fails = models.PositiveSmallIntegerField("Xato urinishlar", default=0)
     blocked_until = models.DateTimeField("Bloklangan (gacha)", null=True, blank=True)
+    # Login/parol to'g'ri chiqqach — ADMIN tasdig'i kutiladi (xavfsizlik):
+    # admin Telegramda ✅/❌ bosadi, shundan keyingina chat profilga bog'lanadi
+    pending_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="tg_bind_pending", verbose_name="Admin tasdig'ini kutayotgan foydalanuvchi",
+    )
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
