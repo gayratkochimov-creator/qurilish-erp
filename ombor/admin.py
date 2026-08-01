@@ -15,6 +15,20 @@ def _money(value):
     return f"{value:,.2f}".replace(",", " ")
 
 
+class ObyektScopedAdmin(admin.ModelAdmin):
+    """Admin panelda izolyatsiya: superuser bo'lmagan staff faqat o'z
+    doirasidagi (visible_projects orqali) hujjatlarni ko'radi."""
+
+    project_lookup = "warehouse__project"
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        from projects.roles import visible_projects
+        return qs.filter(**{f"{self.project_lookup}__in": visible_projects(request.user)})
+
+
 @admin.register(MaterialCategory)
 class MaterialCategoryAdmin(admin.ModelAdmin):
     search_fields = ["name"]
@@ -34,7 +48,8 @@ class SupplierAdmin(admin.ModelAdmin):
 
 
 @admin.register(Warehouse)
-class WarehouseAdmin(admin.ModelAdmin):
+class WarehouseAdmin(ObyektScopedAdmin):
+    project_lookup = "project"
     list_display = ["name", "project"]
     list_filter = ["project"]
     search_fields = ["name"]
@@ -77,7 +92,7 @@ def action_unpost_receipt(modeladmin, request, queryset):
 
 
 @admin.register(Receipt)
-class ReceiptAdmin(admin.ModelAdmin):
+class ReceiptAdmin(ObyektScopedAdmin):
     inlines = [ReceiptItemInline]
     list_display = ["id", "date", "warehouse", "supplier", "doc_number", "umumiy_summa", "is_posted"]
     list_filter = ["is_posted", "warehouse", "supplier"]
@@ -132,7 +147,7 @@ def action_unpost_issue(modeladmin, request, queryset):
 
 
 @admin.register(Issue)
-class IssueAdmin(admin.ModelAdmin):
+class IssueAdmin(ObyektScopedAdmin):
     inlines = [IssueItemInline]
     list_display = ["id", "date", "warehouse", "work_section", "recipient", "umumiy_summa", "is_posted"]
     list_filter = ["is_posted", "warehouse", "work_section__project"]
@@ -152,7 +167,7 @@ class IssueAdmin(admin.ModelAdmin):
 
 
 @admin.register(StockBalance)
-class StockBalanceAdmin(admin.ModelAdmin):
+class StockBalanceAdmin(ObyektScopedAdmin):
     list_display = ["warehouse", "material", "quantity", "avg_cost", "total_value"]
     list_filter = ["warehouse", "warehouse__project"]
     search_fields = ["material__name", "material__code"]
@@ -165,7 +180,7 @@ class StockBalanceAdmin(admin.ModelAdmin):
 
 
 @admin.register(StockMovement)
-class StockMovementAdmin(admin.ModelAdmin):
+class StockMovementAdmin(ObyektScopedAdmin):
     list_display = ["date", "direction", "warehouse", "material", "quantity", "unit_cost", "total_cost", "doc_type", "doc_id"]
     list_filter = ["direction", "warehouse", "date"]
     search_fields = ["material__name"]

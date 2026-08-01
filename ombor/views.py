@@ -23,24 +23,23 @@ def _pto_kerak(user):
 
 
 def _visible_warehouses(user):
-    """Foydalanuvchi ko'ra oladigan omborlar (o'z firmasi obyektlariga tegishli).
-    Admin — hammasi. Firma izolyatsiyasi shu yerdan boshqariladi."""
+    """Foydalanuvchi ko'ra oladigan omborlar — ko'rinadigan obyektlariga
+    tegishli omborlar (visible_projects bilan BIR XIL doira).
+    Admin — hammasi. Izolyatsiya shu yerdan boshqariladi."""
     qs = Warehouse.objects.all()
     if user.is_superuser:
         return qs
-    f = user_firma(user)
-    return qs.filter(project__firma=f) if f else qs.none()
+    return qs.filter(project__in=visible_projects(user))
 
 
 def _warehouse_yoki_403(user, warehouse):
-    """Ombor foydalanuvchi firmasiga tegishli bo'lmasa 403."""
+    """Ombor foydalanuvchining ko'rish doirasiga kirmasa 403."""
     if user.is_superuser:
         return warehouse
-    f = user_firma(user)
-    ok = bool(f and warehouse is not None
-              and warehouse.project_id and warehouse.project.firma_id == f.pk)
+    ok = bool(warehouse is not None
+              and _visible_warehouses(user).filter(pk=warehouse.pk).exists())
     if not ok:
-        raise PermissionDenied("Bu ombor sizning firmangizga tegishli emas.")
+        raise PermissionDenied("Bu ombor sizga biriktirilgan obyektlarga tegishli emas.")
     return warehouse
 from .models import (
     Issue, IssueItem, Material, Receipt, ReceiptItem, StockBalance,
@@ -96,15 +95,11 @@ def _ombor_data(firma_id, project_id, warehouse_id, user=None):
     user berilsa — faqat o'sha foydalanuvchi firmasidagi omborlar (admin=hammasi)."""
     moves = StockMovement.objects.all()
     balances = StockBalance.objects.all()
-    # Firma izolyatsiyasi (majburiy — GET filtridan qat'i nazar)
+    # Izolyatsiya (majburiy — GET filtridan qat'i nazar): faqat ko'rinadigan omborlar
     if user is not None and not user.is_superuser:
-        f = user_firma(user)
-        if f:
-            moves = moves.filter(warehouse__project__firma=f)
-            balances = balances.filter(warehouse__project__firma=f)
-        else:
-            moves = moves.none()
-            balances = balances.none()
+        _wh = _visible_warehouses(user)
+        moves = moves.filter(warehouse__in=_wh)
+        balances = balances.filter(warehouse__in=_wh)
     if firma_id:
         moves = moves.filter(warehouse__project__firma_id=firma_id)
         balances = balances.filter(warehouse__project__firma_id=firma_id)
@@ -431,7 +426,11 @@ def rasxod_add(request):
             q = _dec(qtys[i] if i < len(qtys) else None)
             if q is None or q <= 0:
                 continue
-            IssueItem.objects.create(issue=x, material_id=mats[i], quantity=q)
+            # Material ID tekshirilib olinadi (noto'g'ri qiymat 500 xato bermasin)
+            mat = Material.objects.filter(pk=mats[i]).first() if str(mats[i]).isdigit() else None
+            if mat is None:
+                continue
+            IssueItem.objects.create(issue=x, material=mat, quantity=q)
             n += 1
         if n == 0:
             x.delete()

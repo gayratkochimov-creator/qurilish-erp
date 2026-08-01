@@ -286,13 +286,13 @@ def dashboard(request):
 
     # --- «Limit kiritish» tab (bitta oynada) ---
     admin_u = request.user.is_superuser
-    _fqs = visible_firmas(request.user).order_by("name").prefetch_related("projects")
+    _fqs = visible_firmas(request.user).order_by("name")
     if firma_id:
         _fqs = _fqs.filter(id=firma_id)
     entry_firms = []
     for f in _fqs:
         _rows = [{"p": pp, "editable": admin_u or pp.budget_total <= 0}
-                 for pp in f.projects.all().order_by("code")]
+                 for pp in visible_projects(request.user).filter(firma=f).order_by("code")]
         if _rows:
             entry_firms.append({"firma": f, "rows": _rows})
     entry_no_firm = []
@@ -375,11 +375,11 @@ def firmalar(request):
     all_objs = []
     tot_limit = Decimal("0")
     tot_sarf = Decimal("0")
-    for f in visible_firmas(request.user).order_by("name").prefetch_related("projects"):
+    for f in visible_firmas(request.user).order_by("name"):
         objs = []
         f_limit = Decimal("0")
         f_sarf = Decimal("0")
-        for pr in f.projects.all().order_by("code"):
+        for pr in visible_projects(request.user).filter(firma=f).order_by("code"):
             bt = pr.budget_total
             srf = pr.sarflangan()
             f_limit += bt
@@ -684,7 +684,8 @@ def haftalik_tarix(request):
     if firma_id:
         projs = projs.filter(firma_id=firma_id)
 
-    qs = WeeklyRequest.objects.select_related(
+    qs = WeeklyRequest.objects.filter(
+        project__in=visible_projects(request.user)).select_related(
         "project", "project__firma", "created_by", "approved_by").prefetch_related("items")
     if holat in ("approved", "submitted", "draft"):
         qs = qs.filter(status=holat)
@@ -1168,10 +1169,16 @@ def limit_request_action(request, pk):
     if request.method == "POST":
         a = request.POST.get("action")
         if a == "delitem":
-            # Bitta taklif qatorini o'chirish — so'rov summalari qayta hisoblanadi
+            # Bitta taklif qatorini o'chirish — so'rov summalari qayta hisoblanadi.
+            # Har kim FAQAT O'Z bosqichida o'chiradi: direktor->dir, admin->adm
+            # (aks holda direktor admin navbatidagi tarkibni o'zgartirib qo'yadi).
+            _stage_ok = (req.status == S.ADM and is_admin(request.user)) or \
+                        (req.status == S.DIR and is_director(request.user))
             it = req.proposed_items.filter(id=request.POST.get("item_id")).first()
             if req.status not in (S.DIR, S.ADM):
                 messages.error(request, "Bu so'rov allaqachon ko'rib chiqilgan.")
+            elif not _stage_ok:
+                messages.error(request, "Bu so'rov sizning bosqichingizda emas.")
             elif it is None:
                 messages.error(request, "Qator topilmadi.")
             elif req.proposed_items.count() <= 1:
@@ -1363,12 +1370,13 @@ def limit_bulk(request):
     jami_obj = len(all_projects)
     limitli_obj = sum(1 for p in all_projects if p.budget_total > 0)
 
-    firmalar_qs = visible_firmas(request.user).order_by("name").prefetch_related("projects")
+    firmalar_qs = visible_firmas(request.user).order_by("name")
     if firma_id:
         firmalar_qs = firmalar_qs.filter(id=firma_id)
     firms = []
     for f in firmalar_qs:
-        rows = [{"p": p, "editable": admin or p.budget_total <= 0} for p in f.projects.all().order_by("code")]
+        rows = [{"p": p, "editable": admin or p.budget_total <= 0}
+                for p in visible_projects(request.user).filter(firma=f).order_by("code")]
         if rows:
             firms.append({"firma": f, "rows": rows})
     no_firm = []
@@ -1500,12 +1508,18 @@ def weekly_action(request, pk):
                 req.save(update_fields=["pto_notified"])
             return redirect("project_detail", pk=proj_id)
         if action == "delitem":
-            # Bitta qatorni so'rovdan o'chirish (direktor/admin — tasdiqlashdan oldin tozalaydi)
+            # Bitta qatorni so'rovdan o'chirish — har kim FAQAT O'Z bosqichida:
+            # direktor -> dir, admin -> submitted (aks holda direktor admin
+            # navbatidagi tarkibni o'zgartirib qo'yadi).
             if not (is_director(request.user) or is_admin(request.user)):
                 raise PermissionDenied("Qatorni faqat direktor yoki admin o'chiradi.")
+            _stage_ok = (req.status == WS.SUBMITTED and is_admin(request.user)) or \
+                        (req.status == WS.DIR and is_director(request.user))
             it = req.items.filter(id=request.POST.get("item_id")).first()
             if req.status == WeeklyRequest.Status.APPROVED:
                 messages.error(request, "Tasdiqlangan so'rov qatorini o'chirib bo'lmaydi.")
+            elif not _stage_ok:
+                messages.error(request, "Bu so'rov sizning bosqichingizda emas.")
             elif it is None:
                 messages.error(request, "Qator topilmadi.")
             elif req.items.count() <= 1:
@@ -1782,11 +1796,10 @@ def build_hisobotlar_zip(user=None):
             fn = f"Obyektlar/{p.code}_limit.xlsx".replace(" ", "_")
             z.writestr(fn, b.getvalue())
 
-        # 3) Ombor qoldig'i (foydalanuvchi firmasi bo'yicha; bot=hammasi)
+        # 3) Ombor qoldig'i (foydalanuvchi ko'rish doirasi bo'yicha; bot user=None=hammasi)
         try:
             from ombor.views import _ombor_wb
-            _uf = user_firma(user) if (user is not None and not user.is_superuser) else None
-            b = io.BytesIO(); _ombor_wb(firma=str(_uf.id) if _uf else "").save(b)
+            b = io.BytesIO(); _ombor_wb(user=user).save(b)
             z.writestr("Ombor_qoldiq.xlsx", b.getvalue())
         except Exception:
             pass
@@ -2409,7 +2422,7 @@ def limit_import(request):
                         p.save(update_fields=["limit_material", "limit_labor", "limit_machinery"])
                     amal = "yangilandi"
                     yangilandi += 1
-                elif p.limit_requests.filter(status=LimitChangeRequest.Status.PENDING).exists():
+                elif p.limit_requests.filter(status__in=LIM_JARAYON).exists():
                     amal = "tasdiq kutmoqda (avvalgi so'rov)"
                 else:
                     # PTO mavjud limitni o'zgartiryapti — admin tasdig'i kerak
@@ -2467,6 +2480,9 @@ def material_sorov(request):
             .prefetch_related("items"))
     prorab = is_prorab(request.user)
     pto = is_pto(request.user)
+    if prorab:
+        # Prorab faqat O'ZI yuborgan so'rovlarni ko'radi
+        reqs = reqs.filter(created_by=request.user)
     STATUS_CLS = {"pending": "warn", "accepted": "ok", "rejected": "bad"}
     rows = []
     for r in reqs:

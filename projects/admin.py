@@ -18,6 +18,13 @@ class FirmaAdmin(admin.ModelAdmin):
     list_display = ["name", "inn", "director", "phone", "obyektlar_soni"]
     search_fields = ["name", "inn", "director"]
 
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        from .roles import visible_firmas
+        return visible_firmas(request.user, qs)
+
     @admin.display(description="Obyektlar")
     def obyektlar_soni(self, obj):
         return obj.projects.count()
@@ -27,6 +34,21 @@ def _money(value):
     return f"{value:,.2f}".replace(",", " ")
 
 
+class FirmaScopedAdmin(admin.ModelAdmin):
+    """Admin panelda ham izolyatsiya: superuser bo'lmagan staff faqat o'z
+    doirasidagi (visible_projects) yozuvlarni ko'radi. project_lookup —
+    modeldan Project'ga boradigan lookup yo'li ("pk"=modelning o'zi Project)."""
+
+    project_lookup = "project"
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        from .roles import visible_projects
+        return qs.filter(**{f"{self.project_lookup}__in": visible_projects(request.user)})
+
+
 class WorkSectionInline(admin.TabularInline):
     model = WorkSection
     extra = 1
@@ -34,7 +56,8 @@ class WorkSectionInline(admin.TabularInline):
 
 
 @admin.register(Project)
-class ProjectAdmin(admin.ModelAdmin):
+class ProjectAdmin(FirmaScopedAdmin):
+    project_lookup = "pk"
     inlines = [WorkSectionInline]
     list_display = [
         "code", "name", "firma", "status",
@@ -71,7 +94,7 @@ class ProjectAdmin(admin.ModelAdmin):
 
 
 @admin.register(WorkSection)
-class WorkSectionAdmin(admin.ModelAdmin):
+class WorkSectionAdmin(FirmaScopedAdmin):
     list_display = ["__str__", "project", "code", "parent"]
     list_filter = ["project"]
     search_fields = ["name", "code", "project__code", "project__name"]
@@ -155,7 +178,7 @@ def action_reject_limit(modeladmin, request, queryset):
 
 
 @admin.register(LimitItem)
-class LimitItemAdmin(admin.ModelAdmin):
+class LimitItemAdmin(FirmaScopedAdmin):
     """Umumiy limit tarkibi — FAQAT KO'RISH. Tahrirlash saytda qilinadi
     (PTO kiritadi, admin tasdiqlaydi) — admin panel orqali bu nazoratni
     chetlab o'tib bo'lmasligi kerak."""
@@ -202,7 +225,7 @@ class LimitChangeItemInline(admin.TabularInline):
 
 
 @admin.register(LimitChangeRequest)
-class LimitChangeRequestAdmin(admin.ModelAdmin):
+class LimitChangeRequestAdmin(FirmaScopedAdmin):
     list_display = ["project", "yangi_material", "yangi_ish", "yangi_mashina", "yangi_jami", "status", "requested_by", "created_at"]
     list_filter = ["status", "project"]
     search_fields = ["project__code", "project__name"]
@@ -229,7 +252,7 @@ class LimitChangeRequestAdmin(admin.ModelAdmin):
 
 
 @admin.register(WeeklyRequest)
-class WeeklyRequestAdmin(admin.ModelAdmin):
+class WeeklyRequestAdmin(FirmaScopedAdmin):
     inlines = [WeeklyRequestItemInline]
     list_display = ["id", "project", "week_start", "week_end", "number", "jami_summa", "status",
                     "created_by", "approved_by", "approved_at"]
@@ -265,6 +288,13 @@ class UserAdmin(DjangoUserAdmin):
         # Login/parol jonli tekshiruvi (yashil/qizil)
         js = ("projects/admin_userform.js",)
 
+    def get_queryset(self, request):
+        # Foydalanuvchilarni faqat superuser boshqaradi; boshqa staff — faqat o'zini ko'radi
+        qs = super().get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        return qs.filter(pk=request.user.pk)
+
     @admin.display(description="Firma")
     def firma_nomi(self, obj):
         prof = getattr(obj, "profile", None)
@@ -283,7 +313,7 @@ class MaterialRequestItemInline(admin.TabularInline):
 
 
 @admin.register(MaterialRequest)
-class MaterialRequestAdmin(admin.ModelAdmin):
+class MaterialRequestAdmin(FirmaScopedAdmin):
     list_display = ["id", "project", "created_by", "status", "created_at", "decided_by", "decided_at"]
     list_filter = ["status", "project"]
     search_fields = ["project__code", "project__name"]
