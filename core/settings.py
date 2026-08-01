@@ -154,6 +154,9 @@ JAZZMIN_SETTINGS = {
     "site_header": "Qurilish ERP",
     "site_brand": "Qurilish ERP",
     "site_logo": None,
+    # Login/parol jonli tekshiruvi — BARCHA admin sahifalarida yuklanadi
+    # (shu jumladan «Parolni o'zgartirish» sahifasida ham)
+    "custom_js": "projects/admin_userform.js",
     "welcome_sign": "Qurilish ERP boshqaruv paneli",
     "copyright": "Qurilish ERP",
     "search_model": ["projects.Project", "projects.Firma"],

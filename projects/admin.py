@@ -284,9 +284,9 @@ class UserAdmin(DjangoUserAdmin):
     inlines = [UserProfileInline]
     list_display = DjangoUserAdmin.list_display + ("firma_nomi",)
 
-    class Media:
-        # Login/parol jonli tekshiruvi (yashil/qizil)
-        js = ("projects/admin_userform.js",)
+    # Eslatma: login/parol jonli tekshiruvi (admin_userform.js) endi jazzmin
+    # "custom_js" orqali BARCHA admin sahifalariga ulanadi (settings.py) —
+    # shu jumladan «Parolni o'zgartirish» sahifasiga ham.
 
     def get_queryset(self, request):
         # Foydalanuvchilarni faqat superuser boshqaradi; boshqa staff — faqat o'zini ko'radi
