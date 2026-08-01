@@ -17,6 +17,7 @@ bot ularga hech qanday hujjat yubormaydi.
 import hashlib
 import json
 import secrets
+import urllib.error
 import urllib.request
 
 from django.contrib.auth import authenticate, get_user_model
@@ -48,9 +49,21 @@ def hook_secret():
     return hashlib.sha256(("qerp-hook:" + t).encode()).hexdigest()[:40] if t else ""
 
 
+def _log_xato(method, izoh):
+    """Telegram API xatolarini faylga yozish — serverda muammoni topish oson bo'lsin.
+    (Parol yoki kod matni YOZILMAYDI — faqat metod, chat va xato.)"""
+    try:
+        from django.conf import settings
+        with open(settings.BASE_DIR / "telegram_2fa.log", "a", encoding="utf-8") as f:
+            f.write(f"{timezone.now():%d.%m.%Y %H:%M:%S} | {method} | {izoh}\n")
+    except Exception:
+        pass
+
+
 def _api_json(method, payload, timeout=15):
     t = _token()
     if not t:
+        _log_xato(method, "token sozlanmagan")
         return False
     try:
         req = urllib.request.Request(
@@ -59,8 +72,20 @@ def _api_json(method, payload, timeout=15):
             headers={"Content-Type": "application/json"},
         )
         with urllib.request.urlopen(req, timeout=timeout) as r:
-            return b'"ok":true' in r.read()
-    except Exception:
+            body = r.read().decode("utf-8", "replace")
+            if '"ok":true' in body:
+                return True
+            _log_xato(method, f"chat={payload.get('chat_id')} javob={body[:200]}")
+            return False
+    except urllib.error.HTTPError as e:
+        try:
+            body = e.read().decode("utf-8", "replace")[:200]
+        except Exception:
+            body = str(e)
+        _log_xato(method, f"chat={payload.get('chat_id')} HTTP {e.code}: {body}")
+        return False
+    except Exception as e:
+        _log_xato(method, f"chat={payload.get('chat_id')} xato: {e}")
         return False
 
 
@@ -254,6 +279,20 @@ def telegram_hook(request, secret):
         return HttpResponse("ok")
 
     from .models import TelegramBindState, UserProfile
+
+    # --- ADMIN matn buyruqlari: /tasdiq_<id> yoki /rad_<id> (tugma o'rniga) ---
+    admin_chat0 = str(_token_chat()[1] or "")
+    if admin_chat0 and chat_id == admin_chat0 and (
+            text.startswith("/tasdiq_") or text.startswith("/rad_")):
+        try:
+            sid = int(text.split("_", 1)[1])
+        except (ValueError, IndexError):
+            tg_send(chat_id, "Buyruq formati: /tasdiq_5 yoki /rad_5")
+            return HttpResponse("ok")
+        natija = _bind_qaror(sid, tasdiq=text.startswith("/tasdiq_"))
+        tg_send(admin_chat0, natija)
+        return HttpResponse("ok")
+
     state, _ = TelegramBindState.objects.get_or_create(chat_id=chat_id)
 
     # Blok tekshiruvi
@@ -305,15 +344,19 @@ def telegram_hook(request, secret):
         kimdan = msg.get("from") or {}
         ism = " ".join(x for x in [kimdan.get("first_name", ""), kimdan.get("last_name", "")] if x).strip()
         nik = ("@" + kimdan["username"]) if kimdan.get("username") else ""
-        tg_send_kb(
-            admin_chat,
-            f"🔔 2FA bog'lanish so'rovi\n"
-            f"👤 Tizimda: {user.username} — {_rol_nomi(user)}\n"
-            f"💬 Telegram: {ism} {nik} (chat {chat_id})\n\n"
-            f"Shu odamga kirish kodlari yuborilishini tasdiqlaysizmi?",
+        matn = (f"🔔 2FA bog'lanish so'rovi\n"
+                f"👤 Tizimda: {user.username} — {_rol_nomi(user)}\n"
+                f"💬 Telegram: {ism} {nik} (chat {chat_id})\n\n"
+                f"Shu odamga kirish kodlari yuborilishini tasdiqlaysizmi?\n"
+                f"Yoki yozing: /tasdiq_{state.id} yoki /rad_{state.id}")
+        bordi = tg_send_kb(
+            admin_chat, matn,
             [[{"text": "✅ Tasdiqlash", "callback_data": f"b1:{state.id}"},
               {"text": "❌ Rad etish", "callback_data": f"b0:{state.id}"}]],
         )
+        if not bordi:
+            # Tugmali xabar o'tmasa — oddiy matn bilan (buyruqlar ichida bor)
+            tg_send(admin_chat, matn)
         return HttpResponse("ok")
 
     # Suhbatdan tashqari istalgan matn
@@ -325,10 +368,33 @@ def telegram_hook(request, secret):
     return HttpResponse("ok")
 
 
-def _bind_callback(cb):
-    """Admin chatidagi ✅/❌ tugmasi bosilganda: bog'lashni yakunlash yoki rad etish."""
+def _bind_qaror(state_id, tasdiq):
+    """Bog'lanish so'rovi bo'yicha qaror (tugma yoki matn buyrug'idan chaqiriladi).
+    Natija matnini qaytaradi (admin xabari uchun)."""
     from .models import TelegramBindState, UserProfile
 
+    state = TelegramBindState.objects.filter(id=state_id).select_related("pending_user").first()
+    if state is None or state.pending_user is None:
+        return "⚠️ Bu so'rov topilmadi yoki allaqachon ko'rib chiqilgan."
+    user = state.pending_user
+    if tasdiq:
+        prof, _ = UserProfile.objects.get_or_create(user=user)
+        prof.telegram_chat_id = state.chat_id
+        prof.save(update_fields=["telegram_chat_id"])
+        state.pending_user = None
+        state.save(update_fields=["pending_user", "updated_at"])
+        tg_send(state.chat_id, BOT_TASDIQ)
+        return (f"✅ TASDIQLANDI\n👤 {user.username} — {_rol_nomi(user)}\n"
+                f"Endi kirish kodlari shu foydalanuvchining Telegramiga boradi.")
+    chat = state.chat_id
+    state.pending_user = None
+    state.save(update_fields=["pending_user", "updated_at"])
+    tg_send(chat, BOT_RAD)
+    return f"❌ RAD ETILDI\n👤 {user.username} — bog'lanish bekor qilindi."
+
+
+def _bind_callback(cb):
+    """Admin chatidagi ✅/❌ tugmasi bosilganda: bog'lashni yakunlash yoki rad etish."""
     admin_chat = _token_chat()[1]
     cb_msg = cb.get("message") or {}
     cb_chat = str(((cb_msg.get("chat")) or {}).get("id") or "")
@@ -348,32 +414,7 @@ def _bind_callback(cb):
     except ValueError:
         tg_answer_cb(cb_id)
         return
-    state = TelegramBindState.objects.filter(id=state_id).select_related("pending_user").first()
-    if state is None or state.pending_user is None:
-        tg_answer_cb(cb_id, "So'rov topilmadi yoki allaqachon ko'rilgan")
-        if cb_mid:
-            tg_edit(admin_chat, cb_mid, "⚠️ Bu so'rov allaqachon ko'rib chiqilgan.")
-        return
-
-    user = state.pending_user
-    if data.startswith("b1:"):
-        prof, _ = UserProfile.objects.get_or_create(user=user)
-        prof.telegram_chat_id = state.chat_id
-        prof.save(update_fields=["telegram_chat_id"])
-        state.pending_user = None
-        state.save(update_fields=["pending_user", "updated_at"])
-        if cb_mid:
-            tg_edit(admin_chat, cb_mid,
-                    f"✅ TASDIQLANDI\n👤 {user.username} — {_rol_nomi(user)}\n"
-                    f"Endi kirish kodlari shu foydalanuvchining Telegramiga boradi.")
-        tg_send(state.chat_id, BOT_TASDIQ)
-        tg_answer_cb(cb_id, "Tasdiqlandi ✓")
-    else:
-        chat = state.chat_id
-        state.pending_user = None
-        state.save(update_fields=["pending_user", "updated_at"])
-        if cb_mid:
-            tg_edit(admin_chat, cb_mid,
-                    f"❌ RAD ETILDI\n👤 {user.username} — bog'lanish bekor qilindi.")
-        tg_send(chat, BOT_RAD)
-        tg_answer_cb(cb_id, "Rad etildi")
+    natija = _bind_qaror(state_id, tasdiq=data.startswith("b1:"))
+    if cb_mid:
+        tg_edit(admin_chat, cb_mid, natija)
+    tg_answer_cb(cb_id, "Bajarildi")

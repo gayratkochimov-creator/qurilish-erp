@@ -10,3 +10,4 @@ staticfiles/
 telegram.json
 telegram_backup.log
 db_server_upload.sqlite3
+telegram_2fa.log
