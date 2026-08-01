@@ -1000,7 +1000,7 @@ def limit_edit(request, pk):
                 new_material=mat, new_labor=lab, new_machinery=mach, new_other=oth,
                 reason=sabab, requested_by=request.user,
             )
-            messages.success(request, f"So'rov yuborildi. Admin tasdig'i kutilmoqda.")
+            messages.success(request, "So'rov direktor tasdig'iga yuborildi. Direktor tasdiqlagach admin yakuniy tasdiqlaydi.")
     return redirect("project_detail", pk=pk)
 
 
@@ -1065,7 +1065,7 @@ def limit_items_edit(request, pk):
                 reason=reason, requested_by=request.user,
             )
             LimitChangeItem.objects.bulk_create([LimitChangeItem(request=req, **it) for it in items])
-        messages.success(request, "Limit admin tasdig'iga yuborildi. Admin tasdiqlagach kuchga kiradi.")
+        messages.success(request, "Limit direktor tasdig'iga yuborildi. Direktor, so'ng admin tasdiqlagach kuchga kiradi.")
     return redirect("project_detail", pk=pk)
 
 
@@ -1374,7 +1374,8 @@ def limit_bulk(request):
                 p.save(update_fields=["limit_material", "limit_labor", "limit_machinery", "limit_other"])
                 n += 1
             else:
-                # PTO — har qanday limit admin tasdig'iga so'rov bo'lib boradi
+                # PTO — har qanday limit direktor tasdig'iga so'rov bo'lib boradi
+                # (direktor tasdiqlagach admin navbatiga o'tadi)
                 if p.limit_requests.filter(status__in=LIM_JARAYON).exists():
                     continue
                 LimitChangeRequest.objects.create(
@@ -1388,7 +1389,7 @@ def limit_bulk(request):
         if admin:
             messages.success(request, f"{n} ta obyekt limiti saqlandi.")
         else:
-            messages.success(request, f"{sorov} ta obyekt limiti admin tasdig'iga yuborildi.")
+            messages.success(request, f"{sorov} ta obyekt limiti direktor tasdig'iga yuborildi.")
         url = reverse("dashboard")
         q = "?tab=kiritish" + (f"&firma={firma_id}" if firma_id else "")
         return redirect(url + q)

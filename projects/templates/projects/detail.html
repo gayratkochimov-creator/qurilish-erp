@@ -254,7 +254,7 @@
     {% if pending %}
     <div class="limitbox pend">
       <b>Limit o'zgartirish so'rovi kutilmoqda:</b> {{ limit_str }} → {{ pending_new_str }}
-      · <span class="flag">admin tasdig'ini kutmoqda</span>
+      · <span class="flag">{{ pending.get_status_display }}</span>
     </div>
     {% endif %}
 
@@ -291,7 +291,7 @@
         {% if oxirgi_tasdiq %}
         <span class="lim-okchip" title="So'rovchi: {{ oxirgi_tasdiq.requested_by.username|default:'—' }}">✓ Tasdiqlangan · {{ oxirgi_tasdiq.decided_at|date:"d.m.Y H:i" }} · {{ oxirgi_tasdiq.decided_by.username|default:"admin" }}</span>
         {% elif pending %}
-        <span class="lim-waitchip">Admin tasdig'ini kutmoqda</span>
+        <span class="lim-waitchip">{{ pending.get_status_display }}</span>
         {% endif %}
         <a class="tgl lim-export" href="{% url 'limit_export_obj' p.id %}" title="Umumiy limit + haftalik so'rovlar — Excel">⬇ Eksport</a>
         <button type="button" class="tgl" data-target="limitBody" data-key="limitBody">Yashirish</button>
@@ -302,7 +302,7 @@
       <form method="post" action="{% url 'limit_items_edit' p.id %}">
         {% csrf_token %}
         <div style="padding:12px 16px 0; font-size:12.5px; color:#64748b;">
-          {% if is_admin %}Limitni to'liq kiriting/o'zgartiring — <b>to'g'ridan-to'g'ri</b> qo'llanadi (admin). Har kategoriya limiti = shu qatorlar yig'indisi.{% else %}Limitni to'liq kiriting — <b>admin tasdig'iga</b> yuboriladi. Admin tasdiqlagach kuchga kiradi. Har kategoriya limiti = shu qatorlar yig'indisi.{% endif %}
+          {% if is_admin %}Limitni to'liq kiriting/o'zgartiring — <b>to'g'ridan-to'g'ri</b> qo'llanadi (admin). Har kategoriya limiti = shu qatorlar yig'indisi.{% else %}Limitni to'liq kiriting — <b>direktor tasdig'iga</b> yuboriladi. Direktor, so'ng admin tasdiqlagach kuchga kiradi. Har kategoriya limiti = shu qatorlar yig'indisi.{% endif %}
         </div>
         {% include "projects/_limit_filter.html" %}
         <table class="addtable" style="padding:0 8px;">
@@ -342,7 +342,7 @@
           {% if not is_admin %}<input type="text" name="reason" placeholder="Sabab / izoh (ixtiyoriy)" style="width:100%; margin:6px 0; padding:8px 12px; border:1px solid #d1d5db; border-radius:8px; font-size:13px;">{% endif %}
           <div style="display:flex; gap:10px; align-items:center; margin-top:6px;">
             <button type="button" class="addrow" id="li-addrow">Qator qo'shish</button>
-            <button type="submit" style="background:{% if is_admin %}#15803d{% else %}#0a6ed1{% endif %}; color:#fff; border:0; border-radius:8px; padding:9px 18px; font-size:14px; font-weight:600; cursor:pointer;">{% if is_admin %}Saqlash{% else %}Admin tasdig'iga yuborish{% endif %}</button>
+            <button type="submit" style="background:{% if is_admin %}#15803d{% else %}#0a6ed1{% endif %}; color:#fff; border:0; border-radius:8px; padding:9px 18px; font-size:14px; font-weight:600; cursor:pointer;">{% if is_admin %}Saqlash{% else %}Direktor tasdig'iga yuborish{% endif %}</button>
           </div>
         </div>
       </form>
@@ -395,7 +395,7 @@
           {% endfor %}
         </tbody>
       </table>
-      {% if pending %}<div style="padding:10px 16px; font-size:12px; color:#b45309;">Tarkibni o'zgartirishga so'rov yuborilgan — admin tasdig'ini kutmoqda.</div>{% endif %}
+      {% if pending %}<div style="padding:10px 16px; font-size:12px; color:#b45309;">Tarkibni o'zgartirishga so'rov yuborilgan — {{ pending.get_status_display|lower }}.</div>{% endif %}
       {% endif %}
       </div>{# /limitBody #}
     </div>
@@ -420,7 +420,7 @@
         <form method="post" action="{% url 'weekly_add' p.id %}">
           {% csrf_token %}
           <div style="padding:12px 16px 0; font-size:12.5px; color:#64748b;">
-            {% if is_admin %}Haftalik so'rovni to'liq kiriting — <b>to'g'ridan-to'g'ri</b> qo'llanadi (admin) va limitdan ayiriladi.{% else %}Haftalik so'rovni to'liq kiriting — <b>admin tasdig'iga</b> yuboriladi. Admin tasdiqlagach limitdan ayiriladi.{% endif %}
+            {% if is_admin %}Haftalik so'rovni to'liq kiriting — <b>to'g'ridan-to'g'ri</b> qo'llanadi (admin) va limitdan ayiriladi.{% else %}Haftalik so'rovni to'liq kiriting — <b>direktor tasdig'iga</b> yuboriladi. Direktor, so'ng admin tasdiqlagach limitdan ayiriladi.{% endif %}
             {% if limit_set and has_items %}<br>Maslahat: «Nomi»ni <b>umumiy limit tarkibidan</b> tanlang — turi, birlik va narx avtomat to'ladi. Pastda qolgan limit jonli ko'rinadi.{% endif %}
           </div>
           <div class="wk-dates" style="padding:0 16px;">
@@ -451,7 +451,7 @@
           {% endif %}
           <div style="display:flex; gap:10px; align-items:center; padding:6px 16px 14px;">
             <button type="button" class="addrow" id="wk-addrow">Qator qo'shish</button>
-            <button type="submit" style="background:{% if is_admin %}#15803d{% else %}#0a6ed1{% endif %}; color:#fff; border:0; border-radius:8px; padding:9px 18px; font-size:14px; font-weight:600; cursor:pointer;">{% if is_admin %}Saqlash{% else %}Admin tasdig'iga yuborish{% endif %}</button>
+            <button type="submit" style="background:{% if is_admin %}#15803d{% else %}#0a6ed1{% endif %}; color:#fff; border:0; border-radius:8px; padding:9px 18px; font-size:14px; font-weight:600; cursor:pointer;">{% if is_admin %}Saqlash{% else %}Direktor tasdig'iga yuborish{% endif %}</button>
           </div>
         </form>
         </div>{# /wkBody #}
