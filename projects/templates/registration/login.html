@@ -36,12 +36,13 @@
     <div class="brand">Qurilish ERP</div>
     <div class="sub">Tizimga kirish</div>
 
-    {% if form.errors %}
-      <div class="err">Login yoki parol noto'g'ri. Qaytadan urinib ko'ring.</div>
+    {% if xato %}
+      <div class="err">{{ xato }}</div>
     {% endif %}
 
     <form method="post">
       {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.GET.next|default:'' }}">
       <label>Foydalanuvchi (login)</label>
       <input type="text" name="username" autofocus required>
       <label>Parol</label>

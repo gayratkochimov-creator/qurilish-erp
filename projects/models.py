@@ -513,6 +513,12 @@ class UserProfile(models.Model):
         Project, blank=True, related_name="assigned_users",
         verbose_name="Biriktirilgan obyektlar (PTO/Prorab uchun)",
     )
+    telegram_chat_id = models.CharField(
+        "Telegram chat ID (2FA)", max_length=32, blank=True, default="",
+        help_text="Bo'sh bo'lsa — oddiy login/parol bilan kiradi. "
+                  "To'ldirilgan bo'lsa — kirishda shu chatga tasdiqlash kodi boradi. "
+                  "Foydalanuvchi botga /start yozib login/parol bilan o'zi bog'lanadi.",
+    )
 
     class Meta:
         verbose_name = "Foydalanuvchi biriktirish"
@@ -537,6 +543,28 @@ class UserProfile(models.Model):
         if target:
             g, _ = Group.objects.get_or_create(name=target)
             self.user.groups.add(g)
+
+
+class TelegramBindState(models.Model):
+    """Bot bilan ro'yxatdan o'tish suhbati holati (har bir chat uchun).
+
+    /start -> login so'raladi -> parol so'raladi -> tekshiriladi ->
+    chat_id UserProfile.telegram_chat_id ga yoziladi.
+    """
+
+    chat_id = models.CharField("Chat ID", max_length=32, unique=True)
+    step = models.CharField("Bosqich", max_length=16, blank=True)  # '' | 'login' | 'parol'
+    login_tmp = models.CharField("Vaqtinchalik login", max_length=150, blank=True)
+    fails = models.PositiveSmallIntegerField("Xato urinishlar", default=0)
+    blocked_until = models.DateTimeField("Bloklangan (gacha)", null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Telegram bog'lash holati"
+        verbose_name_plural = "Telegram bog'lash holatlari"
+
+    def __str__(self):
+        return f"{self.chat_id} ({self.step or 'boshlanmagan'})"
 
 
 class MaterialRequest(models.Model):

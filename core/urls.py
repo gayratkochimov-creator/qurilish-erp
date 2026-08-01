@@ -20,9 +20,14 @@ from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from django.urls import include, path
 
+from projects import auth2fa
+
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('login/', auth_views.LoginView.as_view(template_name='registration/login.html'), name='login'),
+    # Kirish — Telegram 2FA bilan (profilda chat_id bo'lsa kod so'raladi)
+    path('login/', auth2fa.kirish, name='login'),
+    path('login/kod/', auth2fa.kirish_kod, name='login_kod'),
+    path('telegram/hook/<str:secret>/', auth2fa.telegram_hook, name='telegram_hook'),
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
     path('ombor/', include('ombor.urls')),
     path('', include('projects.urls')),
