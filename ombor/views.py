@@ -334,6 +334,12 @@ def prixod_action(request, pk):
             if a == "post":
                 services.post_receipt(r)
                 messages.success(request, f"Prixod #{r.id} qayd qilindi — ombor to'ldirildi.")
+                # Arxiv botga (admin + obyekt snabjeniyechilari) — xato bo'lsa jim
+                try:
+                    from .telegram_arxiv import arxiv_prixod
+                    arxiv_prixod(r)
+                except Exception:
+                    pass
             elif a == "unpost":
                 services.unpost_receipt(r)
                 messages.info(request, f"Prixod #{r.id} qaydi bekor qilindi.")
@@ -451,6 +457,12 @@ def rasxod_action(request, pk):
             if a == "post":
                 services.post_issue(x)
                 messages.success(request, f"Rasxod #{x.id} qayd qilindi — ombordan chiqarildi.")
+                # Arxiv botga (admin + obyekt snabjeniyechilari) — xato bo'lsa jim
+                try:
+                    from .telegram_arxiv import arxiv_rasxod
+                    arxiv_rasxod(x)
+                except Exception:
+                    pass
             elif a == "unpost":
                 services.unpost_issue(x)
                 messages.info(request, f"Rasxod #{x.id} qaydi bekor qilindi.")

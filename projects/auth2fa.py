@@ -238,13 +238,15 @@ BOT_PAROL = ("Endi PAROLingizni yuboring.\n"
              "(Xavfsizlik uchun parol xabaringiz darhol o'chirib tashlanadi.)")
 BOT_XATO = "❌ Login yoki parol noto'g'ri.\nQaytadan boshlash: /start"
 BOT_BLOK = f"⛔ Juda ko'p xato urinish. {BIND_BLOK_DAQIQA} daqiqadan keyin /start bosing."
-BOT_BOR = "Siz ro'yxatdan o'tgansiz ✅\nKod saytga kirish paytida keladi.\nQayta bog'lash: /start"
+BOT_BOR = ("Siz ro'yxatdan o'tgansiz ✅\nKod saytga kirish paytida keladi.\n"
+           "📦 Ombor (ostatka/prixod/rasxod): /ombor\nQayta bog'lash: /start")
 BOT_YOQ = "Ro'yxatdan o'tish uchun /start bosing."
 BOT_KUTISH = ("⏳ So'rovingiz ADMIN tasdig'iga yuborildi.\n"
               "Admin tasdiqlagach shu yerda xabar olasiz — shundan keyin "
               "saytga kirishda kod kela boshlaydi.")
 BOT_ADMIN_YOQ = "❌ Admin chati sozlanmagan — admin bilan bog'laning."
-BOT_TASDIQ = "✅ Admin tasdiqladi!\nEndi saytga kirishda 6 xonali kod shu yerga keladi."
+BOT_TASDIQ = ("✅ Admin tasdiqladi!\nEndi saytga kirishda 6 xonali kod shu yerga keladi.\n"
+              "📦 Ombor ma'lumotlari (ostatka/prixod/rasxod): /ombor")
 BOT_RAD = "❌ Admin so'rovingizni rad etdi.\nAdmin bilan bog'laning."
 
 
@@ -262,10 +264,16 @@ def telegram_hook(request, secret):
     except Exception:
         return HttpResponse("ok")
 
-    # --- Admin tugmalari: ✅ Tasdiqlash / ❌ Rad etish (callback_query) ---
+    # --- Tugmalar (callback_query): ombor menyusi yoki admin tasdig'i ---
     cb = update.get("callback_query")
     if cb:
-        _bind_callback(cb)
+        data = cb.get("data") or ""
+        if data[:3] in ("ob:", "os:", "pr:", "rx:"):
+            from ombor.telegram_arxiv import ombor_callback
+            cb_chat = str((((cb.get("message") or {}).get("chat")) or {}).get("id") or "")
+            ombor_callback(data, cb_chat, cb.get("id") or "")
+        else:
+            _bind_callback(cb)
         return HttpResponse("ok")
 
     msg = update.get("message") or {}
@@ -291,6 +299,12 @@ def telegram_hook(request, secret):
             return HttpResponse("ok")
         natija = _bind_qaror(sid, tasdiq=text.startswith("/tasdiq_"))
         tg_send(admin_chat0, natija)
+        return HttpResponse("ok")
+
+    # --- Ombor menyusi: /ombor (snabjeniye o'z obyektlarini, admin hammasini) ---
+    if text.lower() in ("/ombor", "/ostatka"):
+        from ombor.telegram_arxiv import ombor_komanda
+        ombor_komanda(chat_id)
         return HttpResponse("ok")
 
     state, _ = TelegramBindState.objects.get_or_create(chat_id=chat_id)
