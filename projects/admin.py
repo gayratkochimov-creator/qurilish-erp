@@ -319,3 +319,27 @@ class MaterialRequestAdmin(FirmaScopedAdmin):
     search_fields = ["project__code", "project__name"]
     readonly_fields = ["created_by", "created_at", "decided_by", "decided_at"]
     inlines = [MaterialRequestItemInline]
+
+
+# ---------------------------------------------------------------------------
+# ADMIN PANEL — FAQAT SUPERUSER (asosiy admin) uchun.
+# Xodim (staff) belgisi bo'lsa ham superuser bo'lmasa kira olmaydi.
+# Adminka logini ham umumiy /login/ sahifasi orqali o'tadi — shunda
+# Telegram 2FA (agar admin bog'lagan bo'lsa) adminkani ham himoya qiladi.
+# ---------------------------------------------------------------------------
+from urllib.parse import urlencode
+
+from django.shortcuts import redirect
+
+
+def _admin_ruxsat(request):
+    return bool(request.user.is_active and request.user.is_superuser)
+
+
+def _admin_login_redirect(request, extra_context=None):
+    nxt = request.GET.get("next") or "/admin/"
+    return redirect("/login/?" + urlencode({"next": nxt}))
+
+
+admin.site.has_permission = _admin_ruxsat
+admin.site.login = _admin_login_redirect
