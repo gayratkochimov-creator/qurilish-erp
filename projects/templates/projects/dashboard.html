@@ -84,9 +84,11 @@
 
   /* two-col */
   .cols { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
-  /* Haftalik sarf grafigi — karta bo'yini to'liq egallaydi (bo'sh joy qolmasin) */
+  /* Haftalik sarf grafigi — karta bo'yini to'liq egallaydi (bo'sh joy qolmasin).
+     MUHIM: canvas absolute — aks holda Chart.js kartani cheksiz cho'zib yuboradi */
   .chartcard { display:flex; flex-direction:column; }
-  .chartcard .chwrap { position:relative; flex:1; min-height:240px; }
+  .chartcard .chwrap { position:relative; flex:1; min-height:240px; max-height:300px; }
+  .chartcard .chwrap canvas { position:absolute; inset:0; width:100% !important; height:100% !important; }
   h3.ph { font-size:12px; font-weight:600; line-height:16px; letter-spacing:.05em; text-transform:uppercase; color:var(--mut); margin-bottom:20px; padding-bottom:16px; border-bottom:1px solid var(--line); }
   .cat { padding:14px 0; border-top:1px solid var(--line-2); }
   .cat:first-of-type { border-top:0; padding-top:0; }
