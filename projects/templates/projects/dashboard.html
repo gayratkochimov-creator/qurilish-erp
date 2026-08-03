@@ -84,6 +84,9 @@
 
   /* two-col */
   .cols { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+  /* Haftalik sarf grafigi — karta bo'yini to'liq egallaydi (bo'sh joy qolmasin) */
+  .chartcard { display:flex; flex-direction:column; }
+  .chartcard .chwrap { position:relative; flex:1; min-height:240px; }
   h3.ph { font-size:12px; font-weight:600; line-height:16px; letter-spacing:.05em; text-transform:uppercase; color:var(--mut); margin-bottom:20px; padding-bottom:16px; border-bottom:1px solid var(--line); }
   .cat { padding:14px 0; border-top:1px solid var(--line-2); }
   .cat:first-of-type { border-top:0; padding-top:0; }
@@ -307,9 +310,9 @@
       </div>
       {% endfor %}
     </div>
-    <div class="card reveal" style="animation-delay:.28s">
+    <div class="card reveal chartcard" style="animation-delay:.28s">
       <h3 class="ph">Haftalik sarf dinamikasi</h3>
-      {% if wk_values %}<div style="height:190px;"><canvas id="wkLine"></canvas></div>
+      {% if wk_values %}<div class="chwrap"><canvas id="wkLine"></canvas></div>
       {% else %}<div class="noch">Hozircha tasdiqlangan haftalik so'rov yo'q.</div>{% endif %}
     </div>
   </div>
@@ -337,8 +340,11 @@
     var lEl = document.getElementById('wkLine');
     if (lEl && wv.length) {
       var ctx = lEl.getContext('2d');
-      var g = ctx.createLinearGradient(0,0,0,190);
+      var g = ctx.createLinearGradient(0,0,0,320);
       g.addColorStop(0,'rgba(37,99,235,.28)'); g.addColorStop(.6,'rgba(37,99,235,.08)'); g.addColorStop(1,'rgba(37,99,235,0)');
+      /* Nuqta kam bo'lsa — markazlashtiramiz va kattaroq ko'rsatamiz,
+         aks holda yakka nuqta chap burchakda "yo'qolib" qoladi */
+      var kamNuqta = wv.length < 4;
       function mln(v){
         if (v >= 1e9) return (Math.round(v/1e7)/100) + ' mlrd';
         if (v >= 1e6) return (Math.round(v/1e5)/10) + ' mln';
@@ -382,8 +388,8 @@
           data:wv, borderColor:'#2563eb', backgroundColor:g, fill:true,
           tension:.35, borderWidth:3,
           /* nuqtalar ko'rinadigan bo'ldi — haftalar kam bo'lsa ham grafik "jonli" o'qiladi */
-          pointRadius:5, pointBackgroundColor:'#2563eb', pointBorderColor:'#fff', pointBorderWidth:2.5,
-          pointHoverRadius:7, pointHoverBorderWidth:3, pointHoverBackgroundColor:'#1d4ed8'
+          pointRadius:kamNuqta?7:5, pointBackgroundColor:'#2563eb', pointBorderColor:'#fff', pointBorderWidth:kamNuqta?3:2.5,
+          pointHoverRadius:kamNuqta?9:7, pointHoverBorderWidth:3, pointHoverBackgroundColor:'#1d4ed8'
         }]},
         options:{ responsive:true, maintainAspectRatio:false,
           layout:{ padding:{ top:34, right:14, left:6 } },
@@ -403,7 +409,7 @@
             y:{ beginAtZero:true, grace:'8%',
                 ticks:{ maxTicksLimit:5, callback:mln, font:{size:11}, color:'#64748b', padding:6 },
                 grid:{ color:'#eef2f7' }, border:{ display:false, dash:[4,4] } },
-            x:{ grid:{ display:false }, border:{ display:false },
+            x:{ grid:{ display:false }, border:{ display:false }, offset:kamNuqta,
                 ticks:{ font:{size:11}, color:'#64748b', padding:4, autoSkip:true, maxRotation:0, maxTicksLimit:16 } }
           } } });
     }
