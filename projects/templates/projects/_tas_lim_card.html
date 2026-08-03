@@ -2,7 +2,7 @@
 <div class="tcard">
   <div class="tmain">
     <div class="pname">{{ r.obj.project.code }} — {{ r.obj.project.name }}</div>
-    <div class="tmeta">So'rovchi: {{ r.obj.requested_by.username|default:"—" }} · {{ r.obj.created_at|date:"d.m.Y H:i" }}{% if r.obj.reason %} · «{{ r.obj.reason }}»{% endif %}{% if stage == 'adm' and r.obj.director_by %}<br>✓ Direktor tasdiqladi: <b>{{ r.obj.director_by.username }}</b> · {{ r.obj.director_at|date:"d.m.Y H:i" }}{% endif %}</div>
+    <div class="tmeta">So'rovchi: {{ r.obj.requested_by.username|default:"—" }} · {{ r.obj.created_at|date:"d.m.Y H:i" }}{% if r.obj.reason %} · «{{ r.obj.reason }}»{% endif %}{% if r.obj.snab_by and stage != 'snab' %}<br>✓ Snabjeniye narxladi: <b>{{ r.obj.snab_by.username }}</b> · {{ r.obj.snab_at|date:"d.m.Y H:i" }}{% endif %}{% if stage == 'adm' and r.obj.director_by %}<br>✓ Direktor tasdiqladi: <b>{{ r.obj.director_by.username }}</b> · {{ r.obj.director_at|date:"d.m.Y H:i" }}{% endif %}</div>
     <div class="cats">
       {% for nom, old, new in r.cats %}<span class="catline"><span class="n">{{ nom }}:</span> <span class="v">{{ old }}</span><span class="arr">→</span><span class="v new">{{ new }}</span></span>{% endfor %}
     </div>
@@ -29,8 +29,12 @@
     <div class="new">{{ r.new_str }}</div>
   </div>
   <div class="tacts">
-    {% if stage == 'adm' %}<a class="btn-edit" href="{% url 'limit_request_edit' r.obj.id %}">Tahrirlash</a>{% endif %}
-    {% if stage == 'dir' %}
+    {% if stage != 'dir' %}<a class="btn-edit" href="{% url 'limit_request_edit' r.obj.id %}">Tahrirlash</a>{% endif %}
+    {% if stage == 'snab' %}
+      <form method="post" action="{% url 'limit_request_action' r.obj.id %}"><input type="hidden" name="action" value="snab_return">{% csrf_token %}<button class="btn-ok">Narxlandi — PTOga qaytarish</button></form>
+    {% elif stage == 'pto2' %}
+      <form method="post" action="{% url 'limit_request_action' r.obj.id %}"><input type="hidden" name="action" value="pto_send_dir">{% csrf_token %}<button class="btn-ok">Direktorga yuborish</button></form>
+    {% elif stage == 'dir' %}
       <form method="post" action="{% url 'limit_request_action' r.obj.id %}"><input type="hidden" name="action" value="dir_approve">{% csrf_token %}<button class="btn-ok">Direktor tasdiqlash</button></form>
       <form method="post" action="{% url 'limit_request_action' r.obj.id %}" class="rejform" onsubmit="var s=this.querySelector('[name=decision_note]'); if(!s.value.trim()){ alert('Rad etish sababini yozing.'); s.focus(); return false; }">
         <input type="hidden" name="action" value="dir_reject">{% csrf_token %}

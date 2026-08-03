@@ -156,6 +156,8 @@ class LimitChangeRequest(models.Model):
     """Mavjud limitni o'zgartirish so'rovi — admin tasdiqlaydi."""
 
     class Status(models.TextChoices):
+        SNAB = "snab", "Snabjeniye ko'rigida"   # PTO yuborgach snabjeniye narx/tarkibni ko'radi
+        PTO2 = "pto2", "PTO xulosasida"          # snabjeniyedan qaytgan — PTO yakuniy xulosa beradi
         DIR = "dir", "Direktor tasdig'ida"
         ADM = "adm", "Admin tasdig'ida"
         PENDING = "pending", "Kutilmoqda"   # eski yozuvlar uchun (migratsiyada 'dir'ga o'tadi)
@@ -182,6 +184,11 @@ class LimitChangeRequest(models.Model):
         settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
         related_name="limit_requests_made", verbose_name="So'rovchi (PTO)",
     )
+    snab_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="limit_requests_snab", verbose_name="Snabjeniye ko'rdi",
+    )
+    snab_at = models.DateTimeField("Snabjeniye ko'rgan sana", null=True, blank=True)
     director_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
         related_name="limit_requests_dir", verbose_name="Direktor tasdiqladi",

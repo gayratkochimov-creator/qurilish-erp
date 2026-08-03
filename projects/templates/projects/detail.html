@@ -302,7 +302,7 @@
       <form method="post" action="{% url 'limit_items_edit' p.id %}">
         {% csrf_token %}
         <div style="padding:12px 16px 0; font-size:12.5px; color:#64748b;">
-          {% if is_admin %}Limitni to'liq kiriting/o'zgartiring — <b>to'g'ridan-to'g'ri</b> qo'llanadi (admin). Har kategoriya limiti = shu qatorlar yig'indisi.{% else %}Limitni to'liq kiriting — <b>direktor tasdig'iga</b> yuboriladi. Direktor, so'ng admin tasdiqlagach kuchga kiradi. Har kategoriya limiti = shu qatorlar yig'indisi.{% endif %}
+          {% if is_admin %}Limitni to'liq kiriting/o'zgartiring — <b>to'g'ridan-to'g'ri</b> qo'llanadi (admin). Har kategoriya limiti = shu qatorlar yig'indisi.{% else %}Limitni to'liq kiriting — <b>tasdiqlash zanjiriga</b> yuboriladi: snabjeniye (narxlaydi) → PTO xulosasi → direktor → admin. Snabjeniye biriktirilmagan obyektda to'g'ridan-to'g'ri direktorga boradi. Har kategoriya limiti = shu qatorlar yig'indisi.{% endif %}
         </div>
         {% include "projects/_limit_filter.html" %}
         <table class="addtable" style="padding:0 8px;">
@@ -342,7 +342,7 @@
           {% if not is_admin %}<input type="text" name="reason" placeholder="Sabab / izoh (ixtiyoriy)" style="width:100%; margin:6px 0; padding:8px 12px; border:1px solid #d1d5db; border-radius:8px; font-size:13px;">{% endif %}
           <div style="display:flex; gap:10px; align-items:center; margin-top:6px;">
             <button type="button" class="addrow" id="li-addrow">Qator qo'shish</button>
-            <button type="submit" style="background:{% if is_admin %}#15803d{% else %}#0a6ed1{% endif %}; color:#fff; border:0; border-radius:8px; padding:9px 18px; font-size:14px; font-weight:600; cursor:pointer;">{% if is_admin %}Saqlash{% else %}Direktor tasdig'iga yuborish{% endif %}</button>
+            <button type="submit" style="background:{% if is_admin %}#15803d{% else %}#0a6ed1{% endif %}; color:#fff; border:0; border-radius:8px; padding:9px 18px; font-size:14px; font-weight:600; cursor:pointer;">{% if is_admin %}Saqlash{% else %}Tasdiqqa yuborish{% endif %}</button>
           </div>
         </div>
       </form>

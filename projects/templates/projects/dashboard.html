@@ -240,6 +240,8 @@
   .stage-head { font-size:14px; font-weight:800; letter-spacing:-.01em; padding:12px 16px; border-radius:var(--r-ctl); margin:6px 0 14px; display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; }
   .stage-head.dir { background:#eef4ff; color:#1e40af; border-left:4px solid var(--brand); }
   .stage-head.adm { background:#f0fdf4; color:#15803d; border-left:4px solid var(--ok); margin-top:24px; }
+  .stage-head.snab { background:#fff7ed; color:#c2410c; border-left:4px solid #f97316; }
+  .stage-head.pto2 { background:#f5f3ff; color:#6d28d9; border-left:4px solid #8b5cf6; margin-top:24px; }
   .stage-head .sh-note { font-size:12px; font-weight:500; color:var(--mut); }
   /* Limitdan oshish ogohlantirishi */
   #pane-tasdiqlar .overwarn { margin-top:10px; background:#fef2f2; border:1px solid #fecaca; border-left:3px solid var(--bad); border-radius:var(--r-ctl); padding:10px 12px; font-size:12.5px; color:#7f1d1d; }
@@ -542,8 +544,25 @@
   {% if tas_show %}
   <div class="pane" id="pane-tasdiqlar" {% if active_tab != 'tasdiqlar' %}style="display:none"{% endif %}>
 
+    {% if tas_lim_s %}
+    {# ===== SNABJENIYE NAVBATI (narxlash) ===== #}
+    <div class="stage-head snab">Snabjeniye ko'rigida <span class="sh-note">— narxlarni ko'rib chiqib PTOga qaytariladi</span></div>
+    <div class="sec">
+      <h3>Limit so'rovlari <span class="c">{{ tas_lim_s|length }}</span></h3>
+      {% for r in tas_lim_s %}{% include "projects/_tas_lim_card.html" with r=r stage='snab' %}{% endfor %}
+    </div>
+    {% endif %}
+    {% if tas_lim_p2 %}
+    {# ===== PTO XULOSASI NAVBATI ===== #}
+    <div class="stage-head pto2">PTO xulosasida <span class="sh-note">— snabjeniyedan qaytgan, yakuniy xulosa berib direktorga yuboriladi</span></div>
+    <div class="sec">
+      <h3>Limit so'rovlari <span class="c">{{ tas_lim_p2|length }}</span></h3>
+      {% for r in tas_lim_p2 %}{% include "projects/_tas_lim_card.html" with r=r stage='pto2' %}{% endfor %}
+    </div>
+    {% endif %}
+
     {% if is_director %}
-    {# ===== DIREKTOR NAVBATI (birinchi bosqich) ===== #}
+    {# ===== DIREKTOR NAVBATI ===== #}
     <div class="stage-head dir">Direktor tasdig'ida <span class="sh-note">— siz tasdiqlaganingizdan keyin adminga o'tadi</span></div>
     <div class="sec">
       <h3>Limit o'zgartirish so'rovlari {% if tas_lim %}<span class="c">{{ tas_lim|length }}</span>{% endif %}</h3>

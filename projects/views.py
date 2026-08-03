@@ -53,8 +53,27 @@ KIND_NOMI = {"material": "Material", "labor": "Ish haqi", "machinery": "Mashina 
              "other": "Ko'zda tutilmagan xarajatlar"}
 KINDS = ("material", "labor", "machinery", "other")
 
-# Tasdiqlash zanjirida «jarayonda» (direktor yoki admin ko'rib chiqmoqda) statuslar
-LIM_JARAYON = ["dir", "adm"]
+# Tasdiqlash zanjirida «jarayonda» statuslar:
+# snab (snabjeniye ko'rigida) -> pto2 (PTO xulosasida) -> dir -> adm
+LIM_JARAYON = ["snab", "pto2", "dir", "adm"]
+
+
+def _snab_bor(p):
+    """Obyektga snabjeniye xodimi biriktirilganmi?"""
+    from .models import UserProfile
+    return UserProfile.objects.filter(role="snab", projects=p).exists()
+
+
+def _limit_boshlangich(p):
+    """Yangi limit so'rovining boshlang'ich bosqichi:
+    snabjeniye bo'lsa — unga; bo'lmasa to'g'ridan-to'g'ri direktorga."""
+    return "snab" if _snab_bor(p) else "dir"
+
+
+def _limit_yubor_xabar(status):
+    return ("Limit snabjeniye ko'rigiga yuborildi. Zanjir: snabjeniye → PTO xulosasi → direktor → admin."
+            if status == "snab" else
+            "Limit direktor tasdig'iga yuborildi. Direktor, so'ng admin tasdiqlagach kuchga kiradi.")
 
 
 def _items_by_kind(items):
@@ -322,14 +341,22 @@ def dashboard(request):
     # Tasdiqlar tabi: DIREKTOR o'z navbatini (dir) ko'radi, ADMIN o'z navbatini (adm/submitted).
     # Superuser ikkalasini ham ko'radi (avval direktor navbati).
     from .roles import is_director
+    from .roles import is_snab as _is_snab_f
     _dir = is_director(request.user)
     _adm = is_admin(request.user)
+    _snb = _is_snab_f(request.user)
+    _pto_f = is_pto(request.user)
     tas_lim, tas_wk, tas_lim2, tas_wk2 = [], [], [], []
+    tas_lim_s, tas_lim_p2 = [], []
     if _dir:
         tas_lim, tas_wk = _tasdiqlar_data("dir", user=request.user)
     if _adm:
         tas_lim2, tas_wk2 = _tasdiqlar_data("adm", user=request.user)
-    tas_show = _dir or _adm
+    if _snb or _adm:
+        tas_lim_s, _x = _tasdiqlar_data("snab", user=request.user)
+    if _pto_f:
+        tas_lim_p2, _x = _tasdiqlar_data("pto2", user=request.user)
+    tas_show = _dir or _adm or _snb or bool(tas_lim_p2)
     from django.utils import timezone as _tz
     _h = _tz.localtime().hour
     greeting = "Xayrli tong" if _h < 12 else ("Xayrli kun" if _h < 18 else "Xayrli kech")
@@ -344,8 +371,11 @@ def dashboard(request):
         "active_tab": active_tab,
         "tas_lim": tas_lim, "tas_wk": tas_wk,          # direktor navbati
         "tas_lim2": tas_lim2, "tas_wk2": tas_wk2,      # admin navbati
-        "is_director": _dir, "tas_show": tas_show,
-        "tas_count": len(tas_lim) + len(tas_wk) + len(tas_lim2) + len(tas_wk2),
+        "tas_lim_s": tas_lim_s,                        # snabjeniye navbati
+        "tas_lim_p2": tas_lim_p2,                      # PTO xulosasi navbati
+        "is_director": _dir, "is_snab": _snb, "tas_show": tas_show,
+        "tas_count": (len(tas_lim) + len(tas_wk) + len(tas_lim2) + len(tas_wk2)
+                      + len(tas_lim_s) + len(tas_lim_p2)),
         "greeting": greeting,
         "qatorlar": qatorlar,
         "cat_values": cat_values,
@@ -993,14 +1023,15 @@ def limit_edit(request, pk):
         if pending:
             messages.error(request, "Bu obyekt bo'yicha allaqachon tasdiq kutilayotgan so'rov bor.")
         else:
+            _st = _limit_boshlangich(p)
             LimitChangeRequest.objects.create(
                 project=p,
                 old_material=p.limit_material, old_labor=p.limit_labor,
                 old_machinery=p.limit_machinery, old_other=p.limit_other,
                 new_material=mat, new_labor=lab, new_machinery=mach, new_other=oth,
-                reason=sabab, requested_by=request.user,
+                reason=sabab, requested_by=request.user, status=_st,
             )
-            messages.success(request, "So'rov direktor tasdig'iga yuborildi. Direktor tasdiqlagach admin yakuniy tasdiqlaydi.")
+            messages.success(request, _limit_yubor_xabar(_st))
     return redirect("project_detail", pk=pk)
 
 
@@ -1055,6 +1086,7 @@ def limit_items_edit(request, pk):
             messages.error(request, "Tasdiq kutilayotgan so'rov bor — yangi so'rov yuborib bo'lmaydi.")
             return redirect("project_detail", pk=pk)
         reason = (request.POST.get("reason") or "").strip()
+        _st = _limit_boshlangich(p)
         with transaction.atomic():
             req = LimitChangeRequest.objects.create(
                 project=p,
@@ -1062,10 +1094,10 @@ def limit_items_edit(request, pk):
                 old_machinery=p.limit_machinery, old_other=p.limit_other,
                 new_material=sums["material"], new_labor=sums["labor"],
                 new_machinery=sums["machinery"], new_other=sums["other"],
-                reason=reason, requested_by=request.user,
+                reason=reason, requested_by=request.user, status=_st,
             )
             LimitChangeItem.objects.bulk_create([LimitChangeItem(request=req, **it) for it in items])
-        messages.success(request, "Limit direktor tasdig'iga yuborildi. Direktor, so'ng admin tasdiqlagach kuchga kiradi.")
+        messages.success(request, _limit_yubor_xabar(_st))
     return redirect("project_detail", pk=pk)
 
 
@@ -1186,18 +1218,21 @@ def limit_request_action(request, pk):
             req.pto_notified = True
             req.save(update_fields=["pto_notified"])
         return redirect("project_detail", pk=req.project_id)
-    from .roles import is_director
+    from .roles import is_director, is_pto, is_snab
     S = LimitChangeRequest.Status
-    if not (is_director(request.user) or is_admin(request.user)):
-        raise PermissionDenied("Faqat direktor yoki admin.")
+    if not (is_director(request.user) or is_admin(request.user)
+            or is_snab(request.user) or is_pto(request.user)):
+        raise PermissionDenied("Faqat snabjeniye, PTO, direktor yoki admin.")
     if request.method == "POST":
         a = request.POST.get("action")
         if a == "delitem":
             # Bitta taklif qatorini o'chirish — so'rov summalari qayta hisoblanadi.
-            # Har kim FAQAT O'Z bosqichida o'chiradi: direktor->dir, admin->adm
-            # (aks holda direktor admin navbatidagi tarkibni o'zgartirib qo'yadi).
+            # Har kim FAQAT O'Z bosqichida o'chiradi: snab->snab, pto->pto2,
+            # direktor->dir, admin->adm.
             _stage_ok = (req.status == S.ADM and is_admin(request.user)) or \
-                        (req.status == S.DIR and is_director(request.user))
+                        (req.status == S.DIR and is_director(request.user)) or \
+                        (req.status == S.SNAB and is_snab(request.user)) or \
+                        (req.status == S.PTO2 and is_pto(request.user))
             it = req.proposed_items.filter(id=request.POST.get("item_id")).first()
             if req.status not in (S.DIR, S.ADM):
                 messages.error(request, "Bu so'rov allaqachon ko'rib chiqilgan.")
@@ -1222,6 +1257,30 @@ def limit_request_action(request, pk):
                 messages.info(request, f"«{nom}» qatori o'chirildi. Yangi umumiy: {_money(req.new_total)}.")
             return redirect(reverse("dashboard") + "?tab=tasdiqlar")
         from django.utils import timezone
+        # SNABJENIYE bosqichi: snab → pto2 (narxlab PTOga qaytaradi)
+        if a == "snab_return":
+            if not (is_snab(request.user) or is_admin(request.user)):
+                raise PermissionDenied("Faqat snabjeniye.")
+            if req.status != S.SNAB:
+                messages.error(request, "Bu so'rov snabjeniye bosqichida emas.")
+            else:
+                req.status = S.PTO2
+                req.snab_by = request.user
+                req.snab_at = timezone.now()
+                req.save(update_fields=["status", "snab_by", "snab_at"])
+                messages.success(request, f"«{req.project.name}» — snabjeniye ko'rdi, PTO xulosasiga qaytdi.")
+            return redirect(reverse("dashboard") + "?tab=tasdiqlar")
+        # PTO XULOSASI bosqichi: pto2 → dir (yakuniy xulosa bilan direktorga)
+        if a == "pto_send_dir":
+            if not (is_pto(request.user) or is_admin(request.user)):
+                raise PermissionDenied("Faqat PTO.")
+            if req.status != S.PTO2:
+                messages.error(request, "Bu so'rov PTO xulosasi bosqichida emas.")
+            else:
+                req.status = S.DIR
+                req.save(update_fields=["status"])
+                messages.success(request, f"«{req.project.name}» — PTO xulosasi bilan direktor tasdig'iga yuborildi.")
+            return redirect(reverse("dashboard") + "?tab=tasdiqlar")
         # DIREKTOR bosqichi: dir → adm (yoki rad)
         if a == "dir_approve":
             if not is_director(request.user):
@@ -1270,14 +1329,21 @@ def limit_request_action(request, pk):
 
 @login_required
 def limit_request_edit(request, pk):
-    """Kutilayotgan limit so'rovini FAQAT admin tahrirlaydi — so'ng tasdiqlaydi/rad etadi."""
-    if not is_admin(request.user):
-        raise PermissionDenied("Limit so'rovini faqat admin tahrirlaydi.")
+    """Kutilayotgan limit so'rovini tahrirlash — HAR KIM O'Z bosqichida:
+    snabjeniye -> snab (narxlaydi), PTO -> pto2 (yakuniy xulosa), admin -> istalgan bosqich."""
+    from .roles import is_pto as _is_pto, is_snab as _is_snab
     req = get_object_or_404(
         LimitChangeRequest.objects.select_related("project", "requested_by"), pk=pk)
-    if req.status not in (LimitChangeRequest.Status.DIR, LimitChangeRequest.Status.ADM):
+    S = LimitChangeRequest.Status
+    if req.status not in (S.SNAB, S.PTO2, S.DIR, S.ADM):
         messages.error(request, "Bu so'rov allaqachon ko'rib chiqilgan — tahrirlab bo'lmaydi.")
         return redirect(reverse("dashboard") + "?tab=tasdiqlar")
+    _ruxsat = is_admin(request.user) or \
+        (req.status == S.SNAB and _is_snab(request.user)) or \
+        (req.status == S.PTO2 and _is_pto(request.user))
+    if not _ruxsat:
+        raise PermissionDenied("Bu bosqichda so'rovni siz tahrirlay olmaysiz.")
+    _firma_yoki_403(request, req.project)
     p = req.project
 
     if request.method == "POST":
@@ -1374,8 +1440,8 @@ def limit_bulk(request):
                 p.save(update_fields=["limit_material", "limit_labor", "limit_machinery", "limit_other"])
                 n += 1
             else:
-                # PTO — har qanday limit direktor tasdig'iga so'rov bo'lib boradi
-                # (direktor tasdiqlagach admin navbatiga o'tadi)
+                # PTO — limit tasdiqlash zanjiriga so'rov bo'lib boradi
+                # (snabjeniye bo'lsa avval unga, keyin PTO -> direktor -> admin)
                 if p.limit_requests.filter(status__in=LIM_JARAYON).exists():
                     continue
                 LimitChangeRequest.objects.create(
@@ -1384,12 +1450,13 @@ def limit_bulk(request):
                     old_machinery=p.limit_machinery, old_other=p.limit_other,
                     new_material=mat, new_labor=lab, new_machinery=mach, new_other=oth,
                     reason="Limit kiritish (jadval)", requested_by=request.user,
+                    status=_limit_boshlangich(p),
                 )
                 sorov += 1
         if admin:
             messages.success(request, f"{n} ta obyekt limiti saqlandi.")
         else:
-            messages.success(request, f"{sorov} ta obyekt limiti direktor tasdig'iga yuborildi.")
+            messages.success(request, f"{sorov} ta obyekt limiti tasdiqlash zanjiriga yuborildi.")
         url = reverse("dashboard")
         q = "?tab=kiritish" + (f"&firma={firma_id}" if firma_id else "")
         return redirect(url + q)
@@ -2464,7 +2531,7 @@ def limit_import(request):
                 elif p.limit_requests.filter(status__in=LIM_JARAYON).exists():
                     amal = "tasdiq kutmoqda (avvalgi so'rov)"
                 else:
-                    # PTO mavjud limitni o'zgartiryapti — admin tasdig'i kerak
+                    # PTO mavjud limitni o'zgartiryapti — tasdiqlash zanjiri
                     if not dry:
                         LimitChangeRequest.objects.create(
                             project=p,
@@ -2472,8 +2539,9 @@ def limit_import(request):
                             old_machinery=p.limit_machinery, old_other=p.limit_other,
                             new_material=mat, new_labor=lab, new_machinery=mach, new_other=oth,
                             reason="Excel import", requested_by=request.user,
+                            status=_limit_boshlangich(p),
                         )
-                    amal = "so'rov yuborildi (admin tasdig'i)"
+                    amal = "so'rov yuborildi (tasdiq zanjiri)"
                     sorov += 1
                 ozgarishlar.append({"kod": kod, "nomi": p.name, "amal": amal,
                                     "mat": _money(mat), "lab": _money(lab), "mach": _money(mach), "jami": _money(jami)})
