@@ -12,14 +12,14 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.core.exceptions import PermissionDenied
 
 from projects.models import Firma, Project, WorkSection
-from projects.roles import is_pto, user_firma, visible_firmas, visible_projects
+from projects.roles import is_pto, is_snab, user_firma, visible_firmas, visible_projects
 from . import services
 
 
 def _pto_kerak(user):
-    """Ombor hujjatlarini faqat PTO/admin o'zgartiradi — oddiy foydalanuvchi emas."""
-    if not is_pto(user):
-        raise PermissionDenied("Ombor hujjatlarini faqat PTO yoki admin o'zgartiradi.")
+    """Ombor hujjatlarini PTO, SNABJENIYE yoki admin o'zgartiradi."""
+    if not (is_pto(user) or is_snab(user)):
+        raise PermissionDenied("Ombor hujjatlarini faqat PTO, snabjeniye yoki admin o'zgartiradi.")
 
 
 def _visible_warehouses(user):

@@ -268,7 +268,7 @@ def telegram_hook(request, secret):
     cb = update.get("callback_query")
     if cb:
         data = cb.get("data") or ""
-        if data[:3] in ("ob:", "os:", "pr:", "rx:"):
+        if data[:3] in ("fi:", "ob:", "os:", "pr:", "rx:"):
             from ombor.telegram_arxiv import ombor_callback
             cb_chat = str((((cb.get("message") or {}).get("chat")) or {}).get("id") or "")
             ombor_callback(data, cb_chat, cb.get("id") or "")

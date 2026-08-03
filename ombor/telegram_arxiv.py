@@ -158,12 +158,27 @@ def arxiv_rasxod(x):
 
 # ------------------------------------------------------------- bot menyusi
 
+def _admin_mi(chat_id):
+    """Admin: zaxira chati yoki superuser sifatida bog'langan chat."""
+    if str(chat_id) == _admin_chat():
+        return True
+    u = _chat_user(chat_id)
+    return bool(u is not None and u.is_superuser)
+
+
 def ombor_komanda(chat_id):
-    """/ombor — obyektlar ro'yxati (tugmalar bilan)."""
+    """/ombor — admin: avval FIRMA tanlaydi; xodim: o'z obyektlari ro'yxati."""
     projs = _korinadigan_obyektlar(chat_id)
     if projs is None:
         tg_send(chat_id, "Avval ro'yxatdan o'ting: /start")
         return
+    if _admin_mi(chat_id):
+        from projects.models import Firma
+        firmalar = list(Firma.objects.order_by("name")[:30])
+        if firmalar:
+            kb = [[{"text": f.name[:48], "callback_data": f"fi:{f.id}"}] for f in firmalar]
+            tg_send_kb(chat_id, "🏢 Firmani tanlang:", kb)
+            return
     projs = list(projs.order_by("code")[:30])
     if not projs:
         tg_send(chat_id, "Sizga obyekt biriktirilmagan — admin bilan bog'laning.")
@@ -221,7 +236,7 @@ def _rasxodlar_matn(p):
 
 
 def ombor_callback(data, chat_id, cb_id):
-    """ob:/os:/pr:/rx: tugmalari — ruxsat ICHKARIDA tekshiriladi."""
+    """fi:/ob:/os:/pr:/rx: tugmalari — ruxsat ICHKARIDA tekshiriladi."""
     projs = _korinadigan_obyektlar(chat_id)
     if projs is None:
         tg_answer_cb(cb_id, "Avval /start bilan ro'yxatdan o'ting")
@@ -231,6 +246,21 @@ def ombor_callback(data, chat_id, cb_id):
     except (ValueError, IndexError):
         tg_answer_cb(cb_id)
         return
+
+    # Firma tanlandi (faqat admin) -> shu firmaning obyektlari
+    if data.startswith("fi:"):
+        if not _admin_mi(chat_id):
+            tg_answer_cb(cb_id, "Ruxsat yo'q")
+            return
+        plist = list(projs.filter(firma_id=pid).order_by("code")[:30])
+        if not plist:
+            tg_send(chat_id, "Bu firmada obyekt yo'q.")
+        else:
+            kb = [[{"text": f"{p.code} — {p.name}"[:48], "callback_data": f"ob:{p.id}"}] for p in plist]
+            tg_send_kb(chat_id, "🏗 Obyektni tanlang:", kb)
+        tg_answer_cb(cb_id)
+        return
+
     p = projs.filter(pk=pid).first()
     if p is None:
         tg_answer_cb(cb_id, "Bu obyekt sizga tegishli emas")

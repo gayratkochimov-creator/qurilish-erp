@@ -6,6 +6,7 @@ Tasdiqlash zanjiri: PTO kiritadi → Direktor tasdiqlaydi → Admin tasdiqlaydi.
 PTO_GROUP = "PTO"
 DIREKTOR_GROUP = "Direktor"
 PRORAB_GROUP = "Prorab"
+SNAB_GROUP = "Snabjeniye"
 
 
 def _role(user):
@@ -52,6 +53,17 @@ def is_prorab(user):
     if r:
         return r == "prorab"
     return user.groups.filter(name=PRORAB_GROUP).exists()
+
+
+def is_snab(user):
+    """Snabjeniye — ombor hujjatlari (prixod/rasxod) bilan ishlaydi,
+    o'ziga biriktirilgan obyektlar doirasida. Limit tarkibini ko'rib chiqadi."""
+    if not (user.is_authenticated and not user.is_superuser):
+        return False
+    r = _role(user)
+    if r:
+        return r == "snab"
+    return user.groups.filter(name=SNAB_GROUP).exists()
 
 
 # ---------------------------------------------------------------------------

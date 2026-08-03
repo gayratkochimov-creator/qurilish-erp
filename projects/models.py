@@ -496,9 +496,10 @@ class UserProfile(models.Model):
         DIRECTOR = "director", "Direktor"
         PTO = "pto", "PTO"
         PRORAB = "prorab", "Prorab"
+        SNAB = "snab", "Snabjeniye"
 
     # Rol -> Django guruh nomi (is_pto/is_director/is_prorab guruh bo'yicha ishlaydi)
-    ROLE_GROUP = {"director": "Direktor", "pto": "PTO", "prorab": "Prorab"}
+    ROLE_GROUP = {"director": "Direktor", "pto": "PTO", "prorab": "Prorab", "snab": "Snabjeniye"}
 
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
