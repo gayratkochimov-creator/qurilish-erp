@@ -345,7 +345,39 @@
         if (v >= 1e3) return Math.round(v/1e3) + ' ming';
         return v;
       }
+      /* Har bir nuqta ustida qora yorliqcha (badge) — summa yozilgan */
+      function roundRect(c, x, y, w, h, r){
+        c.beginPath();
+        c.moveTo(x+r, y);
+        c.arcTo(x+w, y,   x+w, y+h, r);
+        c.arcTo(x+w, y+h, x,   y+h, r);
+        c.arcTo(x,   y+h, x,   y,   r);
+        c.arcTo(x,   y,   x+w, y,   r);
+        c.closePath();
+      }
+      var badgePlugin = { id:'badges', afterDatasetsDraw:function(chart){
+        var c = chart.ctx, meta = chart.getDatasetMeta(0), data = chart.data.datasets[0].data;
+        var area = chart.chartArea;
+        c.save();
+        c.font = "700 11px Inter, system-ui, sans-serif";
+        meta.data.forEach(function(pt, i){
+          var label = String(mln(data[i]));
+          var w = c.measureText(label).width + 16, h = 21;
+          var x = pt.x - w/2, y = pt.y - h - 9;
+          if (x < area.left + 2) x = area.left + 2;
+          if (x + w > area.right - 2) x = area.right - 2 - w;
+          if (y < area.top + 2) y = pt.y + 9;
+          c.fillStyle = '#111827';
+          roundRect(c, x, y, w, h, 7);
+          c.fill();
+          c.fillStyle = '#fff';
+          c.textAlign = 'center'; c.textBaseline = 'middle';
+          c.fillText(label, x + w/2, y + h/2 + 0.5);
+        });
+        c.restore();
+      }};
       new Chart(lEl, { type:'line',
+        plugins:[badgePlugin],
         data:{ labels:wl, datasets:[{
           data:wv, borderColor:'#2563eb', backgroundColor:g, fill:true,
           tension:.35, borderWidth:3,
@@ -354,7 +386,7 @@
           pointHoverRadius:7, pointHoverBorderWidth:3, pointHoverBackgroundColor:'#1d4ed8'
         }]},
         options:{ responsive:true, maintainAspectRatio:false,
-          layout:{ padding:{ top:10, right:14 } },
+          layout:{ padding:{ top:34, right:14, left:6 } },
           interaction:{ mode:'index', intersect:false },
           plugins:{ legend:{display:false},
             tooltip:{
@@ -372,7 +404,7 @@
                 ticks:{ maxTicksLimit:5, callback:mln, font:{size:11}, color:'#64748b', padding:6 },
                 grid:{ color:'#eef2f7' }, border:{ display:false, dash:[4,4] } },
             x:{ grid:{ display:false }, border:{ display:false },
-                ticks:{ font:{size:11}, color:'#64748b', padding:4 } }
+                ticks:{ font:{size:11}, color:'#64748b', padding:4, autoSkip:true, maxRotation:0, maxTicksLimit:16 } }
           } } });
     }
   })();
