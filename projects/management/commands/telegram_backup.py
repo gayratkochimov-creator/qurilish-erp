@@ -39,8 +39,11 @@ def _token_chat():
     return token.strip(), str(chat).strip()
 
 
-def _api(token, method, fields=None, files=None):
-    """Telegram Bot API'ga multipart POST (urllib bilan)."""
+def _api(token, method, fields=None, files=None, urinish=3):
+    """Telegram Bot API'ga multipart POST (urllib bilan).
+    PythonAnywhere proksisi ba'zan 503 berib uziladi — xatoda 3 marta urinadi."""
+    import time as _time
+
     url = f"https://api.telegram.org/bot{token}/{method}"
     boundary = uuid.uuid4().hex
     body = io.BytesIO()
@@ -61,12 +64,20 @@ def _api(token, method, fields=None, files=None):
         w("\r\n")
     w(f"--{boundary}--\r\n")
 
-    req = urllib.request.Request(
-        url, data=body.getvalue(),
-        headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
-    )
-    with urllib.request.urlopen(req, timeout=120) as resp:
-        return resp.read().decode("utf-8")
+    oxirgi = None
+    for k in range(urinish):
+        try:
+            req = urllib.request.Request(
+                url, data=body.getvalue(),
+                headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
+            )
+            with urllib.request.urlopen(req, timeout=120) as resp:
+                return resp.read().decode("utf-8")
+        except Exception as e:
+            oxirgi = e
+            if k < urinish - 1:
+                _time.sleep(2)
+    raise oxirgi
 
 
 def _sqlite_snapshot(db_path):

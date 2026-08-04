@@ -60,33 +60,44 @@ def _log_xato(method, izoh):
         pass
 
 
-def _api_json(method, payload, timeout=15):
+def _api_json(method, payload, timeout=15, urinish=3):
+    """Telegram API chaqiruvi — PythonAnywhere proksisi ba'zan 503 berib
+    uzilib turadi, shuning uchun XATODA AVTOMATIK QAYTA URINADI (3 marta)."""
+    import time as _time
+
     t = _token()
     if not t:
         _log_xato(method, "token sozlanmagan")
         return False
-    try:
-        req = urllib.request.Request(
-            f"https://api.telegram.org/bot{t}/{method}",
-            data=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
-        )
-        with urllib.request.urlopen(req, timeout=timeout) as r:
-            body = r.read().decode("utf-8", "replace")
-            if '"ok":true' in body:
-                return True
-            _log_xato(method, f"chat={payload.get('chat_id')} javob={body[:200]}")
-            return False
-    except urllib.error.HTTPError as e:
+    oxirgi_xato = ""
+    for k in range(urinish):
         try:
-            body = e.read().decode("utf-8", "replace")[:200]
-        except Exception:
-            body = str(e)
-        _log_xato(method, f"chat={payload.get('chat_id')} HTTP {e.code}: {body}")
-        return False
-    except Exception as e:
-        _log_xato(method, f"chat={payload.get('chat_id')} xato: {e}")
-        return False
+            req = urllib.request.Request(
+                f"https://api.telegram.org/bot{t}/{method}",
+                data=json.dumps(payload).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+            )
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                body = r.read().decode("utf-8", "replace")
+                if '"ok":true' in body:
+                    return True
+                # API rad etdi (masalan chat topilmadi) — qayta urinish foydasiz
+                oxirgi_xato = f"javob={body[:200]}"
+                break
+        except urllib.error.HTTPError as e:
+            try:
+                body = e.read().decode("utf-8", "replace")[:200]
+            except Exception:
+                body = str(e)
+            oxirgi_xato = f"HTTP {e.code}: {body}"
+            if e.code < 500:
+                break               # 4xx — qayta urinish foydasiz
+        except Exception as e:
+            oxirgi_xato = f"xato: {e}"   # proksi/tarmoq uzilishi — qayta urinamiz
+        if k < urinish - 1:
+            _time.sleep(2)
+    _log_xato(method, f"chat={payload.get('chat_id')} {oxirgi_xato} ({urinish} urinishdan keyin)")
+    return False
 
 
 def tg_send(chat_id, text):
