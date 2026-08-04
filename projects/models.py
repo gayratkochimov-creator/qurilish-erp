@@ -614,8 +614,8 @@ class MaterialRequest(models.Model):
     reject_note = models.CharField("Rad etish sababi", max_length=500, blank=True)
 
     class Meta:
-        verbose_name = "Material so'rovi (Prorab)"
-        verbose_name_plural = "Material so'rovlari (Prorab)"
+        verbose_name = "Prorab so'rovi"
+        verbose_name_plural = "Prorab so'rovlari"
         ordering = ["-created_at"]
 
     def __str__(self):

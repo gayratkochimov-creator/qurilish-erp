@@ -2615,7 +2615,7 @@ def material_sorov_add(request):
     """Prorab yangi material so'rovini yaratadi va PTOga yuboradi."""
     from .models import MaterialRequest, MaterialRequestItem
     if not (is_prorab(request.user) or request.user.is_superuser):
-        raise PermissionDenied("Material so'rovini faqat prorab yuboradi.")
+        raise PermissionDenied("Prorab so'rovini faqat prorab yuboradi.")
     vp = visible_projects(request.user).order_by("code")
     if request.method == "POST":
         pid = request.POST.get("project") or ""
@@ -2657,7 +2657,7 @@ def material_sorov_add(request):
         for it in satrlar:
             it.request = req
         MaterialRequestItem.objects.bulk_create(satrlar)
-        messages.success(request, f"Material so'rovi PTOga yuborildi ({len(satrlar)} qator).")
+        messages.success(request, f"Prorab so'rovi PTOga yuborildi ({len(satrlar)} qator).")
         return redirect("material_sorov")
     return render(request, "projects/material_sorov_add.html", {"obyektlar": vp})
 

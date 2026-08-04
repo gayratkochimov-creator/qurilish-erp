@@ -1,6 +1,6 @@
 {% extends "base_site.html" %}
-{% block title %}Material so'rovlari — Qurilish ERP{% endblock %}
-{% block page_title %}Material so'rovlari (Prorab → PTO){% endblock %}
+{% block title %}Prorab so'rovlari — Qurilish ERP{% endblock %}
+{% block page_title %}Prorab so'rovlari (Prorab → PTO){% endblock %}
 
 {% block extra_head %}
 <style>
@@ -27,7 +27,7 @@
   <div class="toolbar">
     <div class="hint">
       {% if is_pto %}Sizning obyektlaringizga kelgan so'rovlar. Kutayotgan: <b>{{ kutayotgan }}</b>{% endif %}
-      {% if is_prorab %}Siz yuborgan material so'rovlari{% endif %}
+      {% if is_prorab %}Siz yuborgan prorab so'rovlari{% endif %}
     </div>
     {% if is_prorab %}<a class="btn primary" href="{% url 'material_sorov_add' %}">+ Yangi so'rov</a>{% endif %}
   </div>
@@ -50,7 +50,7 @@
       </tbody>
     </table>
     {% else %}
-    <div class="empty">Hozircha material so'rovi yo'q.
+    <div class="empty">Hozircha prorab so'rovi yo'q.
       {% if is_prorab %}<br><a class="btn primary" style="margin-top:12px; display:inline-block;" href="{% url 'material_sorov_add' %}">+ Birinchi so'rovni yuborish</a>{% endif %}
     </div>
     {% endif %}
