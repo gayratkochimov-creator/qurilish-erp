@@ -4,12 +4,12 @@
 
 {% block extra_head %}
 <style>
-  /* Haftalik so'rov (obyekt sahifasi) bilan BIR XIL ko'rinish */
-  .card { background:var(--card); border:1px solid var(--line); border-radius:var(--r-card); box-shadow:var(--shadow-sm); max-width:1100px; overflow:hidden; }
+  /* Limit tarkibi jadvali bilan BIR XIL ko'rinish */
+  .card { background:var(--card); border:1px solid var(--line); border-radius:var(--r-card); box-shadow:var(--shadow-sm); overflow:hidden; }
   .card-head { display:flex; justify-content:space-between; align-items:center; padding:15px 18px; border-bottom:1px solid var(--line); gap:12px; flex-wrap:wrap; }
   .card-head .title { font-weight:800; font-size:15px; letter-spacing:-.01em; }
   .card-head .meta { color:var(--mut); font-size:12.5px; }
-  .ichki { padding:14px 16px; }
+  .ichki { padding:14px 16px 0; }
   label.fl { font-size:12px; font-weight:600; color:var(--mut); display:block; margin-bottom:5px; }
   select, input { padding:8px 11px; border:1px solid var(--line); border-radius:8px; font-size:13.5px; background:var(--card); color:var(--ink); font-family:inherit; }
   select:focus, input:focus { outline:none; border-color:var(--brand); box-shadow:0 0 0 3px rgba(10,110,209,.15); }
@@ -20,9 +20,12 @@
   .addtable { width:100%; border-collapse:collapse; margin-bottom:12px; }
   .addtable th { background:#fafbfc; font-size:10.5px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:var(--mut); padding:8px 8px; text-align:left; border-bottom:1px solid var(--line); }
   .addtable td { padding:3px 4px; }
-  .addtable input { width:100%; padding:7px 9px; border:1px solid var(--line); border-radius:8px; font-size:13px; }
+  .addtable input, .addtable select { width:100%; padding:7px 9px; border:1px solid var(--line); border-radius:8px; font-size:13px; }
   .addtable .num { text-align:right; }
-  /* Izoh — keng, sariq (haftalikdagi primechaniye uslubi); yozganda siqilmaydi */
+  .addtable .rsum { font-weight:700; color:var(--brand); font-variant-numeric:tabular-nums; padding-right:8px; text-align:right; }
+  .addtable tfoot td { border-top:2px solid var(--line); font-size:12.5px; color:var(--mut); padding-top:9px; }
+  .addtable tfoot #m-grand { font-size:15px; color:var(--ink); font-weight:800; }
+  .lidate { font-size:11.5px; white-space:nowrap; color:var(--mut); }
   .noteinp { width:100%; font-size:12.5px; background:#fffdf5; border:1px dashed #d9c9a3 !important; color:#6b5b2a; }
   .noteinp:focus { border-style:solid !important; border-color:var(--brand) !important; background:#fff; }
   .delrow { background:#fef2f2; color:var(--bad); border:1px solid #fecaca; border-radius:8px; width:28px; height:28px; cursor:pointer; font-weight:700; line-height:1; }
@@ -45,7 +48,7 @@
     <div class="title">Yangi material so'rovi</div>
     <div class="meta">PTO ko'rib chiqib qabul qiladi / rad etadi</div>
   </div>
-  <div class="hint">Kerakli materiallarni to'liq kiriting — <b>PTOga</b> yuboriladi. Narx yozilmaydi (narx PTO/snabjeniye ishi).</div>
+  <div class="hint">Kerakli qatorlarni to'liq kiriting — <b>PTOga</b> yuboriladi. Narxni bilsangiz yozing, bilmasangiz 0 qoldiring (PTO/snabjeniye to'ldiradi).</div>
 
   <div class="ichki">
     <div class="top">
@@ -65,21 +68,38 @@
 
   <table class="addtable">
     <thead><tr>
-      <th style="width:280px;">Material nomi</th>
+      <th style="width:140px;">Turi</th>
+      <th style="width:260px;">Nomi</th>
       <th>Izoh (primechaniye)</th>
-      <th style="width:90px;">Birlik</th>
-      <th class="num" style="width:110px;">Miqdor</th>
-      <th style="width:40px;"></th>
+      <th style="width:80px;">Birlik</th>
+      <th class="num" style="width:90px;">Miqdor</th>
+      <th class="num" style="width:110px;">Narxi</th>
+      <th class="num" style="width:120px;">Summa</th>
+      <th style="width:70px;">Sana</th>
+      <th style="width:34px;"></th>
     </tr></thead>
     <tbody id="rows">
       <tr>
-        <td><input name="name" placeholder="Sement M400" autocomplete="off"></td>
+        <td><select name="kind">
+          <option value="material">Material</option>
+          <option value="labor">Ish haqi</option>
+          <option value="machinery">Mashina chasti</option>
+          <option value="other">Ko'zda tutilmagan</option>
+        </select></td>
+        <td><input name="name" placeholder="nomi..." autocomplete="off"></td>
         <td><input name="note" class="noteinp" placeholder="izoh..." autocomplete="off"></td>
-        <td><input name="unit" placeholder="qop" autocomplete="off"></td>
-        <td class="num"><input name="quantity" inputmode="decimal" placeholder="0" autocomplete="off"></td>
+        <td><input name="unit" placeholder="birlik" autocomplete="off"></td>
+        <td class="num"><input type="number" name="quantity" step="0.001" placeholder="0" autocomplete="off"></td>
+        <td class="num"><input type="number" name="unit_price" step="0.01" placeholder="0" autocomplete="off"></td>
+        <td class="rsum">0</td>
+        <td class="lidate">yangi</td>
         <td><button type="button" class="delrow" title="O'chirish">×</button></td>
       </tr>
     </tbody>
+    <tfoot>
+      <tr><td colspan="6" class="num">Toifa bo'yicha:</td><td id="m-cats" colspan="3" style="text-align:left; font-size:12px;">—</td></tr>
+      <tr><td colspan="6" class="num"><b>JAMI:</b></td><td colspan="3" style="text-align:left;"><b id="m-grand">0</b></td></tr>
+    </tfoot>
   </table>
 
   <div class="acts">
@@ -92,19 +112,41 @@
 <script>
 (function(){
   var tb = document.getElementById("rows");
+  function fmt(n){ return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g," "); }
+  var NOM = {material:"Material", labor:"Ish haqi", machinery:"Mashina", other:"Ko'zda tutilmagan"};
+  function recompute(){
+    var grand=0, cat={material:0,labor:0,machinery:0,other:0};
+    tb.querySelectorAll("tr").forEach(function(tr){
+      var q = parseFloat(tr.querySelector("[name=quantity]").value)||0;
+      var pr = parseFloat(tr.querySelector("[name=unit_price]").value)||0;
+      var s = q*pr;
+      tr.querySelector(".rsum").textContent = fmt(s);
+      var k = tr.querySelector("[name=kind]").value;
+      cat[k] = (cat[k]||0)+s; grand += s;
+    });
+    document.getElementById("m-cats").textContent =
+      NOM.material+" "+fmt(cat.material)+"  ·  "+NOM.labor+" "+fmt(cat.labor)+"  ·  "+NOM.machinery+" "+fmt(cat.machinery)+"  ·  "+NOM.other+" "+fmt(cat.other);
+    document.getElementById("m-grand").textContent = fmt(grand);
+  }
   function bind(btn){ btn.addEventListener("click", function(){
     if (tb.rows.length > 1) btn.closest("tr").remove();
-    else { btn.closest("tr").querySelectorAll("input").forEach(function(i){ i.value=""; }); }
+    else btn.closest("tr").querySelectorAll("input").forEach(function(i){ i.value=""; });
+    recompute();
   }); }
   tb.querySelectorAll(".delrow").forEach(bind);
   document.getElementById("addrow").addEventListener("click", function(){
     var tr = tb.rows[0].cloneNode(true);
     tr.querySelectorAll("input").forEach(function(i){ i.value=""; });
+    tr.querySelector("[name=kind]").value = "material";
+    tr.querySelector(".rsum").textContent = "0";
     bind(tr.querySelector(".delrow"));
     tb.appendChild(tr);
+    recompute();
   });
-  // Boshlanishda 3 qator bo'lsin (haftalikdagidek)
+  tb.addEventListener("input", recompute);
+  tb.addEventListener("change", recompute);
   for (var i = 0; i < 2; i++) document.getElementById("addrow").click();
+  recompute();
 })();
 </script>
 {% endblock %}

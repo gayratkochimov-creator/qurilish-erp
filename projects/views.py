@@ -2627,6 +2627,9 @@ def material_sorov_add(request):
         units = request.POST.getlist("unit")
         qtys = request.POST.getlist("quantity")
         notes = request.POST.getlist("note")
+        kinds = request.POST.getlist("kind")
+        prices = request.POST.getlist("unit_price")
+        valid_kind = set(KINDS)
         satrlar = []
         for i in range(len(names)):
             nom = (names[i] or "").strip()
@@ -2635,9 +2638,14 @@ def material_sorov_add(request):
             q = _to_dec(qtys[i] if i < len(qtys) else None)
             if q is None or q <= 0:
                 continue
+            narx = _to_dec(prices[i] if i < len(prices) else None) or Decimal("0")
+            if narx < 0:
+                narx = Decimal("0")
             satrlar.append(MaterialRequestItem(
+                kind=(kinds[i] if i < len(kinds) and kinds[i] in valid_kind else "material"),
                 name=nom, unit=(units[i] if i < len(units) else "").strip()[:32],
-                quantity=q, note=(notes[i] if i < len(notes) else "").strip()[:500],
+                quantity=q, unit_price=narx,
+                note=(notes[i] if i < len(notes) else "").strip()[:500],
             ))
         if not satrlar:
             messages.error(request, "Kamida bitta material qatori kiriting.")
@@ -2662,9 +2670,16 @@ def material_sorov_korish(request, pk):
         MaterialRequest.objects.select_related("project", "created_by", "decided_by"), pk=pk)
     _firma_yoki_403(request, req.project)
     pto = is_pto(request.user)
+    items = list(req.items.all())
+    jami = Decimal("0")
+    for it in items:
+        it.price_str = _money(it.unit_price)
+        it.total_str = _money(it.total)
+        jami += it.total
     return render(request, "projects/material_sorov_korish.html", {
         "req": req,
-        "items": req.items.all(),
+        "items": items,
+        "jami_str": _money(jami),
         "status_disp": req.get_status_display(),
         "can_decide": pto and req.status == MaterialRequest.Status.PENDING,
     })
@@ -2688,12 +2703,15 @@ def material_sorov_action(request, pk):
         messages.error(request, "Bu so'rov allaqachon hal qilingan.")
         return redirect("material_sorov_korish", pk=pk)
 
-    # PTO tahriri: qator miqdorlarini yangilash (qabul qilishdan oldin)
+    # PTO tahriri: qatorlarni yangilash (qabul qilishdan oldin)
     if action in ("accept", "save"):
+        valid_kind = set(KINDS)
         for it in req.items.all():
             q = _to_dec(request.POST.get(f"qty_{it.id}"))
             nm = (request.POST.get(f"name_{it.id}") or "").strip()
             un = (request.POST.get(f"unit_{it.id}") or "").strip()[:32]
+            kd = (request.POST.get(f"kind_{it.id}") or "").strip()
+            pr = _to_dec(request.POST.get(f"price_{it.id}"))
             changed = False
             if q is not None and q > 0 and q != it.quantity:
                 it.quantity = q; changed = True
@@ -2701,8 +2719,12 @@ def material_sorov_action(request, pk):
                 it.name = nm; changed = True
             if un != it.unit:
                 it.unit = un; changed = True
+            if kd in valid_kind and kd != it.kind:
+                it.kind = kd; changed = True
+            if pr is not None and pr >= 0 and pr != it.unit_price:
+                it.unit_price = pr; changed = True
             if changed:
-                it.save(update_fields=["quantity", "name", "unit"])
+                it.save(update_fields=["quantity", "name", "unit", "kind", "unit_price"])
 
     if action == "accept":
         req.status = S.ACCEPTED

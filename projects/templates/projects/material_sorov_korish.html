@@ -13,8 +13,11 @@
   table.m { width:100%; border-collapse:collapse; margin-top:6px; }
   table.m th { font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--mut); font-weight:600; text-align:left; padding:8px; border-bottom:1px solid var(--line); }
   table.m td { padding:7px 8px; border-bottom:1px solid var(--line); font-size:13.5px; }
-  table.m input { padding:7px 9px; border:1px solid var(--line); border-radius:8px; font-size:13.5px; background:var(--card); color:var(--ink); }
-  input.nm { width:100%; } input.un { width:80px; } input.qt { width:100px; }
+  table.m input, table.m select { padding:7px 9px; border:1px solid var(--line); border-radius:8px; font-size:13.5px; background:var(--card); color:var(--ink); }
+  input.nm { width:100%; } input.un { width:80px; } input.qt { width:100px; } input.pr { width:120px; }
+  select.kd { width:130px; }
+  td.rsum { font-weight:700; color:var(--brand); font-variant-numeric:tabular-nums; text-align:right; white-space:nowrap; }
+  tfoot td { font-weight:800; border-top:2px solid var(--line) !important; }
   .btn { font-size:13px; color:#374151; background:var(--card); border:1px solid var(--line); border-radius:9px; padding:10px 16px; font-weight:600; cursor:pointer; text-decoration:none; }
   .btn:hover { background:#f9fafb; }
   .btn.ok { background:#16a34a; color:#fff; border-color:#16a34a; }
@@ -42,17 +45,26 @@
   <form method="post" action="{% url 'material_sorov_action' req.id %}">
     {% csrf_token %}
     <table class="m">
-      <thead><tr><th style="width:46%">Material</th><th>Birlik</th><th>Miqdor</th><th>Prorab izohi</th></tr></thead>
+      <thead><tr><th>Turi</th><th style="width:30%">Nomi</th><th>Birlik</th><th>Miqdor</th><th>Narxi</th><th style="text-align:right;">Summa</th><th>Prorab izohi</th></tr></thead>
       <tbody>
         {% for it in items %}
         <tr>
+          <td><select class="kd" name="kind_{{ it.id }}">
+            <option value="material" {% if it.kind == 'material' %}selected{% endif %}>Material</option>
+            <option value="labor" {% if it.kind == 'labor' %}selected{% endif %}>Ish haqi</option>
+            <option value="machinery" {% if it.kind == 'machinery' %}selected{% endif %}>Mashina chasti</option>
+            <option value="other" {% if it.kind == 'other' %}selected{% endif %}>Ko'zda tutilmagan</option>
+          </select></td>
           <td><input class="nm" name="name_{{ it.id }}" value="{{ it.name }}"></td>
           <td><input class="un" name="unit_{{ it.id }}" value="{{ it.unit }}"></td>
           <td><input class="qt" name="qty_{{ it.id }}" value="{{ it.quantity|floatformat:'-3' }}" inputmode="decimal"></td>
+          <td><input class="pr" name="price_{{ it.id }}" value="{{ it.unit_price|floatformat:'-2' }}" inputmode="decimal"></td>
+          <td class="rsum">{{ it.total_str }}</td>
           <td>{{ it.note }}</td>
         </tr>
         {% endfor %}
       </tbody>
+      <tfoot><tr><td colspan="5" style="text-align:right;">JAMI:</td><td class="rsum">{{ jami_str }}</td><td></td></tr></tfoot>
     </table>
     <div class="warnmsg">PTO sifatida miqdor/nomni to'g'rilab, <b>Qabul qilish</b> yoki <b>Rad etish</b> tugmasini bosing.</div>
     <div class="acts">
@@ -70,12 +82,13 @@
   </form>
   {% else %}
   <table class="m">
-    <thead><tr><th style="width:46%">Material</th><th>Birlik</th><th>Miqdor</th><th>Izoh</th></tr></thead>
+    <thead><tr><th>Turi</th><th style="width:30%">Nomi</th><th>Birlik</th><th>Miqdor</th><th>Narxi</th><th style="text-align:right;">Summa</th><th>Izoh</th></tr></thead>
     <tbody>
       {% for it in items %}
-      <tr><td>{{ it.name }}</td><td>{{ it.unit|default:"—" }}</td><td>{{ it.quantity|floatformat:'-3' }}</td><td>{{ it.note }}</td></tr>
+      <tr><td>{{ it.get_kind_display }}</td><td>{{ it.name }}</td><td>{{ it.unit|default:"—" }}</td><td>{{ it.quantity|floatformat:'-3' }}</td><td>{{ it.price_str }}</td><td class="rsum">{{ it.total_str }}</td><td>{{ it.note }}</td></tr>
       {% endfor %}
     </tbody>
+    <tfoot><tr><td colspan="5" style="text-align:right;">JAMI:</td><td class="rsum">{{ jami_str }}</td><td></td></tr></tfoot>
   </table>
   {% if req.status == 'rejected' and req.reject_note %}
   <div class="rejbox" style="margin-top:16px;"><b>Rad etish sababi:</b> {{ req.reject_note }}</div>

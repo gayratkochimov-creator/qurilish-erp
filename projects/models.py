@@ -625,14 +625,23 @@ class MaterialRequest(models.Model):
 class MaterialRequestItem(models.Model):
     """Prorab material so'rovi qatori."""
 
+    class Kind(models.TextChoices):
+        MATERIAL = "material", "Material"
+        LABOR = "labor", "Ish haqi"
+        MACHINERY = "machinery", "Mashina chasti"
+        OTHER = "other", "Ko'zda tutilmagan xarajatlar"
+
     request = models.ForeignKey(
         MaterialRequest, on_delete=models.CASCADE,
         related_name="items", verbose_name="So'rov",
     )
+    kind = models.CharField("Turi", max_length=16, choices=Kind.choices, default=Kind.MATERIAL)
     name = models.CharField("Material nomi", max_length=255)
     unit = models.CharField("O'lchov birligi", max_length=32, blank=True)
     quantity = models.DecimalField("Miqdor", **QTY)
+    unit_price = models.DecimalField("Narxi (1 birlik, ixtiyoriy)", default=0, **MONEY)
     note = models.CharField("Izoh", max_length=500, blank=True)
+    created_at = models.DateTimeField("Kiritilgan sana", auto_now_add=True, null=True)
 
     class Meta:
         verbose_name = "So'rov qatori"
@@ -640,3 +649,7 @@ class MaterialRequestItem(models.Model):
 
     def __str__(self):
         return f"{self.name} — {self.quantity}"
+
+    @property
+    def total(self):
+        return ((self.quantity or Decimal("0")) * (self.unit_price or Decimal("0"))).quantize(Decimal("0.01"))
