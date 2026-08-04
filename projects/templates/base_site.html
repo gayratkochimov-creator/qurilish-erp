@@ -108,7 +108,6 @@
     <nav class="snav">
       <div class="cap">Boshqaruv</div>
       <a href="{% url 'dashboard' %}" class="{% if request.resolver_match.url_name == 'dashboard' or request.resolver_match.url_name == 'project_detail' %}active{% endif %}"><span class="i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span><span class="t">Limitlar</span>{% if pending_total %}<span class="sbadge">{{ pending_total }}</span>{% endif %}</a>
-      <a href="{% url 'firmalar' %}" class="{% if request.resolver_match.url_name == 'firmalar' %}active{% endif %}"><span class="i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M6 21V5a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v16"/><path d="M14 9h3a1 1 0 0 1 1 1v11"/><line x1="9" y1="8" x2="10" y2="8"/><line x1="9" y1="12" x2="10" y2="12"/><line x1="9" y1="16" x2="10" y2="16"/></svg></span><span class="t">Obyektlar</span></a>
       <a href="{% url 'ombor' %}" class="{% if request.resolver_match.url_name == 'ombor' %}active{% endif %}"><span class="i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></span><span class="t">Ombor (ostatka)</span></a>
       <a href="{% url 'prixod_list' %}" class="{% if request.resolver_match.url_name == 'prixod_list' %}active{% endif %}"><span class="i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg></span><span class="t">Prixod (kirim)</span></a>
       <a href="{% url 'rasxod_list' %}" class="{% if request.resolver_match.url_name == 'rasxod_list' %}active{% endif %}"><span class="i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg></span><span class="t">Rasxod (chiqim)</span></a>
@@ -240,6 +239,10 @@
           Array.prototype.forEach.call(m.addedNodes, function(n){
             if (n.nodeType === 1) qollash(n);
             else if (n.nodeType === 3 && /[A-Za-z]/.test(n.nodeValue)) {
+              // MUHIM: script/style/textarea ICHIDAGI matnga tegilmaydi —
+              // aks holda sahifa skriptlari kirillga o'girilib BUZILADI
+              var pp = n.parentNode;
+              if (pp && (pp.nodeName==='SCRIPT'||pp.nodeName==='STYLE'||pp.nodeName==='TEXTAREA'||pp.nodeName==='NOSCRIPT')) return;
               ishlanmoqda = true;
               try { n.nodeValue = kirlash(n.nodeValue); } finally { ishlanmoqda = false; }
             }
