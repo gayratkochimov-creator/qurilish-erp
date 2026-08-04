@@ -386,15 +386,27 @@
         });
         c.restore();
       }};
-      new Chart(lEl, { type:'line',
+      /* O'rtacha sarf tendensiyasi (punktir chiziq) — shu haftagacha o'rtacha */
+      var orta = [], jam = 0;
+      for (var oi = 0; oi < wv.length; oi++) { jam += wv[oi]; orta.push(jam / (oi + 1)); }
+      var barG = ctx.createLinearGradient(0,0,0,320);
+      barG.addColorStop(0,'#2f6fe4'); barG.addColorStop(1,'#8fb6f7');
+      new Chart(lEl, { type:'bar',
         plugins:[badgePlugin],
-        data:{ labels:wl, datasets:[{
-          data:wv, borderColor:'#2563eb', backgroundColor:g, fill:true,
-          tension:.35, borderWidth:3,
-          /* nuqtalar ko'rinadigan bo'ldi — haftalar kam bo'lsa ham grafik "jonli" o'qiladi */
-          pointRadius:kamNuqta?7:5, pointBackgroundColor:'#2563eb', pointBorderColor:'#fff', pointBorderWidth:kamNuqta?3:2.5,
-          pointHoverRadius:kamNuqta?9:7, pointHoverBorderWidth:3, pointHoverBackgroundColor:'#1d4ed8'
-        }]},
+        data:{ labels:wl, datasets:[
+          { /* USTUNLAR — haftalik sarf */
+            data:wv, backgroundColor:barG, hoverBackgroundColor:'#1d4ed8',
+            borderRadius:5, maxBarThickness:52, order:2,
+            label:"Haftalik sarf"
+          },
+          { /* PUNKTIR CHIZIQ — o'rtacha tendensiya */
+            type:'line', data:orta, label:"O'rtacha",
+            borderColor:'#111827', borderWidth:2, borderDash:[7,5],
+            tension:.3, fill:false, order:1,
+            pointRadius:5, pointBackgroundColor:'#fff', pointBorderColor:'#111827', pointBorderWidth:2,
+            pointHoverRadius:7
+          }
+        ]},
         options:{ responsive:true, maintainAspectRatio:false,
           layout:{ padding:{ top:34, right:14, left:6 } },
           interaction:{ mode:'index', intersect:false },
@@ -405,7 +417,7 @@
               titleFont:{size:12, weight:'600'}, bodyFont:{size:14, weight:'700'},
               callbacks:{
                 title:function(items){ return 'Hafta: ' + items[0].label; },
-                label:function(c){ return nf(c.raw) + " so'm"; }
+                label:function(c){ return c.dataset.label + ': ' + nf(c.raw) + " so'm"; }
               }
             }
           },
@@ -413,7 +425,7 @@
             y:{ beginAtZero:true, grace:'8%',
                 ticks:{ maxTicksLimit:5, callback:mln, font:{size:11}, color:'#64748b', padding:6 },
                 grid:{ color:'#eef2f7' }, border:{ display:false, dash:[4,4] } },
-            x:{ grid:{ display:false }, border:{ display:false }, offset:kamNuqta,
+            x:{ grid:{ display:false }, border:{ display:false },
                 ticks:{ font:{size:11}, color:'#64748b', padding:4, autoSkip:true, maxRotation:0, maxTicksLimit:16 } }
           } } });
     }
