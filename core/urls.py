@@ -20,10 +20,13 @@ from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from django.urls import include, path
 
-from projects import auth2fa
+from projects import auth2fa, impersonate
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    # Admin xodim sifatida kirib jarayonni tekshiradi (parolsiz, faqat superuser)
+    path('sifatida-kirish/<int:pk>/', impersonate.sifatida_kirish, name='sifatida_kirish'),
+    path('adminga-qaytish/', impersonate.adminga_qaytish, name='adminga_qaytish'),
     # Kirish — Telegram 2FA bilan (profilda chat_id bo'lsa kod so'raladi)
     path('login/', auth2fa.kirish, name='login'),
     path('login/kod/', auth2fa.kirish_kod, name='login_kod'),

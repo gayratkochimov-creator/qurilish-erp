@@ -282,7 +282,7 @@ class UserProfileInline(admin.StackedInline):
 
 class UserAdmin(DjangoUserAdmin):
     inlines = [UserProfileInline]
-    list_display = DjangoUserAdmin.list_display + ("firma_nomi",)
+    list_display = DjangoUserAdmin.list_display + ("firma_nomi", "sifatida_kirish_tugma")
 
     # Eslatma: login/parol jonli tekshiruvi (admin_userform.js) endi jazzmin
     # "custom_js" orqali BARCHA admin sahifalariga ulanadi (settings.py) —
@@ -299,6 +299,16 @@ class UserAdmin(DjangoUserAdmin):
     def firma_nomi(self, obj):
         prof = getattr(obj, "profile", None)
         return prof.firma if prof and prof.firma_id else "—"
+
+    @admin.display(description="Tekshirish")
+    def sifatida_kirish_tugma(self, obj):
+        """Admin xodim ko'zi bilan tizimni tekshiradi (parolsiz kirish)."""
+        if obj.is_superuser or not obj.is_active:
+            return "—"
+        return format_html(
+            '<a class="button" href="/sifatida-kirish/{}/" '
+            'onclick="return confirm(\'«{}» sifatida kirasizmi?\');">👤 Sifatida kirish</a>',
+            obj.pk, obj.username)
 
 
 User = get_user_model()

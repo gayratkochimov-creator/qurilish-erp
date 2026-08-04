@@ -130,6 +130,14 @@
   </aside>
 
   <div class="main">
+    {% if request.session.asl_admin_id %}
+    <div style="background:#fef3c7; border-bottom:2px solid #f59e0b; color:#92400e; padding:9px 24px;
+                font-size:13.5px; font-weight:700; display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
+      <span>👤 Siz hozir «{{ request.user.username }}» sifatida ko'rmoqdasiz (tekshirish rejimi)</span>
+      <a href="{% url 'adminga_qaytish' %}" style="background:#92400e; color:#fff; border-radius:8px;
+         padding:6px 14px; font-size:12.5px; font-weight:700; text-decoration:none;">← Adminga qaytish</a>
+    </div>
+    {% endif %}
     <header class="navbar">
       <div>
         <div class="ptitle">{% block page_title %}{% endblock %}</div>
