@@ -16,9 +16,14 @@ from projects.roles import is_pto, is_snab, user_firma, visible_firmas, visible_
 from . import services
 
 
+def _tahrir_mumkin(user):
+    """Ombor hujjatlarini o'zgartirish huquqi (prorab FAQAT ko'radi)."""
+    return bool(user.is_superuser or is_pto(user) or is_snab(user))
+
+
 def _pto_kerak(user):
     """Ombor hujjatlarini PTO, SNABJENIYE yoki admin o'zgartiradi."""
-    if not (is_pto(user) or is_snab(user)):
+    if not _tahrir_mumkin(user):
         raise PermissionDenied("Ombor hujjatlarini faqat PTO, snabjeniye yoki admin o'zgartiradi.")
 
 
@@ -264,6 +269,7 @@ def prixod_list(request):
             "firma": firma_nom,
         })
     return render(request, "ombor/prixod.html", {
+        "can_edit": _tahrir_mumkin(request.user),
         "rows": rows,
         "firmalar": visible_firmas(request.user).order_by("name"),
         "obyektlar": projects,
@@ -383,6 +389,7 @@ def rasxod_list(request):
             "firma": firma_nom,
         })
     return render(request, "ombor/rasxod.html", {
+        "can_edit": _tahrir_mumkin(request.user),
         "rows": rows,
         "firmalar": visible_firmas(request.user).order_by("name"),
         "obyektlar": projects,

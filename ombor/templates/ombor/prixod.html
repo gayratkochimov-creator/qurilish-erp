@@ -67,6 +67,7 @@
     {% if sel_firma or sel_project %}<a class="clr" href="{% url 'prixod_list' %}">tozalash</a>{% endif %}
   </form>
 
+  {% if can_edit %}
   <details class="addbox">
     <summary>Yangi prixod (kirim)</summary>
     <form method="post" action="{% url 'prixod_add' %}" enctype="multipart/form-data">
@@ -101,6 +102,7 @@
       </tr>
     </template>
   </details>
+  {% endif %}
 
   <div class="panel">
     <table>
@@ -118,14 +120,14 @@
           <td class="num">{{ r.total_str }}</td>
           <td>{% if r.obj.is_posted %}<span class="badge b-posted">Qayd qilingan</span>{% else %}<span class="badge b-draft">Qoralama</span>{% endif %}</td>
           <td>
-            <span class="acts">
+            {% if can_edit %}<span class="acts">
               {% if r.obj.is_posted %}
               <form method="post" action="{% url 'prixod_action' r.obj.id %}"><input type="hidden" name="action" value="unpost">{% csrf_token %}<button class="mini">Bekor qilish</button></form>
               {% else %}
               <form method="post" action="{% url 'prixod_action' r.obj.id %}"><input type="hidden" name="action" value="post">{% csrf_token %}<button class="mini ok">Qayd qilish</button></form>
               <form method="post" action="{% url 'prixod_action' r.obj.id %}" onsubmit="return confirm('O`chirilsinmi?')"><input type="hidden" name="action" value="delete">{% csrf_token %}<button class="mini del">×</button></form>
               {% endif %}
-            </span>
+            </span>{% else %}<span style="color:#cbd5e1;">faqat ko'rish</span>{% endif %}
           </td>
         </tr>
         {% empty %}
