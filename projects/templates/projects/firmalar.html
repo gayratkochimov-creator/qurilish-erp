@@ -66,23 +66,86 @@
   .empty { padding:60px 20px; text-align:center; color:#94a3b8; font-size:14px; line-height:1.7; }
   @media (max-width:980px){ .grid{grid-template-columns:repeat(2,1fr);} }
   @media (max-width:660px){ .grid{grid-template-columns:1fr;} }
+
+  /* Firma tanlash kartalari (kirish ekrani) */
+  .fgrid { display:grid; grid-template-columns:repeat(3,1fr); gap:18px; }
+  .fcard { text-align:left; background:#fff; border:1px solid var(--line); border-radius:var(--r-card);
+           padding:18px 20px; box-shadow:var(--shadow-sm); cursor:pointer; font-family:inherit;
+           transition:box-shadow .18s var(--ease-out), transform .18s var(--ease-out), border-color .16s; }
+  .fcard:hover { box-shadow:var(--shadow); transform:translateY(-2px); border-color:#c7d4ee; }
+  .fcard .fc-top { display:flex; align-items:center; gap:12px; }
+  .fcard .fc-ico { width:42px; height:42px; border-radius:11px; background:#0f2544; color:#fff;
+                   display:grid; place-items:center; font-weight:800; font-size:16px; flex:none; }
+  .fcard .fc-name { font-size:15px; font-weight:800; letter-spacing:-.2px; line-height:1.3; color:var(--ink); }
+  .fcard .fc-cnt { font-size:11.5px; font-weight:600; color:var(--mut); margin-top:2px; }
+  .fcard .fc-row { display:flex; justify-content:space-between; font-size:12px; color:var(--mut);
+                   margin-top:6px; font-variant-numeric:tabular-nums; }
+  .fcard .fc-row b { color:var(--ink); font-weight:700; }
+  .fcard .fc-lims { margin-top:12px; padding-top:10px; border-top:1px solid #f1f5f9; }
+  .fcard .go { margin-top:12px; }
+  @media (max-width:980px){ .fgrid{grid-template-columns:repeat(2,1fr);} }
+  @media (max-width:660px){ .fgrid{grid-template-columns:1fr;} }
 </style>
 {% endblock %}
 
 {% block content %}
   <div class="panel reveal" style="animation-delay:.05s">
     <div class="ftabs">
-      <button class="ftab active" data-tab="hammasi">
-        Hammasi<span class="badge">{{ hammasi.count }}</span>
+      <button class="ftab active" data-tab="tanlash">
+        🔎 Firma tanlash
       </button>
       {% for f in firmalar %}
       <button class="ftab" data-tab="f{{ f.obj.id }}">
         {{ f.obj.name }}<span class="badge">{{ f.count }}</span>
       </button>
       {% endfor %}
+      <button class="ftab" data-tab="hammasi">
+        Hammasi<span class="badge">{{ hammasi.count }}</span>
+      </button>
     </div>
 
-    <div class="pane active" id="hammasi">
+    {# ===== KIRISH EKRANI: firma tanlash (filtr) — obyektlar firma tanlangach chiqadi ===== #}
+    <div class="pane active" id="tanlash">
+      <div class="fhead">
+        <div class="fh-left">
+          <div>
+            <div class="fh-name">Firmani tanlang</div>
+            <div class="fh-info">{{ soni }} ta firma · obyektlarni ko'rish uchun firmani bosing</div>
+          </div>
+        </div>
+        <div class="fh-stats">
+          <div class="stat"><span class="sl">Obyektlar</span><span class="sv">{{ hammasi.count }}</span></div>
+          <div class="stat"><span class="sl">Umumiy limit</span><span class="sv">{{ hammasi.limit_str }}</span></div>
+          <div class="stat"><span class="sl">Sarflangan</span><span class="sv">{{ hammasi.sarf_str }}</span></div>
+          <div class="stat"><span class="sl">Qolgan</span><span class="sv">{{ hammasi.qoldiq_str }}</span></div>
+        </div>
+      </div>
+      {% if firmalar %}
+      <div class="fgrid">
+        {% for f in firmalar %}
+        <button type="button" class="fcard" data-goto="f{{ f.obj.id }}">
+          <div class="fc-top">
+            <span class="fc-ico">{{ f.obj.name|first|upper }}</span>
+            <div>
+              <div class="fc-name">{{ f.obj.name }}</div>
+              <div class="fc-cnt">{{ f.count }} ta obyekt{% if f.obj.director %} · {{ f.obj.director }}{% endif %}</div>
+            </div>
+          </div>
+          <div class="fc-lims">
+            <div class="fc-row"><span>Umumiy limit</span><b>{{ f.limit_str }}</b></div>
+            <div class="fc-row"><span>Sarflangan</span><b>{{ f.sarf_str }}</b></div>
+            <div class="fc-row"><span>Qolgan</span><b>{{ f.qoldiq_str }}</b></div>
+          </div>
+          <div class="go"><span>Obyektlarini ko'rish</span><span class="arr">→</span></div>
+        </button>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty">Hozircha firma yo'q.<br>Admin panel · Firmalar orqali qo'shing.</div>
+      {% endif %}
+    </div>
+
+    <div class="pane" id="hammasi">
       <div class="fhead">
         <div class="fh-left">
           <div>
@@ -190,14 +253,20 @@
 
 {% block extra_js %}
 <script>
-  document.querySelectorAll('.ftab').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      document.querySelectorAll('.ftab').forEach(function (b) { b.classList.remove('active'); });
-      document.querySelectorAll('.pane').forEach(function (p) { p.classList.remove('active'); });
-      btn.classList.add('active');
-      var pane = document.getElementById(btn.dataset.tab);
-      if (pane) pane.classList.add('active');
+  function tabOch(tabId) {
+    document.querySelectorAll('.ftab').forEach(function (b) {
+      b.classList.toggle('active', b.dataset.tab === tabId);
     });
+    document.querySelectorAll('.pane').forEach(function (p) {
+      p.classList.toggle('active', p.id === tabId);
+    });
+  }
+  document.querySelectorAll('.ftab').forEach(function (btn) {
+    btn.addEventListener('click', function () { tabOch(btn.dataset.tab); });
+  });
+  /* Firma kartasi bosilganda — o'sha firmaning obyektlari ochiladi */
+  document.querySelectorAll('.fcard').forEach(function (card) {
+    card.addEventListener('click', function () { tabOch(card.dataset.goto); });
   });
 </script>
 {% endblock %}
