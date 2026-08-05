@@ -29,6 +29,12 @@ def post_receipt(receipt: Receipt):
         raise ValidationError("Bu prixod allaqachon qayd qilingan.")
     items = list(receipt.items.select_related("material"))
     if not items:
+        # Materialsiz, faqat NAKLADNOY rasmi (itogo bilan) kiritilgan hujjat —
+        # ombor qoldig'iga ta'sir qilmaydi, lekin qayd qilinadi (arxiv uchun)
+        if receipt.images.filter(turi="nakladnoy").exists():
+            receipt.is_posted = True
+            receipt.save(update_fields=["is_posted"])
+            return
         raise ValidationError("Prixodda birorta material yo'q.")
 
     project_id = receipt.warehouse.project_id

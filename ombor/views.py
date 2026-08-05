@@ -278,15 +278,21 @@ def prixod_list(request):
             if r.supplier.inn:
                 sup += f" · STIR {r.supplier.inn}"
         rasmlar = []
+        nak_jami = Decimal("0")
         if r.image:
             rasmlar.append({"url": r.image.url, "nak": False, "summa_str": ""})
         for im in r.images.all():
+            if im.turi == "nakladnoy" and im.summa:
+                nak_jami += im.summa
             rasmlar.append({
                 "url": im.image.url, "nak": im.turi == "nakladnoy",
                 "summa_str": _money(im.summa) if im.summa else "",
             })
+        jami = r.total
+        # Materialsiz (faqat nakladnoy) hujjatda summa — nakladnoy itogolari
+        total_str = _money(jami) if jami else (f"🧾 {_money(nak_jami)}" if nak_jami else _money(0))
         rows.append({
-            "obj": r, "total_str": _money(r.total),
+            "obj": r, "total_str": total_str,
             "supplier": sup,
             "firma": firma_nom,
             "rasmlar": rasmlar,
@@ -348,8 +354,9 @@ def prixod_add(request):
             if not (mats[i] or "").strip():
                 continue
             q = _dec(qtys[i] if i < len(qtys) else None)
-            pr = _dec(prices[i] if i < len(prices) else None)
-            if q is None or q <= 0 or pr is None or pr < 0:
+            # Narx bo'sh qoldirilsa — 0 deb olinadi (qator yo'qolib ketmasin)
+            pr = _dec(prices[i] if i < len(prices) else None) or Decimal("0")
+            if q is None or q <= 0 or pr < 0:
                 continue
             # Material ID yoki qo'lda yozilgan NOM — topamiz yoki yaratamiz
             mat = _material_ol(mats[i], munits[i] if i < len(munits) else "")
@@ -357,9 +364,14 @@ def prixod_add(request):
                 continue
             ReceiptItem.objects.create(receipt=r, material=mat, quantity=q, unit_price=pr)
             n += 1
-        if n == 0:
+        nak_bor = r.images.filter(turi="nakladnoy").exists()
+        if n == 0 and nak_bor:
+            # Materialsiz, faqat nakladnoy rasmi + itogo — hujjat sifatida saqlanadi
+            messages.success(request, f"Prixod #{r.id} nakladnoy hujjati sifatida saqlandi "
+                                      f"(materialsiz). «Qayd qilish»ni bossangiz arxiv botga boradi.")
+        elif n == 0:
             r.delete()
-            messages.error(request, "Kamida bitta to'liq material qatori kiriting.")
+            messages.error(request, "Kamida bitta material qatori KIRITING yoki nakladnoy rasmini yuklang.")
         else:
             messages.success(request, f"Prixod #{r.id} yaratildi ({n} qator). «Qayd qilish»ni bosing — omborga tushadi.")
     return redirect("prixod_list")
