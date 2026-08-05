@@ -97,6 +97,7 @@
           <div class="nakrow" style="display:flex; gap:10px; align-items:center; margin-bottom:6px; flex-wrap:wrap;">
             <input type="file" name="nak_image_0" accept="image/*" style="flex:1; min-width:220px;">
             <input type="number" name="nak_summa_0" step="0.01" placeholder="itogo summa (so'm)" style="width:190px; text-align:right;">
+            <button type="button" class="delrow nak-del" title="Bu nakladnoyni olib tashlash">×</button>
           </div>
         </div>
         <button type="button" class="addrow" id="nak-add">+ Yana nakladnoy</button>
@@ -192,17 +193,24 @@
 
     /* Nakladnoy qatorlari — har biri o'z indeksi bilan (rasm + itogo summa) */
     var nakN = 1;
+    var nakBox = document.getElementById('nakrows');
     var nakAdd = document.getElementById('nak-add');
     if (nakAdd) nakAdd.addEventListener('click', function(){
       if (nakN >= 15) return;
-      var box = document.getElementById('nakrows');
-      var row = box.querySelector('.nakrow').cloneNode(true);
+      var row = nakBox.querySelector('.nakrow').cloneNode(true);
       var f = row.querySelector('input[type=file]');
       var s = row.querySelector('input[type=number]');
       f.name = 'nak_image_' + nakN; f.value = '';
       s.name = 'nak_summa_' + nakN; s.value = '';
-      box.appendChild(row);
+      nakBox.appendChild(row);
       nakN++;
+    });
+    /* × — nakladnoy qatorini olib tashlash (oxirgisi bo'lsa faqat tozalanadi) */
+    if (nakBox) nakBox.addEventListener('click', function(e){
+      if (!e.target.classList.contains('nak-del')) return;
+      var row = e.target.closest('.nakrow');
+      if (nakBox.querySelectorAll('.nakrow').length > 1) row.remove();
+      else row.querySelectorAll('input').forEach(function(i){ i.value = ''; });
     });
     tb.addEventListener('click', function(e){ if(e.target.classList.contains('delrow')){ if(tb.children.length>1){ e.target.closest('tr').remove(); recompute(); } } });
     tb.addEventListener('input', function(e){ if(e.target.matches('[name=material]')) autoUnit(e.target.closest('tr')); recompute(); });
