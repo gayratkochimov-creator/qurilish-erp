@@ -166,6 +166,19 @@
         <tr><td colspan="10" class="empty">Hali prixod yo'q. «Yangi prixod» dan kiriting.</td></tr>
         {% endfor %}
       </tbody>
+      {% if rows %}
+      <tfoot>
+        <tr style="background:#f8fafc; border-top:2px solid var(--line); font-weight:800;">
+          <td colspan="7" style="text-align:right; font-size:12px; color:#475569;">
+            Materiallar jami: <b style="color:var(--ink);">{{ jami_mat_str }}</b>
+            &nbsp;·&nbsp; 🧾 Nakladnoylar itogosi: <b style="color:#c2410c;">{{ jami_nak_str }}</b>
+            &nbsp;·&nbsp; UMUMIY:
+          </td>
+          <td class="num" style="font-size:14px; font-weight:800;">{{ jami_umumiy_str }}</td>
+          <td colspan="2"></td>
+        </tr>
+      </tfoot>
+      {% endif %}
     </table>
   </div>
 

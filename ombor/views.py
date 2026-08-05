@@ -268,6 +268,8 @@ def prixod_list(request):
     if firma_id:
         projects = projects.filter(firma_id=firma_id)
     rows = []
+    umumiy_mat = Decimal("0")
+    umumiy_nak = Decimal("0")
     for r in receipts:
         firma_nom = "—"
         if r.warehouse.project_id and r.warehouse.project.firma_id:
@@ -289,7 +291,10 @@ def prixod_list(request):
                 "summa_str": _money(im.summa) if im.summa else "",
             })
         # SUMMA = materiallar jami + nakladnoy itogolari (qo'shilib boradi)
-        jami = r.total + nak_jami
+        mat_jami = r.total
+        jami = mat_jami + nak_jami
+        umumiy_mat += mat_jami
+        umumiy_nak += nak_jami
         total_str = (f"🧾 {_money(jami)}" if nak_jami else _money(jami))
         rows.append({
             "obj": r, "total_str": total_str,
@@ -300,6 +305,9 @@ def prixod_list(request):
     return render(request, "ombor/prixod.html", {
         "can_edit": _tahrir_mumkin(request.user),
         "rows": rows,
+        "jami_mat_str": _money(umumiy_mat),
+        "jami_nak_str": _money(umumiy_nak),
+        "jami_umumiy_str": _money(umumiy_mat + umumiy_nak),
         "firmalar": visible_firmas(request.user).order_by("name"),
         "obyektlar": projects,
         "sel_firma": firma_id,
