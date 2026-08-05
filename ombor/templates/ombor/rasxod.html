@@ -105,7 +105,7 @@
         {% for r in rows %}
         <tr>
           <td>#{{ r.obj.id }}</td>
-          <td>{{ r.obj.date|date:"d.m.Y" }}</td>
+          <td>{{ r.obj.date|date:"d.m.Y" }}<br><span style="font-size:11px; color:#94a3b8;">🕓 {{ r.obj.created_at|date:"H:i" }}</span></td>
           <td style="font-weight:600;">{{ r.firma }}</td>
           <td>{{ r.obj.warehouse.kod_nom }}</td>
           <td>{{ r.bolim }}</td>

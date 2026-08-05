@@ -118,7 +118,8 @@ def _rasm_yubor(chat, receipt):
 def arxiv_prixod(r):
     """Tasdiqlangan prixodni arxiv botga yuborish (matn + rasm + qoldiq)."""
     proj = r.warehouse.project if r.warehouse_id else None
-    lines = [f"⬇️ PRIXOD #{r.id} · {r.date:%d.%m.%Y}"]
+    vaqt = f" · {r.created_at:%H:%M}" if r.created_at else ""
+    lines = [f"⬇️ PRIXOD #{r.id} · {r.date:%d.%m.%Y}{vaqt}"]
     if proj:
         lines.append(f"🏗 {proj.code} — {proj.name}")
     lines.append(f"🏬 Ombor: {r.warehouse.kod_nom}")
@@ -153,7 +154,8 @@ def arxiv_prixod(r):
 def arxiv_rasxod(x):
     """Tasdiqlangan rasxodni arxiv botga yuborish (matn + qoldiq)."""
     proj = x.warehouse.project if x.warehouse_id else None
-    lines = [f"⬆️ RASXOD #{x.id} · {x.date:%d.%m.%Y}"]
+    vaqt = f" · {x.created_at:%H:%M}" if x.created_at else ""
+    lines = [f"⬆️ RASXOD #{x.id} · {x.date:%d.%m.%Y}{vaqt}"]
     if proj:
         lines.append(f"🏗 {proj.code} — {proj.name}")
     lines.append(f"🏬 Ombor: {x.warehouse.kod_nom}")
