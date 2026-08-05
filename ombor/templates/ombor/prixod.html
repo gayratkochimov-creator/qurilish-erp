@@ -78,7 +78,10 @@
         <label>Sana<input type="date" name="date" value="{{ today }}" required></label>
         <label>Hujjat / nakladnoy №<input type="text" name="doc_number" placeholder="№"></label>
         <label>Izoh<input type="text" name="note" placeholder="izoh (ixtiyoriy)"></label>
-        <label>Mahsulot rasmlari (5 tagacha)<input type="file" name="images" accept="image/*" multiple></label>
+        <label>Mahsulot rasmlari (5 tagacha)<input type="file" name="images" id="prodimgs" accept="image/*" multiple>
+          <span id="prodimgs-ok" style="display:none; margin-top:4px; font-size:12px; font-weight:700; color:#15803d;"></span>
+          <span id="prodimgs-prev" style="display:flex; gap:4px; margin-top:4px; flex-wrap:wrap;"></span>
+        </label>
       </div>
       <table class="itbl">
         <thead><tr><th style="width:38%;">Material <span style="font-weight:400; color:var(--mut); font-size:11.5px;">(ro'yxatdan yoki qo'lda yozing)</span></th><th style="width:90px;">Birlik</th><th class="num" style="width:120px;">Miqdor</th><th class="num" style="width:140px;">Narxi</th><th class="num" style="width:140px;">Summa</th><th style="width:34px;"></th></tr></thead>
@@ -91,7 +94,8 @@
       {# ===== NAKLADNOY RASMLARI — alohida bo'lim: rasm + ITOGO summa, ketma-ket ===== #}
       <div style="margin:12px 0; padding:12px 14px; background:#fff7ed; border:1px dashed #f9a860; border-radius:10px;">
         <div style="font-size:12px; font-weight:700; color:#c2410c; margin-bottom:8px;">
-          🧾 Nakladnoy rasmlari <span style="font-weight:400; color:#9a5a1f;">— har biriga itogo (jami) summani yozing; «+ Yana nakladnoy» bilan ketma-ket qo'shing</span>
+          🧾 Nakladnoy rasmlari <span style="font-weight:400; color:#9a5a1f;">— har biriga itogo (jami) summani yozing; «+ Yana nakladnoy» bilan ketma-ket qo'shing.
+          Barcha rasmlar «Qayd qilish» bosilganda arxiv botga boradi.</span>
         </div>
         <div id="nakrows">
           <div class="nakrow" style="display:flex; gap:10px; align-items:center; margin-bottom:6px; flex-wrap:wrap;">
@@ -210,7 +214,50 @@
       if (!e.target.classList.contains('nak-del')) return;
       var row = e.target.closest('.nakrow');
       if (nakBox.querySelectorAll('.nakrow').length > 1) row.remove();
-      else row.querySelectorAll('input').forEach(function(i){ i.value = ''; });
+      else {
+        row.querySelectorAll('input').forEach(function(i){ i.value = ''; });
+        var ok = row.querySelector('.nak-ok'); if (ok) ok.remove();
+        var pv = row.querySelector('.nak-prev'); if (pv) pv.remove();
+      }
+    });
+
+    /* ===== Rasm tanlanганда YASHIL belgi + mini-ko'rinish ===== */
+    function miniRasm(file){
+      var img = document.createElement('img');
+      img.src = URL.createObjectURL(file);
+      img.style.cssText = 'width:36px;height:36px;object-fit:cover;border-radius:6px;border:2px solid #16a34a;';
+      return img;
+    }
+    /* Mahsulot rasmlari (ko'p fayl) */
+    var pi = document.getElementById('prodimgs');
+    if (pi) pi.addEventListener('change', function(){
+      var ok = document.getElementById('prodimgs-ok');
+      var pv = document.getElementById('prodimgs-prev');
+      pv.innerHTML = '';
+      var n = pi.files.length;
+      if (!n) { ok.style.display = 'none'; return; }
+      ok.style.display = 'block';
+      ok.textContent = '✓ ' + Math.min(n,5) + ' ta rasm tanlandi' + (n > 5 ? ' (faqat 5 tasi olinadi)' : '');
+      for (var i = 0; i < Math.min(n,5); i++) pv.appendChild(miniRasm(pi.files[i]));
+      pi.style.outline = '2px solid #16a34a'; pi.style.borderRadius = '6px';
+    });
+    /* Nakladnoy rasmlari (har qator) */
+    if (nakBox) nakBox.addEventListener('change', function(e){
+      var f = e.target;
+      if (f.type !== 'file') return;
+      var row = f.closest('.nakrow');
+      var ok = row.querySelector('.nak-ok'); if (ok) ok.remove();
+      var pv = row.querySelector('.nak-prev'); if (pv) pv.remove();
+      if (!f.files.length) { f.style.outline = ''; return; }
+      f.style.outline = '2px solid #16a34a'; f.style.borderRadius = '6px';
+      var belgi = document.createElement('span');
+      belgi.className = 'nak-ok';
+      belgi.style.cssText = 'font-size:12px;font-weight:700;color:#15803d;white-space:nowrap;';
+      belgi.textContent = '✓ yuklandi';
+      var prev = document.createElement('span');
+      prev.className = 'nak-prev';
+      prev.appendChild(miniRasm(f.files[0]));
+      f.after(prev); f.after(belgi);
     });
     tb.addEventListener('click', function(e){ if(e.target.classList.contains('delrow')){ if(tb.children.length>1){ e.target.closest('tr').remove(); recompute(); } } });
     tb.addEventListener('input', function(e){ if(e.target.matches('[name=material]')) autoUnit(e.target.closest('tr')); recompute(); });
