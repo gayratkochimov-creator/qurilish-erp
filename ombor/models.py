@@ -102,6 +102,36 @@ class Receipt(models.Model):
         return sum((i.total for i in self.items.all()), Decimal("0.00"))
 
 
+class ReceiptImage(models.Model):
+    """Prixod rasmlari: mahsulot rasmlari (5 tagacha) va nakladnoy rasmlari.
+
+    Nakladnoy rasmi bilan birga uning ITOGO summasi ham yoziladi —
+    ketma-ket bir nechta nakladnoy biriktirsa bo'ladi."""
+
+    class Turi(models.TextChoices):
+        PRODUCT = "product", "Mahsulot rasmi"
+        NAKLADNOY = "nakladnoy", "Nakladnoy rasmi"
+
+    receipt = models.ForeignKey(
+        Receipt, on_delete=models.CASCADE,
+        related_name="images", verbose_name="Prixod",
+    )
+    turi = models.CharField("Turi", max_length=16, choices=Turi.choices, default=Turi.PRODUCT)
+    image = models.ImageField("Rasm", upload_to="prixod/%Y/%m/")
+    summa = models.DecimalField(
+        "Nakladnoy itogo summasi", null=True, blank=True, **MONEY,
+        help_text="Faqat nakladnoy rasmi uchun",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Prixod rasmi"
+        verbose_name_plural = "Prixod rasmlari"
+
+    def __str__(self):
+        return f"Prixod #{self.receipt_id} — {self.get_turi_display()}"
+
+
 class ReceiptItem(models.Model):
     receipt = models.ForeignKey(Receipt, on_delete=models.CASCADE, related_name="items")
     material = models.ForeignKey(Material, on_delete=models.PROTECT, verbose_name="Material")

@@ -78,7 +78,7 @@
         <label>Sana<input type="date" name="date" value="{{ today }}" required></label>
         <label>Hujjat / nakladnoy №<input type="text" name="doc_number" placeholder="№"></label>
         <label>Izoh<input type="text" name="note" placeholder="izoh (ixtiyoriy)"></label>
-        <label>Mahsulot rasmi<input type="file" name="image" accept="image/*"></label>
+        <label>Mahsulot rasmlari (5 tagacha)<input type="file" name="images" accept="image/*" multiple></label>
       </div>
       <table class="itbl">
         <thead><tr><th style="width:38%;">Material <span style="font-weight:400; color:var(--mut); font-size:11.5px;">(ro'yxatdan yoki qo'lda yozing)</span></th><th style="width:90px;">Birlik</th><th class="num" style="width:120px;">Miqdor</th><th class="num" style="width:140px;">Narxi</th><th class="num" style="width:140px;">Summa</th><th style="width:34px;"></th></tr></thead>
@@ -87,6 +87,20 @@
       </table>
       <datalist id="matlist">{% for m in materials %}<option value="{{ m.name }}" data-unit="{{ m.unit }}">{{ m.unit }}</option>{% endfor %}</datalist>
       <datalist id="suplist">{% for s in suppliers %}<option value="{{ s.name }}">{% if s.inn %}STIR {{ s.inn }}{% endif %}</option>{% endfor %}</datalist>
+
+      {# ===== NAKLADNOY RASMLARI — alohida bo'lim: rasm + ITOGO summa, ketma-ket ===== #}
+      <div style="margin:12px 0; padding:12px 14px; background:#fff7ed; border:1px dashed #f9a860; border-radius:10px;">
+        <div style="font-size:12px; font-weight:700; color:#c2410c; margin-bottom:8px;">
+          🧾 Nakladnoy rasmlari <span style="font-weight:400; color:#9a5a1f;">— har biriga itogo (jami) summani yozing; «+ Yana nakladnoy» bilan ketma-ket qo'shing</span>
+        </div>
+        <div id="nakrows">
+          <div class="nakrow" style="display:flex; gap:10px; align-items:center; margin-bottom:6px; flex-wrap:wrap;">
+            <input type="file" name="nak_image_0" accept="image/*" style="flex:1; min-width:220px;">
+            <input type="number" name="nak_summa_0" step="0.01" placeholder="itogo summa (so'm)" style="width:190px; text-align:right;">
+          </div>
+        </div>
+        <button type="button" class="addrow" id="nak-add">+ Yana nakladnoy</button>
+      </div>
       <div style="display:flex; gap:10px; margin:10px 0;">
         <button type="button" class="addrow" id="addrow">Qator qo'shish</button>
         <button type="submit" class="savebtn">Saqlash</button>
@@ -117,7 +131,19 @@
           <td>{{ r.obj.warehouse.kod_nom }}</td>
           <td>{{ r.supplier }}</td>
           <td>{{ r.obj.doc_number|default:"—" }}</td>
-          <td>{% if r.obj.image %}<a href="{{ r.obj.image.url }}" target="_blank"><img class="thumb" src="{{ r.obj.image.url }}" alt="rasm"></a>{% else %}<span style="color:#cbd5e1;">—</span>{% endif %}</td>
+          <td>
+            {% if r.rasmlar %}
+            <div style="display:flex; gap:4px; flex-wrap:wrap; max-width:150px;">
+              {% for im in r.rasmlar %}
+              <a href="{{ im.url }}" target="_blank" style="text-align:center; text-decoration:none;">
+                <img class="thumb" src="{{ im.url }}" alt="rasm"
+                     {% if im.nak %}style="border:2px solid #f97316;" title="Nakladnoy{% if im.summa_str %} — itogo {{ im.summa_str }}{% endif %}"{% endif %}>
+                {% if im.nak %}<span style="display:block; font-size:9px; font-weight:700; color:#c2410c; line-height:1.2;">🧾{% if im.summa_str %} {{ im.summa_str }}{% endif %}</span>{% endif %}
+              </a>
+              {% endfor %}
+            </div>
+            {% else %}<span style="color:#cbd5e1;">—</span>{% endif %}
+          </td>
           <td class="num">{{ r.total_str }}</td>
           <td>{% if r.obj.is_posted %}<span class="badge b-posted">Qayd qilingan</span>{% else %}<span class="badge b-draft">Qoralama</span>{% endif %}</td>
           <td>
@@ -163,6 +189,21 @@
     }
     function addRow(){ tb.appendChild(tpl.content.cloneNode(true)); recompute(); }
     document.getElementById('addrow').addEventListener('click', addRow);
+
+    /* Nakladnoy qatorlari — har biri o'z indeksi bilan (rasm + itogo summa) */
+    var nakN = 1;
+    var nakAdd = document.getElementById('nak-add');
+    if (nakAdd) nakAdd.addEventListener('click', function(){
+      if (nakN >= 15) return;
+      var box = document.getElementById('nakrows');
+      var row = box.querySelector('.nakrow').cloneNode(true);
+      var f = row.querySelector('input[type=file]');
+      var s = row.querySelector('input[type=number]');
+      f.name = 'nak_image_' + nakN; f.value = '';
+      s.name = 'nak_summa_' + nakN; s.value = '';
+      box.appendChild(row);
+      nakN++;
+    });
     tb.addEventListener('click', function(e){ if(e.target.classList.contains('delrow')){ if(tb.children.length>1){ e.target.closest('tr').remove(); recompute(); } } });
     tb.addEventListener('input', function(e){ if(e.target.matches('[name=material]')) autoUnit(e.target.closest('tr')); recompute(); });
     tb.addEventListener('change', function(e){ if(e.target.matches('[name=material]')) autoUnit(e.target.closest('tr')); });

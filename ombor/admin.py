@@ -91,9 +91,16 @@ def action_unpost_receipt(modeladmin, request, queryset):
             messages.error(request, f"Prixod #{receipt.id}: {e.message}")
 
 
+class ReceiptImageInline(admin.TabularInline):
+    from .models import ReceiptImage as _RI
+    model = _RI
+    extra = 0
+    fields = ["turi", "image", "summa"]
+
+
 @admin.register(Receipt)
 class ReceiptAdmin(ObyektScopedAdmin):
-    inlines = [ReceiptItemInline]
+    inlines = [ReceiptItemInline, ReceiptImageInline]
     list_display = ["id", "date", "warehouse", "supplier", "doc_number", "umumiy_summa", "is_posted"]
     list_filter = ["is_posted", "warehouse", "supplier"]
     search_fields = ["doc_number"]

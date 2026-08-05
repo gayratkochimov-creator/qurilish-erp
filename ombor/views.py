@@ -47,7 +47,7 @@ def _warehouse_yoki_403(user, warehouse):
         raise PermissionDenied("Bu ombor sizga biriktirilgan obyektlarga tegishli emas.")
     return warehouse
 from .models import (
-    Issue, IssueItem, Material, Receipt, ReceiptItem, StockBalance,
+    Issue, IssueItem, Material, Receipt, ReceiptImage, ReceiptItem, StockBalance,
     StockMovement, Supplier, Warehouse,
 )
 
@@ -254,7 +254,7 @@ def ombor_export(request):
 def prixod_list(request):
     firma_id = request.GET.get("firma") or ""
     project_id = request.GET.get("project") or ""
-    receipts = (Receipt.objects.select_related(
+    receipts = (Receipt.objects.prefetch_related("images").select_related(
         "warehouse", "supplier", "warehouse__project", "warehouse__project__firma")
         .prefetch_related("items"))
     if not request.user.is_superuser:
@@ -277,10 +277,19 @@ def prixod_list(request):
             sup = r.supplier.name
             if r.supplier.inn:
                 sup += f" · STIR {r.supplier.inn}"
+        rasmlar = []
+        if r.image:
+            rasmlar.append({"url": r.image.url, "nak": False, "summa_str": ""})
+        for im in r.images.all():
+            rasmlar.append({
+                "url": im.image.url, "nak": im.turi == "nakladnoy",
+                "summa_str": _money(im.summa) if im.summa else "",
+            })
         rows.append({
             "obj": r, "total_str": _money(r.total),
             "supplier": sup,
             "firma": firma_nom,
+            "rasmlar": rasmlar,
         })
     return render(request, "ombor/prixod.html", {
         "can_edit": _tahrir_mumkin(request.user),
@@ -317,8 +326,19 @@ def prixod_add(request):
             warehouse_id=wh, supplier=yetkazuvchi,
             date=date, doc_number=(request.POST.get("doc_number") or "").strip(),
             note=(request.POST.get("note") or "").strip(),
-            image=request.FILES.get("image"),
         )
+        # Mahsulot rasmlari — 5 tagacha
+        for f in request.FILES.getlist("images")[:5]:
+            ReceiptImage.objects.create(receipt=r, turi="product", image=f)
+        # Nakladnoy rasmlari — har biri ITOGO summasi bilan (ketma-ket qatorlar)
+        for i in range(15):
+            nf = request.FILES.get(f"nak_image_{i}")
+            if nf is None:
+                continue
+            ReceiptImage.objects.create(
+                receipt=r, turi="nakladnoy", image=nf,
+                summa=_dec(request.POST.get(f"nak_summa_{i}")),
+            )
         mats = request.POST.getlist("material")
         munits = request.POST.getlist("munit")
         qtys = request.POST.getlist("quantity")

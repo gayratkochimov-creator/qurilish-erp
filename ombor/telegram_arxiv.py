@@ -85,20 +85,32 @@ def _qoldiq(warehouse, material):
     return b.quantity if b else Decimal("0")
 
 
-def _rasm_yubor(chat, receipt):
-    """Prixod hujjat rasmini yuborish (bo'lsa)."""
+def _bitta_rasm(chat, path, caption):
     try:
-        if not receipt.image:
-            return
-        path = receipt.image.path
         if not os.path.exists(path):
             return
         with open(path, "rb") as f:
             data = f.read()
         token = _token_chat()[0]
         _api(token, "sendPhoto",
-             fields={"chat_id": chat, "caption": f"🧾 Prixod #{receipt.id} — hujjat rasmi"},
+             fields={"chat_id": chat, "caption": caption},
              files={"photo": (os.path.basename(path), data)})
+    except Exception:
+        pass
+
+
+def _rasm_yubor(chat, receipt):
+    """Prixod rasmlarini yuborish: mahsulot rasmlari + nakladnoylar (itogo bilan)."""
+    try:
+        if receipt.image:  # eski yozuvlardagi yakka rasm
+            _bitta_rasm(chat, receipt.image.path, f"📷 Prixod #{receipt.id} — mahsulot rasmi")
+        for im in receipt.images.all():
+            if im.turi == "nakladnoy":
+                itogo = f" — itogo {_pul(im.summa)} so'm" if im.summa else ""
+                caption = f"🧾 Prixod #{receipt.id} — NAKLADNOY{itogo}"
+            else:
+                caption = f"📷 Prixod #{receipt.id} — mahsulot rasmi"
+            _bitta_rasm(chat, im.image.path, caption)
     except Exception:
         pass
 
