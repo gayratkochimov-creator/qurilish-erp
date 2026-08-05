@@ -61,6 +61,8 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'core.middleware.NoHTMLCacheMiddleware',
+    # Kunlik AVTO arxiv: kunning birinchi tashrifida baza + hisobotlar ZIP botga
+    'projects.kunlik_arxiv.KunlikArxivMiddleware',
 ]
 
 ROOT_URLCONF = 'core.urls'
