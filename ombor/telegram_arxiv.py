@@ -133,13 +133,15 @@ def arxiv_prixod(r):
         lines.append(f"   ↳ qoldiq: {_son(_qoldiq(r.warehouse, m))} {m.unit}")
     lines.append("")
     jami = r.total
-    if jami:
+    nak_jami = sum((im.summa or Decimal("0")) for im in r.images.all() if im.turi == "nakladnoy")
+    if jami and nak_jami:
+        lines.append(f"📦 Materiallar jami: {_pul(jami)} so'm")
+        lines.append(f"🧾 Nakladnoylar itogosi: {_pul(nak_jami)} so'm")
+        lines.append(f"💰 UMUMIY: {_pul(jami + nak_jami)} so'm")
+    elif nak_jami:
+        lines.append(f"🧾 NAKLADNOYLAR JAMI: {_pul(nak_jami)} so'm")
+    elif jami:
         lines.append(f"💰 JAMI: {_pul(jami)} so'm")
-    else:
-        # Materialsiz hujjat — nakladnoy itogolari yig'indisi
-        nak_jami = sum((im.summa or Decimal("0")) for im in r.images.all() if im.turi == "nakladnoy")
-        if nak_jami:
-            lines.append(f"🧾 NAKLADNOYLAR JAMI: {_pul(nak_jami)} so'm")
     if r.note:
         lines.append(f"📝 {r.note}")
     text = "\n".join(lines)[:3800]

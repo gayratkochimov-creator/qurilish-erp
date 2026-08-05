@@ -288,9 +288,9 @@ def prixod_list(request):
                 "url": im.image.url, "nak": im.turi == "nakladnoy",
                 "summa_str": _money(im.summa) if im.summa else "",
             })
-        jami = r.total
-        # Materialsiz (faqat nakladnoy) hujjatda summa — nakladnoy itogolari
-        total_str = _money(jami) if jami else (f"🧾 {_money(nak_jami)}" if nak_jami else _money(0))
+        # SUMMA = materiallar jami + nakladnoy itogolari (qo'shilib boradi)
+        jami = r.total + nak_jami
+        total_str = (f"🧾 {_money(jami)}" if nak_jami else _money(jami))
         rows.append({
             "obj": r, "total_str": total_str,
             "supplier": sup,
