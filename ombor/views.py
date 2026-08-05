@@ -324,8 +324,18 @@ def prixod_add(request):
     _pto_kerak(request.user)
     if request.method == "POST":
         wh = request.POST.get("warehouse")
+        # OBYEKTGA TO'G'RIDAN-TO'G'RI rejimda ombor tanlanmaydi — obyekt tanlanadi,
+        # ombor avtomatik topiladi (bo'lmasa obyekt ombori avto ochiladi)
+        if not wh and request.POST.get("obyekt_id"):
+            p_obj = visible_projects(request.user).filter(pk=request.POST.get("obyekt_id")).first()
+            if p_obj is not None:
+                w_obj = Warehouse.objects.filter(project=p_obj).first()
+                if w_obj is None:
+                    w_obj = Warehouse.objects.create(
+                        name=f"{p_obj.code} ombori", project=p_obj)
+                wh = w_obj.pk
         if not wh:
-            messages.error(request, "Ombor tanlang.")
+            messages.error(request, "Ombor yoki obyektni tanlang.")
             return redirect("prixod_list")
         # Firma izolyatsiyasi: tanlangan ombor foydalanuvchi firmasiga tegishli bo'lsin
         _warehouse_yoki_403(request.user, get_object_or_404(Warehouse, pk=wh))

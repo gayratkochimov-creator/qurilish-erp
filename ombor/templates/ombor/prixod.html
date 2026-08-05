@@ -73,7 +73,8 @@
     <form method="post" action="{% url 'prixod_add' %}" enctype="multipart/form-data">
       {% csrf_token %}
       <div class="hdr">
-        <label>Ombor<select name="warehouse" required><option value="">— tanlang —</option>{% for w in warehouses %}<option value="{{ w.id }}">{{ w.kod_nom }}</option>{% endfor %}</select></label>
+        <label id="ombor-wrap">Ombor<select name="warehouse"><option value="">— tanlang —</option>{% for w in warehouses %}<option value="{{ w.id }}">{{ w.kod_nom }}</option>{% endfor %}</select></label>
+        <label id="obyekt-wrap" style="display:none;">Obyekt (to'g'ridan-to'g'ri)<select name="obyekt_id"><option value="">— tanlang —</option>{% for o in obyektlar %}<option value="{{ o.id }}">{{ o.code }} — {{ o.name }}</option>{% endfor %}</select></label>
         <label>Yetkazib beruvchi (STIR bilan)<input type="text" name="supplier" list="suplist" placeholder="tanlang yoki yangi nom yozing..." autocomplete="off"></label>
         <label>Sana<input type="date" name="date" value="{{ today }}" required></label>
         <label>Hujjat / nakladnoy №<input type="text" name="doc_number" placeholder="№"></label>
@@ -213,6 +214,15 @@
     }
     function addRow(){ tb.appendChild(tpl.content.cloneNode(true)); recompute(); }
     document.getElementById('addrow').addEventListener('click', addRow);
+
+    /* ☑ Obyektga to'g'ridan-to'g'ri: Ombor o'rniga Obyekt tanlanadi */
+    var avtoChk = document.querySelector('input[name=obyektga_avto]');
+    if (avtoChk) avtoChk.addEventListener('change', function(){
+      document.getElementById('ombor-wrap').style.display = avtoChk.checked ? 'none' : '';
+      document.getElementById('obyekt-wrap').style.display = avtoChk.checked ? '' : 'none';
+      if (avtoChk.checked) document.querySelector('select[name=warehouse]').value = '';
+      else document.querySelector('select[name=obyekt_id]').value = '';
+    });
 
     /* Nakladnoy qatorlari — har biri o'z indeksi bilan (rasm + itogo summa) */
     var nakN = 1;
