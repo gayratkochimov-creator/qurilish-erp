@@ -72,6 +72,20 @@ def _material_ol(qiymat, unit=""):
     )
 
 
+def _supplier_ol(qiymat):
+    """Yetkazib beruvchi ID yoki NOM bilan berilishi mumkin.
+    Nom bo'lsa — topamiz yoki YARATAMIZ (prixodda qo'lda yozish uchun)."""
+    qiymat = (qiymat or "").strip()
+    if not qiymat:
+        return None
+    if qiymat.isdigit():
+        return Supplier.objects.filter(pk=int(qiymat)).first()
+    s = Supplier.objects.filter(name__iexact=qiymat).first()
+    if s:
+        return s
+    return Supplier.objects.create(name=qiymat[:255])
+
+
 def _money(v):
     return f"{v:,.0f}".replace(",", " ")
 
@@ -297,8 +311,10 @@ def prixod_add(request):
         except ValueError:
             messages.error(request, "Sanani to'g'ri kiriting.")
             return redirect("prixod_list")
+        # Yetkazib beruvchi: ro'yxatdan tanlangan NOM yoki qo'lda yozilgan YANGI nom
+        yetkazuvchi = _supplier_ol(request.POST.get("supplier"))
         r = Receipt.objects.create(
-            warehouse_id=wh, supplier_id=(request.POST.get("supplier") or None),
+            warehouse_id=wh, supplier=yetkazuvchi,
             date=date, doc_number=(request.POST.get("doc_number") or "").strip(),
             note=(request.POST.get("note") or "").strip(),
             image=request.FILES.get("image"),

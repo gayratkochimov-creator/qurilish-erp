@@ -74,7 +74,7 @@
       {% csrf_token %}
       <div class="hdr">
         <label>Ombor<select name="warehouse" required><option value="">— tanlang —</option>{% for w in warehouses %}<option value="{{ w.id }}">{{ w.kod_nom }}</option>{% endfor %}</select></label>
-        <label>Yetkazib beruvchi (STIR bilan)<select name="supplier"><option value="">— (ixtiyoriy) —</option>{% for s in suppliers %}<option value="{{ s.id }}">{{ s.name }}{% if s.inn %} · STIR {{ s.inn }}{% endif %}</option>{% endfor %}</select></label>
+        <label>Yetkazib beruvchi (STIR bilan)<input type="text" name="supplier" list="suplist" placeholder="tanlang yoki yangi nom yozing..." autocomplete="off"></label>
         <label>Sana<input type="date" name="date" value="{{ today }}" required></label>
         <label>Hujjat / nakladnoy №<input type="text" name="doc_number" placeholder="№"></label>
         <label>Izoh<input type="text" name="note" placeholder="izoh (ixtiyoriy)"></label>
@@ -86,6 +86,7 @@
         <tfoot><tr><td colspan="4" class="num"><b>JAMI:</b></td><td class="num rsum"><b id="grand">0</b></td><td></td></tr></tfoot>
       </table>
       <datalist id="matlist">{% for m in materials %}<option value="{{ m.name }}" data-unit="{{ m.unit }}">{{ m.unit }}</option>{% endfor %}</datalist>
+      <datalist id="suplist">{% for s in suppliers %}<option value="{{ s.name }}">{% if s.inn %}STIR {{ s.inn }}{% endif %}</option>{% endfor %}</datalist>
       <div style="display:flex; gap:10px; margin:10px 0;">
         <button type="button" class="addrow" id="addrow">Qator qo'shish</button>
         <button type="submit" class="savebtn">Saqlash</button>
