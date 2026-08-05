@@ -86,6 +86,10 @@ class Receipt(models.Model):
     date = models.DateField("Sana")
     note = models.CharField("Izoh", max_length=255, blank=True)
     image = models.ImageField("Mahsulot rasmi", upload_to="prixod/%Y/%m/", null=True, blank=True)
+    # Obyektga TO'G'RIDAN-TO'G'RI kelgan material: qayd qilinganda rasxod
+    # qoralamasi avto ochiladi — prorab miqdorni tasdiqlagach rasxod qayd bo'ladi
+    obyektga_avto = models.BooleanField(
+        "Obyektga to'g'ridan-to'g'ri (rasxodga avto o'tadi)", default=False)
     is_posted = models.BooleanField("Qayd qilingan", default=False, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -164,6 +168,17 @@ class Issue(models.Model):
     doc_number = models.CharField("Hujjat raqami", max_length=64, blank=True)
     date = models.DateField("Sana")
     note = models.CharField("Izoh", max_length=255, blank=True)
+    # Prixoddan AVTO ochilgan rasxod (obyektga to'g'ridan-to'g'ri kelgan material).
+    # Bunday rasxodni faqat PRORAB miqdorni tasdiqlagach qayd qilish mumkin.
+    source_receipt = models.ForeignKey(
+        Receipt, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="auto_issues", verbose_name="Manba prixod (avto)",
+    )
+    prorab_by = models.ForeignKey(
+        "auth.User", null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="rasxod_tasdiqlagan", verbose_name="Miqdorni tasdiqlagan prorab",
+    )
+    prorab_at = models.DateTimeField("Prorab tasdig'i vaqti", null=True, blank=True)
     is_posted = models.BooleanField("Qayd qilingan", default=False, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
 

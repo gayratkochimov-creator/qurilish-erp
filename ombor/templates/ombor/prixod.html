@@ -78,6 +78,12 @@
         <label>Sana<input type="date" name="date" value="{{ today }}" required></label>
         <label>Hujjat / nakladnoy №<input type="text" name="doc_number" placeholder="№"></label>
         <label>Izoh<input type="text" name="note" placeholder="izoh (ixtiyoriy)"></label>
+        <label style="justify-content:flex-end;">
+          <span style="display:inline-flex; align-items:center; gap:7px; background:#fff7ed; border:1px dashed #f9a860; border-radius:9px; padding:9px 12px; cursor:pointer; font-size:12.5px; color:#c2410c; font-weight:700;">
+            <input type="checkbox" name="obyektga_avto" value="1" style="min-width:auto; width:16px; height:16px;">
+            Obyektga to'g'ridan-to'g'ri keldi — rasxodga avto o'tsin (prorab miqdorni tasdiqlaydi)
+          </span>
+        </label>
         <label>Mahsulot rasmlari (5 tagacha)<input type="file" name="images" id="prodimgs" accept="image/*" multiple>
           <span id="prodimgs-ok" style="display:none; margin-top:4px; font-size:12px; font-weight:700; color:#15803d;"></span>
           <span id="prodimgs-prev" style="display:flex; gap:4px; margin-top:4px; flex-wrap:wrap;"></span>

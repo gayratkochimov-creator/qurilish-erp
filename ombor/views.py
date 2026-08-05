@@ -340,6 +340,7 @@ def prixod_add(request):
             warehouse_id=wh, supplier=yetkazuvchi,
             date=date, doc_number=(request.POST.get("doc_number") or "").strip(),
             note=(request.POST.get("note") or "").strip(),
+            obyektga_avto=bool(request.POST.get("obyektga_avto")),
         )
         # Mahsulot rasmlari — 5 tagacha
         for f in request.FILES.getlist("images")[:5]:
@@ -396,6 +397,21 @@ def prixod_action(request, pk):
             if a == "post":
                 services.post_receipt(r)
                 messages.success(request, f"Prixod #{r.id} qayd qilindi — ombor to'ldirildi.")
+                # Obyektga TO'G'RIDAN-TO'G'RI kelgan material: rasxod qoralamasi
+                # avto ochiladi — PRORAB miqdorni tasdiqlagach rasxod qayd bo'ladi
+                if r.obyektga_avto and r.items.exists() and not r.auto_issues.exists():
+                    avto = Issue.objects.create(
+                        warehouse=r.warehouse, date=r.date,
+                        note=f"Avto: prixod #{r.id} dan (obyektga to'g'ridan-to'g'ri)",
+                        source_receipt=r,
+                    )
+                    IssueItem.objects.bulk_create([
+                        IssueItem(issue=avto, material=it.material, quantity=it.quantity)
+                        for it in r.items.all()
+                    ])
+                    messages.info(request,
+                        f"Rasxod #{avto.id} qoralamasi avto ochildi — "
+                        f"PRORAB miqdorni tasdiqlagach rasxod qayd bo'ladi.")
                 # Arxiv botga (admin + obyekt snabjeniyechilari) — xato bo'lsa jim
                 try:
                     from .telegram_arxiv import arxiv_prixod
@@ -403,6 +419,9 @@ def prixod_action(request, pk):
                 except Exception:
                     pass
             elif a == "unpost":
+                # Bog'liq avto-rasxod: qoralama bo'lsa o'chiriladi; qayd qilingan
+                # bo'lsa unpost baribir taqiqlanadi (qoldiq minusga tushadi)
+                r.auto_issues.filter(is_posted=False).delete()
                 services.unpost_receipt(r)
                 messages.info(request, f"Prixod #{r.id} qaydi bekor qilindi.")
             elif a == "delete":
@@ -434,15 +453,24 @@ def rasxod_list(request):
     projects = visible_projects(request.user).order_by("code")
     if firma_id:
         projects = projects.filter(firma_id=firma_id)
+    from projects.roles import is_prorab as _is_prorab_f
+    prorab_mi = _is_prorab_f(request.user)
     rows = []
     for x in issues:
         firma_nom = "—"
         if x.warehouse.project_id and x.warehouse.project.firma_id:
             firma_nom = x.warehouse.project.firma.name
+        kutmoqda = bool(x.source_receipt_id) and not x.is_posted
         rows.append({
             "obj": x, "total_str": _money(x.total),
             "bolim": (x.work_section.name if x.work_section_id else "—"),
             "firma": firma_nom,
+            "avto_kutmoqda": kutmoqda,
+            "prorab_can": kutmoqda and (prorab_mi or request.user.is_superuser),
+            "tasdiq_items": [
+                {"id": it.id, "nom": it.material.name, "birlik": it.material.unit,
+                 "qty": it.quantity} for it in x.items.all()
+            ] if kutmoqda else [],
         })
     return render(request, "ombor/rasxod.html", {
         "can_edit": _tahrir_mumkin(request.user),
@@ -511,13 +539,48 @@ def rasxod_add(request):
 
 @login_required
 def rasxod_action(request, pk):
-    _pto_kerak(request.user)
+    from projects.roles import is_prorab
     x = get_object_or_404(Issue, pk=pk)
     _warehouse_yoki_403(request.user, x.warehouse)
     if request.method == "POST":
         a = request.POST.get("action")
+        # PRORAB faqat avto-rasxod miqdorini tasdiqlaydi; qolgan amallar PTO/snab/admin
+        if a == "prorab_tasdiq":
+            if not (is_prorab(request.user) or request.user.is_superuser):
+                raise PermissionDenied("Miqdorni faqat prorab tasdiqlaydi.")
+        else:
+            _pto_kerak(request.user)
         try:
-            if a == "post":
+            if a == "prorab_tasdiq":
+                # Obyektga to'g'ridan-to'g'ri kelgan material: prorab HAQIQIY
+                # miqdorni tekshirib tasdiqlaydi -> shundan so'ng rasxod qayd bo'ladi
+                from django.utils import timezone as _tz
+                if not x.source_receipt_id:
+                    messages.error(request, "Bu rasxod avto emas — oddiy tartibda qayd qilinadi.")
+                elif x.is_posted:
+                    messages.error(request, "Bu rasxod allaqachon qayd qilingan.")
+                else:
+                    for it in x.items.all():
+                        q = _dec(request.POST.get(f"qty_{it.id}"))
+                        if q is not None and q > 0 and q != it.quantity:
+                            it.quantity = q
+                            it.save(update_fields=["quantity"])
+                    services.post_issue(x)
+                    x.prorab_by = request.user
+                    x.prorab_at = _tz.now()
+                    x.save(update_fields=["prorab_by", "prorab_at"])
+                    messages.success(request,
+                        f"Rasxod #{x.id} — prorab miqdorni tasdiqladi, ombordan chiqarildi.")
+                    try:
+                        from .telegram_arxiv import arxiv_rasxod
+                        arxiv_rasxod(x)
+                    except Exception:
+                        pass
+            elif a == "post":
+                if x.source_receipt_id and not x.prorab_by_id:
+                    messages.error(request,
+                        "Bu avto-rasxod: avval PRORAB miqdorni tasdiqlashi kerak.")
+                    return redirect("rasxod_list")
                 services.post_issue(x)
                 messages.success(request, f"Rasxod #{x.id} qayd qilindi — ombordan chiqarildi.")
                 # Arxiv botga (admin + obyekt snabjeniyechilari) — xato bo'lsa jim

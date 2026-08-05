@@ -172,6 +172,8 @@ def arxiv_rasxod(x):
         lines.append(f"   ↳ qoldiq: {_son(_qoldiq(x.warehouse, m))} {m.unit}")
     lines.append("")
     lines.append(f"💰 JAMI: {_pul(x.total)} so'm")
+    if x.prorab_by_id:
+        lines.append(f"👷 Miqdorni tasdiqladi: {x.prorab_by.username}")
     if x.note:
         lines.append(f"📝 {x.note}")
     text = "\n".join(lines)[:3800]
