@@ -151,6 +151,21 @@ def arxiv_prixod(r):
         _rasm_yubor(chat, r)
 
 
+def arxiv_prixod_rad(r):
+    """Prorab prixodni RAD etganda — snabjeniye va adminga xabar."""
+    proj = r.warehouse.project if r.warehouse_id else None
+    lines = [f"❌ PRIXOD #{r.id} RAD ETILDI (prorab)"]
+    if proj:
+        lines.append(f"🏗 {proj.code} — {proj.name}")
+    if r.rad_by_id:
+        lines.append(f"👷 Rad etdi: {r.rad_by.username}")
+    lines.append(f"📝 Sabab: {r.rad_note}")
+    lines.append("Snabjeniye hujjatni ko'rib to'g'irlashi yoki o'chirishi kerak.")
+    text = "\n".join(lines)[:3800]
+    for chat in _qabul_qiluvchilar(proj):
+        tg_send(chat, text)
+
+
 def arxiv_rasxod(x):
     """Tasdiqlangan rasxodni arxiv botga yuborish (matn + qoldiq)."""
     proj = x.warehouse.project if x.warehouse_id else None

@@ -254,7 +254,7 @@ def ombor_export(request):
 def prixod_list(request):
     firma_id = request.GET.get("firma") or ""
     project_id = request.GET.get("project") or ""
-    receipts = (Receipt.objects.prefetch_related("images").select_related(
+    receipts = (Receipt.objects.prefetch_related("images", "items__material").select_related(
         "warehouse", "supplier", "warehouse__project", "warehouse__project__firma")
         .prefetch_related("items"))
     if not request.user.is_superuser:
@@ -299,9 +299,15 @@ def prixod_list(request):
         umumiy_nak += nak_jami
         total_str = (f"🧾 {_money(jami)}" if nak_jami else _money(jami))
         avto_kutmoqda = r.obyektga_avto and not r.is_posted
+        prorab_can = avto_kutmoqda and (prixod_prorab_mi or request.user.is_superuser)
         rows.append({
             "avto_kutmoqda": avto_kutmoqda,
-            "prorab_can": avto_kutmoqda and (prixod_prorab_mi or request.user.is_superuser),
+            "prorab_can": prorab_can,
+            "rad_bor": bool(r.rad_note) and not r.is_posted,
+            "qabul_items": [
+                {"id": it.id, "nom": it.material.name, "birlik": it.material.unit,
+                 "qty": it.quantity} for it in r.items.all()
+            ] if prorab_can else [],
             "obj": r, "total_str": total_str,
             "supplier": sup,
             "firma": firma_nom,
@@ -410,7 +416,7 @@ def prixod_action(request, pk):
         a = request.POST.get("action")
         # AVTO (obyektga to'g'ridan-to'g'ri) prixodni PRORAB qabul qiladi:
         # snabjeniye faqat MA'LUMOT kiritadi, tasdiqlash prorabniki.
-        if a in ("post", "unpost") and r.obyektga_avto:
+        if a in ("post", "unpost", "prorab_rad") and r.obyektga_avto:
             if not (is_prorab(request.user) or request.user.is_superuser):
                 messages.error(request,
                     "Bu prixod obyektga to'g'ridan-to'g'ri: uni PRORAB qabul qiladi (tasdiqlaydi).")
@@ -418,8 +424,39 @@ def prixod_action(request, pk):
         else:
             _pto_kerak(request.user)
         try:
+            if a == "prorab_rad":
+                # PRORAB rad etadi (sabab bilan) — hujjat qoralama qoladi,
+                # snabjeniye sababini ko'rib to'g'irlaydi yoki o'chiradi
+                from django.utils import timezone as _tz
+                sabab = (request.POST.get("rad_note") or "").strip()
+                if r.is_posted:
+                    messages.error(request, "Qayd qilingan hujjatni rad etib bo'lmaydi.")
+                elif not sabab:
+                    messages.error(request, "Rad etish sababini yozing.")
+                else:
+                    r.rad_note = sabab[:500]
+                    r.rad_by = request.user
+                    r.rad_at = _tz.now()
+                    r.save(update_fields=["rad_note", "rad_by", "rad_at"])
+                    messages.info(request, f"Prixod #{r.id} — prorab RAD etdi: {sabab}")
+                    try:
+                        from .telegram_arxiv import arxiv_prixod_rad
+                        arxiv_prixod_rad(r)
+                    except Exception:
+                        pass
+                return redirect("prixod_list")
             if a == "post":
+                # PRORAB qabulda haqiqiy kelgan miqdorni TAHRIRLAB olishi mumkin
+                if r.obyektga_avto and not r.is_posted:
+                    for it in r.items.all():
+                        q = _dec(request.POST.get(f"qty_{it.id}"))
+                        if q is not None and q > 0 and q != it.quantity:
+                            it.quantity = q
+                            it.save(update_fields=["quantity"])
                 services.post_receipt(r)
+                if r.rad_note:
+                    r.rad_note = ""; r.rad_by = None; r.rad_at = None
+                    r.save(update_fields=["rad_note", "rad_by", "rad_at"])
                 if r.obyektga_avto:
                     messages.success(request, f"Prixod #{r.id} — PRORAB qabul qildi, ombor to'ldirildi.")
                 else:

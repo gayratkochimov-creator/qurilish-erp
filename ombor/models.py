@@ -90,6 +90,13 @@ class Receipt(models.Model):
     # qoralamasi avto ochiladi — prorab miqdorni tasdiqlagach rasxod qayd bo'ladi
     obyektga_avto = models.BooleanField(
         "Obyektga to'g'ridan-to'g'ri (rasxodga avto o'tadi)", default=False)
+    # Prorab qabul qilmasdan RAD etsa — sababi (snab ko'rib to'g'irlaydi/o'chiradi)
+    rad_note = models.CharField("Prorab rad sababi", max_length=500, blank=True)
+    rad_by = models.ForeignKey(
+        "auth.User", null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="prixod_rad_etgan", verbose_name="Rad etgan prorab",
+    )
+    rad_at = models.DateTimeField("Rad vaqti", null=True, blank=True)
     is_posted = models.BooleanField("Qayd qilingan", default=False, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
 

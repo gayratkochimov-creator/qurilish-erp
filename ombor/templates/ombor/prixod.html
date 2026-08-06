@@ -159,16 +159,37 @@
           <td class="num">{{ r.total_str }}</td>
           <td>
             {% if r.obj.is_posted %}<span class="badge b-posted">Qayd qilingan</span>
+            {% elif r.rad_bor %}<span class="badge" style="background:#fee2e2; color:#b91c1c;">❌ Prorab rad etgan</span>
+              <br><span style="font-size:10.5px; color:#b91c1c;">{{ r.obj.rad_note }}</span>
             {% elif r.avto_kutmoqda %}<span class="badge" style="background:#ffedd5; color:#c2410c;">👷 Prorab qabulini kutmoqda</span>
             {% else %}<span class="badge b-draft">Qoralama</span>{% endif %}
           </td>
           <td>
             {% if r.prorab_can %}
-            <form method="post" action="{% url 'prixod_action' r.obj.id %}" style="display:inline;"
-                  onsubmit="return confirm('Material yetib keldimi? Qabul qilinadi va omborga tushadi.');">
-              <input type="hidden" name="action" value="post">{% csrf_token %}
-              <button class="mini ok">✓ Qabul qilish (omborga)</button>
-            </form>
+            <details>
+              <summary style="cursor:pointer; font-size:12.5px; font-weight:700; color:#c2410c;">👷 Qabul / tahrir / rad</summary>
+              <div style="margin-top:8px; background:#fff7ed; border:1px dashed #f9a860; border-radius:9px; padding:10px; min-width:260px;">
+                <form method="post" action="{% url 'prixod_action' r.obj.id %}"
+                      onsubmit="return confirm('Miqdorlar to`g`rimi? Qabul qilinadi va omborga tushadi.');">
+                  {% csrf_token %}<input type="hidden" name="action" value="post">
+                  <div style="font-size:11.5px; color:#9a5a1f; margin-bottom:6px;">Haqiqiy KELGAN miqdorni to'g'rilang:</div>
+                  {% for it in r.qabul_items %}
+                  <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+                    <span style="flex:1; font-size:12.5px;">{{ it.nom }} ({{ it.birlik }})</span>
+                    <input type="number" name="qty_{{ it.id }}" step="0.001" value="{{ it.qty|floatformat:'-3' }}"
+                           style="width:110px; text-align:right; padding:6px 8px; border:1px solid #e5e7eb; border-radius:7px;">
+                  </div>
+                  {% endfor %}
+                  <button class="mini ok">✓ Qabul qilish (omborga)</button>
+                </form>
+                <form method="post" action="{% url 'prixod_action' r.obj.id %}" style="margin-top:8px; border-top:1px dashed #f9a860; padding-top:8px;"
+                      onsubmit="var s=this.querySelector('[name=rad_note]'); if(!s.value.trim()){ alert('Rad etish sababini yozing.'); s.focus(); return false; }">
+                  {% csrf_token %}<input type="hidden" name="action" value="prorab_rad">
+                  <input type="text" name="rad_note" placeholder="rad sababi..." style="width:100%; padding:6px 8px; border:1px solid #fecaca; border-radius:7px; font-size:12.5px; margin-bottom:6px;">
+                  <button class="mini del">❌ Rad etish</button>
+                </form>
+              </div>
+            </details>
             {% elif can_edit %}<span class="acts">
               {% if r.obj.is_posted %}
               <form method="post" action="{% url 'prixod_action' r.obj.id %}"><input type="hidden" name="action" value="unpost">{% csrf_token %}<button class="mini">Bekor qilish</button></form>
