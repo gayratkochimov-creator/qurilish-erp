@@ -267,6 +267,8 @@ def prixod_list(request):
     projects = visible_projects(request.user).order_by("code")
     if firma_id:
         projects = projects.filter(firma_id=firma_id)
+    from projects.roles import is_prorab as _is_prorab_p
+    prixod_prorab_mi = _is_prorab_p(request.user)
     rows = []
     umumiy_mat = Decimal("0")
     umumiy_nak = Decimal("0")
@@ -296,7 +298,10 @@ def prixod_list(request):
         umumiy_mat += mat_jami
         umumiy_nak += nak_jami
         total_str = (f"🧾 {_money(jami)}" if nak_jami else _money(jami))
+        avto_kutmoqda = r.obyektga_avto and not r.is_posted
         rows.append({
+            "avto_kutmoqda": avto_kutmoqda,
+            "prorab_can": avto_kutmoqda and (prixod_prorab_mi or request.user.is_superuser),
             "obj": r, "total_str": total_str,
             "supplier": sup,
             "firma": firma_nom,
@@ -398,15 +403,27 @@ def prixod_add(request):
 
 @login_required
 def prixod_action(request, pk):
-    _pto_kerak(request.user)
+    from projects.roles import is_prorab
     r = get_object_or_404(Receipt, pk=pk)
     _warehouse_yoki_403(request.user, r.warehouse)
     if request.method == "POST":
         a = request.POST.get("action")
+        # AVTO (obyektga to'g'ridan-to'g'ri) prixodni PRORAB qabul qiladi:
+        # snabjeniye faqat MA'LUMOT kiritadi, tasdiqlash prorabniki.
+        if a in ("post", "unpost") and r.obyektga_avto:
+            if not (is_prorab(request.user) or request.user.is_superuser):
+                messages.error(request,
+                    "Bu prixod obyektga to'g'ridan-to'g'ri: uni PRORAB qabul qiladi (tasdiqlaydi).")
+                return redirect("prixod_list")
+        else:
+            _pto_kerak(request.user)
         try:
             if a == "post":
                 services.post_receipt(r)
-                messages.success(request, f"Prixod #{r.id} qayd qilindi — ombor to'ldirildi.")
+                if r.obyektga_avto:
+                    messages.success(request, f"Prixod #{r.id} — PRORAB qabul qildi, ombor to'ldirildi.")
+                else:
+                    messages.success(request, f"Prixod #{r.id} qayd qilindi — ombor to'ldirildi.")
                 # Obyektga TO'G'RIDAN-TO'G'RI kelgan material: rasxod qoralamasi
                 # avto ochiladi — PRORAB miqdorni tasdiqlagach rasxod qayd bo'ladi
                 if r.obyektga_avto and r.items.exists() and not r.auto_issues.exists():
@@ -421,7 +438,8 @@ def prixod_action(request, pk):
                     ])
                     messages.info(request,
                         f"Rasxod #{avto.id} qoralamasi avto ochildi — "
-                        f"PRORAB miqdorni tasdiqlagach rasxod qayd bo'ladi.")
+                        f"PRORAB ISHLATILGAN miqdorni kiritib tasdiqlaydi, "
+                        f"qolgani obyekt omborida qoldiq bo'lib turadi.")
                 # Arxiv botga (admin + obyekt snabjeniyechilari) — xato bo'lsa jim
                 try:
                     from .telegram_arxiv import arxiv_prixod
@@ -479,7 +497,7 @@ def rasxod_list(request):
             "prorab_can": kutmoqda and (prorab_mi or request.user.is_superuser),
             "tasdiq_items": [
                 {"id": it.id, "nom": it.material.name, "birlik": it.material.unit,
-                 "qty": it.quantity} for it in x.items.all()
+                 "kelgan": it.quantity} for it in x.items.all()
             ] if kutmoqda else [],
         })
     return render(request, "ombor/rasxod.html", {
@@ -570,9 +588,22 @@ def rasxod_action(request, pk):
                 elif x.is_posted:
                     messages.error(request, "Bu rasxod allaqachon qayd qilingan.")
                 else:
+                    # Prorab ISHLATILGAN miqdorni yozadi; bo'sh/0 qoldirilgan
+                    # qator BU rasxoddan chiqadi (material hali ishlatilmagan —
+                    # obyekt omborida qoldiq bo'lib turadi)
+                    kiritilgan = []
                     for it in x.items.all():
                         q = _dec(request.POST.get(f"qty_{it.id}"))
-                        if q is not None and q > 0 and q != it.quantity:
+                        kiritilgan.append((it, q))
+                    ishlatilgan = [(it, q) for it, q in kiritilgan if q is not None and q > 0]
+                    if not ishlatilgan:
+                        messages.error(request,
+                            "Ishlatilgan miqdorni kiriting (kamida bitta qator).")
+                        return redirect("rasxod_list")
+                    for it, q in kiritilgan:
+                        if q is None or q <= 0:
+                            it.delete()
+                        elif q != it.quantity:
                             it.quantity = q
                             it.save(update_fields=["quantity"])
                     services.post_issue(x)

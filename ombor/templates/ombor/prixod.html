@@ -157,11 +157,24 @@
             {% else %}<span style="color:#cbd5e1;">—</span>{% endif %}
           </td>
           <td class="num">{{ r.total_str }}</td>
-          <td>{% if r.obj.is_posted %}<span class="badge b-posted">Qayd qilingan</span>{% else %}<span class="badge b-draft">Qoralama</span>{% endif %}</td>
           <td>
-            {% if can_edit %}<span class="acts">
+            {% if r.obj.is_posted %}<span class="badge b-posted">Qayd qilingan</span>
+            {% elif r.avto_kutmoqda %}<span class="badge" style="background:#ffedd5; color:#c2410c;">👷 Prorab qabulini kutmoqda</span>
+            {% else %}<span class="badge b-draft">Qoralama</span>{% endif %}
+          </td>
+          <td>
+            {% if r.prorab_can %}
+            <form method="post" action="{% url 'prixod_action' r.obj.id %}" style="display:inline;"
+                  onsubmit="return confirm('Material yetib keldimi? Qabul qilinadi va omborga tushadi.');">
+              <input type="hidden" name="action" value="post">{% csrf_token %}
+              <button class="mini ok">✓ Qabul qilish (omborga)</button>
+            </form>
+            {% elif can_edit %}<span class="acts">
               {% if r.obj.is_posted %}
               <form method="post" action="{% url 'prixod_action' r.obj.id %}"><input type="hidden" name="action" value="unpost">{% csrf_token %}<button class="mini">Bekor qilish</button></form>
+              {% elif r.avto_kutmoqda %}
+              <span style="font-size:11.5px; color:#c2410c;">prorab qabul qiladi</span>
+              <form method="post" action="{% url 'prixod_action' r.obj.id %}" onsubmit="return confirm('O`chirilsinmi?')"><input type="hidden" name="action" value="delete">{% csrf_token %}<button class="mini del">×</button></form>
               {% else %}
               <form method="post" action="{% url 'prixod_action' r.obj.id %}"><input type="hidden" name="action" value="post">{% csrf_token %}<button class="mini ok">Qayd qilish</button></form>
               <form method="post" action="{% url 'prixod_action' r.obj.id %}" onsubmit="return confirm('O`chirilsinmi?')"><input type="hidden" name="action" value="delete">{% csrf_token %}<button class="mini del">×</button></form>
