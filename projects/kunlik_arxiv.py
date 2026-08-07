@@ -51,8 +51,10 @@ def kunlik_yubor():
         _api, _sqlite_snapshot, _token_chat,
     )
     try:
-        token, chat = _token_chat()
-        if not (token and chat):
+        from projects.auth2fa import admin_chatlar
+        token = _token_chat()[0]
+        chatlar = admin_chatlar()
+        if not (token and chatlar):
             return
         now = timezone.localtime().strftime("%d.%m.%Y %H:%M")
         stamp = timezone.localtime().strftime("%Y%m%d")
@@ -63,10 +65,11 @@ def kunlik_yubor():
             try:
                 with open(snap, "rb") as f:
                     data = f.read()
-                _api(token, "sendDocument",
-                     fields={"chat_id": chat,
-                             "caption": f"🗄 Kunlik AVTO zaxira (baza)\n{now}"},
-                     files={"document": (f"qurilish_erp_{stamp}.sqlite3", data)})
+                for chat in chatlar:
+                    _api(token, "sendDocument",
+                         fields={"chat_id": chat,
+                                 "caption": f"🗄 Kunlik AVTO zaxira (baza)\n{now}"},
+                         files={"document": (f"qurilish_erp_{stamp}.sqlite3", data)})
             finally:
                 try:
                     os.remove(snap)
@@ -79,11 +82,12 @@ def kunlik_yubor():
         try:
             from projects.views import build_hisobotlar_zip
             z = build_hisobotlar_zip()
-            _api(token, "sendDocument",
-                 fields={"chat_id": chat,
-                         "caption": (f"📚 Kunlik AVTO hisobot\n"
-                                     f"Har obyekt: umumiy limit ICHI + haftalik so'rovlar + ombor qoldig'i\n{now}")},
-                 files={"document": (f"hisobotlar_{stamp}.zip", z)})
+            for chat in chatlar:
+                _api(token, "sendDocument",
+                     fields={"chat_id": chat,
+                             "caption": (f"📚 Kunlik AVTO hisobot\n"
+                                         f"Har obyekt: umumiy limit ICHI + haftalik so'rovlar + ombor qoldig'i\n{now}")},
+                     files={"document": (f"hisobotlar_{stamp}.zip", z)})
         except Exception as e:
             _log_xato("kunlik_arxiv_zip", str(e))
     except Exception as e:

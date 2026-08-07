@@ -49,6 +49,28 @@ def hook_secret():
     return hashlib.sha256(("qerp-hook:" + t).encode()).hexdigest()[:40] if t else ""
 
 
+def admin_chatlar():
+    """BARCHA admin chatlari:
+    - telegram.json'dagi asosiy (zaxira) chat
+    - botga bog'langan HAR BIR superuser chati
+    Yangi admin qo'shilsa (superuser + botga bog'lansa) — avtomatik shu
+    ro'yxatga tushadi: bog'lanish so'rovlari, kunlik zaxira/arxiv unga ham boradi."""
+    chats = set()
+    a = str(_token_chat()[1] or "").strip()
+    if a:
+        chats.add(a)
+    try:
+        from .models import UserProfile
+        for cid in (UserProfile.objects
+                    .filter(user__is_superuser=True, user__is_active=True)
+                    .exclude(telegram_chat_id="")
+                    .values_list("telegram_chat_id", flat=True)):
+            chats.add(str(cid))
+    except Exception:
+        pass
+    return chats
+
+
 def _log_xato(method, izoh):
     """Telegram API xatolarini faylga yozish — serverda muammoni topish oson bo'lsin.
     (Parol yoki kod matni YOZILMAYDI — faqat metod, chat va xato.)"""
@@ -300,8 +322,8 @@ def telegram_hook(request, secret):
     from .models import TelegramBindState, UserProfile
 
     # --- ADMIN matn buyruqlari: /tasdiq_<id> yoki /rad_<id> (tugma o'rniga) ---
-    admin_chat0 = str(_token_chat()[1] or "")
-    if admin_chat0 and chat_id == admin_chat0 and (
+    _adminlar = admin_chatlar()
+    if chat_id in _adminlar and (
             text.startswith("/tasdiq_") or text.startswith("/rad_")):
         try:
             sid = int(text.split("_", 1)[1])
@@ -309,7 +331,7 @@ def telegram_hook(request, secret):
             tg_send(chat_id, "Buyruq formati: /tasdiq_5 yoki /rad_5")
             return HttpResponse("ok")
         natija = _bind_qaror(sid, tasdiq=text.startswith("/tasdiq_"))
-        tg_send(admin_chat0, natija)
+        tg_send(chat_id, natija)
         return HttpResponse("ok")
 
     # --- Ombor menyusi: /ombor (snabjeniye o'z obyektlarini, admin hammasini) ---
@@ -356,8 +378,8 @@ def telegram_hook(request, secret):
                 tg_send(chat_id, BOT_XATO)
             return HttpResponse("ok")
         # Login/parol TO'G'RI — lekin darhol bog'lamaymiz: ADMIN tasdig'i kerak
-        admin_chat = _token_chat()[1]
-        if not admin_chat:
+        _adminlar2 = admin_chatlar()
+        if not _adminlar2:
             state.pending_user = None
             state.save()
             tg_send(chat_id, BOT_ADMIN_YOQ)
@@ -374,14 +396,15 @@ def telegram_hook(request, secret):
                 f"💬 Telegram: {ism} {nik} (chat {chat_id})\n\n"
                 f"Shu odamga kirish kodlari yuborilishini tasdiqlaysizmi?\n"
                 f"Yoki yozing: /tasdiq_{state.id} yoki /rad_{state.id}")
-        bordi = tg_send_kb(
-            admin_chat, matn,
-            [[{"text": "✅ Tasdiqlash", "callback_data": f"b1:{state.id}"},
-              {"text": "❌ Rad etish", "callback_data": f"b0:{state.id}"}]],
-        )
-        if not bordi:
-            # Tugmali xabar o'tmasa — oddiy matn bilan (buyruqlar ichida bor)
-            tg_send(admin_chat, matn)
+        for _ac in _adminlar2:
+            bordi = tg_send_kb(
+                _ac, matn,
+                [[{"text": "✅ Tasdiqlash", "callback_data": f"b1:{state.id}"},
+                  {"text": "❌ Rad etish", "callback_data": f"b0:{state.id}"}]],
+            )
+            if not bordi:
+                # Tugmali xabar o'tmasa — oddiy matn bilan (buyruqlar ichida bor)
+                tg_send(_ac, matn)
         return HttpResponse("ok")
 
     # Suhbatdan tashqari istalgan matn
@@ -420,15 +443,14 @@ def _bind_qaror(state_id, tasdiq):
 
 def _bind_callback(cb):
     """Admin chatidagi ✅/❌ tugmasi bosilganda: bog'lashni yakunlash yoki rad etish."""
-    admin_chat = _token_chat()[1]
     cb_msg = cb.get("message") or {}
     cb_chat = str(((cb_msg.get("chat")) or {}).get("id") or "")
     cb_mid = cb_msg.get("message_id")
     data = cb.get("data") or ""
     cb_id = cb.get("id") or ""
 
-    # Faqat ADMIN chatidan kelgan tugma qabul qilinadi
-    if not admin_chat or cb_chat != str(admin_chat):
+    # Istalgan ADMIN chatidan kelgan tugma qabul qilinadi
+    if cb_chat not in admin_chatlar():
         tg_answer_cb(cb_id, "Ruxsat yo'q")
         return
     if not (data.startswith("b1:") or data.startswith("b0:")):
@@ -441,5 +463,5 @@ def _bind_callback(cb):
         return
     natija = _bind_qaror(state_id, tasdiq=data.startswith("b1:"))
     if cb_mid:
-        tg_edit(admin_chat, cb_mid, natija)
+        tg_edit(cb_chat, cb_mid, natija)
     tg_answer_cb(cb_id, "Bajarildi")

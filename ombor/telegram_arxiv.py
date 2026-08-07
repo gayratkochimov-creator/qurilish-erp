@@ -15,7 +15,7 @@ Ro'yxatdan o'tish — mavjud oqim: /start -> login -> parol -> admin tasdig'i.
 import os
 from decimal import Decimal
 
-from projects.auth2fa import tg_answer_cb, tg_send, tg_send_kb
+from projects.auth2fa import admin_chatlar, tg_answer_cb, tg_send, tg_send_kb
 from projects.management.commands.telegram_backup import _api, _token_chat
 
 
@@ -54,7 +54,7 @@ def _korinadigan_obyektlar(chat_id):
     """Shu chat ko'ra oladigan obyektlar. None = ro'yxatdan o'tmagan."""
     from projects.models import Project
     from projects.roles import visible_projects
-    if str(chat_id) == _admin_chat():
+    if str(chat_id) in admin_chatlar():
         return Project.objects.all()
     u = _chat_user(chat_id)
     if u is None:
@@ -65,10 +65,7 @@ def _korinadigan_obyektlar(chat_id):
 def _qabul_qiluvchilar(proj):
     """Hujjat arxivi boradigan chatlar: admin + obyektga biriktirilgan bog'langanlar."""
     from projects.models import UserProfile
-    chats = set()
-    a = _admin_chat()
-    if a:
-        chats.add(a)
+    chats = set(admin_chatlar())
     if proj is not None:
         for cid in (UserProfile.objects.filter(projects=proj)
                     .exclude(telegram_chat_id="")
@@ -199,11 +196,8 @@ def arxiv_rasxod(x):
 # ------------------------------------------------------------- bot menyusi
 
 def _admin_mi(chat_id):
-    """Admin: zaxira chati yoki superuser sifatida bog'langan chat."""
-    if str(chat_id) == _admin_chat():
-        return True
-    u = _chat_user(chat_id)
-    return bool(u is not None and u.is_superuser)
+    """Admin: zaxira chati yoki botga bog'langan superuser chati."""
+    return str(chat_id) in admin_chatlar()
 
 
 def ombor_komanda(chat_id):
