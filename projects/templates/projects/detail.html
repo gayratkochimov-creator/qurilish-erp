@@ -97,6 +97,9 @@
     .noteinp { width: 100%; font-size: 12.5px; background: #fffdf5; border: 1px dashed #d9c9a3 !important; color: #6b5b2a; }
     /* Qator sanasi — qachon qo'shilgan / o'zgartirilgan */
     .lidate { font-size: 11.5px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .catsum { transition: opacity .15s, box-shadow .15s; }
+    .catsum.dim { opacity: .38; }
+    .catsum.on { background: #fff !important; border-color: var(--brand) !important; box-shadow: 0 0 0 2px rgba(10,110,209,.18); }
     .lidate .d-new { color: var(--mut); }
     .lidate .d-chg { color: var(--warn); font-weight: 600; }
     .noteinp:focus { border-style: solid !important; border-color: var(--brand) !important; background: #fff; }
@@ -394,6 +397,22 @@
           <tr><td colspan="6" style="text-align:center; color:#9ca3af; padding:20px;">Limit tarkibi hali kiritilmagan.</td></tr>
           {% endfor %}
         </tbody>
+        {% if has_items %}
+        <tfoot>
+          <tr>
+            <td colspan="7" style="border-top:2px solid var(--line); padding:11px 14px;">
+              <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+                {% for c in li_cat_sums %}
+                <span class="catsum" data-lfsum="{{ c.kind }}" style="display:inline-flex; align-items:center; gap:6px; background:#f8fafc; border:1px solid var(--line); border-radius:999px; padding:5px 13px; font-size:12.5px; font-variant-numeric:tabular-nums;">
+                  <span class="dot {{ c.cls }}"></span>{{ c.nom }}: <b>{{ c.sum_str }}</b>
+                </span>
+                {% endfor %}
+                <span style="margin-left:auto; font-size:13.5px; font-weight:800; font-variant-numeric:tabular-nums;">JAMI: {{ li_jami_str }}</span>
+              </div>
+            </td>
+          </tr>
+        </tfoot>
+        {% endif %}
       </table>
       {% if pending %}<div style="padding:10px 16px; font-size:12px; color:#b45309;">Tarkibni o'zgartirishga so'rov yuborilgan — {{ pending.get_status_display|lower }}.</div>{% endif %}
       {% endif %}
@@ -728,6 +747,11 @@
           info.textContent = faol ? korindi + ' / ' + jami + ' qator' : '';
           info.classList.toggle('none', faol && korindi === 0);
         }
+        // Toifa itogolari: tanlangan turi ajralib turadi, qolganlari xiralashadi
+        blok.querySelectorAll('.catsum').forEach(function(ch){
+          ch.classList.toggle('dim', joriy !== 'all' && ch.dataset.lfsum !== joriy);
+          ch.classList.toggle('on', joriy !== 'all' && ch.dataset.lfsum === joriy);
+        });
       }
       chips.forEach(function(b){
         b.addEventListener('click', function(){

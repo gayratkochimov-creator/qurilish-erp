@@ -852,7 +852,9 @@ def project_detail(request, pk):
     # Umumiy limit ichi (tarkibi)
     LI_CLS = {"material": "mat", "labor": "lab", "machinery": "mach", "other": "oth"}
     limit_items = []
+    li_cat = {k: Decimal("0") for k in KINDS}
     for it in p.limit_items.all().order_by("kind", "id"):
+        li_cat[it.kind] += it.total
         limit_items.append({
             "kind": it.kind, "kind_disp": it.get_kind_display(), "cls": LI_CLS.get(it.kind, "mat"),
             "name": it.name, "unit": it.unit,
@@ -864,6 +866,13 @@ def project_detail(request, pk):
             "ozgargan": bool(it.created_at and it.updated_at
                              and (it.updated_at - it.created_at).total_seconds() > 60),
         })
+
+    # Toifa bo'yicha alohida summa itogolari (jadval ostida ko'rsatiladi)
+    li_cat_sums = [
+        {"kind": k, "cls": LI_CLS[k], "nom": KIND_NOMI[k], "sum_str": _money(li_cat[k])}
+        for k in KINDS
+    ]
+    li_jami_str = _money(sum(li_cat.values()))
 
     # Haftalik so'rovda limit tarkibidan tanlash uchun: nom -> {turi, birlik, narx}
     limit_item_map = {}
@@ -971,6 +980,8 @@ def project_detail(request, pk):
         "is_director": is_director(request.user),
         "limit_set": bool(limit and limit > 0),
         "limit_items": limit_items,
+        "li_cat_sums": li_cat_sums,
+        "li_jami_str": li_jami_str,
         "has_items": bool(limit_items),
         "unit_map": unit_map,
         "mat_names": mat_names,
