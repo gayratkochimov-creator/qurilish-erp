@@ -507,7 +507,8 @@ def rasxod_list(request):
     project_id = request.GET.get("project") or ""
     issues = (Issue.objects.select_related(
         "warehouse", "work_section", "work_section__project",
-        "warehouse__project", "warehouse__project__firma").prefetch_related("items"))
+        "warehouse__project", "warehouse__project__firma",
+        "source_receipt").prefetch_related("items", "source_receipt__items__material"))
     if not request.user.is_superuser:
         issues = issues.filter(warehouse__in=_visible_warehouses(request.user))
     if firma_id:
@@ -526,6 +527,22 @@ def rasxod_list(request):
         if x.warehouse.project_id and x.warehouse.project.firma_id:
             firma_nom = x.warehouse.project.firma.name
         kutmoqda = bool(x.source_receipt_id) and not x.is_posted
+        # Prorab tasdiqlagan avto-rasxod: har material bo'yicha
+        # KELGAN (prixoddan) / ISHLATILGAN (rasxod) / QOLDIQ (hozirgi ostatka)
+        yakun_items = []
+        if x.source_receipt_id and x.is_posted:
+            ishlatildi = {}
+            for it in x.items.all():
+                ishlatildi[it.material_id] = ishlatildi.get(it.material_id, Decimal("0")) + it.quantity
+            for rit in x.source_receipt.items.all():
+                bal = StockBalance.objects.filter(
+                    warehouse=x.warehouse, material=rit.material).first()
+                yakun_items.append({
+                    "nom": rit.material.name, "birlik": rit.material.unit,
+                    "kelgan": rit.quantity,
+                    "ishlatilgan": ishlatildi.get(rit.material_id, Decimal("0")),
+                    "qoldiq": bal.quantity if bal else Decimal("0"),
+                })
         rows.append({
             "obj": x, "total_str": _money(x.total),
             "bolim": (x.work_section.name if x.work_section_id else "—"),
@@ -536,6 +553,7 @@ def rasxod_list(request):
                 {"id": it.id, "nom": it.material.name, "birlik": it.material.unit,
                  "kelgan": it.quantity} for it in x.items.all()
             ] if kutmoqda else [],
+            "yakun_items": yakun_items,
         })
     return render(request, "ombor/rasxod.html", {
         "can_edit": _tahrir_mumkin(request.user),
