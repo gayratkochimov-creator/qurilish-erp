@@ -281,11 +281,9 @@ class UserProfileInline(admin.StackedInline):
 
 
 def _asosiy_adminmi(user):
-    """ASOSIY admin — settings.ASOSIY_ADMIN_LOGIN dagi superuser.
-    Faqat u xodimlarni o'chiradi/faolsizlantiradi va admin darajasini beradi."""
-    from django.conf import settings as _st
-    return bool(user.is_superuser
-                and user.username == getattr(_st, "ASOSIY_ADMIN_LOGIN", "admin"))
+    """ASOSIY admin — settings.ASOSIY_ADMIN_LOGIN dagi superuser."""
+    from .roles import is_asosiy_admin
+    return is_asosiy_admin(user)
 
 
 class UserAdmin(DjangoUserAdmin):

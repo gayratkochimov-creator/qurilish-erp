@@ -40,6 +40,15 @@ def is_director(user):
     return user.groups.filter(name=DIREKTOR_GROUP).exists()
 
 
+def is_asosiy_admin(user):
+    """ASOSIY admin (settings.ASOSIY_ADMIN_LOGIN) — superuserlar boshlig'i.
+    Faqat u: xodim o'chiradi, admin darajasini beradi, direktor bosqichini
+    ham tasdiqlay oladi."""
+    from django.conf import settings
+    return bool(getattr(user, "is_authenticated", False) and user.is_superuser
+                and user.username == getattr(settings, "ASOSIY_ADMIN_LOGIN", "admin"))
+
+
 def is_admin(user):
     """Admin — direktordan o'tgan so'rovni yakuniy tasdiqlaydi (superuser)."""
     return bool(user.is_authenticated and user.is_superuser)
