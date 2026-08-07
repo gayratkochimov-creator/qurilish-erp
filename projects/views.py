@@ -1971,6 +1971,7 @@ def limit_export(request):
 def _obj_limit_wb(p):
     """Bitta obyekt uchun limit hisobotini (2 varaqli) openpyxl Workbook qaytaradi.
        1-varaq — Umumiy limit ichi; 2-varaq — Haftalik so'rovlar."""
+    from django.utils.timezone import localtime as _tzloc
     import openpyxl
     from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
     from openpyxl.utils import get_column_letter
@@ -2014,7 +2015,7 @@ def _obj_limit_wb(p):
         ws1.append([
             KIND.get(it.kind, it.kind), it.name, it.note or "", it.unit or "",
             float(it.quantity), float(it.unit_price), float(it.total),
-            it.created_at.strftime("%d.%m.%Y") if it.created_at else "",
+            _tzloc(it.created_at).strftime("%d.%m.%Y %H:%M") if it.created_at else "",
         ])
     last = ws1.max_row
     for r in range(hrow + 1, last + 1):
@@ -2064,7 +2065,7 @@ def _obj_limit_wb(p):
                 KIND.get(it.kind, it.kind), it.name, it.note or "", it.unit or "",
                 float(it.quantity), float(it.unit_price), float(it.total),
                 w.created_by.username if w.created_by_id else "—",
-                it.created_at.strftime("%d.%m.%Y") if it.created_at else "",
+                _tzloc(it.created_at).strftime("%d.%m.%Y %H:%M") if it.created_at else "",
             ])
     for r in range(5, ws2.max_row + 1):
         for col in (8, 9, 10):

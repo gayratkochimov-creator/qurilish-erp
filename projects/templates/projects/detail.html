@@ -306,7 +306,7 @@
         </div>
         {% include "projects/_limit_filter.html" %}
         <table class="addtable" style="padding:0 8px;">
-          <thead><tr><th style="width:140px;">Turi</th><th style="width:260px;">Nomi</th><th>Izoh (primechaniye)</th><th style="width:80px;">Birlik</th><th class="num" style="width:90px;">Miqdor</th><th class="num" style="width:110px;">Narxi</th><th class="num" style="width:120px;">Summa</th><th style="width:104px;">Sana</th><th style="width:34px;"></th></tr></thead>
+          <thead><tr><th style="width:140px;">Turi</th><th style="width:260px;">Nomi</th><th>Izoh (primechaniye)</th><th style="width:80px;">Birlik</th><th class="num" style="width:90px;">Miqdor</th><th class="num" style="width:110px;">Narxi</th><th class="num" style="width:120px;">Summa</th><th style="width:130px;">Sana (soat bilan)</th><th style="width:34px;"></th></tr></thead>
           <tbody id="lirows">
             {% for it in limit_items %}
             <tr>
@@ -324,9 +324,9 @@
               <td class="num rsum">0</td>
               <td class="lidate">
                 {% if it.ozgargan %}
-                  <span class="d-chg" title="Qo'shilgan: {{ it.qoshilgan|date:'d.m.Y H:i' }}">o'zg. {{ it.ozgartirilgan|date:"d.m.Y" }}</span>
+                  <span class="d-chg" title="Qo'shilgan: {{ it.qoshilgan|date:'d.m.Y H:i' }}">o'zg. {{ it.ozgartirilgan|date:"d.m.Y H:i" }}</span>
                 {% elif it.qoshilgan %}
-                  <span class="d-new" title="Qo'shilgan: {{ it.qoshilgan|date:'d.m.Y H:i' }}">{{ it.qoshilgan|date:"d.m.Y" }}</span>
+                  <span class="d-new">{{ it.qoshilgan|date:"d.m.Y H:i" }}</span>
                 {% else %}—{% endif %}
               </td>
               <td><button type="button" class="delrow" title="O'chirish">×</button></td>
@@ -386,10 +386,10 @@
       {% else %}
       {% include "projects/_limit_filter.html" %}
       <table>
-        <thead><tr><th>Turi</th><th>Nomi</th><th>Birlik</th><th class="num">Miqdor</th><th class="num">Narxi</th><th class="num">Summa</th><th style="width:104px;">Sana</th></tr></thead>
+        <thead><tr><th>Turi</th><th>Nomi</th><th>Birlik</th><th class="num">Miqdor</th><th class="num">Narxi</th><th class="num">Summa</th><th style="width:130px;">Sana (soat bilan)</th></tr></thead>
         <tbody>
           {% for it in limit_items %}
-          <tr data-lkind="{{ it.kind }}" data-lname="{{ it.name|lower }}"><td><span class="kind k-{{ it.cls }}">{{ it.kind_disp }}</span></td><td>{{ it.name }}{% if it.note %}<span class="itemnote">{{ it.note }}</span>{% endif %}</td><td>{{ it.unit }}</td><td class="num">{{ it.qty_str }}</td><td class="num">{{ it.price_str }}</td><td class="num">{{ it.sum_str }}</td><td class="lidate">{% if it.ozgargan %}<span class="d-chg" title="Qo'shilgan: {{ it.qoshilgan|date:'d.m.Y H:i' }}">o'zg. {{ it.ozgartirilgan|date:"d.m.Y" }}</span>{% elif it.qoshilgan %}<span class="d-new">{{ it.qoshilgan|date:"d.m.Y" }}</span>{% else %}—{% endif %}</td></tr>
+          <tr data-lkind="{{ it.kind }}" data-lname="{{ it.name|lower }}"><td><span class="kind k-{{ it.cls }}">{{ it.kind_disp }}</span></td><td>{{ it.name }}{% if it.note %}<span class="itemnote">{{ it.note }}</span>{% endif %}</td><td>{{ it.unit }}</td><td class="num">{{ it.qty_str }}</td><td class="num">{{ it.price_str }}</td><td class="num">{{ it.sum_str }}</td><td class="lidate">{% if it.ozgargan %}<span class="d-chg" title="Qo'shilgan: {{ it.qoshilgan|date:'d.m.Y H:i' }}">o'zg. {{ it.ozgartirilgan|date:"d.m.Y H:i" }}</span>{% elif it.qoshilgan %}<span class="d-new">{{ it.qoshilgan|date:"d.m.Y H:i" }}</span>{% else %}—{% endif %}</td></tr>
           {% empty %}
           <tr><td colspan="6" style="text-align:center; color:#9ca3af; padding:20px;">Limit tarkibi hali kiritilmagan.</td></tr>
           {% endfor %}
