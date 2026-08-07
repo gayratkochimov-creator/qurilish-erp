@@ -342,7 +342,9 @@ def dashboard(request):
     # Superuser ikkalasini ham ko'radi (avval direktor navbati).
     from .roles import is_director
     from .roles import is_snab as _is_snab_f
-    _dir = is_director(request.user)
+    # Direktor navbati faqat HAQIQIY direktorga ko'rinadi (superuser emas) —
+    # aks holda admin bilmasdan direktor o'rniga imzo chekib yuboradi
+    _dir = is_director(request.user) and not request.user.is_superuser
     _adm = is_admin(request.user)
     _snb = _is_snab_f(request.user)
     _pto_f = is_pto(request.user)
@@ -1283,6 +1285,10 @@ def limit_request_action(request, pk):
             return redirect(reverse("dashboard") + "?tab=tasdiqlar")
         # DIREKTOR bosqichi: dir → adm (yoki rad)
         if a == "dir_approve":
+            if request.user.is_superuser:
+                messages.error(request, "Direktor bosqichini HAQIQIY direktor tasdiqlaydi "
+                                        "(kerak bo'lsa: admin panel -> «Sifatida kirish»).")
+                return redirect(reverse("dashboard") + "?tab=tasdiqlar")
             if not is_director(request.user):
                 raise PermissionDenied("Faqat direktor.")
             if req.status != S.DIR:
@@ -1294,6 +1300,9 @@ def limit_request_action(request, pk):
                 req.save(update_fields=["status", "director_by", "director_at"])
                 messages.success(request, f"«{req.project.name}» — direktor tasdiqladi, admin tasdig'iga o'tdi.")
         elif a == "dir_reject":
+            if request.user.is_superuser:
+                messages.error(request, "Direktor bosqichini HAQIQIY direktor ko'radi.")
+                return redirect(reverse("dashboard") + "?tab=tasdiqlar")
             if not is_director(request.user):
                 raise PermissionDenied("Faqat direktor.")
             izoh = (request.POST.get("decision_note") or "").strip()
@@ -1649,6 +1658,10 @@ def weekly_action(request, pk):
                 messages.info(request, "So'rov qoralamaga qaytarib olindi.")
         elif action == "dir_approve":
             # DIREKTOR tasdiqlaydi: dir → submitted (admin navbatiga)
+            if request.user.is_superuser:
+                messages.error(request, "Direktor bosqichini HAQIQIY direktor tasdiqlaydi "
+                                        "(kerak bo'lsa: «Sifatida kirish»).")
+                return redirect(reverse("dashboard") + "?tab=tasdiqlar")
             if not is_director(request.user):
                 raise PermissionDenied("Faqat direktor.")
             if req.status != WS.DIR:
@@ -1661,6 +1674,9 @@ def weekly_action(request, pk):
                 req.save(update_fields=["status", "director_by", "director_at"])
                 messages.success(request, "Direktor tasdiqladi — admin tasdig'iga o'tdi.")
         elif action == "dir_reject":
+            if request.user.is_superuser:
+                messages.error(request, "Direktor bosqichini HAQIQIY direktor ko'radi.")
+                return redirect(reverse("dashboard") + "?tab=tasdiqlar")
             if not is_director(request.user):
                 raise PermissionDenied("Faqat direktor.")
             izoh = (request.POST.get("reject_note") or request.POST.get("decision_note") or "").strip()
