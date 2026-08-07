@@ -151,6 +151,10 @@ LOGOUT_REDIRECT_URL = 'login'
 
 
 # Jazzmin — zamonaviy admin panel dizayni
+# ASOSIY admin logini: faqat shu foydalanuvchi xodimlarni O'CHIRA oladi
+# va admin (superuser) darajasini bera/olib qo'ya oladi.
+ASOSIY_ADMIN_LOGIN = 'admin'
+
 JAZZMIN_SETTINGS = {
     "site_title": "Qurilish ERP",
     "site_header": "Qurilish ERP",

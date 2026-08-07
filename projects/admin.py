@@ -280,6 +280,14 @@ class UserProfileInline(admin.StackedInline):
     filter_horizontal = ["projects"]
 
 
+def _asosiy_adminmi(user):
+    """ASOSIY admin — settings.ASOSIY_ADMIN_LOGIN dagi superuser.
+    Faqat u xodimlarni o'chiradi/faolsizlantiradi va admin darajasini beradi."""
+    from django.conf import settings as _st
+    return bool(user.is_superuser
+                and user.username == getattr(_st, "ASOSIY_ADMIN_LOGIN", "admin"))
+
+
 class UserAdmin(DjangoUserAdmin):
     inlines = [UserProfileInline]
     list_display = DjangoUserAdmin.list_display + ("firma_nomi", "sifatida_kirish_tugma")
@@ -287,6 +295,25 @@ class UserAdmin(DjangoUserAdmin):
     # Eslatma: login/parol jonli tekshiruvi (admin_userform.js) endi jazzmin
     # "custom_js" orqali BARCHA admin sahifalariga ulanadi (settings.py) —
     # shu jumladan «Parolni o'zgartirish» sahifasiga ham.
+
+    def has_delete_permission(self, request, obj=None):
+        # Xodimni O'CHIRISH — faqat ASOSIY admin
+        return _asosiy_adminmi(request.user)
+
+    def get_actions(self, request):
+        # Ro'yxatdagi ommaviy o'chirish ham faqat asosiy adminda
+        actions = super().get_actions(request)
+        if not _asosiy_adminmi(request.user):
+            actions.pop("delete_selected", None)
+        return actions
+
+    def get_readonly_fields(self, request, obj=None):
+        # Admin1/Admin2: faollikni o'chira olmaydi (chiqarib yuborish) va
+        # admin darajasini bera/olib qo'ya olmaydi — bular faqat ASOSIY adminda
+        ro = list(super().get_readonly_fields(request, obj))
+        if not _asosiy_adminmi(request.user):
+            ro += ["is_active", "is_staff", "is_superuser"]
+        return ro
 
     def get_queryset(self, request):
         # Foydalanuvchilarni faqat superuser boshqaradi; boshqa staff — faqat o'zini ko'radi
