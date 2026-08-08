@@ -404,8 +404,13 @@
         }
         document.getElementById('li-addrow').addEventListener('click', addRow);
         tbody.addEventListener('click', function(e){ if(e.target.classList.contains('delrow')){ if(tbody.children.length>1){ e.target.closest('tr').remove(); } recompute(); } });
-        // Bo'lim/Mas'ul/Izoh kataklari yozilgan matnga qarab PASTGA kengayadi
+        // Bo'lim/Mas'ul kataklari avval YONGA (32 belgigacha), so'ng PASTGA kengayadi.
+        // Izoh ustuni keng bo'lgani uchun faqat pastga o'sadi.
         function kengay(el){
+          if(el.name !== 'item_note'){
+            var n = (el.value || '').length;
+            el.style.width = Math.min(Math.max(n + 3, 12), 32) + 'ch';
+          }
           el.style.height = 'auto';
           el.style.height = (el.scrollHeight + 2) + 'px';
         }
