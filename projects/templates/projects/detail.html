@@ -828,6 +828,12 @@
         var korindi = 0, jami = 0;
         qatorlar().forEach(function(tr){
           if(tr.querySelector('td[colspan]')) return;   // «bo'sh» qatori
+          // Tahrirlashdagi YANGI (nomi yozilmagan) qator filtrda yashirilmaydi —
+          // aks holda «Ish haqi» tanlanganda kiritish qatorlari g'oyib bo'ladi
+          if(tr.querySelector('select[name=kind]') && !nomi(tr)){
+            tr.classList.remove('lim-hid');
+            return;
+          }
           jami++;
           var mos = (joriy === 'all' || turi(tr) === joriy) && (!q || nomi(tr).indexOf(q) !== -1);
           tr.classList.toggle('lim-hid', !mos);
@@ -976,13 +982,19 @@
           return 0;
         };
       }
+      // Quti yozilayotgan/tanlangan matnga qarab YONGA (46 belgigacha) kengayadi,
+      // sig'magani PASTGA o'raladi (yangi katalog nomi yozilganda ham)
+      function tsKengay(ts){
+        var txt = (ts.control_input && ts.control_input.value) || (ts.items && ts.items[0]) || '';
+        ts.wrapper.style.width = Math.min(Math.max(txt.length + 6, 20), 46) + 'ch';
+      }
       function tsInit(inp){
         if(!inp || inp.tomselect) return;
         var val=inp.value;
         var o=opts.slice();
         if(val && names.indexOf(val)===-1) o.push({value:val,text:val,grp:'loyiha'});
         try {
-          new TomSelect(inp, {
+          var ts = new TomSelect(inp, {
             options:o, optgroups:GRUHLAR, optgroupField:'grp', lockOptgroupOrder:true,
             score: baho,
             items: val?[val]:[], create:true, persist:false, maxItems:1,
@@ -993,10 +1005,15 @@
             onChange:function(){
               this.input.dispatchEvent(new Event('change',{bubbles:true}));
               this.input.dispatchEvent(new Event('input',{bubbles:true}));
+              tsKengay(this);
             },
             // Yozilayotgan matn ham «nom bor» deb hisoblansin (✎ tugmasi darrov chiqadi)
-            onType:function(){ this.input.dispatchEvent(new Event('input',{bubbles:true})); }
+            onType:function(){
+              this.input.dispatchEvent(new Event('input',{bubbles:true}));
+              tsKengay(this);
+            }
           });
+          tsKengay(ts);
         } catch(e){}
       }
       document.querySelectorAll('.addtable tbody [name=name]').forEach(tsInit);
