@@ -80,6 +80,10 @@
     .addtable td { padding: 3px 4px; }
     .addtable input, .addtable select, .addtable textarea { width: 100%; padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; font-size: 13px; font-family: inherit; }
     .addtable textarea.growa { resize: none; overflow: hidden; line-height: 1.35; min-height: 34px; display: block; }
+    /* Nomi (Tom Select qutisi): matnga qarab YONGA (44 belgigacha), so'ng PASTGA kengayadi */
+    .addtable td .ts-wrapper { width: max-content; min-width: 180px; max-width: 44ch; }
+    .addtable td .ts-wrapper .ts-control { white-space: normal; overflow-wrap: anywhere; width: 100%; min-height: 34px; }
+    .addtable td .ts-wrapper .ts-control > div { white-space: normal; overflow-wrap: anywhere; }
     #wkBlock button[type=submit]:hover { filter: brightness(.93); }
     .addtable .num { text-align: right; }
     .addtable .rsum { font-weight: 700; color: var(--brand); font-variant-numeric: tabular-nums; padding-right: 8px; }
