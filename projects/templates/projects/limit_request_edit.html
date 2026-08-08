@@ -25,6 +25,7 @@
   .delrow { background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; border-radius:7px; width:28px; height:28px; cursor:pointer; font-weight:700; }
   .delrow:hover { background:#fee2e2; }
   .noteinp { width:100%; font-size:12.5px; background:#fffdf5; border:1px dashed #d9c9a3 !important; color:#6b5b2a; }
+  input[name=item_bolim], input[name=item_masul] { background:#f6f8fb; width:auto !important; field-sizing:content; min-width:95px; max-width:360px; }
   .noteinp:focus { border-style:solid !important; border-color:var(--brand) !important; background:#fff; }
   .addrow { background:#eef2f7; color:#334155; border:1px solid #e6e8ec; border-radius:8px; padding:9px 15px; font-size:13px; font-weight:700; cursor:pointer; }
   .savebtn { background:var(--brand); color:#fff; border:0; border-radius:9px; padding:11px 24px; font-size:14px; font-weight:700; cursor:pointer; }
@@ -143,11 +144,22 @@
   }
   document.getElementById('addrow').addEventListener('click', addRow);
   tbody.addEventListener('click', function(e){ if(e.target.classList.contains('delrow')){ if(tbody.children.length>1) e.target.closest('tr').remove(); recompute(); } });
-  tbody.addEventListener('input', function(e){ if(e.target.matches('[name=name]')) autoUnit(e.target.closest('tr')); recompute(); });
+  function kengay(inp){
+    var n=(inp.value||'').length;
+    inp.style.width = Math.min(Math.max(n+3, 11), 42) + 'ch';
+  }
+  function hammaKengay(){ tbody.querySelectorAll('[name=item_bolim],[name=item_masul]').forEach(kengay); }
+  tbody.addEventListener('input', function(e){
+    if(e.target.matches('[name=name]')) autoUnit(e.target.closest('tr'));
+    if(e.target.matches('[name=item_bolim],[name=item_masul]')) kengay(e.target);
+    recompute();
+  });
   tbody.addEventListener('change', function(e){ if(e.target.matches('[name=kind],[name=name]')) autoUnit(e.target.closest('tr')); recompute(); });
   tbody.querySelectorAll('tr').forEach(autoUnit);
   if(tbody.children.length===0) addRow();
   recompute();
+  hammaKengay();
+  new MutationObserver(hammaKengay).observe(tbody, {childList:true});
 })();
 </script>
 {% endblock %}
