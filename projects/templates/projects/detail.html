@@ -953,6 +953,29 @@
       names.forEach(function(n){ if(!projSet[n]) opts.push({value:n,text:n,grp:'katalog'}); });
       var GRUHLAR=[{value:'loyiha',label:'Loyiha limiti materiallari'},
                    {value:'katalog',label:'Umumiy katalog'}];
+      // Kirill harflarini lotinga o'girish — qaysi alifboda yozilsa ham topilsin
+      var KIR={'а':'a','б':'b','в':'v','г':'g','д':'d','е':'e','ё':'yo','ж':'j','з':'z',
+               'и':'i','й':'y','к':'k','л':'l','м':'m','н':'n','о':'o','п':'p','р':'r',
+               'с':'s','т':'t','у':'u','ф':'f','х':'x','ц':'ts','ч':'ch','ш':'sh','щ':'sh',
+               'ъ':'','ь':'','э':'e','ю':'yu','я':'ya','ғ':'g','қ':'q','ў':'o','ҳ':'h'};
+      function latin(s){
+        s=(s||'').toLowerCase().replace(/['ʼ`ʻ’]/g,'');
+        var r='';
+        for(var i=0;i<s.length;i++){ var c=s[i]; r += (KIR[c]!==undefined?KIR[c]:c); }
+        return r;
+      }
+      // Bosh harfdan boshlanганlar birinchi; LOYIHA LIMITIdagilar hammadan yuqori
+      function baho(search){
+        var s=latin(search);
+        return function(item){
+          if(!s) return 1;
+          var t=latin(item.text);
+          if(t.indexOf(s)===0)      return item.grp==='loyiha' ? 4 : 2;   // boshidan
+          if(t.indexOf(' '+s)!==-1) return item.grp==='loyiha' ? 2 : 1;   // so'z boshidan
+          if(t.indexOf(s)!==-1)     return item.grp==='loyiha' ? 1 : 0.5; // ichida
+          return 0;
+        };
+      }
       function tsInit(inp){
         if(!inp || inp.tomselect) return;
         var val=inp.value;
@@ -961,6 +984,7 @@
         try {
           new TomSelect(inp, {
             options:o, optgroups:GRUHLAR, optgroupField:'grp', lockOptgroupOrder:true,
+            score: baho,
             items: val?[val]:[], create:true, persist:false, maxItems:1,
             // MUHIM: createOnBlur bo'lmasa, erkin yozilgan nom fokus ketganda tashlab yuboriladi
             // va qator saqlanmay yo'qoladi.
