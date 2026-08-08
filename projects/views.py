@@ -1102,9 +1102,9 @@ def limit_items_edit(request, pk):
         if q < 0 or pr < 0:
             continue
         items.append({"kind": kind, "name": nm, "unit": unit, "quantity": q, "unit_price": pr,
-                      "note": (inotes[i] if i < len(inotes) else "").strip()[:500],
-                      "bolim": (bolims[i] if i < len(bolims) else "").strip()[:200],
-                      "masul": (masuls[i] if i < len(masuls) else "").strip()[:120]})
+                      "note": " ".join((inotes[i] if i < len(inotes) else "").split())[:500],
+                      "bolim": " ".join((bolims[i] if i < len(bolims) else "").split())[:200],
+                      "masul": " ".join((masuls[i] if i < len(masuls) else "").split())[:120]})
         sums[kind] += (q * pr).quantize(Decimal("0.01"))
 
     if not items:
@@ -1418,9 +1418,9 @@ def limit_request_edit(request, pk):
                 request=req, kind=kind, name=nm,
                 unit=(units[i] if i < len(units) else "").strip(),
                 quantity=q, unit_price=pr,
-                note=(inotes[i] if i < len(inotes) else "").strip()[:500],
-                bolim=(bolims[i] if i < len(bolims) else "").strip()[:200],
-                masul=(masuls[i] if i < len(masuls) else "").strip()[:120],
+                note=" ".join((inotes[i] if i < len(inotes) else "").split())[:500],
+                bolim=" ".join((bolims[i] if i < len(bolims) else "").split())[:200],
+                masul=" ".join((masuls[i] if i < len(masuls) else "").split())[:120],
             ))
             sums[kind] += (q * pr).quantize(Decimal("0.01"))
         if not items:

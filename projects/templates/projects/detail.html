@@ -78,7 +78,8 @@
     .addtable { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
     .addtable th { background: #fafbfc; font-size: 10.5px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--mut); padding: 8px 8px; text-align: left; border-bottom: 1px solid var(--line); }
     .addtable td { padding: 3px 4px; }
-    .addtable input, .addtable select { width: 100%; padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; font-size: 13px; }
+    .addtable input, .addtable select, .addtable textarea { width: 100%; padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; font-size: 13px; font-family: inherit; }
+    .addtable textarea.growa { resize: none; overflow: hidden; line-height: 1.35; min-height: 34px; display: block; }
     #wkBlock button[type=submit]:hover { filter: brightness(.93); }
     .addtable .num { text-align: right; }
     .addtable .rsum { font-weight: 700; color: var(--brand); font-variant-numeric: tabular-nums; padding-right: 8px; }
@@ -101,7 +102,7 @@
     .bolim-head .bh-nom { font-weight: 800; font-size: 13.5px; color: #1e293b; }
     .bolim-head .bh-masul { margin-left: 14px; font-size: 12px; color: #475569; background: #fff; border: 1px solid var(--line); border-radius: 999px; padding: 3px 11px; }
     .bolim-head .bh-sum { float: right; font-size: 12.5px; color: #334155; font-variant-numeric: tabular-nums; }
-    .bolimimp { background: #f6f8fb; width: auto !important; field-sizing: content; min-width: 100px; max-width: 360px; }
+    .bolimimp { background: #f6f8fb; }
     .catsum { transition: opacity .15s, box-shadow .15s; }
     .catsum.dim { opacity: .38; }
     .catsum.on { background: #fff !important; border-color: var(--brand) !important; box-shadow: 0 0 0 2px rgba(10,110,209,.18); }
@@ -318,8 +319,8 @@
           <tbody id="lirows">
             {% for it in limit_items %}
             <tr>
-              <td><input type="text" name="item_bolim" class="bolimimp" value="{{ it.bolim }}" placeholder="bo'lim..."></td>
-              <td><input type="text" name="item_masul" class="bolimimp" value="{{ it.masul }}" placeholder="mas'ul..."></td>
+              <td><textarea name="item_bolim" class="bolimimp growa" rows="1" placeholder="bo'lim...">{{ it.bolim }}</textarea></td>
+              <td><textarea name="item_masul" class="bolimimp growa" rows="1" placeholder="mas'ul...">{{ it.masul }}</textarea></td>
               <td><select name="kind">
                 <option value="material" {% if it.kind == 'material' %}selected{% endif %}>Material</option>
                 <option value="labor" {% if it.kind == 'labor' %}selected{% endif %}>Ish haqi</option>
@@ -327,7 +328,7 @@
                 <option value="other" {% if it.kind == 'other' %}selected{% endif %}>Ko'zda tutilmagan</option>
               </select></td>
               <td><input type="text" name="name" value="{{ it.name }}"></td>
-              <td><input type="text" name="item_note" class="noteinp" value="{{ it.note }}" placeholder="izoh..."></td>
+              <td><textarea name="item_note" class="noteinp growa" rows="1" placeholder="izoh...">{{ it.note }}</textarea></td>
               <td><input type="text" name="unit" value="{{ it.unit }}"></td>
               <td class="num"><input type="number" name="quantity" step="0.001" value="{{ it.quantity|unlocalize }}"></td>
               <td class="num"><input type="number" name="unit_price" step="0.01" value="{{ it.price_raw|unlocalize }}"></td>
@@ -358,11 +359,11 @@
       </form>
       <template id="li-rowtpl">
         <tr>
-          <td><input type="text" name="item_bolim" class="bolimimp" placeholder="bo'lim..."></td>
-          <td><input type="text" name="item_masul" class="bolimimp" placeholder="mas'ul..."></td>
+          <td><textarea name="item_bolim" class="bolimimp growa" rows="1" placeholder="bo'lim..."></textarea></td>
+          <td><textarea name="item_masul" class="bolimimp growa" rows="1" placeholder="mas'ul..."></textarea></td>
           <td><select name="kind"><option value="material">Material</option><option value="labor">Ish haqi</option><option value="machinery">Mashina chasti</option><option value="other">Ko'zda tutilmagan</option></select></td>
           <td><input type="text" name="name" placeholder="nomi"></td>
-          <td><input type="text" name="item_note" class="noteinp" placeholder="izoh..."></td>
+          <td><textarea name="item_note" class="noteinp growa" rows="1" placeholder="izoh..."></textarea></td>
           <td><input type="text" name="unit" placeholder="birlik"></td>
           <td class="num"><input type="number" name="quantity" step="0.001" placeholder="0"></td>
           <td class="num"><input type="number" name="unit_price" step="0.01" placeholder="0"></td>
@@ -403,15 +404,19 @@
         }
         document.getElementById('li-addrow').addEventListener('click', addRow);
         tbody.addEventListener('click', function(e){ if(e.target.classList.contains('delrow')){ if(tbody.children.length>1){ e.target.closest('tr').remove(); } recompute(); } });
-        // Bo'lim/Mas'ul inputlari yozilgan matnga qarab kengayadi
-        function kengay(inp){
-          var n = (inp.value || '').length;
-          inp.style.width = Math.min(Math.max(n + 3, 11), 42) + 'ch';
+        // Bo'lim/Mas'ul/Izoh kataklari yozilgan matnga qarab PASTGA kengayadi
+        function kengay(el){
+          el.style.height = 'auto';
+          el.style.height = (el.scrollHeight + 2) + 'px';
         }
-        function hammaKengay(){ tbody.querySelectorAll('.bolimimp').forEach(kengay); }
+        function hammaKengay(){ tbody.querySelectorAll('textarea.growa').forEach(kengay); }
         tbody.addEventListener('input', function(e){
-          if(e.target.classList.contains('bolimimp')) kengay(e.target);
+          if(e.target.matches('textarea.growa')) kengay(e.target);
           recompute();
+        });
+        // Enter yangi qator ochmasin (katak matni bir xil bo'lib qolsin)
+        tbody.addEventListener('keydown', function(e){
+          if(e.target.matches('textarea.growa') && e.key === 'Enter') e.preventDefault();
         });
         tbody.addEventListener('change', recompute);
         if(tbody.children.length===0){ for(var i=0;i<3;i++) addRow(); } else { recompute(); }
