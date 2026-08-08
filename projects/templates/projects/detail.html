@@ -327,11 +327,11 @@
                 <option value="machinery" {% if it.kind == 'machinery' %}selected{% endif %}>Mashina chasti</option>
                 <option value="other" {% if it.kind == 'other' %}selected{% endif %}>Ko'zda tutilmagan</option>
               </select></td>
-              <td><input type="text" name="name" value="{{ it.name }}"></td>
+              <td><textarea name="name" class="growa" rows="1" placeholder="nomi...">{{ it.name }}</textarea></td>
               <td><textarea name="item_note" class="noteinp growa" rows="1" placeholder="izoh...">{{ it.note }}</textarea></td>
               <td><input type="text" name="unit" value="{{ it.unit }}"></td>
-              <td class="num"><input type="number" name="quantity" step="0.001" value="{{ it.quantity|unlocalize }}"></td>
-              <td class="num"><input type="number" name="unit_price" step="0.01" value="{{ it.price_raw|unlocalize }}"></td>
+              <td class="num"><input type="number" name="quantity" class="numgrow" step="0.001" value="{{ it.quantity|unlocalize }}"></td>
+              <td class="num"><input type="number" name="unit_price" class="numgrow" step="0.01" value="{{ it.price_raw|unlocalize }}"></td>
               <td class="num rsum">0</td>
               <td class="lidate">
                 {% if it.ozgargan %}
@@ -362,11 +362,11 @@
           <td><textarea name="item_bolim" class="bolimimp growa" rows="1" placeholder="bo'lim..."></textarea></td>
           <td><textarea name="item_masul" class="bolimimp growa" rows="1" placeholder="mas'ul..."></textarea></td>
           <td><select name="kind"><option value="material">Material</option><option value="labor">Ish haqi</option><option value="machinery">Mashina chasti</option><option value="other">Ko'zda tutilmagan</option></select></td>
-          <td><input type="text" name="name" placeholder="nomi"></td>
+          <td><textarea name="name" class="growa" rows="1" placeholder="nomi..."></textarea></td>
           <td><textarea name="item_note" class="noteinp growa" rows="1" placeholder="izoh..."></textarea></td>
           <td><input type="text" name="unit" placeholder="birlik"></td>
-          <td class="num"><input type="number" name="quantity" step="0.001" placeholder="0"></td>
-          <td class="num"><input type="number" name="unit_price" step="0.01" placeholder="0"></td>
+          <td class="num"><input type="number" name="quantity" class="numgrow" step="0.001" placeholder="0"></td>
+          <td class="num"><input type="number" name="unit_price" class="numgrow" step="0.01" placeholder="0"></td>
           <td class="num rsum">0</td>
           <td class="lidate"><span class="d-new">yangi</span></td>
           <td><button type="button" class="delrow" title="O'chirish">×</button></td>
@@ -404,19 +404,29 @@
         }
         document.getElementById('li-addrow').addEventListener('click', addRow);
         tbody.addEventListener('click', function(e){ if(e.target.classList.contains('delrow')){ if(tbody.children.length>1){ e.target.closest('tr').remove(); } recompute(); } });
-        // Bo'lim/Mas'ul kataklari avval YONGA (32 belgigacha), so'ng PASTGA kengayadi.
-        // Izoh ustuni keng bo'lgani uchun faqat pastga o'sadi.
+        // Bo'lim/Mas'ul/Nomi kataklari avval YONGA (chegaragacha), so'ng PASTGA
+        // kengayadi. Izoh ustuni keng bo'lgani uchun faqat pastga o'sadi.
+        // Miqdor/Narxi raqam kataklari yozilgan songa qarab YONGA kengayadi.
         function kengay(el){
           if(el.name !== 'item_note'){
             var n = (el.value || '').length;
-            el.style.width = Math.min(Math.max(n + 3, 12), 32) + 'ch';
+            var mx = (el.name === 'name') ? 44 : 32;
+            el.style.width = Math.min(Math.max(n + 3, 12), mx) + 'ch';
           }
           el.style.height = 'auto';
           el.style.height = (el.scrollHeight + 2) + 'px';
         }
-        function hammaKengay(){ tbody.querySelectorAll('textarea.growa').forEach(kengay); }
+        function sonKengay(el){
+          var n = (el.value || '').length;
+          el.style.width = Math.min(Math.max(n + 4, 9), 20) + 'ch';
+        }
+        function hammaKengay(){
+          tbody.querySelectorAll('textarea.growa').forEach(kengay);
+          tbody.querySelectorAll('input.numgrow').forEach(sonKengay);
+        }
         tbody.addEventListener('input', function(e){
           if(e.target.matches('textarea.growa')) kengay(e.target);
+          if(e.target.matches('input.numgrow')) sonKengay(e.target);
           recompute();
         });
         // Enter yangi qator ochmasin (katak matni bir xil bo'lib qolsin)

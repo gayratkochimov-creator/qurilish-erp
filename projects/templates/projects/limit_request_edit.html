@@ -59,11 +59,11 @@
               <option value="machinery" {% if it.kind == 'machinery' %}selected{% endif %}>Mashina chasti</option>
               <option value="other" {% if it.kind == 'other' %}selected{% endif %}>Ko'zda tutilmagan</option>
             </select></td>
-            <td><input type="text" name="name" value="{{ it.name }}"></td>
+            <td><input type="text" name="name" class="txtgrow" value="{{ it.name }}"></td>
             <td><textarea name="item_note" class="noteinp growa" rows="1" placeholder="izoh...">{{ it.note }}</textarea></td>
             <td><input type="text" name="unit" value="{{ it.unit }}"></td>
-            <td class="num"><input type="number" name="quantity" step="0.001" value="{{ it.quantity|unlocalize }}"></td>
-            <td class="num"><input type="number" name="unit_price" step="0.01" value="{{ it.unit_price|unlocalize }}"></td>
+            <td class="num"><input type="number" name="quantity" class="numgrow" step="0.001" value="{{ it.quantity|unlocalize }}"></td>
+            <td class="num"><input type="number" name="unit_price" class="numgrow" step="0.01" value="{{ it.unit_price|unlocalize }}"></td>
             <td class="num rsum">0</td>
             <td><button type="button" class="delrow" title="O'chirish">×</button></td>
           </tr>
@@ -87,11 +87,11 @@
         <td><textarea name="item_bolim" class="growa" rows="1" placeholder="bo'lim..."></textarea></td>
         <td><textarea name="item_masul" class="growa" rows="1" placeholder="mas'ul..."></textarea></td>
         <td><select name="kind"><option value="material">Material</option><option value="labor">Ish haqi</option><option value="machinery">Mashina chasti</option><option value="other">Ko'zda tutilmagan</option></select></td>
-        <td><input type="text" name="name" placeholder="nomi"></td>
+        <td><input type="text" name="name" class="txtgrow" placeholder="nomi"></td>
         <td><textarea name="item_note" class="noteinp growa" rows="1" placeholder="izoh..."></textarea></td>
         <td><input type="text" name="unit" placeholder="birlik"></td>
-        <td class="num"><input type="number" name="quantity" step="0.001" placeholder="0"></td>
-        <td class="num"><input type="number" name="unit_price" step="0.01" placeholder="0"></td>
+        <td class="num"><input type="number" name="quantity" class="numgrow" step="0.001" placeholder="0"></td>
+        <td class="num"><input type="number" name="unit_price" class="numgrow" step="0.01" placeholder="0"></td>
         <td class="num rsum">0</td>
         <td><button type="button" class="delrow" title="O'chirish">×</button></td>
       </tr>
@@ -153,10 +153,20 @@
     el.style.height='auto';
     el.style.height=(el.scrollHeight+2)+'px';
   }
-  function hammaKengay(){ tbody.querySelectorAll('textarea.growa').forEach(kengay); }
+  function enKengay(el, mn, mx){
+    var n=(el.value||'').length;
+    el.style.width = Math.min(Math.max(n+4, mn), mx) + 'ch';
+  }
+  function hammaKengay(){
+    tbody.querySelectorAll('textarea.growa').forEach(kengay);
+    tbody.querySelectorAll('input.txtgrow').forEach(function(el){ enKengay(el, 16, 44); });
+    tbody.querySelectorAll('input.numgrow').forEach(function(el){ enKengay(el, 9, 20); });
+  }
   tbody.addEventListener('input', function(e){
     if(e.target.matches('[name=name]')) autoUnit(e.target.closest('tr'));
     if(e.target.matches('textarea.growa')) kengay(e.target);
+    if(e.target.matches('input.txtgrow')) enKengay(e.target, 16, 44);
+    if(e.target.matches('input.numgrow')) enKengay(e.target, 9, 20);
     recompute();
   });
   tbody.addEventListener('keydown', function(e){
