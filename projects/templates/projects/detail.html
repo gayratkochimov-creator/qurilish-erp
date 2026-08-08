@@ -97,6 +97,11 @@
     .noteinp { width: 100%; font-size: 12.5px; background: #fffdf5; border: 1px dashed #d9c9a3 !important; color: #6b5b2a; }
     /* Qator sanasi — qachon qo'shilgan / o'zgartirilgan */
     .lidate { font-size: 11.5px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .bolim-head td { background: #eef2f7; border-top: 2px solid var(--line); padding: 9px 14px; }
+    .bolim-head .bh-nom { font-weight: 800; font-size: 13.5px; color: #1e293b; }
+    .bolim-head .bh-masul { margin-left: 14px; font-size: 12px; color: #475569; background: #fff; border: 1px solid var(--line); border-radius: 999px; padding: 3px 11px; }
+    .bolim-head .bh-sum { float: right; font-size: 12.5px; color: #334155; font-variant-numeric: tabular-nums; }
+    .bolimimp { background: #f6f8fb; }
     .catsum { transition: opacity .15s, box-shadow .15s; }
     .catsum.dim { opacity: .38; }
     .catsum.on { background: #fff !important; border-color: var(--brand) !important; box-shadow: 0 0 0 2px rgba(10,110,209,.18); }
@@ -309,10 +314,12 @@
         </div>
         {% include "projects/_limit_filter.html" %}
         <table class="addtable" style="padding:0 8px;">
-          <thead><tr><th style="width:140px;">Turi</th><th style="width:260px;">Nomi</th><th>Izoh (primechaniye)</th><th style="width:80px;">Birlik</th><th class="num" style="width:90px;">Miqdor</th><th class="num" style="width:110px;">Narxi</th><th class="num" style="width:120px;">Summa</th><th style="width:130px;">Sana (soat bilan)</th><th style="width:34px;"></th></tr></thead>
+          <thead><tr><th style="width:130px;">Bo'lim</th><th style="width:100px;">Mas'ul</th><th style="width:130px;">Turi</th><th style="width:240px;">Nomi</th><th>Izoh (primechaniye)</th><th style="width:75px;">Birlik</th><th class="num" style="width:85px;">Miqdor</th><th class="num" style="width:105px;">Narxi</th><th class="num" style="width:115px;">Summa</th><th style="width:126px;">Sana (soat bilan)</th><th style="width:34px;"></th></tr></thead>
           <tbody id="lirows">
             {% for it in limit_items %}
             <tr>
+              <td><input type="text" name="item_bolim" class="bolimimp" value="{{ it.bolim }}" placeholder="bo'lim..."></td>
+              <td><input type="text" name="item_masul" class="bolimimp" value="{{ it.masul }}" placeholder="mas'ul..."></td>
               <td><select name="kind">
                 <option value="material" {% if it.kind == 'material' %}selected{% endif %}>Material</option>
                 <option value="labor" {% if it.kind == 'labor' %}selected{% endif %}>Ish haqi</option>
@@ -337,8 +344,8 @@
             {% endfor %}
           </tbody>
           <tfoot>
-            <tr><td colspan="6" class="num">Toifa bo'yicha:</td><td class="num" id="li-cats" colspan="3" style="text-align:left; font-size:12px;">—</td></tr>
-            <tr><td colspan="6" class="num"><b>UMUMIY LIMIT:</b></td><td class="num rsum" colspan="3" style="text-align:left;"><b id="li-grand">0</b></td></tr>
+            <tr><td colspan="8" class="num">Toifa bo'yicha:</td><td class="num" id="li-cats" colspan="3" style="text-align:left; font-size:12px;">—</td></tr>
+            <tr><td colspan="8" class="num"><b>UMUMIY LIMIT:</b></td><td class="num rsum" colspan="3" style="text-align:left;"><b id="li-grand">0</b></td></tr>
           </tfoot>
         </table>
         <div style="padding:0 16px 14px;">
@@ -351,6 +358,8 @@
       </form>
       <template id="li-rowtpl">
         <tr>
+          <td><input type="text" name="item_bolim" class="bolimimp" placeholder="bo'lim..."></td>
+          <td><input type="text" name="item_masul" class="bolimimp" placeholder="mas'ul..."></td>
           <td><select name="kind"><option value="material">Material</option><option value="labor">Ish haqi</option><option value="machinery">Mashina chasti</option><option value="other">Ko'zda tutilmagan</option></select></td>
           <td><input type="text" name="name" placeholder="nomi"></td>
           <td><input type="text" name="item_note" class="noteinp" placeholder="izoh..."></td>
@@ -378,7 +387,20 @@
           document.getElementById('li-cats').textContent='Material '+fmt(cat.material)+'  ·  Ish haqi '+fmt(cat.labor)+'  ·  Mashina '+fmt(cat.machinery)+'  ·  Ko\'zda tutilmagan '+fmt(cat.other);
           document.getElementById('li-grand').textContent=fmt(grand);
         }
-        function addRow(){ tbody.appendChild(tpl.content.cloneNode(true)); recompute(); }
+        function addRow(){
+          tbody.appendChild(tpl.content.cloneNode(true));
+          // Yangi qator oxirgi qatordagi BO'LIM va MAS'ULni meros oladi —
+          // bo'lim ichida ketma-ket kiritish qulay bo'lsin
+          var rows = tbody.querySelectorAll('tr');
+          if(rows.length > 1){
+            var oldi = rows[rows.length-2], yangi = rows[rows.length-1];
+            ['item_bolim','item_masul'].forEach(function(n){
+              var a = oldi.querySelector('[name='+n+']'), b = yangi.querySelector('[name='+n+']');
+              if(a && b && a.value) b.value = a.value;
+            });
+          }
+          recompute();
+        }
         document.getElementById('li-addrow').addEventListener('click', addRow);
         tbody.addEventListener('click', function(e){ if(e.target.classList.contains('delrow')){ if(tbody.children.length>1){ e.target.closest('tr').remove(); } recompute(); } });
         tbody.addEventListener('input', recompute);
@@ -391,10 +413,19 @@
       <table>
         <thead><tr><th>Turi</th><th>Nomi</th><th>Birlik</th><th class="num">Miqdor</th><th class="num">Narxi</th><th class="num">Summa</th><th style="width:130px;">Sana (soat bilan)</th></tr></thead>
         <tbody>
-          {% for it in limit_items %}
+          {% for g in limit_groups %}
+          {% if bolim_bor %}
+          <tr class="bolim-head"><td colspan="7">
+            <span class="bh-nom">{{ g.bolim|default:"Bo'limsiz qatorlar" }}</span>
+            {% if g.masul %}<span class="bh-masul">Mas'ul: <b>{{ g.masul }}</b></span>{% endif %}
+            <span class="bh-sum">Bo'lim jami: <b>{{ g.sum_str }}</b></span>
+          </td></tr>
+          {% endif %}
+          {% for it in g.items %}
           <tr data-lkind="{{ it.kind }}" data-lname="{{ it.name|lower }}"><td><span class="kind k-{{ it.cls }}">{{ it.kind_disp }}</span></td><td>{{ it.name }}{% if it.note %}<span class="itemnote">{{ it.note }}</span>{% endif %}</td><td>{{ it.unit }}</td><td class="num">{{ it.qty_str }}</td><td class="num">{{ it.price_str }}</td><td class="num">{{ it.sum_str }}</td><td class="lidate">{% if it.ozgargan %}<span class="d-chg" title="Qo'shilgan: {{ it.qoshilgan|date:'d.m.Y H:i' }}">o'zg. {{ it.ozgartirilgan|date:"d.m.Y H:i" }}</span>{% elif it.qoshilgan %}<span class="d-new">{{ it.qoshilgan|date:"d.m.Y H:i" }}</span>{% else %}—{% endif %}</td></tr>
+          {% endfor %}
           {% empty %}
-          <tr><td colspan="6" style="text-align:center; color:#9ca3af; padding:20px;">Limit tarkibi hali kiritilmagan.</td></tr>
+          <tr><td colspan="7" style="text-align:center; color:#9ca3af; padding:20px;">Limit tarkibi hali kiritilmagan.</td></tr>
           {% endfor %}
         </tbody>
         {% if has_items %}

@@ -229,7 +229,8 @@ class LimitChangeRequest(models.Model):
                 # o'chirib-qayta yaratmaymiz — o'zgarmagan qatorlarning sanasi saqlansin
                 sync_limit_items(p, [
                     {"kind": it.kind, "name": it.name, "unit": it.unit,
-                     "quantity": it.quantity, "unit_price": it.unit_price, "note": it.note}
+                     "quantity": it.quantity, "unit_price": it.unit_price, "note": it.note,
+                     "bolim": it.bolim, "masul": it.masul}
                     for it in proposed
                 ])
                 p.recompute_limits()
@@ -367,6 +368,10 @@ class LimitItem(models.Model):
     quantity = models.DecimalField("Miqdor", **QTY)
     unit_price = models.DecimalField("Narxi (1 birlik)", **MONEY)
     note = models.CharField("Primechaniye (qator izohi)", max_length=500, blank=True)
+    # Obyekt ichidagi ish bo'limi (masalan «Ayvon 20m») — qatorlar bo'lim
+    # bo'yicha ketma-ket guruhlanadi; mas'ul shaxs bo'limga yozib qo'yiladi
+    bolim = models.CharField("Bo'lim", max_length=200, blank=True)
+    masul = models.CharField("Mas'ul shaxs", max_length=120, blank=True)
     created_at = models.DateTimeField("Qo'shilgan sana", auto_now_add=True, null=True)
     updated_at = models.DateTimeField("O'zgartirilgan sana", auto_now=True, null=True)
 
@@ -453,12 +458,16 @@ def sync_limit_items(project, items):
             or li.quantity != it["quantity"]
             or li.unit_price != it["unit_price"]
             or li.note != it.get("note", "")
+            or li.bolim != it.get("bolim", "")
+            or li.masul != it.get("masul", "")
         )
         if ozgardi:
             li.unit = it.get("unit", "")
             li.quantity = it["quantity"]
             li.unit_price = it["unit_price"]
             li.note = it.get("note", "")
+            li.bolim = it.get("bolim", "")
+            li.masul = it.get("masul", "")
             li.save()          # auto_now -> updated_at yangilanadi
     # ro'yxatda qolmaganlarni o'chiramiz
     for navbat in mavjud.values():
@@ -479,6 +488,8 @@ class LimitChangeItem(models.Model):
     quantity = models.DecimalField("Miqdor", **QTY)
     unit_price = models.DecimalField("Narxi (1 birlik)", **MONEY)
     note = models.CharField("Primechaniye (qator izohi)", max_length=500, blank=True)
+    bolim = models.CharField("Bo'lim", max_length=200, blank=True)
+    masul = models.CharField("Mas'ul shaxs", max_length=120, blank=True)
     created_at = models.DateTimeField("Kiritilgan sana", auto_now_add=True, null=True)
 
     class Meta:

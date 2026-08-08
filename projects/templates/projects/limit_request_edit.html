@@ -45,10 +45,12 @@
     <form method="post" action="{% url 'limit_request_edit' req.id %}">
       {% csrf_token %}
       <table class="addtable">
-        <thead><tr><th style="width:140px;">Turi</th><th style="width:260px;">Nomi</th><th>Izoh (primechaniye)</th><th style="width:80px;">Birlik</th><th class="num" style="width:90px;">Miqdor</th><th class="num" style="width:110px;">Narxi</th><th class="num" style="width:120px;">Summa</th><th style="width:36px;"></th></tr></thead>
+        <thead><tr><th style="width:120px;">Bo'lim</th><th style="width:95px;">Mas'ul</th><th style="width:130px;">Turi</th><th style="width:230px;">Nomi</th><th>Izoh (primechaniye)</th><th style="width:75px;">Birlik</th><th class="num" style="width:85px;">Miqdor</th><th class="num" style="width:105px;">Narxi</th><th class="num" style="width:115px;">Summa</th><th style="width:36px;"></th></tr></thead>
         <tbody id="rows">
           {% for it in items %}
           <tr>
+            <td><input type="text" name="item_bolim" value="{{ it.bolim }}" placeholder="bo'lim..."></td>
+            <td><input type="text" name="item_masul" value="{{ it.masul }}" placeholder="mas'ul..."></td>
             <td><select name="kind">
               <option value="material" {% if it.kind == 'material' %}selected{% endif %}>Material</option>
               <option value="labor" {% if it.kind == 'labor' %}selected{% endif %}>Ish haqi</option>
@@ -66,8 +68,8 @@
           {% endfor %}
         </tbody>
         <tfoot>
-          <tr><td colspan="6" class="num">Toifa bo'yicha:</td><td colspan="2" id="wc" style="font-size:12px; color:var(--mut);">—</td></tr>
-          <tr><td colspan="6" class="num"><b>YANGI UMUMIY LIMIT:</b></td><td colspan="2"><b id="wg">0</b></td></tr>
+          <tr><td colspan="8" class="num">Toifa bo'yicha:</td><td colspan="2" id="wc" style="font-size:12px; color:var(--mut);">—</td></tr>
+          <tr><td colspan="8" class="num"><b>YANGI UMUMIY LIMIT:</b></td><td colspan="2"><b id="wg">0</b></td></tr>
         </tfoot>
       </table>
 
@@ -80,6 +82,8 @@
 
     <template id="rowtpl">
       <tr>
+        <td><input type="text" name="item_bolim" placeholder="bo'lim..."></td>
+        <td><input type="text" name="item_masul" placeholder="mas'ul..."></td>
         <td><select name="kind"><option value="material">Material</option><option value="labor">Ish haqi</option><option value="machinery">Mashina chasti</option><option value="other">Ko'zda tutilmagan</option></select></td>
         <td><input type="text" name="name" placeholder="nomi"></td>
         <td><input type="text" name="item_note" class="noteinp" placeholder="izoh..."></td>
@@ -125,7 +129,18 @@
     document.getElementById('wc').textContent='Material '+fmt(cat.material)+'  ·  Ish haqi '+fmt(cat.labor)+'  ·  Mashina '+fmt(cat.machinery)+'  ·  Ko\'zda tutilmagan '+fmt(cat.other);
     document.getElementById('wg').textContent=fmt(grand);
   }
-  function addRow(){ tbody.appendChild(tpl.content.cloneNode(true)); autoUnit(tbody.lastElementChild); recompute(); }
+  function addRow(){
+    tbody.appendChild(tpl.content.cloneNode(true));
+    var rows=tbody.querySelectorAll('tr');
+    if(rows.length>1){
+      var oldi=rows[rows.length-2], yangi=rows[rows.length-1];
+      ['item_bolim','item_masul'].forEach(function(n){
+        var a=oldi.querySelector('[name='+n+']'), b=yangi.querySelector('[name='+n+']');
+        if(a&&b&&a.value) b.value=a.value;
+      });
+    }
+    autoUnit(tbody.lastElementChild); recompute();
+  }
   document.getElementById('addrow').addEventListener('click', addRow);
   tbody.addEventListener('click', function(e){ if(e.target.classList.contains('delrow')){ if(tbody.children.length>1) e.target.closest('tr').remove(); recompute(); } });
   tbody.addEventListener('input', function(e){ if(e.target.matches('[name=name]')) autoUnit(e.target.closest('tr')); recompute(); });

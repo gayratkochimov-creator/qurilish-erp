@@ -849,23 +849,42 @@ def project_detail(request, pk):
         _umap(it["name"], it["unit"])
     mat_names = sorted({m.name for m in Material.objects.all()})
 
-    # Umumiy limit ichi (tarkibi)
+    # Umumiy limit ichi (tarkibi) — BO'LIM bo'yicha ketma-ket guruhlanadi
+    # (bo'lim birinchi uchragan tartibda; bo'limsiz qatorlar oxirida)
     LI_CLS = {"material": "mat", "labor": "lab", "machinery": "mach", "other": "oth"}
-    limit_items = []
     li_cat = {k: Decimal("0") for k in KINDS}
-    for it in p.limit_items.all().order_by("kind", "id"):
+    _guruhlar = {}   # bolim -> {"bolim", "masul", "items", "_sum"}
+    for it in p.limit_items.all().order_by("id"):
         li_cat[it.kind] += it.total
-        limit_items.append({
+        qator = {
             "kind": it.kind, "kind_disp": it.get_kind_display(), "cls": LI_CLS.get(it.kind, "mat"),
             "name": it.name, "unit": it.unit,
             "quantity": it.quantity, "price_raw": it.unit_price,
             "qty_str": _qty(it.quantity), "price_str": _money(it.unit_price),
             "sum_str": _money(it.total), "note": it.note,
+            "bolim": it.bolim, "masul": it.masul,
             "qoshilgan": it.created_at, "ozgartirilgan": it.updated_at,
             # qo'shilgandan keyin o'zgartirilganmi (1 daqiqadan ortiq farq bo'lsa)
             "ozgargan": bool(it.created_at and it.updated_at
                              and (it.updated_at - it.created_at).total_seconds() > 60),
-        })
+        }
+        kalit = (it.bolim or "").strip()
+        g = _guruhlar.get(kalit)
+        if g is None:
+            g = _guruhlar[kalit] = {"bolim": kalit, "masul": (it.masul or "").strip(),
+                                    "items": [], "_sum": Decimal("0")}
+        if not g["masul"] and (it.masul or "").strip():
+            g["masul"] = it.masul.strip()
+        g["items"].append(qator)
+        g["_sum"] += it.total
+    # bo'limsiz guruh («») oxiriga o'tadi
+    limit_groups = [g for k, g in _guruhlar.items() if k] + \
+                   [g for k, g in _guruhlar.items() if not k]
+    for g in limit_groups:
+        g["sum_str"] = _money(g["_sum"])
+    # tekis ro'yxat (tahrirlash jadvali uchun) — bo'lim qatorlari yonma-yon turadi
+    limit_items = [q for g in limit_groups for q in g["items"]]
+    bolim_bor = any(g["bolim"] for g in limit_groups)
 
     # Toifa bo'yicha alohida summa itogolari (jadval ostida ko'rsatiladi)
     li_cat_sums = [
@@ -980,6 +999,8 @@ def project_detail(request, pk):
         "is_director": is_director(request.user),
         "limit_set": bool(limit and limit > 0),
         "limit_items": limit_items,
+        "limit_groups": limit_groups,
+        "bolim_bor": bolim_bor,
         "li_cat_sums": li_cat_sums,
         "li_jami_str": li_jami_str,
         "has_items": bool(limit_items),
@@ -1064,6 +1085,8 @@ def limit_items_edit(request, pk):
     qtys = request.POST.getlist("quantity")
     prices = request.POST.getlist("unit_price")
     inotes = request.POST.getlist("item_note")
+    bolims = request.POST.getlist("item_bolim")
+    masuls = request.POST.getlist("item_masul")
 
     valid = set(KINDS)
     items = []
@@ -1079,7 +1102,9 @@ def limit_items_edit(request, pk):
         if q < 0 or pr < 0:
             continue
         items.append({"kind": kind, "name": nm, "unit": unit, "quantity": q, "unit_price": pr,
-                      "note": (inotes[i] if i < len(inotes) else "").strip()[:500]})
+                      "note": (inotes[i] if i < len(inotes) else "").strip()[:500],
+                      "bolim": (bolims[i] if i < len(bolims) else "").strip()[:200],
+                      "masul": (masuls[i] if i < len(masuls) else "").strip()[:120]})
         sums[kind] += (q * pr).quantize(Decimal("0.01"))
 
     if not items:
@@ -1153,6 +1178,7 @@ def _tasdiqlar_data(status="dir", user=None):
                 "name": it.name, "unit": it.unit or "—",
                 "qty_str": _qty(it.quantity), "price_str": _money(it.unit_price),
                 "sum_str": _money(it.total), "izoh": it.note,
+                "bolim": it.bolim, "masul": it.masul,
                 "holat": holat, "eski_str": eski_str,
                 "sana": it.created_at or r.created_at,
             })
@@ -1374,6 +1400,8 @@ def limit_request_edit(request, pk):
         qtys = request.POST.getlist("quantity")
         prices = request.POST.getlist("unit_price")
         inotes = request.POST.getlist("item_note")
+        bolims = request.POST.getlist("item_bolim")
+        masuls = request.POST.getlist("item_masul")
         valid = set(KINDS)
         items = []
         sums = {k: Decimal("0") for k in KINDS}
@@ -1391,6 +1419,8 @@ def limit_request_edit(request, pk):
                 unit=(units[i] if i < len(units) else "").strip(),
                 quantity=q, unit_price=pr,
                 note=(inotes[i] if i < len(inotes) else "").strip()[:500],
+                bolim=(bolims[i] if i < len(bolims) else "").strip()[:200],
+                masul=(masuls[i] if i < len(masuls) else "").strip()[:120],
             ))
             sums[kind] += (q * pr).quantize(Decimal("0.01"))
         if not items:
@@ -1415,6 +1445,7 @@ def limit_request_edit(request, pk):
     items = [{
         "kind": it.kind, "name": it.name, "unit": it.unit,
         "quantity": it.quantity, "unit_price": it.unit_price, "note": it.note,
+        "bolim": it.bolim, "masul": it.masul,
     } for it in req.proposed_items.all()]
 
     from ombor.models import Material
@@ -2020,17 +2051,18 @@ def _obj_limit_wb(p):
     ws1["A2"].font = sub_font
     ws1.append([])
     hrow = 4
-    ws1.append(["Turi", "Nomi", "Izoh", "Birlik", "Miqdor", "Narxi", "Summa", "Qo'shilgan sana"])
+    ws1.append(["Bo'lim", "Mas'ul", "Turi", "Nomi", "Izoh", "Birlik", "Miqdor", "Narxi", "Summa", "Qo'shilgan sana"])
     style_head(ws1, hrow)
-    for it in p.limit_items.all().order_by("kind", "id"):
+    for it in p.limit_items.all().order_by("id"):
         ws1.append([
+            it.bolim or "", it.masul or "",
             KIND.get(it.kind, it.kind), it.name, it.note or "", it.unit or "",
             float(it.quantity), float(it.unit_price), float(it.total),
             _tzloc(it.created_at).strftime("%d.%m.%Y %H:%M") if it.created_at else "",
         ])
     last = ws1.max_row
     for r in range(hrow + 1, last + 1):
-        for col in (5, 6, 7):
+        for col in (7, 8, 9):
             ws1.cell(r, col).number_format = money
             ws1.cell(r, col).alignment = right
         for c in ws1[r]:
@@ -2042,14 +2074,14 @@ def _obj_limit_wb(p):
         d[it.kind] = d.get(it.kind, Decimal("0")) + it.total
     for k in KINDS:
         rr = ws1.max_row + 1
-        ws1.cell(rr, 6, KIND[k] + " jami:").font = tot_font
-        c = ws1.cell(rr, 7, float(d[k])); c.number_format = money; c.font = tot_font; c.fill = tot_fill
+        ws1.cell(rr, 8, KIND[k] + " jami:").font = tot_font
+        c = ws1.cell(rr, 9, float(d[k])); c.number_format = money; c.font = tot_font; c.fill = tot_fill
     rr = ws1.max_row + 1
-    ws1.cell(rr, 6, "UMUMIY LIMIT:").font = Font(bold=True, size=12)
-    c = ws1.cell(rr, 7, float(p.budget_total)); c.number_format = money
+    ws1.cell(rr, 8, "UMUMIY LIMIT:").font = Font(bold=True, size=12)
+    c = ws1.cell(rr, 9, float(p.budget_total)); c.number_format = money
     c.font = Font(bold=True, size=12, color="2563EB"); c.fill = tot_fill
     ws1.freeze_panes = "A5"
-    for i, w in enumerate([16, 34, 30, 10, 12, 14, 16, 16], start=1):
+    for i, w in enumerate([22, 16, 16, 34, 30, 10, 12, 14, 16, 16], start=1):
         ws1.column_dimensions[get_column_letter(i)].width = w
 
     # ===== 2-VARAQ: Haftalik so'rovlar =====

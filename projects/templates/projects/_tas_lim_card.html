@@ -11,7 +11,7 @@
       <thead><tr><th>Turi</th><th>Nomi</th><th>Birlik</th><th class="num">Miqdor</th><th class="num">Narxi</th><th class="num">Summa</th><th>Holat</th><th>Sana</th><th></th></tr></thead>
       <tbody>{% for it in r.items %}<tr {% if it.holat == 'yangi' %}class="pi-newrow"{% elif it.holat == 'ozgargan' %}class="pi-chgrow"{% endif %}>
         <td>{{ it.kind_disp }}</td>
-        <td>{{ it.name }}{% if it.izoh %}<span class="pnote">✎ {{ it.izoh }}</span>{% endif %}</td>
+        <td>{% if it.bolim %}<span style="display:block; font-size:10.5px; color:#64748b; font-weight:700;">📁 {{ it.bolim }}{% if it.masul %} · {{ it.masul }}{% endif %}</span>{% endif %}{{ it.name }}{% if it.izoh %}<span class="pnote">✎ {{ it.izoh }}</span>{% endif %}</td>
         <td>{{ it.unit }}</td>
         <td class="num">{{ it.qty_str }}</td>
         <td class="num">{{ it.price_str }}</td>
