@@ -61,6 +61,7 @@ class Project(models.Model):
     limit_machinery = models.DecimalField("Mashina chasti limiti", max_digits=18, decimal_places=2, default=0)
     limit_other = models.DecimalField("Ko'zda tutilmagan xarajatlar limiti", max_digits=18, decimal_places=2, default=0)
     grafik_start = models.DateField("Grafik boshlanish sanasi", null=True, blank=True)
+    grafik_end = models.DateField("Grafik tugash sanasi", null=True, blank=True)
     created_at = models.DateTimeField("Yaratilgan", auto_now_add=True)
 
     class Meta:

@@ -2344,12 +2344,16 @@ def grafik_template(request):
 GRAFIK_N = 15  # Excel namunadagi kunlik ustunlar soni (eksport oynasi)
 
 
-def _grafik_kunlar(start, bugun):
-    """Veb grafik uzunligi (kun) — HAFTALIK davom etadi:
-    grafik boshidan joriy hafta + kelasi haftagacha, kamida 15 kun,
-    ko'pi 84 kun (12 hafta)."""
+def _grafik_kunlar(start, bugun, tugash=None):
+    """Veb grafik uzunligi (kun) — HAFTALIK.
+    Tugash sanasi berilgan bo'lsa: boshlanishdan tugashgacha (to'liq haftalarga
+    yaxlitlab). Berilmasa: joriy hafta + kelasi haftagacha o'sib boradi.
+    Kamida 7 kun, ko'pi 84 kun (12 hafta)."""
     if not start:
         return GRAFIK_N
+    if tugash and tugash >= start:
+        kun = (tugash - start).days + 1
+        return max(7, min(84, ((kun + 6) // 7) * 7))
     farq = (bugun - start).days
     if farq < 0:
         return GRAFIK_N
@@ -2389,12 +2393,17 @@ def grafik_web(request, pk):
         if not can_edit:
             raise PermissionDenied("Grafikni faqat PTO tahrirlaydi.")
         gs = (request.POST.get("grafik_start") or "").strip()
+        ge = (request.POST.get("grafik_end") or "").strip()
         try:
             p.grafik_start = datetime.date.fromisoformat(gs) if gs else None
         except ValueError:
             p.grafik_start = None
-        p.save(update_fields=["grafik_start"])
-        N = _grafik_kunlar(p.grafik_start or p.start_date or bugun, bugun)
+        try:
+            p.grafik_end = datetime.date.fromisoformat(ge) if ge else None
+        except ValueError:
+            p.grafik_end = None
+        p.save(update_fields=["grafik_start", "grafik_end"])
+        N = _grafik_kunlar(p.grafik_start or p.start_date or bugun, bugun, p.grafik_end)
 
         names = request.POST.getlist("name")
         units = request.POST.getlist("unit")
@@ -2438,7 +2447,7 @@ def grafik_web(request, pk):
 
     # GET — sana doim ko'rinsin (tanlanmagan bo'lsa: obyekt boshi yoki bugun)
     eff_start = p.grafik_start or p.start_date or bugun
-    N = _grafik_kunlar(eff_start, bugun)
+    N = _grafik_kunlar(eff_start, bugun, p.grafik_end)
     # Har bir kun: sana, o'tganmi (bugundan oldin), qaysi haftaga tegishli
     days = []
     for j in range(N):
@@ -2471,6 +2480,7 @@ def grafik_web(request, pk):
         "eski_hafta": sum(1 for wg in week_groups if wg["all_past"]),
         "can_edit": can_edit, "N": N,
         "grafik_start": eff_start.isoformat(),
+        "grafik_end": p.grafik_end.isoformat() if p.grafik_end else "",
     })
 
 

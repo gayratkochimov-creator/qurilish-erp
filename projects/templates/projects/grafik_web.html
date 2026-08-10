@@ -77,7 +77,8 @@
     {% csrf_token %}
     <div class="bar">
       <div class="l">
-        <label>Grafik boshi <input type="date" name="grafik_start" id="gstart" value="{{ grafik_start }}" {% if not can_edit %}disabled{% endif %}></label>
+        <label>Ish boshlanishi <input type="date" name="grafik_start" id="gstart" value="{{ grafik_start }}" {% if not can_edit %}disabled{% endif %}></label>
+        <label>Ish tugashi <input type="date" name="grafik_end" id="gend" value="{{ grafik_end }}" {% if not can_edit %}disabled{% endif %} title="Qo'yilsa jadval shu sanagacha bo'lgan haftalarni ko'rsatadi"></label>
         {% if can_edit %}<button type="button" class="btn" id="addrow">+ Qator qo'shish</button>{% endif %}
         {% if eski_hafta %}<button type="button" class="btn" id="pastToggle">O'tgan haftalarni yashirish ({{ eski_hafta }})</button>{% endif %}
         <button type="button" class="btn" onclick="window.print()">Chop etish</button>
