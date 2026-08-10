@@ -412,6 +412,7 @@
         // Izoh faqat pastga o'sadi. Nomi (avto-taklif saqlanishi uchun input)
         // yoniga 44 belgigacha, Miqdor/Narxi raqamga qarab yoniga kengayadi.
         function kengay(el){
+          if(!el.offsetParent) return;   // yashirin holatda o'lchamaymiz
           if(el.name !== 'item_note'){
             var n = (el.value || '').length;
             el.style.width = Math.min(Math.max(n + 3, 12), 32) + 'ch';
@@ -442,6 +443,13 @@
         if(tbody.children.length===0){ for(var i=0;i<3;i++) addRow(); } else { recompute(); }
         hammaKengay();
         new MutationObserver(hammaKengay).observe(tbody, {childList:true});
+        // Boshqa ustunlar (masalan Nomi qutisi) kengayganda izoh torayadi va
+        // balandligi yetmay qoladi — yakuniy joylashuvda QAYTA o'lchaymiz
+        window.addEventListener('load', function(){ hammaKengay(); setTimeout(hammaKengay, 400); });
+        window.addEventListener('resize', hammaKengay);
+        document.addEventListener('click', function(e){
+          if(e.target.classList && e.target.classList.contains('tgl')) setTimeout(hammaKengay, 50);
+        });
       })();
       </script>
       {% else %}
@@ -591,6 +599,7 @@
           tbody.addEventListener('click', function(e){ if(e.target.classList.contains('delrow')){ if(tbody.children.length>1){ e.target.closest('tr').remove(); recompute(); } } });
           // Kataklar matnga qarab kengayadi: Nomi/raqamlar yoniga, Izoh pastga
           function kengay(el){
+            if(!el.offsetParent) return;
             el.style.height='auto';
             el.style.height=(el.scrollHeight+2)+'px';
           }
@@ -616,6 +625,11 @@
           for(var i=0;i<3;i++) addRow();
           hammaKengay();
           new MutationObserver(hammaKengay).observe(tbody, {childList:true});
+          window.addEventListener('load', function(){ hammaKengay(); setTimeout(hammaKengay, 400); });
+          window.addEventListener('resize', hammaKengay);
+          document.addEventListener('click', function(e){
+            if(e.target.classList && e.target.classList.contains('tgl')) setTimeout(hammaKengay, 50);
+          });
         })();
         </script>
         <script>

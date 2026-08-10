@@ -146,6 +146,7 @@
   document.getElementById('addrow').addEventListener('click', addRow);
   tbody.addEventListener('click', function(e){ if(e.target.classList.contains('delrow')){ if(tbody.children.length>1) e.target.closest('tr').remove(); recompute(); } });
   function kengay(el){
+    if(!el.offsetParent) return;
     if(el.name !== 'item_note'){
       var n=(el.value||'').length;
       el.style.width = Math.min(Math.max(n+3, 12), 32) + 'ch';
@@ -178,6 +179,8 @@
   recompute();
   hammaKengay();
   new MutationObserver(hammaKengay).observe(tbody, {childList:true});
+  window.addEventListener('load', function(){ hammaKengay(); setTimeout(hammaKengay, 400); });
+  window.addEventListener('resize', hammaKengay);
 })();
 </script>
 {% endblock %}
