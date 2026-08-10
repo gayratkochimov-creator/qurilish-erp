@@ -2341,7 +2341,19 @@ def grafik_template(request):
     return resp
 
 
-GRAFIK_N = 15  # kunlik ustunlar soni (namunadagidek)
+GRAFIK_N = 15  # Excel namunadagi kunlik ustunlar soni (eksport oynasi)
+
+
+def _grafik_kunlar(start, bugun):
+    """Veb grafik uzunligi (kun) — HAFTALIK davom etadi:
+    grafik boshidan joriy hafta + kelasi haftagacha, kamida 15 kun,
+    ko'pi 84 kun (12 hafta)."""
+    if not start:
+        return GRAFIK_N
+    farq = (bugun - start).days
+    if farq < 0:
+        return GRAFIK_N
+    return max(GRAFIK_N, min(84, (farq // 7 + 2) * 7))
 
 
 @login_required
@@ -2370,7 +2382,8 @@ def grafik_web(request, pk):
     """Ish grafigi — brauzerda (namunadagi «график работа» kabi tahrirlanadigan jadval)."""
     p = _firma_yoki_403(request, get_object_or_404(Project, pk=pk))
     can_edit = is_pto(request.user)
-    N = GRAFIK_N
+    from django.utils import timezone as _tz
+    bugun = _tz.localdate()
 
     if request.method == "POST":
         if not can_edit:
@@ -2381,6 +2394,7 @@ def grafik_web(request, pk):
         except ValueError:
             p.grafik_start = None
         p.save(update_fields=["grafik_start"])
+        N = _grafik_kunlar(p.grafik_start or p.start_date or bugun, bugun)
 
         names = request.POST.getlist("name")
         units = request.POST.getlist("unit")
@@ -2423,9 +2437,8 @@ def grafik_web(request, pk):
         return redirect("grafik_web", pk=pk)
 
     # GET — sana doim ko'rinsin (tanlanmagan bo'lsa: obyekt boshi yoki bugun)
-    from django.utils import timezone
-    eff_start = p.grafik_start or p.start_date or timezone.localdate()
-    bugun = timezone.localdate()
+    eff_start = p.grafik_start or p.start_date or bugun
+    N = _grafik_kunlar(eff_start, bugun)
     # Har bir kun: sana, o'tganmi (bugundan oldin), qaysi haftaga tegishli
     days = []
     for j in range(N):
@@ -2455,6 +2468,7 @@ def grafik_web(request, pk):
     return render(request, "projects/grafik_web.html", {
         "p": p, "grows": grows, "N_range": list(range(N)), "day_headers": day_headers,
         "days": days, "week_groups": week_groups, "eski_kun": eski_kun,
+        "eski_hafta": sum(1 for wg in week_groups if wg["all_past"]),
         "can_edit": can_edit, "N": N,
         "grafik_start": eff_start.isoformat(),
     })
@@ -2499,8 +2513,16 @@ def grafik_rabota(request, pk=None):
         ws.cell(r, 1).value = i
         ws.cell(r, 7).value = f'=IF($E{r}="","",SUM(H{r}:V{r})/$E{r})'
         ws.cell(r, 23).value = f'=IF($E{r}="","",$E{r}-SUM(H{r}:V{r}))'
+    # Surilma oyna: grafik haftalik davom etadi, Excel 15 kunlik panelga
+    # O'TGAN HAFTA + JORIY HAFTA (+ keyingi kunlar) chiqadi
+    ofs = 0
+    if grows and start:
+        from django.utils import timezone as _tz
+        farq = (_tz.localdate() - start).days
+        if farq >= 0 and farq // 7 >= 2:
+            ofs = (farq // 7 - 1) * 7
     if start:
-        ws.cell(3, 8).value = start
+        ws.cell(3, 8).value = start + datetime.timedelta(days=ofs)
         for j in range(1, 15):
             ws.cell(3, 8 + j).value = f'=IF($H$3="","",$H$3+{j})'
     # Ma'lumotlar + namunadagi ranglar: 0 -> QIZIL, plandan kam -> SARIQ,
@@ -2518,9 +2540,12 @@ def grafik_rabota(request, pk=None):
             ws.cell(r, 6).value = float(g.plan) if g.plan else None
             ws.cell(r, 24).value = g.responsible or None
             ws.cell(r, 25).value = g.note or None
+            # Foiz va qoldiq — BARCHA haftalar bo'yicha (oyna 15 kun bo'lsa ham)
+            ws.cell(r, 7).value = (float(g.bajarilgan) / float(g.qty)) if g.qty else None
+            ws.cell(r, 23).value = float(g.qoldiq) if g.qty else None
             plan = float(g.plan or 0)
             for j in range(GRAFIK_N):
-                v = (g.days or {}).get(str(j))
+                v = (g.days or {}).get(str(ofs + j))
                 if v is None:
                     continue
                 v = float(v)

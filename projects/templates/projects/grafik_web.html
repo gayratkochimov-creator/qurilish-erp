@@ -23,12 +23,15 @@
   table.g { border-collapse:collapse; width:100%; font-size:13px; table-layout:auto; }
   table.g th, table.g td { border:1px solid #e5e7eb; padding:8px 11px; text-align:center; white-space:nowrap; }
   table.g thead th { background:#dae3f3; color:#1f2d3d; font-weight:700; position:sticky; top:0; z-index:2; padding:10px 11px; line-height:1.25; }
-  /* Hafta guruh sarlavhasi */
-  table.g thead tr.wkrow th.wkgrp { background:#c7d4ee; border-bottom:2px solid #a9bce0; font-size:12px; }
+  /* Hafta guruh sarlavhasi — bosilsa hafta yig'iladi/ochiladi */
+  table.g thead tr.wkrow th.wkgrp { background:#c7d4ee; border-bottom:2px solid #a9bce0; font-size:12px; cursor:pointer; user-select:none; }
+  table.g thead tr.wkrow th.wkgrp:hover { background:#b7c8e8; }
   table.g thead tr.wkrow th.wkgrp small { font-weight:500; font-size:10.5px; color:#42506b; }
+  table.g thead tr.wkrow th.wkgrp.closed { background:#e2e8f0; color:#64748b; writing-mode:initial; }
+  table.g thead tr.wkrow th.wkgrp.closed small { color:#94a3b8; }
   table.g thead tr.wkrow th.wkspace { background:#eef2f8; border:0; }
-  /* O'tgan kunlar yashirilganda */
-  table.g.hide-past .past-col { display:none; }
+  /* Yig'ilgan hafta ustunlari */
+  table.g .wk-hid { display:none; }
   table.g th.nm, table.g td.nm { text-align:left; white-space:normal; min-width:260px; max-width:380px; }
   table.g td.nm input { text-align:left; }
   table.g .no { color:var(--mut); width:38px; font-variant-numeric:tabular-nums; }
@@ -76,7 +79,7 @@
       <div class="l">
         <label>Grafik boshi <input type="date" name="grafik_start" id="gstart" value="{{ grafik_start }}" {% if not can_edit %}disabled{% endif %}></label>
         {% if can_edit %}<button type="button" class="btn" id="addrow">+ Qator qo'shish</button>{% endif %}
-        {% if eski_kun %}<button type="button" class="btn" id="pastToggle">O'tgan kunlarni yashirish ({{ eski_kun }})</button>{% endif %}
+        {% if eski_hafta %}<button type="button" class="btn" id="pastToggle">O'tgan haftalarni yashirish ({{ eski_hafta }})</button>{% endif %}
         <button type="button" class="btn" onclick="window.print()">Chop etish</button>
         <a class="btn" href="{% url 'grafik_rabota_obj' p.id %}">Excel yuklab olish</a>
       </div>
@@ -92,7 +95,7 @@
         <thead>
           <tr class="wkrow">
             <th colspan="6" class="wkspace"></th>
-            {% for wg in week_groups %}<th class="wkgrp{% if wg.all_past %} past-col{% endif %}" colspan="{{ wg.span }}" data-week="{{ wg.week }}">{{ wg.week|add:1 }}-hafta<br><small>{{ wg.label }}</small></th>{% endfor %}
+            {% for wg in week_groups %}<th class="wkgrp" colspan="{{ wg.span }}" data-week="{{ wg.week }}" data-past="{% if wg.all_past %}1{% else %}0{% endif %}" title="Bosib yig'ish / ochish">{{ wg.week|add:1 }}-hafta <span class="arr">▾</span><br><small>{{ wg.label }}</small></th>{% endfor %}
             <th colspan="4" class="wkspace"></th>
           </tr>
           <tr>
@@ -147,35 +150,54 @@
 
 <script>
 (function(){
-  // O'tgan (bugundan oldingi) kun ustunlari: sarlavhada past-col bor —
-  // shu indekslarni tana katakchalariga ham beramiz, so'ng bitta tugma bilan yashiramiz.
+  // HAFTALIK yig'ish: hafta sarlavhasi bosilsa o'sha hafta ustunlari yig'iladi.
+  // To'liq o'tgan haftalar standart holatda YIG'IQ turadi (tanlov eslab qolinadi).
   var tbl=document.querySelector('table.g');
-  var pastIdx={};
-  tbl.querySelectorAll('thead tr:last-child th.dhead.past-col').forEach(function(th){ pastIdx[th.dataset.i]=1; });
-  function markPast(root){
-    (root||tbl).querySelectorAll('td.d[data-i]').forEach(function(td){
-      if(pastIdx[td.dataset.i]) td.classList.add('past-col');
+  var PASTW=[], ALLW=[];
+  tbl.querySelectorAll('th.wkgrp[data-week]').forEach(function(th){
+    var w=+th.dataset.week;
+    ALLW.push(w);
+    if(th.dataset.past==='1') PASTW.push(w);
+  });
+  var KEY='qerp.grafik.hidwk.{{ p.id }}';
+  var saqlangan=null;
+  try{ saqlangan=JSON.parse(localStorage.getItem(KEY)); }catch(e){}
+  var hidden={};
+  (Array.isArray(saqlangan)?saqlangan:PASTW).forEach(function(w){ if(ALLW.indexOf(w)!==-1) hidden[w]=1; });
+  function apply(){
+    tbl.querySelectorAll('th.dhead[data-i], td.d[data-i]').forEach(function(el){
+      el.classList.toggle('wk-hid', !!hidden[Math.floor(+el.dataset.i/7)]);
     });
-  }
-  markPast();
-  var KEY='qerp.grafik.hidepast.{{ p.id }}';
-  var pb=document.getElementById('pastToggle');
-  if(pb){
-    function apply(hide){
-      tbl.classList.toggle('hide-past', hide);
-      pb.textContent = (hide?'O\'tgan kunlarni ko\'rsatish':'O\'tgan kunlarni yashirish')+' ({{ eski_kun }})';
+    tbl.querySelectorAll('th.wkgrp[data-week]').forEach(function(th){
+      var w=+th.dataset.week;
+      th.classList.toggle('closed', !!hidden[w]);
+      var a=th.querySelector('.arr'); if(a) a.textContent = hidden[w]?'▸':'▾';
+    });
+    var pb=document.getElementById('pastToggle');
+    if(pb){
+      var ochiq=PASTW.some(function(w){ return !hidden[w]; });
+      pb.textContent=(ochiq?"O'tgan haftalarni yashirish":"O'tgan haftalarni ko'rsatish")+' ({{ eski_hafta }})';
     }
-    var hidden = localStorage.getItem(KEY)==='1';
-    apply(hidden);
-    pb.addEventListener('click', function(){
-      hidden=!hidden; localStorage.setItem(KEY, hidden?'1':'0'); apply(hidden);
-    });
   }
+  function save(){ localStorage.setItem(KEY, JSON.stringify(Object.keys(hidden).map(Number))); }
+  tbl.addEventListener('click', function(e){
+    var th=e.target.closest('th.wkgrp'); if(!th) return;
+    var w=+th.dataset.week;
+    if(hidden[w]) delete hidden[w]; else hidden[w]=1;
+    save(); apply();
+  });
+  var pb=document.getElementById('pastToggle');
+  if(pb) pb.addEventListener('click', function(){
+    var ochiq=PASTW.some(function(w){ return !hidden[w]; });
+    PASTW.forEach(function(w){ if(ochiq) hidden[w]=1; else delete hidden[w]; });
+    save(); apply();
+  });
+  window.grafikHaftaQolla=apply;
+  apply();
 })();
 (function(){
   var tbody=document.getElementById('grows'), tpl=document.getElementById('rowtpl');
   var N={{ N }};
-  var PAST_MARK=(function(){ var s={}; document.querySelectorAll('table.g thead tr:last-child th.dhead.past-col').forEach(function(th){s[th.dataset.i]=1;}); return s; })();
   function num(el){ var v=parseFloat((el&&el.value||'').replace(',','.')); return isNaN(v)?0:v; }
   function fmt(n){ var neg=n<0; n=Math.abs(Math.round(n*1000)/1000); var s=(''+n).replace(/\B(?=(\d{3})+(?!\d))/g,' '); return (neg?'−':'')+s; }
   function autosize(inp){
@@ -218,8 +240,8 @@
     });
   }
   var addBtn=document.getElementById('addrow');
-  function markRowPast(tr){ tr.querySelectorAll('td.d[data-i]').forEach(function(td){ if(PAST_MARK[td.dataset.i]) td.classList.add('past-col'); }); }
-  if(addBtn) addBtn.addEventListener('click', function(){ tbody.appendChild(tpl.content.cloneNode(true)); markRowPast(tbody.lastElementChild); renumber(); autosizeAll(); });
+  function markRowPast(tr){ if(window.grafikHaftaQolla) window.grafikHaftaQolla(); }
+  if(addBtn) addBtn.addEventListener('click', function(){ tbody.appendChild(tpl.content.cloneNode(true)); markRowPast(); renumber(); autosizeAll(); });
   tbody.addEventListener('click', function(e){ if(e.target.classList.contains('del')){ e.target.closest('tr').remove(); renumber(); } });
   tbody.addEventListener('input', function(e){ autosize(e.target); var tr=e.target.closest('tr'); if(tr) calc(tr); });
   var gs=document.getElementById('gstart'); if(gs){ gs.addEventListener('change', updateDates); gs.addEventListener('input', updateDates); }
