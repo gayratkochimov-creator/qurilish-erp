@@ -2400,7 +2400,8 @@ def grafik_web(request, pk):
                 v = (col[i] if i < len(col) else "").strip()
                 if v:
                     d = _to_dec(v)
-                    if d is not None and d != 0:
+                    # 0 ham SAQLANADI — «ish bo'lmagan kun» (qizil) shu bilan belgilanadi
+                    if d is not None:
                         days[str(j)] = float(d)
             qv = _to_dec(qtys[i] if i < len(qtys) else "0") or Decimal("0")
             pv = _to_dec(plans[i] if i < len(plans) else "0") or Decimal("0")
@@ -2446,7 +2447,11 @@ def grafik_web(request, pk):
     eski_kun = sum(1 for dd in days if dd["is_past"])
     grows = []
     for r in p.grafik_rows.all():
-        grows.append({"r": r, "days": [r.days.get(str(j), "") for j in range(N)]})
+        kunlar = []
+        for j in range(N):
+            v = r.days.get(str(j))
+            kunlar.append("" if v is None else ("%g" % v))
+        grows.append({"r": r, "days": kunlar})
     return render(request, "projects/grafik_web.html", {
         "p": p, "grows": grows, "N_range": list(range(N)), "day_headers": day_headers,
         "days": days, "week_groups": week_groups, "eski_kun": eski_kun,
@@ -2484,8 +2489,13 @@ def grafik_rabota(request, pk=None):
     ws = wb["график"]
     ws["A1"] = obj_name
     clear_rows(ws, 4)
+    # Vebda kiritilgan grafik qatorlari (bo'lsa) — ranglari bilan chiqadi
+    grows = list(p.grafik_rows.all()) if pk else []
+    if pk and p.grafik_start:
+        start = p.grafik_start
+    oxirgi = max(21, 3 + len(grows))
     # No + formulalar: kunlik H..V (8..22), E=5, G=7 (foiz), W=23 (qoldiq)
-    for i, r in enumerate(range(4, 22), start=1):
+    for i, r in enumerate(range(4, oxirgi + 1), start=1):
         ws.cell(r, 1).value = i
         ws.cell(r, 7).value = f'=IF($E{r}="","",SUM(H{r}:V{r})/$E{r})'
         ws.cell(r, 23).value = f'=IF($E{r}="","",$E{r}-SUM(H{r}:V{r}))'
@@ -2493,6 +2503,35 @@ def grafik_rabota(request, pk=None):
         ws.cell(3, 8).value = start
         for j in range(1, 15):
             ws.cell(3, 8 + j).value = f'=IF($H$3="","",$H$3+{j})'
+    # Ma'lumotlar + namunadagi ranglar: 0 -> QIZIL, plandan kam -> SARIQ,
+    # plan bajarilgan -> YASHIL (bo'sh kun rangsiz)
+    if grows:
+        from openpyxl.styles import PatternFill
+        F_QIZIL = PatternFill("solid", fgColor="FFFF0000")
+        F_SARIQ = PatternFill("solid", fgColor="FFFFFF00")
+        F_YASHIL = PatternFill("solid", fgColor="FF00B050")
+        for idx, g in enumerate(grows):
+            r = 4 + idx
+            ws.cell(r, 2).value = g.name or None
+            ws.cell(r, 4).value = g.unit or None
+            ws.cell(r, 5).value = float(g.qty) if g.qty else None
+            ws.cell(r, 6).value = float(g.plan) if g.plan else None
+            ws.cell(r, 24).value = g.responsible or None
+            ws.cell(r, 25).value = g.note or None
+            plan = float(g.plan or 0)
+            for j in range(GRAFIK_N):
+                v = (g.days or {}).get(str(j))
+                if v is None:
+                    continue
+                v = float(v)
+                c = ws.cell(r, 8 + j)
+                c.value = int(v) if v == int(v) else v
+                if v <= 0:
+                    c.fill = F_QIZIL
+                elif plan > 0 and v < plan:
+                    c.fill = F_SARIQ
+                else:
+                    c.fill = F_YASHIL
 
     # ===== 2) Solyarka va gaz =====
     if "Солярка ва газ" in wb.sheetnames:

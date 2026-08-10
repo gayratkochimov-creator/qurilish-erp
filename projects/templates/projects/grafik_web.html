@@ -41,6 +41,15 @@
   table.g td.resp { min-width:250px; }
   table.g input.respinp { text-align:left; width:100%; min-width:230px; white-space:nowrap; }
   table.g td.d { min-width:54px; } table.g td.d input { text-align:right; }
+  /* Namunadagi ranglar: 0 -> qizil, plandan kam -> sariq, plan bajarilgan -> yashil */
+  table.g td.d.c-qizil, table.g tbody tr:hover td.d.c-qizil { background:#ff0000 !important; }
+  table.g td.d.c-qizil input { color:#fff; font-weight:700; }
+  table.g td.d.c-sariq, table.g tbody tr:hover td.d.c-sariq { background:#ffff00 !important; }
+  table.g td.d.c-sariq input { color:#1f2937; font-weight:700; }
+  table.g td.d.c-yashil, table.g tbody tr:hover td.d.c-yashil { background:#00b050 !important; }
+  table.g td.d.c-yashil input { color:#fff; font-weight:700; }
+  .legend { display:flex; gap:14px; align-items:center; font-size:12.5px; color:var(--mut); flex-wrap:wrap; }
+  .legend .lg { display:inline-block; width:14px; height:14px; border-radius:3px; vertical-align:-2px; margin-right:5px; border:1px solid rgba(0,0,0,.15); }
   table.g td.num { min-width:80px; }
   table.g td.foiz, table.g td.qoldiq { text-align:right; }
   table.g td.foiz { font-weight:700; font-variant-numeric:tabular-nums; background:#f8fafc; }
@@ -70,6 +79,11 @@
         {% if eski_kun %}<button type="button" class="btn" id="pastToggle">O'tgan kunlarni yashirish ({{ eski_kun }})</button>{% endif %}
         <button type="button" class="btn" onclick="window.print()">Chop etish</button>
         <a class="btn" href="{% url 'grafik_rabota_obj' p.id %}">Excel yuklab olish</a>
+      </div>
+      <div class="legend">
+        <span><span class="lg" style="background:#00b050;"></span>Plan bajarildi</span>
+        <span><span class="lg" style="background:#ffff00;"></span>Qisman bajarildi</span>
+        <span><span class="lg" style="background:#ff0000;"></span>Ish bo'lmagan — <b>0 yozing</b></span>
       </div>
     </div>
 
@@ -176,10 +190,22 @@
   function autosizeAll(){ tbody.querySelectorAll('input.numinp, input.respinp').forEach(autosize); }
   function calc(tr){
     var qty=num(tr.querySelector('[name=qty]'));
+    var plan=num(tr.querySelector('[name=plan]'));
     var sum=0; tr.querySelectorAll('td.d input').forEach(function(i){ sum+=num(i); });
     var fc=tr.querySelector('.foiz'); var foiz=qty>0?Math.round(sum/qty*100):0;
     fc.textContent=foiz+'%'; fc.className='foiz'+(foiz>100?' over':foiz>=100?' done':foiz>=90?' warn':'');
     tr.querySelector('.qoldiq').textContent=fmt(qty-sum);
+    // Namunadagi ranglar: qiymat yozilgan kun — 0 qizil, plandan kam sariq, plan+ yashil
+    tr.querySelectorAll('td.d').forEach(function(td){
+      var inp=td.querySelector('input');
+      td.classList.remove('c-qizil','c-sariq','c-yashil');
+      var raw=(inp && inp.value || '').trim();
+      if(raw==='') return;
+      var v=num(inp);
+      if(v<=0) td.classList.add('c-qizil');
+      else if(plan>0 && v<plan) td.classList.add('c-sariq');
+      else td.classList.add('c-yashil');
+    });
   }
   function renumber(){ var i=1; tbody.querySelectorAll('tr').forEach(function(tr){ tr.querySelector('.no').textContent=i++; }); var c=document.getElementById('cnt'); if(c) c.textContent=tbody.children.length+' qator'; }
   function calcAll(){ tbody.querySelectorAll('tr').forEach(calc); }
