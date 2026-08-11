@@ -361,6 +361,17 @@
           </div>
         </div>
       </form>
+      {% if is_admin and has_items and not pending %}
+      <form method="post" action="{% url 'limit_return_pto' p.id %}"
+            style="display:flex; gap:8px; align-items:center; padding:0 16px 14px; border-top:1px dashed var(--line); margin-top:2px; padding-top:12px;"
+            onsubmit="var s=this.querySelector('[name=sabab]'); if(!s.value.trim()){ alert('Kamchilik / qaytarish sababini yozing.'); s.focus(); return false; } return confirm('Limit PTOga qaytarilsinmi? PTO tahrirlab, direktor va admin tasdig\'iga qayta yuboradi.');">
+        {% csrf_token %}
+        <span style="font-size:12px; color:var(--mut); white-space:nowrap;">Kamchilik topildimi?</span>
+        <input type="text" name="sabab" placeholder="kamchilik / qaytarish sababi..."
+               style="flex:1; padding:8px 12px; border:1px solid var(--line); border-radius:8px; font-size:13px;">
+        <button type="submit" style="background:#b45309; color:#fff; border:0; border-radius:8px; padding:9px 15px; font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap;">↩ PTOga qaytarish</button>
+      </form>
+      {% endif %}
       <template id="li-rowtpl">
         <tr>
           <td><textarea name="item_bolim" class="bolimimp growa" rows="1" placeholder="bo'lim..."></textarea></td>

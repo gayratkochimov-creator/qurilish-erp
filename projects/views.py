@@ -1139,6 +1139,49 @@ def limit_items_edit(request, pk):
     return redirect("project_detail", pk=pk)
 
 
+@login_required
+def limit_return_pto(request, pk):
+    """ADMIN tasdiqlangan limitni PTOga QAYTARADI (kamchilik topilganda):
+    joriy limit tarkibidan «PTO xulosasi» bosqichida yangi so'rov ochiladi —
+    PTO tahrirlab, direktor -> admin zanjiri bo'ylab qayta yuboradi.
+    Amaldagi limit qaytarish paytida o'zgarmaydi (yangi tasdiqqacha)."""
+    p = _firma_yoki_403(request, get_object_or_404(Project, pk=pk))
+    if not is_admin(request.user):
+        raise PermissionDenied("Limitni faqat admin qaytaradi.")
+    if request.method != "POST":
+        return redirect("project_detail", pk=pk)
+    sabab = (request.POST.get("sabab") or "").strip()
+    if not sabab:
+        messages.error(request, "Qaytarish sababini (kamchilikni) yozing.")
+        return redirect("project_detail", pk=pk)
+    if p.limit_requests.filter(status__in=LIM_JARAYON).exists():
+        messages.error(request, "Bu obyektda tasdiq kutilayotgan so'rov bor — avval uni yakunlang.")
+        return redirect("project_detail", pk=pk)
+    items = list(p.limit_items.all().order_by("id"))
+    if not items:
+        messages.error(request, "Limit tarkibi bo'sh — qaytaradigan narsa yo'q.")
+        return redirect("project_detail", pk=pk)
+    with transaction.atomic():
+        req = LimitChangeRequest.objects.create(
+            project=p,
+            old_material=p.limit_material, old_labor=p.limit_labor,
+            old_machinery=p.limit_machinery, old_other=p.limit_other,
+            new_material=p.limit_material, new_labor=p.limit_labor,
+            new_machinery=p.limit_machinery, new_other=p.limit_other,
+            reason=(f"ADMIN QAYTARDI (kamchilik): {sabab}")[:500],
+            requested_by=request.user, status="pto2",
+        )
+        LimitChangeItem.objects.bulk_create([
+            LimitChangeItem(request=req, kind=it.kind, name=it.name, unit=it.unit,
+                            quantity=it.quantity, unit_price=it.unit_price,
+                            note=it.note, bolim=it.bolim, masul=it.masul)
+            for it in items
+        ])
+    messages.success(request,
+        "Limit PTOga qaytarildi — PTO «Tasdiqlar»da tahrirlab, direktorga qayta yuboradi.")
+    return redirect("project_detail", pk=pk)
+
+
 def _tasdiqlar_data(status="dir", user=None):
     """Tasdiqlash markazi ma'lumoti: limit o'zgarishlari + haftalik so'rovlar.
     status='dir' — direktor navbati; status='adm' (limit) / 'submitted' (haftalik) — admin navbati.
