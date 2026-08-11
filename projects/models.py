@@ -224,10 +224,11 @@ class LimitChangeRequest(models.Model):
         from django.utils import timezone
         p = self.project
         proposed = list(self.proposed_items.all())
-        if proposed:
-            # «Limit ichi» tarkibi bo'yicha so'rov — taklif etilgan tarkibni qo'llash
-            with transaction.atomic():
-                # o'chirib-qayta yaratmaymiz — o'zgarmagan qatorlarning sanasi saqlansin
+        # Limitni qo'llash + statusni yozish BITTA tranzaksiyada — yarim holat qolmasin
+        with transaction.atomic():
+            if proposed:
+                # «Limit ichi» tarkibi bo'yicha so'rov — taklif etilgan tarkibni qo'llash
+                # (o'chirib-qayta yaratmaymiz — o'zgarmagan qatorlarning sanasi saqlansin)
                 sync_limit_items(p, [
                     {"kind": it.kind, "name": it.name, "unit": it.unit,
                      "quantity": it.quantity, "unit_price": it.unit_price, "note": it.note,
@@ -235,18 +236,18 @@ class LimitChangeRequest(models.Model):
                     for it in proposed
                 ])
                 p.recompute_limits()
-        else:
-            # Eski usul — faqat raqamli limit
-            p.limit_material = self.new_material
-            p.limit_labor = self.new_labor
-            p.limit_machinery = self.new_machinery
-            p.limit_other = self.new_other
-            p.save(update_fields=["limit_material", "limit_labor", "limit_machinery", "limit_other"])
-        self.status = self.Status.APPROVED
-        self.decided_by = admin_user
-        self.decided_at = timezone.now()
-        self.pto_notified = False   # PTO'ga "Tasdiqlandi" xabari chiqsin
-        self.save(update_fields=["status", "decided_by", "decided_at", "pto_notified"])
+            else:
+                # Eski usul — faqat raqamli limit
+                p.limit_material = self.new_material
+                p.limit_labor = self.new_labor
+                p.limit_machinery = self.new_machinery
+                p.limit_other = self.new_other
+                p.save(update_fields=["limit_material", "limit_labor", "limit_machinery", "limit_other"])
+            self.status = self.Status.APPROVED
+            self.decided_by = admin_user
+            self.decided_at = timezone.now()
+            self.pto_notified = False   # PTO'ga "Tasdiqlandi" xabari chiqsin
+            self.save(update_fields=["status", "decided_by", "decided_at", "pto_notified"])
 
     def reject(self, admin_user, izoh=""):
         from django.utils import timezone

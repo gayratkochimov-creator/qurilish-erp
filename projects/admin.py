@@ -152,8 +152,18 @@ def action_approve(modeladmin, request, queryset):
 
 @admin.action(description="Tasdiqni bekor qilish (qoralamaga qaytarish)")
 def action_to_draft(modeladmin, request, queryset):
-    n = queryset.update(status=WeeklyRequest.Status.DRAFT, approved_by=None, approved_at=None)
-    messages.success(request, f"{n} ta so'rov qoralamaga qaytarildi.")
+    # TASDIQLANGAN so'rov bu yerdan qaytarilmaydi — saytdagi «PTOga qaytarish»
+    # (Telegram tasdiqlash kodi bilan) orqali qaytariladi; aks holda kod
+    # himoyasini admin panel aylanib o'tgan bo'lardi.
+    tasdiqlangan = queryset.filter(status=WeeklyRequest.Status.APPROVED).count()
+    n = (queryset.exclude(status=WeeklyRequest.Status.APPROVED)
+         .update(status=WeeklyRequest.Status.DRAFT, approved_by=None, approved_at=None))
+    if n:
+        messages.success(request, f"{n} ta so'rov qoralamaga qaytarildi.")
+    if tasdiqlangan:
+        messages.error(request,
+            f"{tasdiqlangan} ta TASDIQLANGAN so'rov qaytarilmadi — ular faqat saytdagi "
+            "«PTOga qaytarish» (tasdiqlash kodi) orqali qaytariladi.")
 
 
 @admin.action(description="Tasdiqlash (limitni o'zgartirish)")

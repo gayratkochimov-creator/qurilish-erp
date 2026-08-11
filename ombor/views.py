@@ -363,18 +363,30 @@ def prixod_add(request):
             note=(request.POST.get("note") or "").strip(),
             obyektga_avto=bool(request.POST.get("obyektga_avto")),
         )
+        # Rasm hajmi chegarasi — 10 MB (disk to'lib qolmasin, server 512 MB)
+        MAX_RASM = 10 * 1024 * 1024
+        katta = []
         # Mahsulot rasmlari — 5 tagacha
         for f in request.FILES.getlist("images")[:5]:
+            if f.size > MAX_RASM:
+                katta.append(f.name)
+                continue
             ReceiptImage.objects.create(receipt=r, turi="product", image=f)
         # Nakladnoy rasmlari — har biri ITOGO summasi bilan (ketma-ket qatorlar)
         for i in range(15):
             nf = request.FILES.get(f"nak_image_{i}")
             if nf is None:
                 continue
+            if nf.size > MAX_RASM:
+                katta.append(nf.name)
+                continue
             ReceiptImage.objects.create(
                 receipt=r, turi="nakladnoy", image=nf,
                 summa=_dec(request.POST.get(f"nak_summa_{i}")),
             )
+        if katta:
+            messages.warning(request,
+                "Ba'zi rasmlar 10 MB dan katta — yuklanmadi: " + ", ".join(katta[:5]))
         mats = request.POST.getlist("material")
         munits = request.POST.getlist("munit")
         qtys = request.POST.getlist("quantity")
@@ -485,9 +497,12 @@ def prixod_action(request, pk):
                     pass
             elif a == "unpost":
                 # Bog'liq avto-rasxod: qoralama bo'lsa o'chiriladi; qayd qilingan
-                # bo'lsa unpost baribir taqiqlanadi (qoldiq minusga tushadi)
-                r.auto_issues.filter(is_posted=False).delete()
-                services.unpost_receipt(r)
+                # bo'lsa unpost baribir taqiqlanadi (qoldiq minusga tushadi).
+                # BITTA tranzaksiyada — unpost xato bersa qoralama ham qaytadi.
+                from django.db import transaction as _tx
+                with _tx.atomic():
+                    r.auto_issues.filter(is_posted=False).delete()
+                    services.unpost_receipt(r)
                 messages.info(request, f"Prixod #{r.id} qaydi bekor qilindi.")
             elif a == "delete":
                 if r.is_posted:
@@ -655,16 +670,20 @@ def rasxod_action(request, pk):
                         messages.error(request,
                             "Ishlatilgan miqdorni kiriting (kamida bitta qator).")
                         return redirect("rasxod_list")
-                    for it, q in kiritilgan:
-                        if q is None or q <= 0:
-                            it.delete()
-                        elif q != it.quantity:
-                            it.quantity = q
-                            it.save(update_fields=["quantity"])
-                    services.post_issue(x)
-                    x.prorab_by = request.user
-                    x.prorab_at = _tz.now()
-                    x.save(update_fields=["prorab_by", "prorab_at"])
+                    # BITTA tranzaksiyada: post_issue xato bersa (masalan qoldiq
+                    # yetmasa) o'chirilgan/o'zgartirilgan qatorlar ham qaytadi
+                    from django.db import transaction as _tx
+                    with _tx.atomic():
+                        for it, q in kiritilgan:
+                            if q is None or q <= 0:
+                                it.delete()
+                            elif q != it.quantity:
+                                it.quantity = q
+                                it.save(update_fields=["quantity"])
+                        services.post_issue(x)
+                        x.prorab_by = request.user
+                        x.prorab_at = _tz.now()
+                        x.save(update_fields=["prorab_by", "prorab_at"])
                     messages.success(request,
                         f"Rasxod #{x.id} — prorab miqdorni tasdiqladi, ombordan chiqarildi.")
                     try:

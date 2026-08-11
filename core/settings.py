@@ -20,11 +20,21 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-v8^=)q#blulnj&#6rd(%##p+_#v7ka&(j6oy*66^$ylixp)$xc')
-
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DEBUG', 'True') == 'True'
+
+# SECURITY WARNING: keep the secret key used in production secret!
+# Repo OMMAVIY — production'da SECRET_KEY env o'rnatilishi SHART.
+# Sayt yiqilmasligi uchun zaxira kalit qoldirildi, lekin env yo'qligi
+# server xato jurnaliga yoziladi (WSGI faylga os.environ['SECRET_KEY'] qo'shing).
+SECRET_KEY = os.environ.get('SECRET_KEY', '')
+if not SECRET_KEY:
+    SECRET_KEY = 'django-insecure-v8^=)q#blulnj&#6rd(%##p+_#v7ka&(j6oy*66^$ylixp)$xc'
+    if not DEBUG:
+        import sys
+        print("OGOHLANTIRISH: SECRET_KEY env o'rnatilmagan — ommaviy zaxira kalit "
+              "ishlatilmoqda! WSGI faylida os.environ['SECRET_KEY'] = '...' qo'shing.",
+              file=sys.stderr)
 
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '127.0.0.1,localhost').split(',')
 

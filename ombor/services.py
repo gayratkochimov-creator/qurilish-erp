@@ -69,15 +69,24 @@ def unpost_receipt(receipt: Receipt):
         raise ValidationError("Bu prixod qayd qilinmagan.")
     # Qaytarish ombordagi qoldiqni MINUSGA tushirmasin: kirim allaqachon
     # rasxod bilan ishlatilgan bo'lsa — avval o'sha rasxod qaydi bekor qilinsin.
+    # Bir xil material bir necha qatorda bo'lishi mumkin — material bo'yicha
+    # YIG'IB tekshiramiz (qator-qator tekshirish minusni o'tkazib yuborardi);
+    # qiymat (total_value) ham minusga tushmasin — o'rtacha narx buzilmasin.
+    jami = {}
     for mv in StockMovement.objects.filter(doc_type="receipt", doc_id=receipt.id):
+        k = (mv.warehouse_id, mv.material_id)
+        q, v, nom = jami.get(k, (Decimal("0"), Decimal("0"), ""))
+        jami[k] = (q + mv.quantity, v + mv.total_cost, mv.material.name)
+    for (wh_id, mat_id), (q, v, nom) in jami.items():
         bal = StockBalance.objects.filter(
-            warehouse_id=mv.warehouse_id, material_id=mv.material_id
+            warehouse_id=wh_id, material_id=mat_id
         ).first()
-        joriy = bal.quantity if bal else Decimal("0")
-        if joriy - mv.quantity < 0:
+        joriy_q = bal.quantity if bal else Decimal("0")
+        joriy_v = bal.total_value if bal else Decimal("0")
+        if joriy_q - q < 0 or joriy_v - v < Decimal("-0.05"):
             raise ValidationError(
-                f"Qaydni bekor qilib bo'lmaydi: «{mv.material.name}» qoldig'i "
-                f"{joriy} — bu kirim ({mv.quantity}) allaqachon rasxodda ishlatilgan. "
+                f"Qaydni bekor qilib bo'lmaydi: «{nom}» qoldig'i "
+                f"{joriy_q} — bu kirim ({q}) allaqachon rasxodda ishlatilgan. "
                 "Avval tegishli rasxod qaydini bekor qiling."
             )
     _reverse_movements("receipt", receipt.id)

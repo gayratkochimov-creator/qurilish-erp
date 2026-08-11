@@ -1176,7 +1176,8 @@ def _qayt_kod_tekshir(request, tur, pk, kod):
     if d.get("urin", 0) >= 3:
         request.session.pop("qayt_kod", None)
         return None, "3 marta xato kiritildi — qaytadan boshlang."
-    if kod != d.get("kod"):
+    import secrets as _sec
+    if not _sec.compare_digest(kod, d.get("kod", "")):
         d["urin"] = d.get("urin", 0) + 1
         request.session["qayt_kod"] = d
         return None, "Kod noto'g'ri — Telegramdagi kodni tekshirib qayta kiriting."
@@ -1451,7 +1452,7 @@ def limit_request_action(request, pk):
                         (req.status == S.SNAB and is_snab(request.user)) or \
                         (req.status == S.PTO2 and is_pto(request.user))
             it = req.proposed_items.filter(id=request.POST.get("item_id")).first()
-            if req.status not in (S.DIR, S.ADM):
+            if req.status not in (S.SNAB, S.PTO2, S.DIR, S.ADM):
                 messages.error(request, "Bu so'rov allaqachon ko'rib chiqilgan.")
             elif not _stage_ok:
                 messages.error(request, "Bu so'rov sizning bosqichingizda emas.")
@@ -2576,6 +2577,9 @@ def grafik_web(request, pk):
     if request.method == "POST":
         if not can_edit:
             raise PermissionDenied("Grafikni faqat PTO tahrirlaydi.")
+        # Jadval WYSIWYG: sarlavha sanalari tanlangan boshlanishga qarab jonli
+        # yangilanadi — foydalanuvchi qaysi ustunda nimani ko'rsa, shu saqlanadi
+        eski_qatorlar = list(p.grafik_rows.all())
         gs = (request.POST.get("grafik_start") or "").strip()
         ge = (request.POST.get("grafik_end") or "").strip()
         try:
@@ -2587,7 +2591,8 @@ def grafik_web(request, pk):
         except ValueError:
             p.grafik_end = None
         p.save(update_fields=["grafik_start", "grafik_end"])
-        N = _grafik_kunlar(p.grafik_start or p.start_date or bugun, bugun, p.grafik_end)
+        yangi_start = p.grafik_start or p.start_date or bugun
+        N = _grafik_kunlar(yangi_start, bugun, p.grafik_end)
 
         names = request.POST.getlist("name")
         units = request.POST.getlist("unit")
@@ -2595,21 +2600,36 @@ def grafik_web(request, pk):
         plans = request.POST.getlist("plan")
         resps = request.POST.getlist("responsible")
         notes = request.POST.getlist("note")
-        daycols = [request.POST.getlist(f"d{j}") for j in range(N)]
+        # Forma nechta kun ustunini yuborgan bo'lsa — shunchasini o'qiymiz
+        form_n = 0
+        while f"d{form_n}" in request.POST and form_n < 400:
+            form_n += 1
+        daycols = [request.POST.getlist(f"d{j}") for j in range(form_n)]
 
+        CAP = 84
         new_rows = []
         t = 0
         for i in range(len(names)):
             nm = (names[i] or "").strip()
             days = {}
-            for j in range(N):
+            for j in range(form_n):
                 col = daycols[j]
                 v = (col[i] if i < len(col) else "").strip()
                 if v:
                     d = _to_dec(v)
                     # 0 ham SAQLANADI — «ish bo'lmagan kun» (qizil) shu bilan belgilanadi
-                    if d is not None:
+                    if d is not None and 0 <= j < CAP:
                         days[str(j)] = float(d)
+            # Formada KO'RINMAGAN (oyna qisqarganda tashqarida qolgan) eski kunlar
+            # YO'QOLMASIN: o'sha o'rindagi eski qator nomi mos kelsa — saqlab qolamiz
+            if i < len(eski_qatorlar) and (eski_qatorlar[i].name or "").strip() == nm:
+                for k, v in (eski_qatorlar[i].days or {}).items():
+                    try:
+                        ki = int(k)
+                    except (TypeError, ValueError):
+                        continue
+                    if ki >= form_n and 0 <= ki < CAP and str(ki) not in days:
+                        days[str(ki)] = v
             qv = _to_dec(qtys[i] if i < len(qtys) else "0") or Decimal("0")
             pv = _to_dec(plans[i] if i < len(plans) else "0") or Decimal("0")
             if not nm and not days and qv == 0:
@@ -2652,11 +2672,15 @@ def grafik_web(request, pk):
     day_headers = [dd["label"] for dd in days]
     eski_kun = sum(1 for dd in days if dd["is_past"])
     grows = []
+    def _kun_str(v):
+        # «%g» katta sonlarni 1.23e+06 ko'rinishida buzardi — aniq format
+        s = f"{float(v):.3f}".rstrip("0").rstrip(".")
+        return s or "0"
     for r in p.grafik_rows.all():
         kunlar = []
         for j in range(N):
             v = r.days.get(str(j))
-            kunlar.append("" if v is None else ("%g" % v))
+            kunlar.append("" if v is None else _kun_str(v))
         grows.append({"r": r, "days": kunlar})
     return render(request, "projects/grafik_web.html", {
         "p": p, "grows": grows, "N_range": list(range(N)), "day_headers": day_headers,
