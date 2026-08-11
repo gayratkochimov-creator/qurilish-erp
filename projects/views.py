@@ -2598,6 +2598,8 @@ def grafik_web(request, pk):
         units = request.POST.getlist("unit")
         qtys = request.POST.getlist("qty")
         plans = request.POST.getlist("plan")
+        m_boshlar = request.POST.getlist("muddat_boshi")
+        muddatlar = request.POST.getlist("muddat")
         resps = request.POST.getlist("responsible")
         notes = request.POST.getlist("note")
         # Forma nechta kun ustunini yuborgan bo'lsa — shunchasini o'qiymiz
@@ -2634,11 +2636,22 @@ def grafik_web(request, pk):
             pv = _to_dec(plans[i] if i < len(plans) else "0") or Decimal("0")
             if not nm and not days and qv == 0:
                 continue
+            mb = None
+            try:
+                mb_s = (m_boshlar[i] if i < len(m_boshlar) else "").strip()
+                mb = datetime.date.fromisoformat(mb_s) if mb_s else None
+            except ValueError:
+                mb = None
+            try:
+                md = int(muddatlar[i]) if i < len(muddatlar) and muddatlar[i].strip() else 0
+            except ValueError:
+                md = 0
             t += 1
             new_rows.append(GrafikRow(
                 project=p, tartib=t, name=nm[:500],
                 unit=(units[i] if i < len(units) else "").strip()[:32],
                 qty=qv, plan=pv,
+                muddat_boshi=mb, muddat=max(0, min(md, 366)),
                 responsible=(resps[i] if i < len(resps) else "").strip()[:255],
                 note=(notes[i] if i < len(notes) else "").strip()[:500],
                 days=days,

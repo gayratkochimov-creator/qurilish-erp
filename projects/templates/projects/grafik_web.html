@@ -44,6 +44,9 @@
   table.g td.resp { min-width:250px; }
   table.g input.respinp { text-align:left; width:100%; min-width:230px; white-space:nowrap; }
   table.g td.d { min-width:54px; } table.g td.d input { text-align:right; }
+  /* SROK (muddat) kunlari — OCH KO'K; qiymat ranglari (qizil/sariq/yashil) ustun turadi */
+  table.g td.d.srok, table.g tbody tr:hover td.d.srok { background:#d7e9fb; }
+  table.g input.mbinp { width:130px; font-size:12px; padding:6px 6px; }
   /* Namunadagi ranglar: 0 -> qizil, plandan kam -> sariq, plan bajarilgan -> yashil */
   table.g td.d.c-qizil, table.g tbody tr:hover td.d.c-qizil { background:#ff0000 !important; }
   table.g td.d.c-qizil input { color:#fff; font-weight:700; }
@@ -95,12 +98,12 @@
       <table class="g">
         <thead>
           <tr class="wkrow">
-            <th colspan="6" class="wkspace"></th>
+            <th colspan="8" class="wkspace"></th>
             {% for wg in week_groups %}<th class="wkgrp" colspan="{{ wg.span }}" data-week="{{ wg.week }}" data-past="{% if wg.all_past %}1{% else %}0{% endif %}" title="Bosib yig'ish / ochish">{{ wg.week|add:1 }}-hafta <span class="arr">▾</span><br><small>{{ wg.label }}</small></th>{% endfor %}
             <th colspan="4" class="wkspace"></th>
           </tr>
           <tr>
-            <th>№</th><th class="nm">наименование</th><th>ед.изм</th><th>кол-во</th><th>кун<br>план</th><th>бажарилган<br>иш фоизи</th>
+            <th>№</th><th class="nm">наименование</th><th>ед.изм</th><th>кол-во</th><th>кун<br>план</th><th>иш<br>бошланиши</th><th>муддат<br>(кун)</th><th>бажарилган<br>иш фоизи</th>
             {% for d in days %}<th class="dhead{% if d.is_past %} past-col{% endif %}" data-i="{{ d.i }}">{{ d.label }}</th>{% endfor %}
             <th>Қолдиқ<br>иш</th><th>маъсул<br>шахс</th><th>иш прагнози</th><th></th>
           </tr>
@@ -113,6 +116,8 @@
             <td><input type="text" name="unit" value="{{ g.r.unit }}" {% if not can_edit %}readonly{% endif %}></td>
             <td class="num"><input type="text" inputmode="decimal" class="numinp" name="qty" value="{{ g.r.qty|floatformat:'-3' }}" {% if not can_edit %}readonly{% endif %}></td>
             <td class="num"><input type="text" inputmode="decimal" class="numinp" name="plan" value="{{ g.r.plan|floatformat:'-3' }}" {% if not can_edit %}readonly{% endif %}></td>
+            <td><input type="date" name="muddat_boshi" class="mbinp" value="{{ g.r.muddat_boshi|date:'Y-m-d' }}" {% if not can_edit %}disabled{% endif %} title="Bo'sh qolsa — grafik boshidan"></td>
+            <td class="num"><input type="text" inputmode="numeric" class="numinp" name="muddat" value="{% if g.r.muddat %}{{ g.r.muddat }}{% endif %}" placeholder="kun" {% if not can_edit %}readonly{% endif %} title="Masalan 7 — shu ishning srok kunlari och ko'k bo'ladi"></td>
             <td class="foiz">0%</td>
             {% for dv in g.days %}<td class="d" data-i="{{ forloop.counter0 }}"><input type="text" inputmode="decimal" class="numinp" name="d{{ forloop.counter0 }}" value="{{ dv }}" {% if not can_edit %}readonly{% endif %}></td>{% endfor %}
             <td class="qoldiq">0</td>
@@ -139,6 +144,8 @@
         <td><input type="text" name="unit"></td>
         <td class="num"><input type="text" inputmode="decimal" class="numinp" name="qty"></td>
         <td class="num"><input type="text" inputmode="decimal" class="numinp" name="plan"></td>
+        <td><input type="date" name="muddat_boshi" class="mbinp" title="Bo'sh qolsa — grafik boshidan"></td>
+        <td class="num"><input type="text" inputmode="numeric" class="numinp" name="muddat" placeholder="kun"></td>
         <td class="foiz">0%</td>
         {% for j in N_range %}<td class="d" data-i="{{ j }}"><input type="text" inputmode="decimal" class="numinp" name="d{{ j }}"></td>{% endfor %}
         <td class="qoldiq">0</td>
@@ -229,6 +236,22 @@
       else if(plan>0 && v<plan) td.classList.add('c-sariq');
       else td.classList.add('c-yashil');
     });
+    // SROK (muddat) kunlari — och ko'k belgi
+    tr.querySelectorAll('td.d.srok').forEach(function(td){ td.classList.remove('srok'); });
+    var mdEl=tr.querySelector('[name=muddat]');
+    var md=parseInt(mdEl && mdEl.value)||0;
+    var gsEl=document.getElementById('gstart');
+    if(md>0 && gsEl && gsEl.value){
+      var boshi=0;
+      var mbEl=tr.querySelector('[name=muddat_boshi]');
+      if(mbEl && mbEl.value){
+        boshi=Math.round((new Date(mbEl.value)-new Date(gsEl.value))/86400000);
+      }
+      tr.querySelectorAll('td.d[data-i]').forEach(function(td){
+        var i=+td.dataset.i;
+        if(i>=boshi && i<boshi+md) td.classList.add('srok');
+      });
+    }
   }
   function renumber(){ var i=1; tbody.querySelectorAll('tr').forEach(function(tr){ tr.querySelector('.no').textContent=i++; }); var c=document.getElementById('cnt'); if(c) c.textContent=tbody.children.length+' qator'; }
   function calcAll(){ tbody.querySelectorAll('tr').forEach(calc); }
@@ -245,7 +268,13 @@
   if(addBtn) addBtn.addEventListener('click', function(){ tbody.appendChild(tpl.content.cloneNode(true)); markRowPast(); renumber(); autosizeAll(); });
   tbody.addEventListener('click', function(e){ if(e.target.classList.contains('del')){ e.target.closest('tr').remove(); renumber(); } });
   tbody.addEventListener('input', function(e){ autosize(e.target); var tr=e.target.closest('tr'); if(tr) calc(tr); });
-  var gs=document.getElementById('gstart'); if(gs){ gs.addEventListener('change', updateDates); gs.addEventListener('input', updateDates); }
+  // Sana (date) maydonlari 'change' beradi — muddat/srok qayta hisoblansin
+  tbody.addEventListener('change', function(e){ var tr=e.target.closest('tr'); if(tr) calc(tr); });
+  var gs=document.getElementById('gstart');
+  if(gs){
+    function gsYangi(){ updateDates(); calcAll(); }
+    gs.addEventListener('change', gsYangi); gs.addEventListener('input', gsYangi);
+  }
   // boshlang'ich: kamida bitta qator
   if(tbody.children.length===0 && addBtn){ for(var k=0;k<8;k++){ tbody.appendChild(tpl.content.cloneNode(true)); markRowPast(tbody.lastElementChild); } }
   renumber(); calcAll(); updateDates(); autosizeAll();

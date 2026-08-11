@@ -401,6 +401,10 @@ class GrafikRow(models.Model):
     unit = models.CharField("Ед.изм", max_length=32, blank=True)
     qty = models.DecimalField("Кол-во", max_digits=18, decimal_places=3, default=0)
     plan = models.DecimalField("Кун план", max_digits=18, decimal_places=3, default=0)
+    # Ish muddati: boshlanish sanasi (bo'sh = grafik boshi) + necha kun.
+    # Shu davr kataklari jadvalda och ko'k rangda belgilanadi.
+    muddat_boshi = models.DateField("Ish boshlanishi", null=True, blank=True)
+    muddat = models.PositiveIntegerField("Muddat (kun)", default=0)
     responsible = models.CharField("Маъсул шахс", max_length=255, blank=True)
     note = models.CharField("Иш прагнози / izoh", max_length=500, blank=True)
     days = models.JSONField("Kunlik bajarilgan", default=dict, blank=True)
