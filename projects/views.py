@@ -1139,20 +1139,61 @@ def limit_items_edit(request, pk):
     return redirect("project_detail", pk=pk)
 
 
+def _qayt_kod_yubor(request, tur, pk, obj_nomi, sabab):
+    """PTOga qaytarish uchun 6 xonali tasdiqlash kodini Telegramga yuboradi.
+    Kod sessiyada saqlanadi (10 daqiqa, 3 urinish)."""
+    import secrets
+    import time
+    kod = "".join(str(secrets.randbelow(10)) for _ in range(6))
+    request.session["qayt_kod"] = {"kod": kod, "tur": tur, "pk": pk,
+                                   "sabab": sabab, "ts": time.time(), "urin": 0}
+    from .auth2fa import admin_chatlar, tg_send
+    prof = getattr(request.user, "profile", None)
+    chat = (getattr(prof, "telegram_chat_id", "") or "") if prof else ""
+    chats = [chat] if chat else list(admin_chatlar())
+    matn = (f"🔐 Tasdiqlash kodi: {kod}\n"
+            f"{obj_nomi} — {tur}ni PTOga qaytarish.\n"
+            f"So'radi: {request.user.username}. Kod 10 daqiqa amal qiladi.")
+    yubordi = False
+    for c in chats:
+        try:
+            if tg_send(c, matn):
+                yubordi = True
+        except Exception:
+            pass
+    return yubordi
+
+
+def _qayt_kod_tekshir(request, tur, pk, kod):
+    """Sessiyadagi kod bilan solishtiradi. (sabab, xato) qaytaradi."""
+    import time
+    d = request.session.get("qayt_kod") or {}
+    if d.get("tur") != tur or d.get("pk") != pk:
+        return None, "Kod so'ralmagan — jarayonni qaytadan boshlang."
+    if time.time() - d.get("ts", 0) > 600:
+        request.session.pop("qayt_kod", None)
+        return None, "Kod muddati o'tdi (10 daqiqa) — qaytadan boshlang."
+    if d.get("urin", 0) >= 3:
+        request.session.pop("qayt_kod", None)
+        return None, "3 marta xato kiritildi — qaytadan boshlang."
+    if kod != d.get("kod"):
+        d["urin"] = d.get("urin", 0) + 1
+        request.session["qayt_kod"] = d
+        return None, "Kod noto'g'ri — Telegramdagi kodni tekshirib qayta kiriting."
+    sabab = d.get("sabab", "")
+    request.session.pop("qayt_kod", None)
+    return sabab, ""
+
+
 @login_required
 def limit_return_pto(request, pk):
-    """ADMIN tasdiqlangan limitni PTOga QAYTARADI (kamchilik topilganda):
-    joriy limit tarkibidan «PTO xulosasi» bosqichida yangi so'rov ochiladi —
-    PTO tahrirlab, direktor -> admin zanjiri bo'ylab qayta yuboradi.
-    Amaldagi limit qaytarish paytida o'zgarmaydi (yangi tasdiqqacha)."""
+    """ADMIN tasdiqlangan limitni PTOga QAYTARADI (kamchilik topilganda) —
+    Telegram tasdiqlash KODI bilan. Joriy limit tarkibidan «PTO xulosasi»
+    bosqichida yangi so'rov ochiladi; amaldagi limit yangi tasdiqqacha o'zgarmaydi."""
     p = _firma_yoki_403(request, get_object_or_404(Project, pk=pk))
     if not is_admin(request.user):
         raise PermissionDenied("Limitni faqat admin qaytaradi.")
     if request.method != "POST":
-        return redirect("project_detail", pk=pk)
-    sabab = (request.POST.get("sabab") or "").strip()
-    if not sabab:
-        messages.error(request, "Qaytarish sababini (kamchilikni) yozing.")
         return redirect("project_detail", pk=pk)
     if p.limit_requests.filter(status__in=LIM_JARAYON).exists():
         messages.error(request, "Bu obyektda tasdiq kutilayotgan so'rov bor — avval uni yakunlang.")
@@ -1161,6 +1202,38 @@ def limit_return_pto(request, pk):
     if not items:
         messages.error(request, "Limit tarkibi bo'sh — qaytaradigan narsa yo'q.")
         return redirect("project_detail", pk=pk)
+
+    kod = (request.POST.get("kod") or "").strip()
+    if not kod:
+        # 1-bosqich: sabab keldi -> kod yuborib, tasdiqlash sahifasini ochamiz
+        sabab = (request.POST.get("sabab") or "").strip()
+        if not sabab:
+            messages.error(request, "Qaytarish sababini (kamchilikni) yozing.")
+            return redirect("project_detail", pk=pk)
+        if not _qayt_kod_yubor(request, "limit", pk, f"{p.code} — {p.name}", sabab):
+            messages.error(request, "Telegramga kod yuborib bo'lmadi — bot bog'lanishini tekshiring.")
+            return redirect("project_detail", pk=pk)
+        return render(request, "projects/qaytarish_kod.html", {
+            "sarlavha": "Umumiy limitni PTOga qaytarish",
+            "obj_nomi": f"{p.code} — {p.name}", "sabab": sabab,
+            "action_url": reverse("limit_return_pto", args=[pk]),
+            "bekor_url": reverse("project_detail", args=[pk]),
+            "bosqich": "kod",
+        })
+
+    # 2-bosqich: kod tekshiriladi
+    sabab, xato = _qayt_kod_tekshir(request, "limit", pk, kod)
+    if xato:
+        messages.error(request, xato)
+        if "qaytadan" in xato:
+            return redirect("project_detail", pk=pk)
+        return render(request, "projects/qaytarish_kod.html", {
+            "sarlavha": "Umumiy limitni PTOga qaytarish",
+            "obj_nomi": f"{p.code} — {p.name}", "sabab": request.POST.get("sabab", ""),
+            "action_url": reverse("limit_return_pto", args=[pk]),
+            "bekor_url": reverse("project_detail", args=[pk]),
+            "bosqich": "kod",
+        })
     with transaction.atomic():
         req = LimitChangeRequest.objects.create(
             project=p,
@@ -1180,6 +1253,68 @@ def limit_return_pto(request, pk):
     messages.success(request,
         "Limit PTOga qaytarildi — PTO «Tasdiqlar»da tahrirlab, direktorga qayta yuboradi.")
     return redirect("project_detail", pk=pk)
+
+
+@login_required
+def weekly_return_pto(request, pk):
+    """ADMIN tasdiqlangan HAFTALIK so'rovni PTOga qaytaradi — xuddi limit kabi:
+    sabab + Telegram tasdiqlash kodi. So'rov qoralamaga qaytadi, limit tiklanadi."""
+    req = get_object_or_404(WeeklyRequest.objects.select_related("project"), pk=pk)
+    p = _firma_yoki_403(request, req.project)
+    if not is_admin(request.user):
+        raise PermissionDenied("Haftalikni faqat admin qaytaradi.")
+    if req.status != WeeklyRequest.Status.APPROVED:
+        messages.error(request, "Faqat tasdiqlangan haftalik so'rov qaytariladi.")
+        return redirect("project_detail", pk=p.pk)
+    nomi = f"{p.code} — {req.week_start:%d.%m.%Y} haftalik"
+
+    if request.method != "POST":
+        return render(request, "projects/qaytarish_kod.html", {
+            "sarlavha": "Haftalik so'rovni PTOga qaytarish",
+            "obj_nomi": nomi, "sabab": "",
+            "action_url": reverse("weekly_return_pto", args=[pk]),
+            "bekor_url": reverse("project_detail", args=[p.pk]),
+            "bosqich": "sabab",
+        })
+
+    kod = (request.POST.get("kod") or "").strip()
+    if not kod:
+        sabab = (request.POST.get("sabab") or "").strip()
+        if not sabab:
+            messages.error(request, "Qaytarish sababini (kamchilikni) yozing.")
+            return redirect("weekly_return_pto", pk=pk)
+        if not _qayt_kod_yubor(request, "haftalik", pk, nomi, sabab):
+            messages.error(request, "Telegramga kod yuborib bo'lmadi — bot bog'lanishini tekshiring.")
+            return redirect("project_detail", pk=p.pk)
+        return render(request, "projects/qaytarish_kod.html", {
+            "sarlavha": "Haftalik so'rovni PTOga qaytarish",
+            "obj_nomi": nomi, "sabab": sabab,
+            "action_url": reverse("weekly_return_pto", args=[pk]),
+            "bekor_url": reverse("project_detail", args=[p.pk]),
+            "bosqich": "kod",
+        })
+
+    sabab, xato = _qayt_kod_tekshir(request, "haftalik", pk, kod)
+    if xato:
+        messages.error(request, xato)
+        if "qaytadan" in xato:
+            return redirect("project_detail", pk=p.pk)
+        return render(request, "projects/qaytarish_kod.html", {
+            "sarlavha": "Haftalik so'rovni PTOga qaytarish",
+            "obj_nomi": nomi, "sabab": request.POST.get("sabab", ""),
+            "action_url": reverse("weekly_return_pto", args=[pk]),
+            "bekor_url": reverse("project_detail", args=[p.pk]),
+            "bosqich": "kod",
+        })
+    req.status = WeeklyRequest.Status.DRAFT
+    req.approved_by = None
+    req.approved_at = None
+    req.reject_note = (f"ADMIN QAYTARDI (kamchilik): {sabab}")[:500]
+    req.pto_notified = True
+    req.save(update_fields=["status", "approved_by", "approved_at", "reject_note", "pto_notified"])
+    messages.success(request,
+        "Haftalik so'rov PTOga qaytarildi (qoralama) — limit tiklandi, PTO tahrirlab qayta yuboradi.")
+    return redirect("project_detail", pk=p.pk)
 
 
 def _tasdiqlar_data(status="dir", user=None):
@@ -1830,6 +1965,12 @@ def weekly_action(request, pk):
                 else:
                     messages.success(request, "So'rov tasdiqlandi — umumiy limitdan ayirildi.")
             else:
+                if req.status == WeeklyRequest.Status.APPROVED:
+                    # Tasdiqlanganini qaytarish — faqat KOD bilan (weekly_return_pto)
+                    messages.error(request,
+                        "Tasdiqlangan so'rov faqat tasdiqlash KODI bilan qaytariladi — "
+                        "«PTOga qaytarish» tugmasidan foydalaning.")
+                    return redirect("project_detail", pk=proj_id)
                 req.status = "draft"
                 req.approved_by = None
                 req.approved_at = None

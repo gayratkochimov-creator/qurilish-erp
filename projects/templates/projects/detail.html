@@ -763,7 +763,7 @@
                 {% endif %}
                 {% if s.is_approved %}
                   <a class="mini" href="{% url 'weekly_edit' s.obj.id %}">Tahrirlash</a>
-                  <form method="post" action="{% url 'weekly_action' s.obj.id %}"><input type="hidden" name="action" value="draft">{% csrf_token %}<button class="mini">Bekor qilish</button></form>
+                  <a class="mini" href="{% url 'weekly_return_pto' s.obj.id %}" style="color:#b45309; border-color:#fcd9b6;" title="Kamchilik topilsa — sabab + Telegram kodi bilan PTOga qaytariladi">↩ PTOga qaytarish</a>
                 {% endif %}
               {% endif %}
             </span>
