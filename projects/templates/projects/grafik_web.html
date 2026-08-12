@@ -88,6 +88,7 @@
         <a class="btn" href="{% url 'grafik_rabota_obj' p.id %}">Excel yuklab olish</a>
       </div>
       <div class="legend">
+        <span><span class="lg" style="background:#d7e9fb;"></span>Srok (muddat) kunlari — <b>2 marta bosib</b> belgini olib tashlash/qaytarish mumkin</span>
         <span><span class="lg" style="background:#00b050;"></span>Plan bajarildi</span>
         <span><span class="lg" style="background:#ffff00;"></span>Qisman bajarildi</span>
         <span><span class="lg" style="background:#ff0000;"></span>Ish bo'lmagan — <b>0 yozing</b></span>
@@ -117,7 +118,7 @@
             <td class="num"><input type="text" inputmode="decimal" class="numinp" name="qty" value="{{ g.r.qty|floatformat:'-3' }}" {% if not can_edit %}readonly{% endif %}></td>
             <td class="num"><input type="text" inputmode="decimal" class="numinp" name="plan" value="{{ g.r.plan|floatformat:'-3' }}" {% if not can_edit %}readonly{% endif %}></td>
             <td><input type="date" name="muddat_boshi" class="mbinp" value="{{ g.r.muddat_boshi|date:'Y-m-d' }}" {% if not can_edit %}disabled{% endif %} title="Bo'sh qolsa — grafik boshidan"></td>
-            <td class="num"><input type="text" inputmode="numeric" class="numinp" name="muddat" value="{% if g.r.muddat %}{{ g.r.muddat }}{% endif %}" placeholder="kun" {% if not can_edit %}readonly{% endif %} title="Masalan 7 — shu ishning srok kunlari och ko'k bo'ladi"></td>
+            <td class="num"><input type="text" inputmode="numeric" class="numinp" name="muddat" value="{% if g.r.muddat %}{{ g.r.muddat }}{% endif %}" placeholder="kun" {% if not can_edit %}readonly{% endif %} title="Masalan 7 — shu ishning srok kunlari och ko'k bo'ladi"><input type="hidden" name="srok_off" value="{{ g.r.srok_off|join:',' }}"></td>
             <td class="foiz">0%</td>
             {% for dv in g.days %}<td class="d" data-i="{{ forloop.counter0 }}"><input type="text" inputmode="decimal" class="numinp" name="d{{ forloop.counter0 }}" value="{{ dv }}" {% if not can_edit %}readonly{% endif %}></td>{% endfor %}
             <td class="qoldiq">0</td>
@@ -145,7 +146,7 @@
         <td class="num"><input type="text" inputmode="decimal" class="numinp" name="qty"></td>
         <td class="num"><input type="text" inputmode="decimal" class="numinp" name="plan"></td>
         <td><input type="date" name="muddat_boshi" class="mbinp" title="Bo'sh qolsa — grafik boshidan"></td>
-        <td class="num"><input type="text" inputmode="numeric" class="numinp" name="muddat" placeholder="kun"></td>
+        <td class="num"><input type="text" inputmode="numeric" class="numinp" name="muddat" placeholder="kun"><input type="hidden" name="srok_off" value=""></td>
         <td class="foiz">0%</td>
         {% for j in N_range %}<td class="d" data-i="{{ j }}"><input type="text" inputmode="decimal" class="numinp" name="d{{ j }}"></td>{% endfor %}
         <td class="qoldiq">0</td>
@@ -236,8 +237,9 @@
       else if(plan>0 && v<plan) td.classList.add('c-sariq');
       else td.classList.add('c-yashil');
     });
-    // SROK (muddat) kunlari — och ko'k belgi
+    // SROK (muddat) kunlari — och ko'k belgi; ISTISNO kunlar (srok_off) belgilanmaydi
     tr.querySelectorAll('td.d.srok').forEach(function(td){ td.classList.remove('srok'); });
+    tr._srokRange=null;
     var mdEl=tr.querySelector('[name=muddat]');
     var md=parseInt(mdEl && mdEl.value)||0;
     var gsEl=document.getElementById('gstart');
@@ -247,10 +249,14 @@
       if(mbEl && mbEl.value){
         boshi=Math.round((new Date(mbEl.value)-new Date(gsEl.value))/86400000);
       }
+      var offEl=tr.querySelector('[name=srok_off]');
+      var off={};
+      ((offEl && offEl.value) || '').split(',').forEach(function(s){ if(s!=='') off[+s]=1; });
       tr.querySelectorAll('td.d[data-i]').forEach(function(td){
         var i=+td.dataset.i;
-        if(i>=boshi && i<boshi+md) td.classList.add('srok');
+        if(i>=boshi && i<boshi+md && !off[i]) td.classList.add('srok');
       });
+      tr._srokRange=[boshi, boshi+md];
     }
   }
   function renumber(){ var i=1; tbody.querySelectorAll('tr').forEach(function(tr){ tr.querySelector('.no').textContent=i++; }); var c=document.getElementById('cnt'); if(c) c.textContent=tbody.children.length+' qator'; }
@@ -270,6 +276,20 @@
   tbody.addEventListener('input', function(e){ autosize(e.target); var tr=e.target.closest('tr'); if(tr) calc(tr); });
   // Sana (date) maydonlari 'change' beradi — muddat/srok qayta hisoblansin
   tbody.addEventListener('change', function(e){ var tr=e.target.closest('tr'); if(tr) calc(tr); });
+  // Srok ichidagi kunni IKKI MARTA bosish — och ko'k belgini olib tashlaydi/qaytaradi
+  // (masalan dam olish kuni srokka kirmasin)
+  if(addBtn) tbody.addEventListener('dblclick', function(e){
+    var td=e.target.closest('td.d[data-i]'); if(!td) return;
+    var tr=td.closest('tr'); var rng=tr._srokRange; if(!rng) return;
+    var i=+td.dataset.i;
+    if(i<rng[0] || i>=rng[1]) return;
+    var offEl=tr.querySelector('[name=srok_off]'); if(!offEl) return;
+    var list=(offEl.value||'').split(',').filter(function(s){ return s!==''; }).map(Number);
+    var idx=list.indexOf(i);
+    if(idx===-1) list.push(i); else list.splice(idx,1);
+    offEl.value=list.join(',');
+    calc(tr);
+  });
   var gs=document.getElementById('gstart');
   if(gs){
     function gsYangi(){ updateDates(); calcAll(); }

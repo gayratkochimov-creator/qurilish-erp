@@ -405,6 +405,8 @@ class GrafikRow(models.Model):
     # Shu davr kataklari jadvalda och ko'k rangda belgilanadi.
     muddat_boshi = models.DateField("Ish boshlanishi", null=True, blank=True)
     muddat = models.PositiveIntegerField("Muddat (kun)", default=0)
+    # Muddat ichida BELGILANMAYDIGAN kunlar (masalan dam olish) — ustun indekslari
+    srok_off = models.JSONField("Srokdan chiqarilgan kunlar", default=list, blank=True)
     responsible = models.CharField("Маъсул шахс", max_length=255, blank=True)
     note = models.CharField("Иш прагнози / izoh", max_length=500, blank=True)
     days = models.JSONField("Kunlik bajarilgan", default=dict, blank=True)
