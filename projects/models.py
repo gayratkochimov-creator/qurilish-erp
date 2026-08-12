@@ -407,6 +407,8 @@ class GrafikRow(models.Model):
     muddat = models.PositiveIntegerField("Muddat (kun)", default=0)
     # Muddat ichida BELGILANMAYDIGAN kunlar (masalan dam olish) — ustun indekslari
     srok_off = models.JSONField("Srokdan chiqarilgan kunlar", default=list, blank=True)
+    # Muddatdan TASHQARIDA qo'shimcha belgilangan kunlar (3 marta bosish bilan)
+    srok_on = models.JSONField("Qo'shimcha srok kunlari", default=list, blank=True)
     responsible = models.CharField("Маъсул шахс", max_length=255, blank=True)
     note = models.CharField("Иш прагнози / izoh", max_length=500, blank=True)
     days = models.JSONField("Kunlik bajarilgan", default=dict, blank=True)

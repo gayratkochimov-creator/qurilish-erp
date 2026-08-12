@@ -2601,6 +2601,7 @@ def grafik_web(request, pk):
         m_boshlar = request.POST.getlist("muddat_boshi")
         muddatlar = request.POST.getlist("muddat")
         srok_offs = request.POST.getlist("srok_off")
+        srok_ons = request.POST.getlist("srok_on")
         resps = request.POST.getlist("responsible")
         notes = request.POST.getlist("note")
         # Forma nechta kun ustunini yuborgan bo'lsa — shunchasini o'qiymiz
@@ -2647,18 +2648,23 @@ def grafik_web(request, pk):
                 md = int(muddatlar[i]) if i < len(muddatlar) and muddatlar[i].strip() else 0
             except ValueError:
                 md = 0
-            off = []
-            if i < len(srok_offs):
-                for tok in (srok_offs[i] or "").split(","):
-                    tok = tok.strip()
-                    if tok.isdigit() and 0 <= int(tok) < CAP:
-                        off.append(int(tok))
+            def _idx_list(qatorlar_ro):
+                nat = []
+                if i < len(qatorlar_ro):
+                    for tok in (qatorlar_ro[i] or "").split(","):
+                        tok = tok.strip()
+                        if tok.isdigit() and 0 <= int(tok) < CAP:
+                            nat.append(int(tok))
+                return nat
+            off = _idx_list(srok_offs)
+            qoshimcha = _idx_list(srok_ons)
             t += 1
             new_rows.append(GrafikRow(
                 project=p, tartib=t, name=nm[:500],
                 unit=(units[i] if i < len(units) else "").strip()[:32],
                 qty=qv, plan=pv,
-                muddat_boshi=mb, muddat=max(0, min(md, 366)), srok_off=off,
+                muddat_boshi=mb, muddat=max(0, min(md, 366)),
+                srok_off=off, srok_on=qoshimcha,
                 responsible=(resps[i] if i < len(resps) else "").strip()[:255],
                 note=(notes[i] if i < len(notes) else "").strip()[:500],
                 days=days,
