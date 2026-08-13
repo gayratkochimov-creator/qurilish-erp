@@ -2,7 +2,7 @@
 <div class="tcard">
   <div class="tmain">
     <div class="pname">{{ w.obj.project.code }} — {{ w.obj.project.name }}</div>
-    <div class="tmeta">{{ w.obj.week_start|date:"d.m.Y" }} — {{ w.obj.week_end|date:"d.m.Y" }}{% if w.obj.number %} · {{ w.obj.number }}{% endif %} · {{ w.soni }} qator · <a class="plink" href="{% url 'project_detail' w.obj.project_id %}">obyekt ichi</a><br>Kiritdi: <b>{{ w.obj.created_by.username|default:"—" }}</b> · {{ w.obj.created_at|date:"d.m.Y H:i" }}{% if w.obj.note %} · Izoh: {{ w.obj.note }}{% endif %}{% if stage == 'adm' and w.obj.director_by %}<br>✓ Direktor tasdiqladi: <b>{{ w.obj.director_by.username }}</b> · {{ w.obj.director_at|date:"d.m.Y H:i" }}{% endif %}</div>
+    <div class="tmeta">{{ w.obj.week_start|date:"d.m.Y" }} — {{ w.obj.week_end|date:"d.m.Y" }}{% if w.obj.number %} · {{ w.obj.number }}{% endif %} · {{ w.soni }} qator · <a class="plink" href="{% url 'project_detail' w.obj.project_id %}">obyekt ichi</a><br>Kiritdi: <b>{{ w.obj.created_by.username|default:"—" }}</b> · {{ w.obj.created_at|date:"d.m.Y H:i" }}{% if w.obj.note %} · Izoh: {{ w.obj.note }}{% endif %}{% if stage == 'adm' and w.obj.director_by %}<br>✓ Direktor tasdiqladi: <b>{{ w.obj.director_by.username }}</b> · {{ w.obj.director_at|date:"d.m.Y H:i" }}{% endif %}{% if w.obj.edited_by %}<br><span style="color:#b45309;">✎ Oxirgi tahrir: <b>{{ w.obj.edited_by.username }}</b> · {{ w.obj.edited_at|date:"d.m.Y H:i" }}</span>{% endif %}</div>
     {% if w.oshgan %}
     <div class="overwarn">
       <b>Limitdan oshadi</b>

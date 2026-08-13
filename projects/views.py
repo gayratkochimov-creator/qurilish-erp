@@ -1465,6 +1465,7 @@ def limit_request_action(request, pk):
                 messages.error(request, "Oxirgi qatorni o'chirib bo'lmaydi — o'rniga so'rovni «Rad etish» qiling.")
             else:
                 nom = it.name
+                from django.utils import timezone as _tz2
                 with transaction.atomic():
                     it.delete()
                     sums = {k: Decimal("0") for k in KINDS}
@@ -1474,7 +1475,10 @@ def limit_request_action(request, pk):
                     req.new_labor = sums["labor"]
                     req.new_machinery = sums["machinery"]
                     req.new_other = sums["other"]
-                    req.save(update_fields=["new_material", "new_labor", "new_machinery", "new_other"])
+                    req.edited_by = request.user
+                    req.edited_at = _tz2.now()
+                    req.save(update_fields=["new_material", "new_labor", "new_machinery",
+                                            "new_other", "edited_by", "edited_at"])
                 messages.info(request, f"«{nom}» qatori o'chirildi. Yangi umumiy: {_money(req.new_total)}.")
             return redirect(reverse("dashboard") + "?tab=tasdiqlar")
         from django.utils import timezone
@@ -1499,7 +1503,9 @@ def limit_request_action(request, pk):
                 messages.error(request, "Bu so'rov PTO xulosasi bosqichida emas.")
             else:
                 req.status = S.DIR
-                req.save(update_fields=["status"])
+                req.pto2_by = request.user
+                req.pto2_at = timezone.now()
+                req.save(update_fields=["status", "pto2_by", "pto2_at"])
                 messages.success(request, f"«{req.project.name}» — PTO xulosasi bilan direktor tasdig'iga yuborildi.")
             return redirect(reverse("dashboard") + "?tab=tasdiqlar")
         # DIREKTOR bosqichi: dir → adm (yoki rad)
@@ -1608,6 +1614,7 @@ def limit_request_edit(request, pk):
         if not items:
             messages.error(request, "Kamida bitta qator kiriting.")
             return redirect("limit_request_edit", pk=pk)
+        from django.utils import timezone as _tz
         with transaction.atomic():
             req.proposed_items.all().delete()
             LimitChangeItem.objects.bulk_create(items)
@@ -1615,7 +1622,10 @@ def limit_request_edit(request, pk):
             req.new_labor = sums["labor"]
             req.new_machinery = sums["machinery"]
             req.new_other = sums["other"]
-            req.save(update_fields=["new_material", "new_labor", "new_machinery", "new_other"])
+            req.edited_by = request.user
+            req.edited_at = _tz.now()
+            req.save(update_fields=["new_material", "new_labor", "new_machinery",
+                                    "new_other", "edited_by", "edited_at"])
         messages.success(
             request,
             f"So'rov tahrirlandi (yangi umumiy: {_money(req.new_total)}). "
@@ -1857,6 +1867,10 @@ def weekly_action(request, pk):
             else:
                 nom = it.name
                 it.delete()
+                from django.utils import timezone as _tz3
+                req.edited_by = request.user
+                req.edited_at = _tz3.now()
+                req.save(update_fields=["edited_by", "edited_at"])
                 messages.info(request, f"«{nom}» qatori so'rovdan o'chirildi.")
             if request.POST.get("next") == "tasdiqlar":
                 return redirect(reverse("dashboard") + "?tab=tasdiqlar")
@@ -2054,8 +2068,12 @@ def weekly_edit(request, pk):
         req.week_end = we
         req.number = (request.POST.get("number") or "").strip()
         req.note = (request.POST.get("note") or "").strip()
+        from django.utils import timezone as _tz
+        req.edited_by = request.user
+        req.edited_at = _tz.now()
         with transaction.atomic():
-            req.save(update_fields=["week_start", "week_end", "number", "note"])
+            req.save(update_fields=["week_start", "week_end", "number", "note",
+                                    "edited_by", "edited_at"])
             req.items.all().delete()
             WeeklyRequestItem.objects.bulk_create(new_items)
             if was_approved:
@@ -2868,6 +2886,9 @@ def weekly_export(request, pk):
     if w.approved_by_id:
         imzo.append(f"Admin: {w.approved_by.username}"
                     + (f" · {_lt(w.approved_at):%d.%m.%Y %H:%M}" if w.approved_at else ""))
+    if w.edited_by_id:
+        imzo.append(f"Oxirgi tahrir: {w.edited_by.username}"
+                    + (f" · {_lt(w.edited_at):%d.%m.%Y %H:%M}" if w.edited_at else ""))
     ws["A3"] = " | ".join(imzo) if imzo else ""
     ws["A3"].font = Font(size=10, color="64748B")
     ws.append([])

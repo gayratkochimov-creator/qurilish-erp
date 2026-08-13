@@ -190,6 +190,18 @@ class LimitChangeRequest(models.Model):
         related_name="limit_requests_snab", verbose_name="Snabjeniye ko'rdi",
     )
     snab_at = models.DateTimeField("Snabjeniye ko'rgan sana", null=True, blank=True)
+    # PTO XULOSASI bosqichini kim o'tkazgan (pto2 -> dir)
+    pto2_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="limit_requests_pto2", verbose_name="PTO xulosasini yubordi",
+    )
+    pto2_at = models.DateTimeField("PTO xulosasi sanasi", null=True, blank=True)
+    # So'rovni OXIRGI marta kim tahrirlagan (istalgan bosqichda)
+    edited_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="limit_requests_edited", verbose_name="Oxirgi tahrir",
+    )
+    edited_at = models.DateTimeField("Oxirgi tahrir sanasi", null=True, blank=True)
     director_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
         related_name="limit_requests_dir", verbose_name="Direktor tasdiqladi",
@@ -289,6 +301,12 @@ class WeeklyRequest(models.Model):
         related_name="weekly_director", verbose_name="Direktor tasdiqladi",
     )
     director_at = models.DateTimeField("Direktor tasdig'i sanasi", null=True, blank=True)
+    # So'rovni OXIRGI marta kim tahrirlagan (admin/PTO)
+    edited_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="weekly_edited", verbose_name="Oxirgi tahrir",
+    )
+    edited_at = models.DateTimeField("Oxirgi tahrir sanasi", null=True, blank=True)
     approved_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
         related_name="weekly_approved", verbose_name="Tasdiqladi (admin)",
