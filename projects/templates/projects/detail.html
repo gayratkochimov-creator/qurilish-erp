@@ -779,7 +779,7 @@
       <table>
         <thead>
           <tr>
-            <th>Turi</th><th>Nomi</th><th>Birlik</th>
+            <th>Turi</th><th>Nomi</th><th>Izoh (primechaniye)</th><th>Birlik</th>
             <th class="num">Miqdor</th><th class="num">Narxi</th><th class="num">Summa</th>
             <th style="width:104px;">Sana</th>
           </tr>
@@ -788,7 +788,8 @@
           {% for q in s.qatorlar %}
           <tr data-kind="{{ q.cls }}">
             <td><span class="kind k-{{ q.cls }}">{{ q.kind }}</span></td>
-            <td>{{ q.nomi }}{% if q.izoh %}<span class="itemnote">{{ q.izoh }}</span>{% endif %}</td>
+            <td>{{ q.nomi }}</td>
+            <td>{% if q.izoh %}<span class="itemnote" style="margin-top:0;">{{ q.izoh }}</span>{% else %}<span style="color:#cbd5e1;">—</span>{% endif %}</td>
             <td>{{ q.birlik }}</td>
             <td class="num">{{ q.miqdor }}</td>
             <td class="num">{{ q.narx_str }}</td>
@@ -799,7 +800,7 @@
         </tbody>
         <tfoot>
           <tr class="jami-row">
-            <td colspan="2">JAMI (bu so'rov)</td>
+            <td colspan="3">JAMI (bu so'rov)</td>
             <td colspan="3" class="split-lbl"><span class="dot mat"></span>{{ s.mat_str }} · <span class="dot lab"></span>{{ s.lab_str }} · <span class="dot mach"></span>{{ s.mach_str }}</td>
             <td class="num jami-val">{{ s.jami_str }}</td>
             <td></td>
