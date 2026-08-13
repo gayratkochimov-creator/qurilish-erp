@@ -107,6 +107,7 @@
     .bolim-head .bh-masul { margin-left: 14px; font-size: 12px; color: #475569; background: #fff; border: 1px solid var(--line); border-radius: 999px; padding: 3px 11px; }
     .bolim-head .bh-sum { float: right; font-size: 12.5px; color: #334155; font-variant-numeric: tabular-nums; }
     .bolimimp { background: #f6f8fb; }
+    .rowno { color: var(--mut); font-size: 12px; text-align: center; font-variant-numeric: tabular-nums; white-space: nowrap; }
     .catsum { transition: opacity .15s, box-shadow .15s; }
     .catsum.dim { opacity: .38; }
     .catsum.on { background: #fff !important; border-color: var(--brand) !important; box-shadow: 0 0 0 2px rgba(10,110,209,.18); }
@@ -319,10 +320,11 @@
         </div>
         {% include "projects/_limit_filter.html" %}
         <table class="addtable" style="padding:0 8px;">
-          <thead><tr><th style="width:130px;">Bo'lim</th><th style="width:100px;">Mas'ul</th><th style="width:130px;">Turi</th><th style="width:240px;">Nomi</th><th>Izoh (primechaniye)</th><th style="width:75px;">Birlik</th><th class="num" style="width:85px;">Miqdor</th><th class="num" style="width:105px;">Narxi</th><th class="num" style="width:115px;">Summa</th><th style="width:126px;">Sana (soat bilan)</th><th style="width:34px;"></th></tr></thead>
+          <thead><tr><th class="rowno" style="width:34px;">№</th><th style="width:130px;">Bo'lim</th><th style="width:100px;">Mas'ul</th><th style="width:130px;">Turi</th><th style="width:240px;">Nomi</th><th>Izoh (primechaniye)</th><th style="width:75px;">Birlik</th><th class="num" style="width:85px;">Miqdor</th><th class="num" style="width:105px;">Narxi</th><th class="num" style="width:115px;">Summa</th><th style="width:126px;">Sana (soat bilan)</th><th style="width:34px;"></th></tr></thead>
           <tbody id="lirows">
             {% for it in limit_items %}
             <tr>
+              <td class="rowno">{{ it.nr }}</td>
               <td><textarea name="item_bolim" class="bolimimp growa" rows="1" placeholder="bo'lim...">{{ it.bolim }}</textarea></td>
               <td><textarea name="item_masul" class="bolimimp growa" rows="1" placeholder="mas'ul...">{{ it.masul }}</textarea></td>
               <td><select name="kind">
@@ -349,8 +351,8 @@
             {% endfor %}
           </tbody>
           <tfoot>
-            <tr><td colspan="8" class="num">Toifa bo'yicha:</td><td class="num" id="li-cats" colspan="3" style="text-align:left; font-size:12px;">—</td></tr>
-            <tr><td colspan="8" class="num"><b>UMUMIY LIMIT:</b></td><td class="num rsum" colspan="3" style="text-align:left;"><b id="li-grand">0</b></td></tr>
+            <tr><td colspan="9" class="num">Toifa bo'yicha:</td><td class="num" id="li-cats" colspan="3" style="text-align:left; font-size:12px;">—</td></tr>
+            <tr><td colspan="9" class="num"><b>UMUMIY LIMIT:</b></td><td class="num rsum" colspan="3" style="text-align:left;"><b id="li-grand">0</b></td></tr>
           </tfoot>
         </table>
         <div style="padding:0 16px 14px;">
@@ -374,6 +376,7 @@
       {% endif %}
       <template id="li-rowtpl">
         <tr>
+          <td class="rowno"></td>
           <td><textarea name="item_bolim" class="bolimimp growa" rows="1" placeholder="bo'lim..."></textarea></td>
           <td><textarea name="item_masul" class="bolimimp growa" rows="1" placeholder="mas'ul..."></textarea></td>
           <td><select name="kind"><option value="material">Material</option><option value="labor">Ish haqi</option><option value="machinery">Mashina chasti</option><option value="other">Ko'zda tutilmagan</option></select></td>
@@ -435,10 +438,17 @@
           var n = (el.value || '').length;
           el.style.width = Math.min(Math.max(n + 4, mn), mx) + 'ch';
         }
+        function raqamla(){
+          var i=1;
+          tbody.querySelectorAll('tr').forEach(function(tr){
+            var c=tr.querySelector('.rowno'); if(c) c.textContent=i++;
+          });
+        }
         function hammaKengay(){
           tbody.querySelectorAll('textarea.growa').forEach(kengay);
           tbody.querySelectorAll('input.txtgrow').forEach(function(el){ enKengay(el, 16, 44); });
           tbody.querySelectorAll('input.numgrow').forEach(function(el){ enKengay(el, 9, 20); });
+          raqamla();
         }
         tbody.addEventListener('input', function(e){
           if(e.target.matches('textarea.growa')) kengay(e.target);
@@ -466,27 +476,27 @@
       {% else %}
       {% include "projects/_limit_filter.html" %}
       <table>
-        <thead><tr><th>Turi</th><th>Nomi</th><th>Birlik</th><th class="num">Miqdor</th><th class="num">Narxi</th><th class="num">Summa</th><th style="width:130px;">Sana (soat bilan)</th></tr></thead>
+        <thead><tr><th class="rowno" style="width:36px;">№</th><th>Turi</th><th>Nomi</th><th>Birlik</th><th class="num">Miqdor</th><th class="num">Narxi</th><th class="num">Summa</th><th style="width:130px;">Sana (soat bilan)</th></tr></thead>
         <tbody>
           {% for g in limit_groups %}
           {% if bolim_bor %}
-          <tr class="bolim-head"><td colspan="7">
+          <tr class="bolim-head"><td colspan="8">
             <span class="bh-nom">{{ g.bolim|default:"Bo'limsiz qatorlar" }}</span>
             {% if g.masul %}<span class="bh-masul">Mas'ul: <b>{{ g.masul }}</b></span>{% endif %}
             <span class="bh-sum">Bo'lim jami: <b>{{ g.sum_str }}</b></span>
           </td></tr>
           {% endif %}
           {% for it in g.items %}
-          <tr data-lkind="{{ it.kind }}" data-lname="{{ it.name|lower }}"><td><span class="kind k-{{ it.cls }}">{{ it.kind_disp }}</span></td><td>{{ it.name }}{% if it.note %}<span class="itemnote">{{ it.note }}</span>{% endif %}</td><td>{{ it.unit }}</td><td class="num">{{ it.qty_str }}</td><td class="num">{{ it.price_str }}</td><td class="num">{{ it.sum_str }}</td><td class="lidate">{% if it.ozgargan %}<span class="d-chg" title="Qo'shilgan: {{ it.qoshilgan|date:'d.m.Y H:i' }}">o'zg. {{ it.ozgartirilgan|date:"d.m.Y H:i" }}</span>{% elif it.qoshilgan %}<span class="d-new">{{ it.qoshilgan|date:"d.m.Y H:i" }}</span>{% else %}—{% endif %}</td></tr>
+          <tr data-lkind="{{ it.kind }}" data-lname="{{ it.name|lower }}"><td class="rowno">{{ it.nr }}</td><td><span class="kind k-{{ it.cls }}">{{ it.kind_disp }}</span></td><td>{{ it.name }}{% if it.note %}<span class="itemnote">{{ it.note }}</span>{% endif %}</td><td>{{ it.unit }}</td><td class="num">{{ it.qty_str }}</td><td class="num">{{ it.price_str }}</td><td class="num">{{ it.sum_str }}</td><td class="lidate">{% if it.ozgargan %}<span class="d-chg" title="Qo'shilgan: {{ it.qoshilgan|date:'d.m.Y H:i' }}">o'zg. {{ it.ozgartirilgan|date:"d.m.Y H:i" }}</span>{% elif it.qoshilgan %}<span class="d-new">{{ it.qoshilgan|date:"d.m.Y H:i" }}</span>{% else %}—{% endif %}</td></tr>
           {% endfor %}
           {% empty %}
-          <tr><td colspan="7" style="text-align:center; color:#9ca3af; padding:20px;">Limit tarkibi hali kiritilmagan.</td></tr>
+          <tr><td colspan="8" style="text-align:center; color:#9ca3af; padding:20px;">Limit tarkibi hali kiritilmagan.</td></tr>
           {% endfor %}
         </tbody>
         {% if has_items %}
         <tfoot>
           <tr>
-            <td colspan="7" style="border-top:2px solid var(--line); padding:11px 14px;">
+            <td colspan="8" style="border-top:2px solid var(--line); padding:11px 14px;">
               <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
                 {% for c in li_cat_sums %}
                 <span class="catsum" data-lfsum="{{ c.kind }}" style="display:inline-flex; align-items:center; gap:6px; background:#f8fafc; border:1px solid var(--line); border-radius:999px; padding:5px 13px; font-size:12.5px; font-variant-numeric:tabular-nums;">
@@ -535,11 +545,11 @@
             <label style="flex:1; min-width:220px;">Izoh<input type="text" name="note" placeholder="izoh (ixtiyoriy)"></label>
           </div>
           <table class="addtable" style="padding:0 8px;">
-            <thead><tr><th style="width:140px;">Turi</th><th style="width:260px;">Nomi</th><th>Izoh (primechaniye)</th><th style="width:80px;">Birlik</th><th class="num" style="width:90px;">Miqdor</th><th class="num" style="width:110px;">Narxi</th><th class="num" style="width:120px;">Summa</th><th style="width:104px;">Sana</th><th style="width:34px;"></th></tr></thead>
+            <thead><tr><th class="rowno" style="width:34px;">№</th><th style="width:140px;">Turi</th><th style="width:260px;">Nomi</th><th>Izoh (primechaniye)</th><th style="width:80px;">Birlik</th><th class="num" style="width:90px;">Miqdor</th><th class="num" style="width:110px;">Narxi</th><th class="num" style="width:120px;">Summa</th><th style="width:104px;">Sana</th><th style="width:34px;"></th></tr></thead>
             <tbody id="wkrows"></tbody>
             <tfoot>
-              <tr><td colspan="6" class="num">Toifa bo'yicha:</td><td class="num" id="wk-cats" colspan="3" style="text-align:left; font-size:12px;">—</td></tr>
-              <tr><td colspan="6" class="num"><b>JAMI:</b></td><td class="num rsum" colspan="3" style="text-align:left;"><b id="wk-grand">0</b></td></tr>
+              <tr><td colspan="7" class="num">Toifa bo'yicha:</td><td class="num" id="wk-cats" colspan="3" style="text-align:left; font-size:12px;">—</td></tr>
+              <tr><td colspan="7" class="num"><b>JAMI:</b></td><td class="num rsum" colspan="3" style="text-align:left;"><b id="wk-grand">0</b></td></tr>
             </tfoot>
           </table>
           {% if limit_set %}
@@ -562,6 +572,7 @@
         </div>{# /wkBody #}
         <template id="wk-rowtpl">
           <tr>
+            <td class="rowno"></td>
             <td><select name="kind">
               <option value="material">Material</option>
               <option value="labor">Ish haqi</option>
@@ -622,6 +633,10 @@
             tbody.querySelectorAll('textarea.growa').forEach(kengay);
             tbody.querySelectorAll('input.txtgrow').forEach(function(el){ enKengay(el, 16, 44); });
             tbody.querySelectorAll('input.numgrow').forEach(function(el){ enKengay(el, 9, 20); });
+            var i=1;
+            tbody.querySelectorAll('tr').forEach(function(tr){
+              var c=tr.querySelector('.rowno'); if(c) c.textContent=i++;
+            });
           }
           tbody.addEventListener('input', function(e){
             if(e.target.matches('textarea.growa')) kengay(e.target);
@@ -779,6 +794,7 @@
       <table>
         <thead>
           <tr>
+            <th class="rowno" style="width:36px;">№</th>
             <th>Turi</th><th>Nomi</th><th>Izoh (primechaniye)</th><th>Birlik</th>
             <th class="num">Miqdor</th><th class="num">Narxi</th><th class="num">Summa</th>
             <th style="width:104px;">Sana</th>
@@ -787,6 +803,7 @@
         <tbody>
           {% for q in s.qatorlar %}
           <tr data-kind="{{ q.cls }}">
+            <td class="rowno">{{ forloop.counter }}</td>
             <td><span class="kind k-{{ q.cls }}">{{ q.kind }}</span></td>
             <td>{{ q.nomi }}</td>
             <td>{% if q.izoh %}<span class="itemnote" style="margin-top:0;">{{ q.izoh }}</span>{% else %}<span style="color:#cbd5e1;">—</span>{% endif %}</td>
@@ -800,7 +817,7 @@
         </tbody>
         <tfoot>
           <tr class="jami-row">
-            <td colspan="3">JAMI (bu so'rov)</td>
+            <td colspan="4">JAMI (bu so'rov)</td>
             <td colspan="3" class="split-lbl"><span class="dot mat"></span>{{ s.mat_str }} · <span class="dot lab"></span>{{ s.lab_str }} · <span class="dot mach"></span>{{ s.mach_str }}</td>
             <td class="num jami-val">{{ s.jami_str }}</td>
             <td></td>

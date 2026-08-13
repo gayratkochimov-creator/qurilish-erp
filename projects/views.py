@@ -884,6 +884,9 @@ def project_detail(request, pk):
         g["sum_str"] = _money(g["_sum"])
     # tekis ro'yxat (tahrirlash jadvali uchun) — bo'lim qatorlari yonma-yon turadi
     limit_items = [q for g in limit_groups for q in g["items"]]
+    # Har pozitsiyaga KETMA-KET tartib raqami (guruhlar bo'ylab uzluksiz)
+    for _nr, q in enumerate(limit_items, start=1):
+        q["nr"] = _nr
     bolim_bor = any(g["bolim"] for g in limit_groups)
 
     # Toifa bo'yicha alohida summa itogolari (jadval ostida ko'rsatiladi)

@@ -27,6 +27,7 @@
   .delrow:hover { background:#fee2e2; }
   .noteinp { width:100%; font-size:12.5px; background:#fffdf5; border:1px dashed #d9c9a3 !important; color:#6b5b2a; }
   textarea[name=item_bolim], textarea[name=item_masul] { background:#f6f8fb; }
+  .rowno { color:var(--mut); font-size:12px; text-align:center; font-variant-numeric:tabular-nums; }
   .noteinp:focus { border-style:solid !important; border-color:var(--brand) !important; background:#fff; }
   .addrow { background:#eef2f7; color:#334155; border:1px solid #e6e8ec; border-radius:8px; padding:9px 15px; font-size:13px; font-weight:700; cursor:pointer; }
   .savebtn { background:var(--brand); color:#fff; border:0; border-radius:9px; padding:11px 24px; font-size:14px; font-weight:700; cursor:pointer; }
@@ -47,10 +48,11 @@
     <form method="post" action="{% url 'limit_request_edit' req.id %}">
       {% csrf_token %}
       <table class="addtable">
-        <thead><tr><th style="width:120px;">Bo'lim</th><th style="width:95px;">Mas'ul</th><th style="width:130px;">Turi</th><th style="width:230px;">Nomi</th><th>Izoh (primechaniye)</th><th style="width:75px;">Birlik</th><th class="num" style="width:85px;">Miqdor</th><th class="num" style="width:105px;">Narxi</th><th class="num" style="width:115px;">Summa</th><th style="width:36px;"></th></tr></thead>
+        <thead><tr><th class="rowno" style="width:32px;">№</th><th style="width:120px;">Bo'lim</th><th style="width:95px;">Mas'ul</th><th style="width:130px;">Turi</th><th style="width:230px;">Nomi</th><th>Izoh (primechaniye)</th><th style="width:75px;">Birlik</th><th class="num" style="width:85px;">Miqdor</th><th class="num" style="width:105px;">Narxi</th><th class="num" style="width:115px;">Summa</th><th style="width:36px;"></th></tr></thead>
         <tbody id="rows">
           {% for it in items %}
           <tr>
+            <td class="rowno">{{ forloop.counter }}</td>
             <td><textarea name="item_bolim" class="growa" rows="1" placeholder="bo'lim...">{{ it.bolim }}</textarea></td>
             <td><textarea name="item_masul" class="growa" rows="1" placeholder="mas'ul...">{{ it.masul }}</textarea></td>
             <td><select name="kind">
@@ -70,8 +72,8 @@
           {% endfor %}
         </tbody>
         <tfoot>
-          <tr><td colspan="8" class="num">Toifa bo'yicha:</td><td colspan="2" id="wc" style="font-size:12px; color:var(--mut);">—</td></tr>
-          <tr><td colspan="8" class="num"><b>YANGI UMUMIY LIMIT:</b></td><td colspan="2"><b id="wg">0</b></td></tr>
+          <tr><td colspan="9" class="num">Toifa bo'yicha:</td><td colspan="2" id="wc" style="font-size:12px; color:var(--mut);">—</td></tr>
+          <tr><td colspan="9" class="num"><b>YANGI UMUMIY LIMIT:</b></td><td colspan="2"><b id="wg">0</b></td></tr>
         </tfoot>
       </table>
 
@@ -84,6 +86,7 @@
 
     <template id="rowtpl">
       <tr>
+        <td class="rowno"></td>
         <td><textarea name="item_bolim" class="growa" rows="1" placeholder="bo'lim..."></textarea></td>
         <td><textarea name="item_masul" class="growa" rows="1" placeholder="mas'ul..."></textarea></td>
         <td><select name="kind"><option value="material">Material</option><option value="labor">Ish haqi</option><option value="machinery">Mashina chasti</option><option value="other">Ko'zda tutilmagan</option></select></td>
@@ -162,6 +165,10 @@
     tbody.querySelectorAll('textarea.growa').forEach(kengay);
     tbody.querySelectorAll('input.txtgrow').forEach(function(el){ enKengay(el, 16, 44); });
     tbody.querySelectorAll('input.numgrow').forEach(function(el){ enKengay(el, 9, 20); });
+    var i=1;
+    tbody.querySelectorAll('tr').forEach(function(tr){
+      var c=tr.querySelector('.rowno'); if(c) c.textContent=i++;
+    });
   }
   tbody.addEventListener('input', function(e){
     if(e.target.matches('[name=name]')) autoUnit(e.target.closest('tr'));

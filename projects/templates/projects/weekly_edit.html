@@ -28,6 +28,7 @@
   tfoot #wg { font-size:15px; color:var(--ink); font-weight:800; }
   .delrow { background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; border-radius:7px; width:28px; height:28px; cursor:pointer; font-weight:700; }
   .noteinp { width:100%; font-size:12.5px; background:#fffdf5; border:1px dashed #d9c9a3 !important; color:#6b5b2a; }
+  .rowno { color:var(--mut); font-size:12px; text-align:center; font-variant-numeric:tabular-nums; }
   .lidate { font-size:11.5px; white-space:nowrap; font-variant-numeric:tabular-nums; }
   .lidate .d-new { color:var(--mut); }
   .noteinp:focus { border-style:solid !important; border-color:var(--brand) !important; background:#fff; }
@@ -59,10 +60,11 @@
       </div>
 
       <table class="addtable">
-        <thead><tr><th style="width:140px;">Turi</th><th style="width:260px;">Nomi</th><th>Izoh (primechaniye)</th><th style="width:80px;">Birlik</th><th class="num" style="width:90px;">Miqdor</th><th class="num" style="width:110px;">Narxi</th><th class="num" style="width:120px;">Summa</th><th style="width:104px;">Sana</th><th style="width:36px;"></th></tr></thead>
+        <thead><tr><th class="rowno" style="width:34px;">№</th><th style="width:140px;">Turi</th><th style="width:260px;">Nomi</th><th>Izoh (primechaniye)</th><th style="width:80px;">Birlik</th><th class="num" style="width:90px;">Miqdor</th><th class="num" style="width:110px;">Narxi</th><th class="num" style="width:120px;">Summa</th><th style="width:104px;">Sana</th><th style="width:36px;"></th></tr></thead>
         <tbody id="rows">
           {% for it in items %}
           <tr>
+            <td class="rowno">{{ forloop.counter }}</td>
             <td><select name="kind">
               <option value="material" {% if it.kind == 'material' %}selected{% endif %}>Material</option>
               <option value="labor" {% if it.kind == 'labor' %}selected{% endif %}>Ish haqi</option>
@@ -81,8 +83,8 @@
           {% endfor %}
         </tbody>
         <tfoot>
-          <tr><td colspan="6" class="num">Toifa bo'yicha:</td><td colspan="3" id="wc" style="font-size:12px; color:var(--mut);">—</td></tr>
-          <tr><td colspan="6" class="num"><b>JAMI:</b></td><td colspan="3"><b id="wg">0</b></td></tr>
+          <tr><td colspan="7" class="num">Toifa bo'yicha:</td><td colspan="3" id="wc" style="font-size:12px; color:var(--mut);">—</td></tr>
+          <tr><td colspan="7" class="num"><b>JAMI:</b></td><td colspan="3"><b id="wg">0</b></td></tr>
         </tfoot>
       </table>
 
@@ -95,6 +97,7 @@
 
     <template id="rowtpl">
       <tr>
+        <td class="rowno"></td>
         <td><select name="kind"><option value="material">Material</option><option value="labor">Ish haqi</option><option value="machinery">Mashina chasti</option><option value="other">Ko'zda tutilmagan</option></select></td>
         <td><input type="text" name="name" placeholder="nomi"></td>
         <td><input type="text" name="item_note" class="noteinp" placeholder="izoh..."></td>
@@ -141,15 +144,22 @@
     document.getElementById('wc').textContent='Material '+fmt(cat.material)+'  ·  Ish haqi '+fmt(cat.labor)+'  ·  Mashina '+fmt(cat.machinery)+'  ·  Ko\'zda tutilmagan '+fmt(cat.other);
     document.getElementById('wg').textContent=fmt(grand);
   }
+  function raqamla(){
+    var i=1;
+    tbody.querySelectorAll('tr').forEach(function(tr){
+      var c=tr.querySelector('.rowno'); if(c) c.textContent=i++;
+    });
+  }
   function initRow(tr){ autoUnit(tr,false); }
-  function addRow(){ tbody.appendChild(tpl.content.cloneNode(true)); var tr=tbody.lastElementChild; initRow(tr); recompute(); }
+  function addRow(){ tbody.appendChild(tpl.content.cloneNode(true)); var tr=tbody.lastElementChild; initRow(tr); recompute(); raqamla(); }
   document.getElementById('addrow').addEventListener('click', addRow);
-  tbody.addEventListener('click', function(e){ if(e.target.classList.contains('delrow')){ if(tbody.children.length>1) e.target.closest('tr').remove(); recompute(); } });
+  tbody.addEventListener('click', function(e){ if(e.target.classList.contains('delrow')){ if(tbody.children.length>1) e.target.closest('tr').remove(); recompute(); raqamla(); } });
   tbody.addEventListener('input', function(e){ if(e.target.matches('[name=name]')) autoUnit(e.target.closest('tr'),false); recompute(); });
   tbody.addEventListener('change', function(e){ if(e.target.matches('[name=kind],[name=name]')) autoUnit(e.target.closest('tr'),true); recompute(); });
   tbody.querySelectorAll('tr').forEach(initRow);
   if(tbody.children.length===0) addRow();
   recompute();
+  raqamla();
 })();
 </script>
 {% endblock %}
