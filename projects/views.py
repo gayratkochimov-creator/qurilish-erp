@@ -2820,6 +2820,105 @@ def grafik_rabota(request, pk=None):
     return resp
 
 
+@login_required
+def weekly_export(request, pk):
+    """Bitta haftalik so'rovni ALOHIDA Excel qilib yuklab olish."""
+    w = get_object_or_404(
+        WeeklyRequest.objects.select_related(
+            "project", "created_by", "director_by", "approved_by"), pk=pk)
+    p = _firma_yoki_403(request, w.project)
+
+    import openpyxl
+    from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+    from openpyxl.utils import get_column_letter
+    from django.utils.timezone import localtime as _lt
+
+    KIND = dict(KIND_NOMI)
+    STATUS = {"draft": "Qoralama", "dir": "Direktor tasdig'ida",
+              "submitted": "Admin tasdig'ida", "approved": "Tasdiqlangan"}
+
+    hdr_font = Font(bold=True, color="FFFFFF", size=11)
+    hdr_fill = PatternFill("solid", fgColor="213145")
+    tot_font = Font(bold=True, size=11)
+    tot_fill = PatternFill("solid", fgColor="EFF4FF")
+    thin = Side(style="thin", color="E2E8F0")
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+    money = '# ##0'
+    right = Alignment(horizontal="right")
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Haftalik so'rov"
+    ws["A1"] = f"{p.code} — {p.name}"
+    ws["A1"].font = Font(bold=True, size=14, color="0B1C30")
+    davri = f"Haftalik so'rov: {w.week_start:%d.%m.%Y} — {w.week_end:%d.%m.%Y}"
+    if w.number:
+        davri += f" · {w.number}"
+    ws["A2"] = davri + f" · {STATUS.get(w.status, w.status)}"
+    ws["A2"].font = Font(size=10, color="64748B")
+    imzo = []
+    if w.created_by_id:
+        imzo.append(f"Kiritdi: {w.created_by.username} · {_lt(w.created_at):%d.%m.%Y %H:%M}")
+    if w.director_by_id:
+        imzo.append(f"Direktor: {w.director_by.username}"
+                    + (f" · {_lt(w.director_at):%d.%m.%Y %H:%M}" if w.director_at else ""))
+    if w.approved_by_id:
+        imzo.append(f"Admin: {w.approved_by.username}"
+                    + (f" · {_lt(w.approved_at):%d.%m.%Y %H:%M}" if w.approved_at else ""))
+    ws["A3"] = " | ".join(imzo) if imzo else ""
+    ws["A3"].font = Font(size=10, color="64748B")
+    ws.append([])
+    hrow = 5
+    ws.append(["Turi", "Nomi", "Izoh", "Birlik", "Miqdor", "Narxi", "Summa", "Kiritilgan sana"])
+    for c in ws[hrow]:
+        c.font = hdr_font
+        c.fill = hdr_fill
+        c.border = border
+        c.alignment = Alignment(horizontal="center", vertical="center")
+
+    d = {k: Decimal("0") for k in KINDS}
+    for it in w.items.all():
+        d[it.kind] += it.total
+        ws.append([
+            KIND.get(it.kind, it.kind), it.name, it.note or "", it.unit or "",
+            float(it.quantity), float(it.unit_price), float(it.total),
+            _lt(it.created_at).strftime("%d.%m.%Y %H:%M") if it.created_at else "",
+        ])
+    for r in range(hrow + 1, ws.max_row + 1):
+        for col in (5, 6, 7):
+            ws.cell(r, col).number_format = money
+            ws.cell(r, col).alignment = right
+        for c in ws[r]:
+            c.border = border
+    ws.append([])
+    for k in KINDS:
+        rr = ws.max_row + 1
+        ws.cell(rr, 6, KIND[k] + " jami:").font = tot_font
+        c = ws.cell(rr, 7, float(d[k]))
+        c.number_format = money
+        c.font = tot_font
+        c.fill = tot_fill
+    rr = ws.max_row + 1
+    ws.cell(rr, 6, "JAMI:").font = Font(bold=True, size=12)
+    c = ws.cell(rr, 7, float(sum(d.values())))
+    c.number_format = money
+    c.font = Font(bold=True, size=12, color="2563EB")
+    c.fill = tot_fill
+    ws.freeze_panes = "A6"
+    for i, kenglik in enumerate([16, 34, 30, 10, 12, 14, 16, 17], start=1):
+        ws.column_dimensions[get_column_letter(i)].width = kenglik
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    resp = HttpResponse(
+        buf.getvalue(),
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    resp["Content-Disposition"] = ('attachment; filename="haftalik_%s_%s.xlsx"'
+                                   % (p.code, w.week_start.strftime("%Y%m%d")))
+    return resp
+
+
 def _find_col(header, *keywords, exclude=()):
     """Sarlavha qatoridan kalit so'z bo'yicha ustun indeksini topadi."""
     for i, cell in enumerate(header):

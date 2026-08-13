@@ -711,6 +711,7 @@
             <span class="seqno" title="Ketma-ket raqami">{{ s.seq }}</span>
             {{ s.obj.week_start|date:"d.m.Y" }} — {{ s.obj.week_end|date:"d.m.Y" }}
             {% if s.obj.number %}<span class="meta">· {{ s.obj.number }}</span>{% endif %}
+            <a class="mini" href="{% url 'weekly_export' s.obj.id %}" title="Shu haftalik so'rovni alohida Excel qilib yuklab olish" style="margin-left:8px; text-decoration:none;">⬇ Excel</a>
             {% if s.is_old %}<span class="past-badge">o'tgan hafta</span><button type="button" class="past-hide" title="Bu o'tgan haftalarni yashirish">Yashirish ✕</button>{% endif %}
           </div>
           {% if s.obj.note %}<div style="font-size:12.5px; color:#64748b; margin-top:3px;">Izoh: {{ s.obj.note }}</div>{% endif %}

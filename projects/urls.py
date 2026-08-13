@@ -9,6 +9,7 @@ urlpatterns = [
     path("obyekt/<int:pk>/limit-ichi/", views.limit_items_edit, name="limit_items_edit"),
     path("obyekt/<int:pk>/limit/qaytarish/", views.limit_return_pto, name="limit_return_pto"),
     path("haftalik/<int:pk>/qaytarish/", views.weekly_return_pto, name="weekly_return_pto"),
+    path("haftalik/<int:pk>/export/", views.weekly_export, name="weekly_export"),
     path("limit/bulk/", views.limit_bulk, name="limit_bulk"),
     path("tasdiqlar/", views.tasdiqlar, name="tasdiqlar"),
     path("virtual-ofis/", views.virtual_ofis, name="virtual_ofis"),
