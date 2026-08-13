@@ -115,13 +115,20 @@
 (function(){
   var tbody=document.getElementById('rows'), tpl=document.getElementById('rowtpl');
   var el=document.getElementById('unitMap'); var unitMap=el?JSON.parse(el.textContent):{};
-  var KIND_UNIT={labor:'kishi', machinery:'soat'};
+  var KIND_UNIT={labor:'kishi', machinery:'soat'}, STANDART=['kishi','soat'];
   function fmt(n){ return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,' '); }
   function autoUnit(tr, force){
     var k=tr.querySelector('[name=kind]'), u=tr.querySelector('[name=unit]'), nm=tr.querySelector('[name=name]');
     if(!k||!u||!nm) return;
-    if(k.value==='labor'||k.value==='machinery'){ u.value=KIND_UNIT[k.value]; u.readOnly=true; u.style.background='#eef2f7'; u.style.color='#64748b'; nm.removeAttribute('list'); }
-    else { u.readOnly=false; u.style.background=''; u.style.color=''; nm.setAttribute('list','matnames'); var m=unitMap[(nm.value||'').trim().toLowerCase()]; if(m&&(force||!u.value.trim())) u.value=m; }
+    if(k.value==='labor'||k.value==='machinery'){
+      // Avtomat to'ldiramiz, LEKIN qulflamaymiz — admin/PTO o'z birligini yoza oladi
+      var joriy=(u.value||'').trim();
+      if(!joriy || STANDART.indexOf(joriy)!==-1) u.value=KIND_UNIT[k.value];
+      u.readOnly=false; u.style.background=''; u.style.color='';
+      u.title="Avtomat to'ldirildi — kerak bo'lsa o'zgartiring";
+      nm.removeAttribute('list');
+    }
+    else { u.readOnly=false; u.style.background=''; u.style.color=''; u.removeAttribute('title'); nm.setAttribute('list','matnames'); var m=unitMap[(nm.value||'').trim().toLowerCase()]; if(m&&(force||!u.value.trim())) u.value=m; }
   }
   function recompute(){
     var grand=0, cat={material:0,labor:0,machinery:0,other:0};
