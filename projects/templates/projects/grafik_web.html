@@ -58,8 +58,8 @@
   .legend .lg { display:inline-block; width:14px; height:14px; border-radius:3px; vertical-align:-2px; margin-right:5px; border:1px solid rgba(0,0,0,.15); }
   table.g td.num { min-width:80px; }
   table.g td.foiz, table.g td.qoldiq { text-align:right; }
-  /* Foiz katagi — namunadagidek TO'Q SARIQ */
-  table.g td.foiz, table.g tbody tr:hover td.foiz { font-weight:800; font-variant-numeric:tabular-nums; background:#ffc000 !important; color:#1f2937; }
+  /* Foiz katagi — to'q sariq PROGRESS: foizga qarab to'lib boradi (fon JS da) */
+  table.g td.foiz, table.g tbody tr:hover td.foiz { font-weight:800; font-variant-numeric:tabular-nums; color:#1f2937; }
   table.g td.foiz.warn { color:#7c2d12; } table.g td.foiz.done { color:#14532d; } table.g td.foiz.over { color:#7f1d1d; }
   /* Grafik tasdiq holati */
   .gstat { font-size:12.5px; font-weight:700; padding:7px 13px; border-radius:999px; }
@@ -255,6 +255,9 @@
     var sum=0; tr.querySelectorAll('td.d input').forEach(function(i){ sum+=num(i); });
     var fc=tr.querySelector('.foiz'); var foiz=qty>0?Math.round(sum/qty*100):0;
     fc.textContent=foiz+'%'; fc.className='foiz'+(foiz>100?' over':foiz>=100?' done':foiz>=90?' warn':'');
+    // To'q sariq PROGRESS: katak foizga qarab chapdan to'lib boradi
+    var pp=Math.max(0, Math.min(foiz, 100));
+    fc.style.background='linear-gradient(90deg, #ffc000 '+pp+'%, #fdf0d2 '+pp+'%)';
     tr.querySelector('.qoldiq').textContent=fmt(qty-sum);
     // Namunadagi ranglar: qiymat yozilgan kun — 0 qizil, plandan kam sariq, plan+ yashil
     tr.querySelectorAll('td.d').forEach(function(td){

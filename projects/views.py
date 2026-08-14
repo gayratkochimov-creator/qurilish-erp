@@ -2896,7 +2896,7 @@ def grafik_rabota(request, pk=None):
     # No + JONLI formulalar: kunlik H..V (8..22), E=5, G=7 (foiz), W=23 (qoldiq).
     # Z (yashirin) = oynadan TASHQARIDAGI haftalar yig'indisi — formulaga qo'shiladi,
     # shunda Excel ichida kun kataklarini o'zgartirsangiz foiz/qoldiq o'zi qayta hisoblanadi
-    F_FOIZ = PatternFill("solid", fgColor="FFFFC000")   # to'q sariq (namunadagidek)
+    F_FOIZ = PatternFill("solid", fgColor="FFFDF0D2")   # och sariq fon
     for i, r in enumerate(range(4, oxirgi + 1), start=1):
         ws.cell(r, 1).value = i
         gc = ws.cell(r, 7)
@@ -2906,6 +2906,12 @@ def grafik_rabota(request, pk=None):
         ws.cell(r, 23).value = f'=IF($E{r}="","",$E{r}-SUM(H{r}:V{r})-N($Z{r}))'
     ws.cell(3, 26).value = "oyna tashqarisi"
     ws.column_dimensions["Z"].hidden = True
+    # Foiz katagi TO'Q SARIQ chiziq bilan foizga qarab TO'LIB boradi (data bar)
+    from openpyxl.formatting.rule import DataBarRule
+    ws.conditional_formatting.add(
+        f"G4:G{oxirgi}",
+        DataBarRule(start_type="num", start_value=0, end_type="num", end_value=1,
+                    color="FFC000", showValue=True))
     # Surilma oyna: grafik haftalik davom etadi, Excel 15 kunlik panelga
     # O'TGAN HAFTA + JORIY HAFTA (+ keyingi kunlar) chiqadi
     ofs = 0
