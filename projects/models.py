@@ -429,6 +429,9 @@ class GrafikRow(models.Model):
     srok_on = models.JSONField("Qo'shimcha srok kunlari", default=list, blank=True)
     responsible = models.CharField("Маъсул шахс", max_length=255, blank=True)
     note = models.CharField("Иш прагнози / izoh", max_length=500, blank=True)
+    # Izoh TARIXI: izoh o'zgartirilganda eskisi shu yerga tushadi
+    # [{"s": "2026-08-14", "t": "eski matn"}, ...] — eng eskisi birinchi
+    note_tarix = models.JSONField("Izoh tarixi", default=list, blank=True)
     days = models.JSONField("Kunlik bajarilgan", default=dict, blank=True)
 
     class Meta:
@@ -457,6 +460,48 @@ class GrafikRow(models.Model):
     @property
     def qoldiq(self):
         return self.qty - self.bajarilgan
+
+
+class GrafikTasdiq(models.Model):
+    """Ish grafigini TASDIQLASH so'rovi — limit zanjiriga o'xshash:
+    PTO yuboradi -> Direktor (yoki asosiy admin) -> Admin -> Tasdiqlangan."""
+
+    class Status(models.TextChoices):
+        DIR = "dir", "Direktor tasdig'ida"
+        ADM = "adm", "Admin tasdig'ida"
+        APPROVED = "approved", "Tasdiqlangan"
+        REJECTED = "rejected", "Rad etilgan"
+
+    project = models.ForeignKey(
+        Project, on_delete=models.CASCADE,
+        related_name="grafik_tasdiqlar", verbose_name="Obyekt",
+    )
+    status = models.CharField("Holati", max_length=16, choices=Status.choices,
+                              default=Status.DIR)
+    yubordi = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="grafik_tasdiq_yuborgan", verbose_name="Yubordi (PTO)",
+    )
+    created_at = models.DateTimeField("Yuborilgan sana", auto_now_add=True)
+    director_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="grafik_tasdiq_dir", verbose_name="Direktor tasdiqladi",
+    )
+    director_at = models.DateTimeField("Direktor tasdig'i sanasi", null=True, blank=True)
+    decided_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="grafik_tasdiq_adm", verbose_name="Admin tasdiqladi",
+    )
+    decided_at = models.DateTimeField("Admin qarori sanasi", null=True, blank=True)
+    decision_note = models.CharField("Rad etish sababi", max_length=500, blank=True)
+
+    class Meta:
+        verbose_name = "Grafik tasdig'i"
+        verbose_name_plural = "Grafik tasdiqlari"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.project.code} grafik — {self.get_status_display()}"
 
 
 def sync_limit_items(project, items):

@@ -58,8 +58,19 @@
   .legend .lg { display:inline-block; width:14px; height:14px; border-radius:3px; vertical-align:-2px; margin-right:5px; border:1px solid rgba(0,0,0,.15); }
   table.g td.num { min-width:80px; }
   table.g td.foiz, table.g td.qoldiq { text-align:right; }
-  table.g td.foiz { font-weight:700; font-variant-numeric:tabular-nums; background:#f8fafc; }
-  table.g td.foiz.warn { color:var(--warn); } table.g td.foiz.done { color:var(--ok); } table.g td.foiz.over { color:var(--bad); }
+  /* Foiz katagi — namunadagidek TO'Q SARIQ */
+  table.g td.foiz, table.g tbody tr:hover td.foiz { font-weight:800; font-variant-numeric:tabular-nums; background:#ffc000 !important; color:#1f2937; }
+  table.g td.foiz.warn { color:#7c2d12; } table.g td.foiz.done { color:#14532d; } table.g td.foiz.over { color:#7f1d1d; }
+  /* Grafik tasdiq holati */
+  .gstat { font-size:12.5px; font-weight:700; padding:7px 13px; border-radius:999px; }
+  .gstat.s-dir { background:#e0ecfd; color:#1d4ed8; }
+  .gstat.s-adm { background:#ede9fe; color:#6d28d9; }
+  .gstat.s-approved { background:#dcfce7; color:#15803d; }
+  .gstat.s-rejected { background:#fee2e2; color:#b91c1c; }
+  /* Izoh tarixi */
+  .ntar summary { cursor:pointer; font-size:11px; color:var(--mut); }
+  .ntar div.nti { font-size:11.5px; text-align:left; color:#6b5b2a; background:#fffdf5; border:1px dashed #e2d4ab; border-radius:6px; padding:3px 7px; margin-top:3px; white-space:normal; }
+  .ntar .nti b { color:#8a6d1f; }
   table.g td.qoldiq { font-weight:700; font-variant-numeric:tabular-nums; background:#fafbfc; }
   table.g td.num input { text-align:right; }
   table.g col.qcol { width:78px; }
@@ -86,6 +97,17 @@
         {% if eski_hafta %}<button type="button" class="btn" id="pastToggle">O'tgan haftalarni yashirish ({{ eski_hafta }})</button>{% endif %}
         <button type="button" class="btn" onclick="window.print()">Chop etish</button>
         <a class="btn" href="{% url 'grafik_rabota_obj' p.id %}">Excel yuklab olish</a>
+        {% if can_edit and not tasdiq_jarayonda %}
+        <form method="post" action="{% url 'grafik_tasdiq_yubor' p.id %}" style="display:inline;" onsubmit="return confirm('Grafik direktor tasdig\'iga yuborilsinmi?');">{% csrf_token %}<button type="submit" class="btn primary">Tasdiqqa yuborish</button></form>
+        {% endif %}
+        {% if g_tasdiq %}
+        <span class="gstat s-{{ g_tasdiq.status }}">
+          {% if g_tasdiq.status == 'dir' %}⏳ Direktor tasdig'ida · yubordi: {{ g_tasdiq.yubordi.username|default:"—" }}
+          {% elif g_tasdiq.status == 'adm' %}⏳ Admin tasdig'ida{% if g_tasdiq.director_by %} · direktor: {{ g_tasdiq.director_by.username }}{% endif %}
+          {% elif g_tasdiq.status == 'approved' %}✓ Tasdiqlangan{% if g_tasdiq.director_by %} · dir: {{ g_tasdiq.director_by.username }}{% endif %}{% if g_tasdiq.decided_by %} · adm: {{ g_tasdiq.decided_by.username }} · {{ g_tasdiq.decided_at|date:"d.m.Y H:i" }}{% endif %}
+          {% else %}✕ Rad etilgan{% if g_tasdiq.decision_note %}: {{ g_tasdiq.decision_note }}{% endif %}{% endif %}
+        </span>
+        {% endif %}
       </div>
       <div class="legend">
         <span><span class="lg" style="background:#d7e9fb;"></span>Srok kunlari — <b>2 marta bosish:</b> muddat ichidan olib tashlash · <b>3 marta bosish:</b> muddatdan tashqariga qo'shish</span>
@@ -123,7 +145,15 @@
             {% for dv in g.days %}<td class="d" data-i="{{ forloop.counter0 }}"><input type="text" inputmode="decimal" class="numinp" name="d{{ forloop.counter0 }}" value="{{ dv }}" {% if not can_edit %}readonly{% endif %}></td>{% endfor %}
             <td class="qoldiq">0</td>
             <td class="resp"><input type="text" class="respinp" name="responsible" value="{{ g.r.responsible }}" {% if not can_edit %}readonly{% endif %}></td>
-            <td class="nm"><input type="text" name="note" value="{{ g.r.note }}" {% if not can_edit %}readonly{% endif %}></td>
+            <td class="nm">
+              <input type="text" name="note" value="{{ g.r.note }}" {% if not can_edit %}readonly{% endif %} placeholder="bugungi izoh...">
+              {% if g.r.note_tarix %}
+              <details class="ntar">
+                <summary>eski izohlar ({{ g.r.note_tarix|length }})</summary>
+                {% for n in g.r.note_tarix reversed %}<div class="nti"><b>{{ n.s }}</b> — {{ n.t }}</div>{% endfor %}
+              </details>
+              {% endif %}
+            </td>
             <td>{% if can_edit %}<button type="button" class="del">×</button>{% endif %}</td>
           </tr>
           {% empty %}{% endfor %}

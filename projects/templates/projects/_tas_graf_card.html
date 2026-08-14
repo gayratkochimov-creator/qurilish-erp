@@ -1,0 +1,24 @@
+{% comment %}Grafik tasdig'i kartasi. Kirish: g (GrafikTasdiq), stage ('dir'|'adm'){% endcomment %}
+<div class="tcard">
+  <div class="tmain">
+    <div class="pname">{{ g.project.code }} — {{ g.project.name }} · GRAFIK</div>
+    <div class="tmeta">Yubordi: <b>{{ g.yubordi.username|default:"—" }}</b> · {{ g.created_at|date:"d.m.Y H:i" }}{% if stage == 'adm' and g.director_by %}<br>✓ Direktor tasdiqladi: <b>{{ g.director_by.username }}</b> · {{ g.director_at|date:"d.m.Y H:i" }}{% endif %}<br><a class="plink" href="{% url 'grafik_web' g.project_id %}">Grafikni ko'rish →</a></div>
+  </div>
+  <div class="tacts">
+    {% if stage == 'dir' %}
+      <form method="post" action="{% url 'grafik_tasdiq_action' g.id %}"><input type="hidden" name="action" value="dir_approve">{% csrf_token %}<button class="btn-ok">Direktor tasdiqlash</button></form>
+      <form method="post" action="{% url 'grafik_tasdiq_action' g.id %}" class="rejform" onsubmit="var s=this.querySelector('[name=decision_note]'); if(!s.value.trim()){ alert('Rad etish sababini yozing.'); s.focus(); return false; }">
+        <input type="hidden" name="action" value="dir_reject">{% csrf_token %}
+        <input type="text" name="decision_note" class="rejnote" placeholder="Rad etish sababi...">
+        <button class="btn-no">Rad etish</button>
+      </form>
+    {% else %}
+      <form method="post" action="{% url 'grafik_tasdiq_action' g.id %}"><input type="hidden" name="action" value="approve">{% csrf_token %}<button class="btn-ok">Admin tasdiqlash</button></form>
+      <form method="post" action="{% url 'grafik_tasdiq_action' g.id %}" class="rejform" onsubmit="var s=this.querySelector('[name=decision_note]'); if(!s.value.trim()){ alert('Rad etish sababini yozing.'); s.focus(); return false; }">
+        <input type="hidden" name="action" value="reject">{% csrf_token %}
+        <input type="text" name="decision_note" class="rejnote" placeholder="Rad etish sababi...">
+        <button class="btn-no">Rad etish</button>
+      </form>
+    {% endif %}
+  </div>
+</div>

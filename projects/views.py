@@ -358,6 +358,17 @@ def dashboard(request):
         tas_lim_s, _x = _tasdiqlar_data("snab", user=request.user)
     if _pto_f:
         tas_lim_p2, _x = _tasdiqlar_data("pto2", user=request.user)
+    # Grafik tasdiqlash navbatlari (limit zanjiriga o'xshash)
+    from .models import GrafikTasdiq
+    graf_dir, graf_adm = [], []
+    if _dir:
+        graf_dir = list(GrafikTasdiq.objects.filter(
+            status="dir", project__in=visible_projects(request.user)
+        ).select_related("project", "yubordi"))
+    if _adm:
+        graf_adm = list(GrafikTasdiq.objects.filter(
+            status="adm", project__in=visible_projects(request.user)
+        ).select_related("project", "yubordi", "director_by"))
     tas_show = _dir or _adm or _snb or bool(tas_lim_p2)
     from django.utils import timezone as _tz
     _h = _tz.localtime().hour
@@ -376,8 +387,9 @@ def dashboard(request):
         "tas_lim_s": tas_lim_s,                        # snabjeniye navbati
         "tas_lim_p2": tas_lim_p2,                      # PTO xulosasi navbati
         "is_director": _dir, "is_snab": _snb, "tas_show": tas_show,
+        "graf_dir": graf_dir, "graf_adm": graf_adm,    # grafik tasdiqlash navbatlari
         "tas_count": (len(tas_lim) + len(tas_wk) + len(tas_lim2) + len(tas_wk2)
-                      + len(tas_lim_s) + len(tas_lim_p2)),
+                      + len(tas_lim_s) + len(tas_lim_p2) + len(graf_dir) + len(graf_adm)),
         "greeting": greeting,
         "qatorlar": qatorlar,
         "cat_values": cat_values,
@@ -2263,28 +2275,37 @@ def _obj_limit_wb(p):
         ws1.append([
             it.bolim or "", it.masul or "",
             KIND.get(it.kind, it.kind), it.name, it.note or "", it.unit or "",
-            float(it.quantity), float(it.unit_price), float(it.total),
+            float(it.quantity), float(it.unit_price), None,
             _tzloc(it.created_at).strftime("%d.%m.%Y %H:%M") if it.created_at else "",
         ])
     last = ws1.max_row
     for r in range(hrow + 1, last + 1):
+        # Summa = Miqdor x Narxi — JONLI formula (Excelda o'zgartirilsa qayta hisoblanadi)
+        ws1.cell(r, 9).value = f"=G{r}*H{r}"
         for col in (7, 8, 9):
             ws1.cell(r, col).number_format = money
             ws1.cell(r, col).alignment = right
         for c in ws1[r]:
             c.border = border
-    # kategoriya bo'yicha jami
+    # kategoriya bo'yicha jami — SUMIF formulalari (jonli)
     ws1.append([])
-    d = {k: Decimal("0") for k in KINDS}
-    for it in p.limit_items.all():
-        d[it.kind] = d.get(it.kind, Decimal("0")) + it.total
+    tot_birinchi = None
     for k in KINDS:
         rr = ws1.max_row + 1
+        if tot_birinchi is None:
+            tot_birinchi = rr
         ws1.cell(rr, 8, KIND[k] + " jami:").font = tot_font
-        c = ws1.cell(rr, 9, float(d[k])); c.number_format = money; c.font = tot_font; c.fill = tot_fill
+        c = ws1.cell(rr, 9)
+        if last > hrow:
+            c.value = f'=SUMIF($C${hrow + 1}:$C${last},"{KIND[k]}",$I${hrow + 1}:$I${last})'
+        else:
+            c.value = 0
+        c.number_format = money; c.font = tot_font; c.fill = tot_fill
     rr = ws1.max_row + 1
     ws1.cell(rr, 8, "UMUMIY LIMIT:").font = Font(bold=True, size=12)
-    c = ws1.cell(rr, 9, float(p.budget_total)); c.number_format = money
+    c = ws1.cell(rr, 9)
+    c.value = f"=SUM(I{tot_birinchi}:I{rr - 1})"
+    c.number_format = money
     c.font = Font(bold=True, size=12, color="2563EB"); c.fill = tot_fill
     ws1.freeze_panes = "A5"
     for i, w in enumerate([22, 16, 16, 34, 30, 10, 12, 14, 16, 16], start=1):
@@ -2312,10 +2333,11 @@ def _obj_limit_wb(p):
             ws2.append([
                 hafta, STATUS.get(w.status, w.status), w.number or "",
                 KIND.get(it.kind, it.kind), it.name, it.note or "", it.unit or "",
-                float(it.quantity), float(it.unit_price), float(it.total),
+                float(it.quantity), float(it.unit_price), None,
                 w.created_by.username if w.created_by_id else "—",
                 _tzloc(it.created_at).strftime("%d.%m.%Y %H:%M") if it.created_at else "",
             ])
+            ws2.cell(ws2.max_row, 10).value = f"=H{ws2.max_row}*I{ws2.max_row}"
     for r in range(5, ws2.max_row + 1):
         for col in (8, 9, 10):
             ws2.cell(r, col).number_format = money
@@ -2646,9 +2668,17 @@ def grafik_web(request, pk):
                     if d is not None and 0 <= j < CAP:
                         days[str(j)] = float(d)
             # Formada KO'RINMAGAN (oyna qisqarganda tashqarida qolgan) eski kunlar
-            # YO'QOLMASIN: o'sha o'rindagi eski qator nomi mos kelsa — saqlab qolamiz
+            # YO'QOLMASIN + izoh o'zgargan bo'lsa ESKISI TARIXGA tushadi
+            yangi_note = (notes[i] if i < len(notes) else "").strip()[:500]
+            tarix = []
             if i < len(eski_qatorlar) and (eski_qatorlar[i].name or "").strip() == nm:
-                for k, v in (eski_qatorlar[i].days or {}).items():
+                eski_q = eski_qatorlar[i]
+                tarix = list(eski_q.note_tarix or [])
+                eski_note = (eski_q.note or "").strip()
+                if eski_note and eski_note != yangi_note:
+                    tarix.append({"s": bugun.isoformat(), "t": eski_note})
+                    tarix = tarix[-30:]   # oxirgi 30 ta izoh saqlanadi
+                for k, v in (eski_q.days or {}).items():
                     try:
                         ki = int(k)
                     except (TypeError, ValueError):
@@ -2687,7 +2717,7 @@ def grafik_web(request, pk):
                 muddat_boshi=mb, muddat=max(0, min(md, 366)),
                 srok_off=off, srok_on=qoshimcha,
                 responsible=(resps[i] if i < len(resps) else "").strip()[:255],
-                note=(notes[i] if i < len(notes) else "").strip()[:500],
+                note=yangi_note, note_tarix=tarix,
                 days=days,
             ))
         with transaction.atomic():
@@ -2729,6 +2759,8 @@ def grafik_web(request, pk):
             v = r.days.get(str(j))
             kunlar.append("" if v is None else _kun_str(v))
         grows.append({"r": r, "days": kunlar})
+    g_tasdiq = p.grafik_tasdiqlar.select_related(
+        "yubordi", "director_by", "decided_by").first()
     return render(request, "projects/grafik_web.html", {
         "p": p, "grows": grows, "N_range": list(range(N)), "day_headers": day_headers,
         "days": days, "week_groups": week_groups, "eski_kun": eski_kun,
@@ -2736,7 +2768,88 @@ def grafik_web(request, pk):
         "can_edit": can_edit, "N": N,
         "grafik_start": eff_start.isoformat(),
         "grafik_end": p.grafik_end.isoformat() if p.grafik_end else "",
+        "g_tasdiq": g_tasdiq,
+        "tasdiq_jarayonda": bool(g_tasdiq and g_tasdiq.status in ("dir", "adm")),
     })
+
+
+@login_required
+def grafik_tasdiq_yubor(request, pk):
+    """PTO grafikni TASDIQQA yuboradi (limit zanjiriga o'xshash boshlanish)."""
+    p = _firma_yoki_403(request, get_object_or_404(Project, pk=pk))
+    if not is_pto(request.user):
+        raise PermissionDenied("Grafikni tasdiqqa faqat PTO yuboradi.")
+    if request.method != "POST":
+        return redirect("grafik_web", pk=pk)
+    from .models import GrafikTasdiq
+    if p.grafik_tasdiqlar.filter(status__in=("dir", "adm")).exists():
+        messages.error(request, "Grafik allaqachon tasdiq jarayonida.")
+        return redirect("grafik_web", pk=pk)
+    if not p.grafik_rows.exists():
+        messages.error(request, "Grafik bo'sh — avval qatorlarni kiritib saqlang.")
+        return redirect("grafik_web", pk=pk)
+    GrafikTasdiq.objects.create(project=p, yubordi=request.user)
+    messages.success(request, "Grafik direktor tasdig'iga yuborildi.")
+    return redirect("grafik_web", pk=pk)
+
+
+@login_required
+def grafik_tasdiq_action(request, pk):
+    """Grafik tasdig'i: direktor (yoki asosiy admin) -> admin — limitdagidek."""
+    from .models import GrafikTasdiq
+    from .roles import is_asosiy_admin as _asos, is_director as _isdir
+    gt = get_object_or_404(GrafikTasdiq.objects.select_related("project"), pk=pk)
+    _firma_yoki_403(request, gt.project)
+    if request.method != "POST":
+        return redirect(reverse("dashboard") + "?tab=tasdiqlar")
+    a = request.POST.get("action")
+    from django.utils import timezone as _tz
+
+    def _rad():
+        izoh = (request.POST.get("decision_note") or "").strip()
+        if not izoh:
+            messages.error(request, "Rad etish sababini yozing.")
+            return False
+        gt.status = "rejected"
+        gt.decided_by = request.user
+        gt.decided_at = _tz.now()
+        gt.decision_note = izoh[:500]
+        gt.save(update_fields=["status", "decided_by", "decided_at", "decision_note"])
+        messages.info(request, f"{gt.project.code} grafigi rad etildi: {izoh}")
+        return True
+
+    if a in ("dir_approve", "dir_reject"):
+        if request.user.is_superuser and not _asos(request.user):
+            messages.error(request, "Direktor bosqichini HAQIQIY direktor yoki "
+                                    "ASOSIY admin tasdiqlaydi.")
+            return redirect(reverse("dashboard") + "?tab=tasdiqlar")
+        if not (_isdir(request.user) or _asos(request.user)):
+            raise PermissionDenied("Faqat direktor.")
+        if gt.status != "dir":
+            messages.error(request, "Bu grafik direktor bosqichida emas.")
+        elif a == "dir_approve":
+            gt.status = "adm"
+            gt.director_by = request.user
+            gt.director_at = _tz.now()
+            gt.save(update_fields=["status", "director_by", "director_at"])
+            messages.success(request,
+                f"{gt.project.code} grafigi — direktor tasdiqladi, admin tasdig'iga o'tdi.")
+        else:
+            _rad()
+    elif a in ("approve", "reject"):
+        if not is_admin(request.user):
+            raise PermissionDenied("Faqat admin.")
+        if gt.status != "adm":
+            messages.error(request, "Bu grafik admin bosqichida emas (avval direktor tasdiqlaydi).")
+        elif a == "approve":
+            gt.status = "approved"
+            gt.decided_by = request.user
+            gt.decided_at = _tz.now()
+            gt.save(update_fields=["status", "decided_by", "decided_at"])
+            messages.success(request, f"{gt.project.code} grafigi TASDIQLANDI.")
+        else:
+            _rad()
+    return redirect(reverse("dashboard") + "?tab=tasdiqlar")
 
 
 @login_required
@@ -2780,11 +2893,19 @@ def grafik_rabota(request, pk=None):
     if pk and p.grafik_start:
         start = p.grafik_start
     oxirgi = max(21, 3 + len(grows))
-    # No + formulalar: kunlik H..V (8..22), E=5, G=7 (foiz), W=23 (qoldiq)
+    # No + JONLI formulalar: kunlik H..V (8..22), E=5, G=7 (foiz), W=23 (qoldiq).
+    # Z (yashirin) = oynadan TASHQARIDAGI haftalar yig'indisi — formulaga qo'shiladi,
+    # shunda Excel ichida kun kataklarini o'zgartirsangiz foiz/qoldiq o'zi qayta hisoblanadi
+    F_FOIZ = PatternFill("solid", fgColor="FFFFC000")   # to'q sariq (namunadagidek)
     for i, r in enumerate(range(4, oxirgi + 1), start=1):
         ws.cell(r, 1).value = i
-        ws.cell(r, 7).value = f'=IF($E{r}="","",SUM(H{r}:V{r})/$E{r})'
-        ws.cell(r, 23).value = f'=IF($E{r}="","",$E{r}-SUM(H{r}:V{r}))'
+        gc = ws.cell(r, 7)
+        gc.value = f'=IF($E{r}="","",(SUM(H{r}:V{r})+N($Z{r}))/$E{r})'
+        gc.number_format = "0%"
+        gc.fill = F_FOIZ
+        ws.cell(r, 23).value = f'=IF($E{r}="","",$E{r}-SUM(H{r}:V{r})-N($Z{r}))'
+    ws.cell(3, 26).value = "oyna tashqarisi"
+    ws.column_dimensions["Z"].hidden = True
     # Surilma oyna: grafik haftalik davom etadi, Excel 15 kunlik panelga
     # O'TGAN HAFTA + JORIY HAFTA (+ keyingi kunlar) chiqadi
     ofs = 0
@@ -2812,9 +2933,16 @@ def grafik_rabota(request, pk=None):
             ws.cell(r, 6).value = float(g.plan) if g.plan else None
             ws.cell(r, 24).value = g.responsible or None
             ws.cell(r, 25).value = g.note or None
-            # Foiz va qoldiq — BARCHA haftalar bo'yicha (oyna 15 kun bo'lsa ham)
-            ws.cell(r, 7).value = (float(g.bajarilgan) / float(g.qty)) if g.qty else None
-            ws.cell(r, 23).value = float(g.qoldiq) if g.qty else None
+            # Z = oynadan tashqaridagi kunlar yig'indisi (formula shuni qo'shib hisoblaydi)
+            tashqari = 0.0
+            for k, v in (g.days or {}).items():
+                try:
+                    ki = int(k)
+                except (TypeError, ValueError):
+                    continue
+                if not (ofs <= ki < ofs + GRAFIK_N):
+                    tashqari += float(v)
+            ws.cell(r, 26).value = tashqari
             plan = float(g.plan or 0)
             # Srok (muddat) oralig'i — vebdagi och ko'k belgi bilan bir xil
             boshi = None
@@ -2920,14 +3048,15 @@ def weekly_export(request, pk):
         c.border = border
         c.alignment = Alignment(horizontal="center", vertical="center")
 
-    d = {k: Decimal("0") for k in KINDS}
     for it in w.items.all():
-        d[it.kind] += it.total
         ws.append([
             KIND.get(it.kind, it.kind), it.name, it.note or "", it.unit or "",
-            float(it.quantity), float(it.unit_price), float(it.total),
+            float(it.quantity), float(it.unit_price), None,
             _lt(it.created_at).strftime("%d.%m.%Y %H:%M") if it.created_at else "",
         ])
+        # Summa = Miqdor x Narxi — jonli formula
+        ws.cell(ws.max_row, 7).value = f"=E{ws.max_row}*F{ws.max_row}"
+    oxirgi_q = ws.max_row
     for r in range(hrow + 1, ws.max_row + 1):
         for col in (5, 6, 7):
             ws.cell(r, col).number_format = money
@@ -2935,16 +3064,24 @@ def weekly_export(request, pk):
         for c in ws[r]:
             c.border = border
     ws.append([])
+    tot_birinchi = None
     for k in KINDS:
         rr = ws.max_row + 1
+        if tot_birinchi is None:
+            tot_birinchi = rr
         ws.cell(rr, 6, KIND[k] + " jami:").font = tot_font
-        c = ws.cell(rr, 7, float(d[k]))
+        c = ws.cell(rr, 7)
+        if oxirgi_q > hrow:
+            c.value = f'=SUMIF($A${hrow + 1}:$A${oxirgi_q},"{KIND[k]}",$G${hrow + 1}:$G${oxirgi_q})'
+        else:
+            c.value = 0
         c.number_format = money
         c.font = tot_font
         c.fill = tot_fill
     rr = ws.max_row + 1
     ws.cell(rr, 6, "JAMI:").font = Font(bold=True, size=12)
-    c = ws.cell(rr, 7, float(sum(d.values())))
+    c = ws.cell(rr, 7)
+    c.value = f"=SUM(G{tot_birinchi}:G{rr - 1})"
     c.number_format = money
     c.font = Font(bold=True, size=12, color="2563EB")
     c.fill = tot_fill

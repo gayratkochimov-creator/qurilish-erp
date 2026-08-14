@@ -584,6 +584,12 @@
       <h3>Haftalik so'rovlar {% if tas_wk %}<span class="c">{{ tas_wk|length }}</span>{% endif %}</h3>
       {% for w in tas_wk %}{% include "projects/_tas_wk_card.html" with w=w stage='dir' %}{% empty %}<div class="tempty">Direktor tasdig'ini kutayotgan haftalik so'rov yo'q.</div>{% endfor %}
     </div>
+    {% if graf_dir %}
+    <div class="sec">
+      <h3>Grafik ishlar <span class="c">{{ graf_dir|length }}</span></h3>
+      {% for g in graf_dir %}{% include "projects/_tas_graf_card.html" with g=g stage='dir' %}{% endfor %}
+    </div>
+    {% endif %}
     {% endif %}
 
     {% if request.user.is_superuser %}
@@ -597,6 +603,12 @@
       <h3>Haftalik so'rovlar {% if tas_wk2 %}<span class="c">{{ tas_wk2|length }}</span>{% endif %}</h3>
       {% for w in tas_wk2 %}{% include "projects/_tas_wk_card.html" with w=w stage='adm' %}{% empty %}<div class="tempty">Admin tasdig'ini kutayotgan haftalik so'rov yo'q.</div>{% endfor %}
     </div>
+    {% if graf_adm %}
+    <div class="sec">
+      <h3>Grafik ishlar <span class="c">{{ graf_adm|length }}</span></h3>
+      {% for g in graf_adm %}{% include "projects/_tas_graf_card.html" with g=g stage='adm' %}{% endfor %}
+    </div>
+    {% endif %}
     {% endif %}
 
   </div>{# /pane-tasdiqlar #}
