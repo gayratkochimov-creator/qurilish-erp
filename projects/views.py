@@ -2753,16 +2753,23 @@ def grafik_rabota(request, pk=None):
 
     import openpyxl
     from openpyxl.cell.cell import MergedCell
+    from openpyxl.styles import PatternFill
     from django.conf import settings as _s
 
     tpl = _s.BASE_DIR / "projects" / "xlsx" / "grafik_namuna.xlsx"
     wb = openpyxl.load_workbook(tpl)
 
+    BOSH_FILL = PatternFill()   # rangsiz
+
     def clear_rows(ws, first_row):
+        # Yozuvlar BILAN birga namunadagi eski RANGLAR ham tozalanadi —
+        # aks holda shablonning sariq/yashil/qizil kataklari hisobotda qolib ketadi
         for row in ws.iter_rows(min_row=first_row, max_row=ws.max_row):
             for cell in row:
                 if not isinstance(cell, MergedCell):
                     cell.value = None
+                    if cell.fill and cell.fill.patternType:
+                        cell.fill = BOSH_FILL
 
     # ===== 1) grafik =====
     ws = wb["график"]
@@ -2793,10 +2800,10 @@ def grafik_rabota(request, pk=None):
     # Ma'lumotlar + namunadagi ranglar: 0 -> QIZIL, plandan kam -> SARIQ,
     # plan bajarilgan -> YASHIL (bo'sh kun rangsiz)
     if grows:
-        from openpyxl.styles import PatternFill
         F_QIZIL = PatternFill("solid", fgColor="FFFF0000")
         F_SARIQ = PatternFill("solid", fgColor="FFFFFF00")
         F_YASHIL = PatternFill("solid", fgColor="FF00B050")
+        F_KOK = PatternFill("solid", fgColor="FFD7E9FB")   # srok (muddat) kunlari
         for idx, g in enumerate(grows):
             r = 4 + idx
             ws.cell(r, 2).value = g.name or None
@@ -2809,19 +2816,32 @@ def grafik_rabota(request, pk=None):
             ws.cell(r, 7).value = (float(g.bajarilgan) / float(g.qty)) if g.qty else None
             ws.cell(r, 23).value = float(g.qoldiq) if g.qty else None
             plan = float(g.plan or 0)
+            # Srok (muddat) oralig'i — vebdagi och ko'k belgi bilan bir xil
+            boshi = None
+            if g.muddat and start:
+                boshi = 0
+                if g.muddat_boshi:
+                    boshi = (g.muddat_boshi - start).days
+            off = set(int(x) for x in (g.srok_off or []))
+            qosh = set(int(x) for x in (g.srok_on or []))
             for j in range(GRAFIK_N):
-                v = (g.days or {}).get(str(ofs + j))
-                if v is None:
-                    continue
-                v = float(v)
+                gi = ofs + j
                 c = ws.cell(r, 8 + j)
-                c.value = int(v) if v == int(v) else v
-                if v <= 0:
-                    c.fill = F_QIZIL
-                elif plan > 0 and v < plan:
-                    c.fill = F_SARIQ
+                v = (g.days or {}).get(str(gi))
+                if v is not None:
+                    v = float(v)
+                    c.value = int(v) if v == int(v) else v
+                    if v <= 0:
+                        c.fill = F_QIZIL
+                    elif plan > 0 and v < plan:
+                        c.fill = F_SARIQ
+                    else:
+                        c.fill = F_YASHIL
                 else:
-                    c.fill = F_YASHIL
+                    srokmi = (boshi is not None and boshi <= gi < boshi + g.muddat
+                              and gi not in off) or (gi in qosh)
+                    if srokmi:
+                        c.fill = F_KOK
 
     # ===== 2) Solyarka va gaz =====
     if "Солярка ва газ" in wb.sheetnames:
