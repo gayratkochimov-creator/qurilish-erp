@@ -139,7 +139,7 @@
           {% for g in grows %}
           <tr>
             <td class="no">{{ forloop.counter }}</td>
-            <td class="nm"><input type="text" name="name" value="{{ g.r.name }}" {% if not can_edit %}readonly{% endif %}></td>
+            <td class="nm"><textarea name="name" rows="1" class="notegrow" {% if not can_edit %}readonly{% endif %} placeholder="ish nomi...">{{ g.r.name }}</textarea></td>
             <td><input type="text" name="unit" value="{{ g.r.unit }}" {% if not can_edit %}readonly{% endif %}></td>
             <td class="num"><input type="text" inputmode="decimal" class="numinp" name="qty" value="{{ g.r.qty|floatformat:'-3' }}" {% if not can_edit %}readonly{% endif %}></td>
             <td class="num"><input type="text" inputmode="decimal" class="numinp" name="plan" value="{{ g.r.plan|floatformat:'-3' }}" {% if not can_edit %}readonly{% endif %}></td>
@@ -175,7 +175,7 @@
     <template id="rowtpl">
       <tr>
         <td class="no"></td>
-        <td class="nm"><input type="text" name="name"></td>
+        <td class="nm"><textarea name="name" rows="1" class="notegrow" placeholder="ish nomi..."></textarea></td>
         <td><input type="text" name="unit"></td>
         <td class="num"><input type="text" inputmode="decimal" class="numinp" name="qty"></td>
         <td class="num"><input type="text" inputmode="decimal" class="numinp" name="plan"></td>

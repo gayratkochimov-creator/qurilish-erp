@@ -2657,7 +2657,7 @@ def grafik_web(request, pk):
         new_rows = []
         t = 0
         for i in range(len(names)):
-            nm = (names[i] or "").strip()
+            nm = " ".join((names[i] or "").split())
             days = {}
             for j in range(form_n):
                 col = daycols[j]
