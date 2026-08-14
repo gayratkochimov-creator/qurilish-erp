@@ -67,6 +67,10 @@
   .gstat.s-adm { background:#ede9fe; color:#6d28d9; }
   .gstat.s-approved { background:#dcfce7; color:#15803d; }
   .gstat.s-rejected { background:#fee2e2; color:#b91c1c; }
+  /* Izoh katagi — matnga qarab PASTGA kengayadi */
+  table.g textarea.notegrow { width:100%; border:1px solid transparent; background:transparent; font-size:13px; padding:7px 9px; border-radius:6px; font-family:inherit; text-align:left; resize:none; overflow:hidden; line-height:1.35; min-height:32px; display:block; white-space:normal; }
+  table.g textarea.notegrow:hover { border-color:#e5e7eb; }
+  table.g textarea.notegrow:focus { outline:none; border-color:var(--brand); background:#fff; box-shadow:0 0 0 2px rgba(10,110,209,.14); }
   /* Izoh tarixi */
   .ntar summary { cursor:pointer; font-size:11px; color:var(--mut); }
   .ntar div.nti { font-size:11.5px; text-align:left; color:#6b5b2a; background:#fffdf5; border:1px dashed #e2d4ab; border-radius:6px; padding:3px 7px; margin-top:3px; white-space:normal; }
@@ -146,7 +150,7 @@
             <td class="qoldiq">0</td>
             <td class="resp"><input type="text" class="respinp" name="responsible" value="{{ g.r.responsible }}" {% if not can_edit %}readonly{% endif %}></td>
             <td class="nm">
-              <input type="text" name="note" value="{{ g.r.note }}" {% if not can_edit %}readonly{% endif %} placeholder="bugungi izoh...">
+              <textarea name="note" rows="1" class="notegrow" {% if not can_edit %}readonly{% endif %} placeholder="bugungi izoh...">{{ g.r.note }}</textarea>
               {% if g.r.note_tarix %}
               <details class="ntar">
                 <summary>eski izohlar ({{ g.r.note_tarix|length }})</summary>
@@ -181,7 +185,7 @@
         {% for j in N_range %}<td class="d" data-i="{{ j }}"><input type="text" inputmode="decimal" class="numinp" name="d{{ j }}"></td>{% endfor %}
         <td class="qoldiq">0</td>
         <td class="resp"><input type="text" class="respinp" name="responsible"></td>
-        <td class="nm"><input type="text" name="note"></td>
+        <td class="nm"><textarea name="note" rows="1" class="notegrow" placeholder="bugungi izoh..."></textarea></td>
         <td><button type="button" class="del">×</button></td>
       </tr>
     </template>
@@ -248,7 +252,15 @@
       inp.style.width=(Math.max(24, l)+2)+'ch';    // ism-familiya to'liq ko'rinsin
     }
   }
-  function autosizeAll(){ tbody.querySelectorAll('input.numinp, input.respinp').forEach(autosize); }
+  function noteKengay(el){
+    if(!el || !el.offsetParent) return;
+    el.style.height='auto';
+    el.style.height=(el.scrollHeight+2)+'px';
+  }
+  function autosizeAll(){
+    tbody.querySelectorAll('input.numinp, input.respinp').forEach(autosize);
+    tbody.querySelectorAll('textarea.notegrow').forEach(noteKengay);
+  }
   function calc(tr){
     var qty=num(tr.querySelector('[name=qty]'));
     var plan=num(tr.querySelector('[name=plan]'));
@@ -315,7 +327,15 @@
   function markRowPast(tr){ if(window.grafikHaftaQolla) window.grafikHaftaQolla(); }
   if(addBtn) addBtn.addEventListener('click', function(){ tbody.appendChild(tpl.content.cloneNode(true)); markRowPast(); renumber(); autosizeAll(); });
   tbody.addEventListener('click', function(e){ if(e.target.classList.contains('del')){ e.target.closest('tr').remove(); renumber(); } });
-  tbody.addEventListener('input', function(e){ autosize(e.target); var tr=e.target.closest('tr'); if(tr) calc(tr); });
+  tbody.addEventListener('input', function(e){
+    autosize(e.target);
+    if(e.target.matches('textarea.notegrow')) noteKengay(e.target);
+    var tr=e.target.closest('tr'); if(tr) calc(tr);
+  });
+  // Izohda Enter yangi qator ochmasin — matn o'zi o'raladi
+  tbody.addEventListener('keydown', function(e){
+    if(e.target.matches('textarea.notegrow') && e.key==='Enter') e.preventDefault();
+  });
   // Sana (date) maydonlari 'change' beradi — muddat/srok qayta hisoblansin
   tbody.addEventListener('change', function(e){ var tr=e.target.closest('tr'); if(tr) calc(tr); });
   // Srok ichidagi kunni IKKI MARTA bosish — och ko'k belgini olib tashlaydi/qaytaradi

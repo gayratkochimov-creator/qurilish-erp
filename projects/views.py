@@ -2669,7 +2669,7 @@ def grafik_web(request, pk):
                         days[str(j)] = float(d)
             # Formada KO'RINMAGAN (oyna qisqarganda tashqarida qolgan) eski kunlar
             # YO'QOLMASIN + izoh o'zgargan bo'lsa ESKISI TARIXGA tushadi
-            yangi_note = (notes[i] if i < len(notes) else "").strip()[:500]
+            yangi_note = " ".join((notes[i] if i < len(notes) else "").split())[:500]
             tarix = []
             if i < len(eski_qatorlar) and (eski_qatorlar[i].name or "").strip() == nm:
                 eski_q = eski_qatorlar[i]
