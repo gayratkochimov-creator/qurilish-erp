@@ -71,6 +71,13 @@ def _qabul_qiluvchilar(proj):
                     .exclude(telegram_chat_id="")
                     .values_list("telegram_chat_id", flat=True)):
             chats.add(str(cid))
+        # Firma BUXGALTERI ham oladi (o'z firmasining hujjatlari)
+        if proj.firma_id:
+            for cid in (UserProfile.objects.filter(role="bux", firma_id=proj.firma_id,
+                                                   user__is_active=True)
+                        .exclude(telegram_chat_id="")
+                        .values_list("telegram_chat_id", flat=True)):
+                chats.add(str(cid))
     return chats
 
 

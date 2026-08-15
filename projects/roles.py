@@ -7,6 +7,7 @@ PTO_GROUP = "PTO"
 DIREKTOR_GROUP = "Direktor"
 PRORAB_GROUP = "Prorab"
 SNAB_GROUP = "Snabjeniye"
+BUX_GROUP = "Buxgalter"
 
 
 def _role(user):
@@ -75,6 +76,17 @@ def is_snab(user):
     return user.groups.filter(name=SNAB_GROUP).exists()
 
 
+def is_bux(user):
+    """Buxgalter — o'z FIRMASIdagi hamma obyekt/limit/ombor/hisobotni FAQAT KO'RADI,
+    Excel yuklab oladi. Hech narsani o'zgartirmaydi va tasdiqlamaydi."""
+    if not (user.is_authenticated and not user.is_superuser):
+        return False
+    r = _role(user)
+    if r:
+        return r == "bux"
+    return user.groups.filter(name=BUX_GROUP).exists()
+
+
 # ---------------------------------------------------------------------------
 # Firma bo'yicha ko'rish chegarasi (multi-tenant)
 # Admin (superuser) — hammasini ko'radi. Direktor/PTO — faqat o'z firmasini.
@@ -101,8 +113,8 @@ def visible_projects(user, qs=None):
         qs = Project.objects.all()
     if user.is_superuser:
         return qs
-    # Direktor — firma darajasi (profil roli ustun; guruh faqat profil bo'lmaganda)
-    if is_director(user):
+    # Direktor va BUXGALTER — firma darajasi (profil roli ustun; guruh faqat profil bo'lmaganda)
+    if is_director(user) or is_bux(user):
         f = user_firma(user)
         return qs.filter(firma=f) if f else qs.none()
     # PTO / Prorab — faqat biriktirilgan obyektlar

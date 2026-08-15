@@ -588,9 +588,11 @@ class UserProfile(models.Model):
         PTO = "pto", "PTO"
         PRORAB = "prorab", "Prorab"
         SNAB = "snab", "Snabjeniye"
+        BUX = "bux", "Buxgalter"   # firma bo'yicha FAQAT KO'RISH + Excel
 
     # Rol -> Django guruh nomi (is_pto/is_director/is_prorab guruh bo'yicha ishlaydi)
-    ROLE_GROUP = {"director": "Direktor", "pto": "PTO", "prorab": "Prorab", "snab": "Snabjeniye"}
+    ROLE_GROUP = {"director": "Direktor", "pto": "PTO", "prorab": "Prorab",
+                  "snab": "Snabjeniye", "bux": "Buxgalter"}
 
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
