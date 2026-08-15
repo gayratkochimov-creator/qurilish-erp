@@ -3026,21 +3026,35 @@ def xabar_yuborish(request):
         else:
             oluvchilar = list(xodimlar.filter(pk__in=ids))
             x.kimga.set(oluvchilar)
-        # Telegram bog'langanlarga botga ham yuboramiz (xato bo'lsa jim)
+        # Telegram: FAQAT o'sha xodimning o'z botiga (shaxsiy chat) — admin
+        # arxiv chatiga emas. Bot bog'lanmaganlar ro'yxati adminga ko'rsatiladi.
         tg_soni = 0
+        bot_yoq = []
         try:
+            from django.utils import timezone as _tz
             from .auth2fa import tg_send
             belgi = {"oddiy": "📩", "muhim": "❗", "shoshilinch": "🚨"}[muhimlik]
+            muh_nom = {"oddiy": "Oddiy", "muhim": "MUHIM", "shoshilinch": "SHOSHILINCH"}[muhimlik]
+            vaqt = _tz.localtime().strftime("%d.%m.%Y %H:%M")
             for u in oluvchilar:
                 prof = getattr(u, "profile", None)
                 chat = (getattr(prof, "telegram_chat_id", "") or "").strip() if prof else ""
-                if chat and tg_send(chat, f"{belgi} Admin xabari ({request.user.username}):\n\n{matn}"):
+                if not chat:
+                    bot_yoq.append(u.username)
+                    continue
+                if tg_send(chat, f"{belgi} Admin xabari — {muh_nom}\n"
+                                 f"Yubordi: {request.user.username} · {vaqt}\n\n{matn}\n\n"
+                                 f"Tizimga kirib «O'qidim» tugmasini bosing."):
                     tg_soni += 1
         except Exception:
             pass
         messages.success(request,
             f"Xabar yuborildi: {len(oluvchilar)} ta xodimga"
-            + (f" (Telegramga ham: {tg_soni})" if tg_soni else "") + ".")
+            + (f" (Telegram botiga ham: {tg_soni})" if tg_soni else "") + ".")
+        if bot_yoq:
+            messages.warning(request,
+                "Bot bog'lanmagan (faqat saytda ko'radi): " + ", ".join(bot_yoq[:10])
+                + (" ..." if len(bot_yoq) > 10 else ""))
         return redirect("xabar_yuborish")
     # GET — forma + yuborilgan xabarlar tarixi (kim o'qidi)
     tarix = []
