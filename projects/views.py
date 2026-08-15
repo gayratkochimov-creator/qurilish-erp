@@ -3051,8 +3051,18 @@ def xabar_yuborish(request):
         else:
             oluvchi_soni = x.kimga.count()
         oqigan = [o.user.username for o in x.oqilganlar.all()]
+        oqigan_batafsil = [
+            {"kim": o.user.username, "qachon": o.oqilgan_at}
+            for o in sorted(x.oqilganlar.all(), key=lambda o: o.oqilgan_at)
+        ]
+        if x.hammaga:
+            oluvchi_nomlar = [u.username for u in xodimlar]
+        else:
+            oluvchi_nomlar = [u.username for u in x.kimga.all()]
+        oqimagan = [n for n in oluvchi_nomlar if n not in oqigan]
         tarix.append({"obj": x, "oluvchi_soni": oluvchi_soni,
                       "oqigan": oqigan, "oqigan_soni": len(oqigan),
+                      "oqigan_batafsil": oqigan_batafsil, "oqimagan": oqimagan,
                       "kimga": ("Hammaga" if x.hammaga else
                                 ", ".join(u.username for u in x.kimga.all()))})
     return render(request, "projects/xabar_yuborish.html", {

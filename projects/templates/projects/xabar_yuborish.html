@@ -36,6 +36,18 @@
   .pill.oddiy { background:#e0f2fe; color:#075985; } .pill.muhim { background:#fef3c7; color:#92400e; } .pill.shoshilinch { background:#fee2e2; color:#991b1b; }
   .oq { font-size:11.5px; color:var(--mut); }
   .oq b { color:#15803d; }
+  /* Xabar batafsil (bosib ochiladi) */
+  .xd summary { cursor:pointer; list-style:none; color:var(--brand); font-weight:600; }
+  .xd summary::-webkit-details-marker { display:none; }
+  .xd summary::before { content:"▸ "; color:var(--mut); }
+  .xd[open] summary::before { content:"▾ "; }
+  .xd-body { margin-top:8px; background:#f8fafc; border:1px solid var(--line); border-radius:9px; padding:10px 12px; }
+  .xd-matn { white-space:pre-wrap; word-break:break-word; font-size:13.5px; margin-bottom:8px; }
+  .xd-meta { font-size:11.5px; color:var(--mut); margin-bottom:8px; }
+  .xd-h { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--mut); margin-bottom:3px; }
+  .xd-row { font-size:12.5px; padding:2px 0; display:flex; justify-content:space-between; gap:12px; }
+  .xd-row.ok { color:#15803d; } .xd-row.ok span { color:var(--mut); font-size:11.5px; }
+  .xd-row.no { color:#b45309; } .xd-row.none { color:#94a3b8; font-style:italic; }
 </style>
 {% endblock %}
 
@@ -76,7 +88,23 @@
         {% for t in tarix %}
         <tr>
           <td style="white-space:nowrap;">{{ t.obj.created_at|date:"d.m.Y H:i" }}<br><span class="pill {{ t.obj.muhimlik }}">{{ t.obj.get_muhimlik_display }}</span></td>
-          <td>{{ t.obj.matn }}</td>
+          <td>
+            <details class="xd">
+              <summary title="To'liq ko'rish">{{ t.obj.matn|truncatechars:90 }}</summary>
+              <div class="xd-body">
+                <div class="xd-matn">{{ t.obj.matn }}</div>
+                <div class="xd-meta">Yubordi: <b>{{ t.obj.yubordi.username|default:"admin" }}</b> · {{ t.obj.created_at|date:"d.m.Y H:i" }} · {{ t.obj.get_muhimlik_display }}</div>
+                <div class="xd-list">
+                  <div class="xd-h">✓ O'qiganlar ({{ t.oqigan_soni }})</div>
+                  {% for o in t.oqigan_batafsil %}<div class="xd-row ok">{{ o.kim }} <span>{{ o.qachon|date:"d.m.Y H:i" }}</span></div>{% empty %}<div class="xd-row none">hali hech kim o'qimagan</div>{% endfor %}
+                  {% if t.oqimagan %}
+                  <div class="xd-h" style="margin-top:8px;">○ Hali o'qimaganlar ({{ t.oqimagan|length }})</div>
+                  {% for n in t.oqimagan %}<div class="xd-row no">{{ n }}</div>{% endfor %}
+                  {% endif %}
+                </div>
+              </div>
+            </details>
+          </td>
           <td style="font-size:12px;">{{ t.kimga }}</td>
           <td class="oq"><b>{{ t.oqigan_soni }}</b> / {{ t.oluvchi_soni }}{% if t.oqigan %}<br>{{ t.oqigan|join:", " }}{% endif %}</td>
         </tr>
