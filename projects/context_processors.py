@@ -17,6 +17,17 @@ def approvals(request):
     _vp = visible_projects(u)
     ctx = {"nav_is_pto": _pto, "nav_is_prorab": _prorab,
            "nav_is_director": _dir, "nav_is_admin": _adm}
+    # ADMIN xabarlari — o'qilmaganlari har sahifa tepasida ko'rinadi
+    try:
+        from django.db.models import Q
+        from .models import Xabar
+        oqilgan_ids = list(u.xabar_oqilgan.values_list("xabar_id", flat=True))
+        ctx["mening_xabarlarim"] = list(
+            Xabar.objects.filter(Q(hammaga=True) | Q(kimga=u))
+            .exclude(id__in=oqilgan_ids).exclude(yubordi=u)
+            .select_related("yubordi").distinct().order_by("-created_at")[:10])
+    except Exception:
+        ctx["mening_xabarlarim"] = []
     # Prorab -> PTO material so'rovlari (PTO uchun kutayotgan soni)
     if _pto:
         ctx["pending_mat"] = MaterialRequest.objects.filter(

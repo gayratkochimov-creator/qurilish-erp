@@ -2996,6 +2996,81 @@ def grafik_rabota(request, pk=None):
 
 
 @login_required
+def xabar_yuborish(request):
+    """ADMIN xodim(lar)ga xabar yuboradi. Xabar xodim oynasi tepasida ko'rinadi
+    («O'qidim» bosguncha) + Telegram bog'langan bo'lsa botga ham ketadi."""
+    from django.contrib.auth import get_user_model
+    from .models import Xabar, XabarOqildi
+    if not is_admin(request.user):
+        raise PermissionDenied("Xabarni faqat admin yuboradi.")
+    U = get_user_model()
+    xodimlar = (U.objects.filter(is_active=True).exclude(pk=request.user.pk)
+                .select_related("profile").order_by("username"))
+    if request.method == "POST":
+        matn = " ".join((request.POST.get("matn") or "").split())[:2000]
+        muhimlik = request.POST.get("muhimlik") or "oddiy"
+        if muhimlik not in ("oddiy", "muhim", "shoshilinch"):
+            muhimlik = "oddiy"
+        hammaga = bool(request.POST.get("hammaga"))
+        ids = request.POST.getlist("kimga")
+        if not matn:
+            messages.error(request, "Xabar matnini yozing.")
+            return redirect("xabar_yuborish")
+        if not hammaga and not ids:
+            messages.error(request, "Kimga yuborishni tanlang (yoki «Hammaga»).")
+            return redirect("xabar_yuborish")
+        x = Xabar.objects.create(matn=matn, muhimlik=muhimlik,
+                                 yubordi=request.user, hammaga=hammaga)
+        if hammaga:
+            oluvchilar = list(xodimlar)
+        else:
+            oluvchilar = list(xodimlar.filter(pk__in=ids))
+            x.kimga.set(oluvchilar)
+        # Telegram bog'langanlarga botga ham yuboramiz (xato bo'lsa jim)
+        tg_soni = 0
+        try:
+            from .auth2fa import tg_send
+            belgi = {"oddiy": "📩", "muhim": "❗", "shoshilinch": "🚨"}[muhimlik]
+            for u in oluvchilar:
+                prof = getattr(u, "profile", None)
+                chat = (getattr(prof, "telegram_chat_id", "") or "").strip() if prof else ""
+                if chat and tg_send(chat, f"{belgi} Admin xabari ({request.user.username}):\n\n{matn}"):
+                    tg_soni += 1
+        except Exception:
+            pass
+        messages.success(request,
+            f"Xabar yuborildi: {len(oluvchilar)} ta xodimga"
+            + (f" (Telegramga ham: {tg_soni})" if tg_soni else "") + ".")
+        return redirect("xabar_yuborish")
+    # GET — forma + yuborilgan xabarlar tarixi (kim o'qidi)
+    tarix = []
+    for x in Xabar.objects.select_related("yubordi").prefetch_related(
+            "kimga", "oqilganlar__user").order_by("-created_at")[:30]:
+        if x.hammaga:
+            oluvchi_soni = xodimlar.count()
+        else:
+            oluvchi_soni = x.kimga.count()
+        oqigan = [o.user.username for o in x.oqilganlar.all()]
+        tarix.append({"obj": x, "oluvchi_soni": oluvchi_soni,
+                      "oqigan": oqigan, "oqigan_soni": len(oqigan),
+                      "kimga": ("Hammaga" if x.hammaga else
+                                ", ".join(u.username for u in x.kimga.all()))})
+    return render(request, "projects/xabar_yuborish.html", {
+        "xodimlar": xodimlar, "tarix": tarix,
+    })
+
+
+@login_required
+def xabar_oqidim(request, pk):
+    """Xodim xabarni o'qiganini belgilaydi — banner yo'qoladi."""
+    from .models import Xabar, XabarOqildi
+    if request.method == "POST":
+        x = get_object_or_404(Xabar, pk=pk)
+        XabarOqildi.objects.get_or_create(xabar=x, user=request.user)
+    return redirect(request.META.get("HTTP_REFERER") or "/")
+
+
+@login_required
 def weekly_export(request, pk):
     """Bitta haftalik so'rovni ALOHIDA Excel qilib yuklab olish."""
     w = get_object_or_404(

@@ -665,6 +665,54 @@ class TelegramBindState(models.Model):
         return f"{self.chat_id} ({self.step or 'boshlanmagan'})"
 
 
+class Xabar(models.Model):
+    """ADMIN -> xodim(lar)ga xabar. Xodim tizimga kirganda oynasi tepasida
+    ko'rinadi, «O'qidim» bosguncha turadi. Telegram bog'langan bo'lsa botga ham ketadi."""
+
+    class Muhimlik(models.TextChoices):
+        ODDIY = "oddiy", "Oddiy"
+        MUHIM = "muhim", "Muhim"
+        SHOSHILINCH = "shoshilinch", "Shoshilinch"
+
+    matn = models.TextField("Xabar matni", max_length=2000)
+    muhimlik = models.CharField("Muhimlik", max_length=12, choices=Muhimlik.choices,
+                                default=Muhimlik.ODDIY)
+    yubordi = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL,
+        related_name="xabarlar_yuborgan", verbose_name="Yubordi (admin)",
+    )
+    # Bo'sh = HAMMAGA (barcha faol xodimlar)
+    kimga = models.ManyToManyField(
+        settings.AUTH_USER_MODEL, blank=True,
+        related_name="xabarlar_olgan", verbose_name="Kimga",
+    )
+    hammaga = models.BooleanField("Hammaga", default=False)
+    created_at = models.DateTimeField("Yuborilgan sana", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Xabar"
+        verbose_name_plural = "Xabarlar"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.created_at:%d.%m.%Y %H:%M} — {self.matn[:40]}"
+
+
+class XabarOqildi(models.Model):
+    """Xodim xabarni o'qigani (O'qidim bosgani)."""
+    xabar = models.ForeignKey(Xabar, on_delete=models.CASCADE, related_name="oqilganlar")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+                             related_name="xabar_oqilgan")
+    oqilgan_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Xabar o'qildi"
+        verbose_name_plural = "Xabar o'qilganlar"
+        constraints = [
+            models.UniqueConstraint(fields=["xabar", "user"], name="uniq_xabar_user_oqildi"),
+        ]
+
+
 class MaterialRequest(models.Model):
     """Prorab -> PTO material so'rovi.
 
