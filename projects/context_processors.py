@@ -28,6 +28,24 @@ def approvals(request):
             .select_related("yubordi").distinct().order_by("-created_at")[:10])
     except Exception:
         ctx["mening_xabarlarim"] = []
+    # Moliyalashtirish: buxgalter/admin uchun berilmagan qarz bormi (menyu belgisi)
+    try:
+        from .roles import is_bux
+        if u.is_superuser or is_bux(u):
+            from decimal import Decimal
+            from django.db.models import DecimalField, ExpressionWrapper, F, Sum
+            from .models import Moliya, WeeklyRequestItem
+            _lt = ExpressionWrapper(F("quantity") * F("unit_price"),
+                                    output_field=DecimalField(max_digits=20, decimal_places=2))
+            tas = (WeeklyRequestItem.objects
+                   .filter(request__project__in=_vp, request__status="approved")
+                   .aggregate(s=Sum(_lt))["s"] or Decimal("0"))
+            ber = (Moliya.objects
+                   .filter(item__request__project__in=_vp, item__request__status="approved")
+                   .aggregate(s=Sum("summa"))["s"] or Decimal("0"))
+            ctx["nav_qarz_bor"] = tas - ber > Decimal("0.5")
+    except Exception:
+        pass
     # Prorab -> PTO material so'rovlari (PTO uchun kutayotgan soni)
     if _pto:
         ctx["pending_mat"] = MaterialRequest.objects.filter(

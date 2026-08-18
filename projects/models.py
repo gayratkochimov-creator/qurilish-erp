@@ -120,6 +120,26 @@ class Project(models.Model):
     def qolgan(self):
         return self.budget_total - self.sarflangan()
 
+    def moliya_by_kind(self):
+        """Turlar bo'yicha HAQIQATDA berilgan (buxgalter to'lovlari) — fakt."""
+        d = {"material": Decimal("0.00"), "labor": Decimal("0.00"),
+             "machinery": Decimal("0.00"), "other": Decimal("0.00")}
+        rows = (Moliya.objects.filter(item__request__project=self,
+                                      item__request__status=WeeklyRequest.Status.APPROVED)
+                .values("item__kind").annotate(s=Sum("summa")))
+        for r in rows:
+            d[r["item__kind"]] = r["s"] or Decimal("0.00")
+        return d
+
+    def berildi(self):
+        """Haqiqatda berilgan jami (fakt)."""
+        return sum(self.moliya_by_kind().values(), Decimal("0.00"))
+
+    def qarz(self):
+        """Tasdiqlangan − berilgan = berilmagan qarz."""
+        q = self.sarflangan() - self.berildi()
+        return q if q > 0 else Decimal("0.00")
+
     def limit_holati(self):
         spent = self.sarflangan()
         if self.budget_total <= 0:
@@ -367,6 +387,29 @@ class WeeklyRequestItem(models.Model):
     @property
     def total(self):
         return (self.quantity * self.unit_price).quantize(Decimal("0.01"))
+
+    # ---- Moliyalashtirish (fakt) ----
+    @property
+    def berildi(self):
+        """Buxgalter haqiqatda bergan summa (barcha to'lovlar yig'indisi)."""
+        s = Decimal("0")
+        for m in self.moliyalar.all():
+            s += m.summa
+        return s.quantize(Decimal("0.01"))
+
+    @property
+    def berildi_miqdor(self):
+        s = Decimal("0")
+        for m in self.moliyalar.all():
+            if m.miqdor is not None:
+                s += m.miqdor
+        return s
+
+    @property
+    def qarz(self):
+        """Tasdiqlangan − berilgan (berilmagan qarz)."""
+        q = self.total - self.berildi
+        return q if q > 0 else Decimal("0.00")
 
 
 class LimitItem(models.Model):
@@ -665,6 +708,34 @@ class TelegramBindState(models.Model):
 
     def __str__(self):
         return f"{self.chat_id} ({self.step or 'boshlanmagan'})"
+
+
+class Moliya(models.Model):
+    """MOLIYALASHTIRISH (fakt): buxgalter tasdiqlangan haftalik qatoriga
+    HAQIQATDA berilgan pulni yozadi. Bir qatorga bir necha to'lov bo'lishi mumkin
+    (bugun 60%, kelasi hafta qolgani). Yozuv o'chirilmaydi — jurnal."""
+
+    item = models.ForeignKey(
+        "WeeklyRequestItem", on_delete=models.CASCADE,
+        related_name="moliyalar", verbose_name="Haftalik qatori",
+    )
+    summa = models.DecimalField("Berilgan summa", **MONEY)
+    miqdor = models.DecimalField("Berilgan miqdor", null=True, blank=True, **QTY)
+    izoh = models.CharField("Izoh (kassa/karta/avans...)", max_length=300, blank=True)
+    sana = models.DateField("To'lov sanasi")
+    yozdi = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL,
+        related_name="moliya_yozgan", verbose_name="Yozdi (buxgalter)",
+    )
+    created_at = models.DateTimeField("Yozilgan vaqt", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Moliyalashtirish (to'lov)"
+        verbose_name_plural = "Moliyalashtirish (to'lovlar)"
+        ordering = ["-sana", "-id"]
+
+    def __str__(self):
+        return f"{self.item.name}: {self.summa} ({self.sana:%d.%m.%Y})"
 
 
 class Xabar(models.Model):
