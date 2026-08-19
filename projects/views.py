@@ -3071,11 +3071,15 @@ def moliya(request):
     rows = []
     jami_t = jami_b = jami_q = Decimal("0")
     obyekt_qarz = {}
+    # TOIFA bo'yicha (material / ish haqi / mashina / boshqa) tasdiq-berildi-qoldi
+    toifa = {k: {"t": Decimal("0"), "b": Decimal("0"), "q": Decimal("0")} for k in KINDS}
     for it in items:
         t = it.total
         b = it.berildi
         q = it.qarz
         p = it.request.project
+        tk = toifa.setdefault(it.kind, {"t": Decimal("0"), "b": Decimal("0"), "q": Decimal("0")})
+        tk["t"] += t; tk["b"] += b; tk["q"] += q
         obyekt_qarz.setdefault(p.pk, {"p": p, "qarz": Decimal("0"), "tasdiq": Decimal("0"),
                                       "berildi": Decimal("0")})
         obyekt_qarz[p.pk]["qarz"] += q
@@ -3098,21 +3102,36 @@ def moliya(request):
         d["qarz_str"] = _money(d["qarz"]); d["tasdiq_str"] = _money(d["tasdiq"])
         d["berildi_str"] = _money(d["berildi"])
     # HAFTALIK bo'yicha guruhlash: har hafta ostida o'z ITOGOSI (tasdiq/berildi/qoldi)
+    # + hafta ichida TOIFA bo'yicha bo'linish
+    _KN = {"material": "Material", "labor": "Ish haqi", "machinery": "Mashina", "other": "Boshqa"}
+    _KC = {"material": "mat", "labor": "lab", "machinery": "mach", "other": "oth"}
     guruhlar = []
     _g = None
     for r_ in rows:
         w_ = r_["w"]
         if _g is None or _g["w"].pk != w_.pk:
             _g = {"w": w_, "p": r_["p"], "rows": [], "t": Decimal("0"), "b": Decimal("0"),
-                  "q": Decimal("0")}
+                  "q": Decimal("0"),
+                  "toifa": {k: {"t": Decimal("0"), "b": Decimal("0"), "q": Decimal("0")} for k in KINDS}}
             guruhlar.append(_g)
         _g["rows"].append(r_)
-        _g["t"] += r_["it"].total
-        _g["b"] += r_["it"].berildi
-        _g["q"] += r_["it"].qarz
+        _t_, _b_, _q_ = r_["it"].total, r_["it"].berildi, r_["it"].qarz
+        _g["t"] += _t_; _g["b"] += _b_; _g["q"] += _q_
+        tk = _g["toifa"].setdefault(r_["it"].kind, {"t": Decimal("0"), "b": Decimal("0"), "q": Decimal("0")})
+        tk["t"] += _t_; tk["b"] += _b_; tk["q"] += _q_
     for g_ in guruhlar:
         g_["t_str"] = _money(g_["t"]); g_["b_str"] = _money(g_["b"]); g_["q_str"] = _money(g_["q"])
         g_["soni"] = len(g_["rows"])
+        g_["toifa_ro"] = [
+            {"nom": _KN[k], "cls": _KC[k], "t_str": _money(v["t"]), "b_str": _money(v["b"]),
+             "q_str": _money(v["q"]), "bor": v["t"] > 0}
+            for k, v in g_["toifa"].items() if v["t"] > 0
+        ]
+    toifa_ro = [
+        {"nom": _KN[k], "cls": _KC[k], "t_str": _money(v["t"]), "b_str": _money(v["b"]),
+         "q_str": _money(v["q"]), "foiz": int(v["b"] / v["t"] * 100) if v["t"] else 0}
+        for k, v in toifa.items()
+    ]
     # Ko'rinayotgan qatorlar bo'yicha jami (filtrga mos)
     korin_t = sum((g_["t"] for g_ in guruhlar), Decimal("0"))
     korin_b = sum((g_["b"] for g_ in guruhlar), Decimal("0"))
@@ -3124,6 +3143,7 @@ def moliya(request):
     from django.utils import timezone
     return render(request, "projects/moliya.html", {
         "rows": rows, "guruhlar": guruhlar, "obyektlar": obyektlar, "jurnal": jurnal,
+        "toifa_ro": toifa_ro,
         "korin_t": _money(korin_t), "korin_b": _money(korin_b), "korin_q": _money(korin_q),
         "yoza_oladi": yoza_oladi,
         "firmalar": visible_firmas(request.user).order_by("name"),

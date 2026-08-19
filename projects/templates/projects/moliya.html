@@ -42,6 +42,15 @@
   .obj-row .code { font-weight:700; }
   .obj-row .sub { font-size:11px; color:var(--mut); }
   .jur td { font-size:12.5px; }
+  /* Toifa kartalari */
+  .toifa-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(210px,1fr)); gap:12px; margin-bottom:16px; }
+  .tc { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px 14px; box-shadow:var(--shadow-sm); }
+  .tc-h { font-weight:800; font-size:13px; margin-bottom:6px; display:flex; align-items:center; gap:6px; }
+  .tc-r { display:flex; justify-content:space-between; font-size:12.5px; padding:2px 0; font-variant-numeric:tabular-nums; }
+  .tc-r span { color:var(--mut); }
+  .dot { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:4px; }
+  .dot.mat { background:#2563eb; } .dot.lab { background:#16a34a; } .dot.mach { background:#d97706; } .dot.oth { background:#64748b; }
+  tr.wsub td { background:#fbfcfe; font-size:12px; color:#475569; border-bottom:1px dashed #e2e8f0; padding:5px 10px; }
   /* Haftalik guruh sarlavhasi va itogosi */
   tr.whead td { background:#eef2f7; border-top:2px solid #cbd5e1; padding:9px 12px; }
   .wh-nom { font-weight:800; font-size:13.5px; color:#1e293b; }
@@ -59,6 +68,18 @@
   <div class="c"><div class="l">Tasdiqlangan (ruxsat)</div><div class="v">{{ jami_t }}</div></div>
   <div class="c"><div class="l">Berildi (fakt)</div><div class="v b">{{ jami_b }}</div></div>
   <div class="c"><div class="l">Berilmagan qarz</div><div class="v q">{{ jami_q }}</div></div>
+</div>
+
+<div class="toifa-grid">
+  {% for t in toifa_ro %}
+  <div class="tc">
+    <div class="tc-h"><span class="dot {{ t.cls }}"></span>{{ t.nom }}</div>
+    <div class="tc-r"><span>Tasdiqlangan</span><b>{{ t.t_str }}</b></div>
+    <div class="tc-r"><span>Berildi</span><b style="color:#15803d;">{{ t.b_str }}</b></div>
+    <div class="tc-r"><span>Qoldi</span><b class="{% if t.q_str == '0' %}toliq{% else %}qarz{% endif %}">{{ t.q_str }}</b></div>
+    <div class="bar" style="margin-top:8px;"><i style="width:{{ t.foiz }}%"></i></div>
+  </div>
+  {% endfor %}
 </div>
 
 <form method="get" class="ffilter">
@@ -113,6 +134,16 @@
             {% else %}<span class="toliq">✓ to'liq</span>{% endif %}
           </td>
           {% endif %}
+        </tr>
+        {% endfor %}
+        {% for tf in g.toifa_ro %}
+        <tr class="wsub">
+          <td></td>
+          <td><span class="dot {{ tf.cls }}"></span>{{ tf.nom }} bo'yicha</td>
+          <td class="num">{{ tf.t_str }}</td>
+          <td class="num" style="color:#15803d;">{{ tf.b_str }}</td>
+          <td class="num {% if tf.q_str == '0' %}toliq{% else %}qarz{% endif %}">{{ tf.q_str }}</td>
+          {% if yoza_oladi %}<td></td>{% endif %}
         </tr>
         {% endfor %}
         <tr class="wtot">
