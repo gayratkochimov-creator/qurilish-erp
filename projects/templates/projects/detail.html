@@ -232,6 +232,7 @@
 
     <div class="cards">
       <div class="card"><div class="label">Umumiy limit</div><div class="value">{{ limit_str }}</div></div>
+      {% if moliya_kora %}
       <div class="card">
         <div class="label">Tasdiqlangan (ruxsat)</div>
         <div class="value">{{ sarf_str }}</div>
@@ -242,6 +243,9 @@
         <div class="value" style="color:{% if qarz_bor %}#b45309{% else %}#15803d{% endif %};">{{ qarz_str }}</div>
         <div style="font-size:11.5px; color:var(--mut); margin-top:4px;"><a href="{% url 'moliya' %}?obyekt={{ p.id }}&qarz=1" style="color:var(--brand); font-weight:600;">Moliyalashtirish →</a></div>
       </div>
+      {% else %}
+      <div class="card"><div class="label">Sarflangan</div><div class="value">{{ sarf_str }}</div></div>
+      {% endif %}
       <div class="card"><div class="label">Qolgan limit</div><div class="value">{{ qoldiq_str }}</div></div>
       <div class="card">
         <div class="label">Holati ({{ foiz }}%)</div>
@@ -832,7 +836,7 @@
           <div class="req-sum">−{{ s.jami_str }}</div>
           <div class="split"><span class="dot mat"></span>{{ s.mat_str }} · <span class="dot lab"></span>{{ s.lab_str }} · <span class="dot mach"></span>{{ s.mach_str }}</div>
           {% if s.is_approved %}<div class="qoldiq-run {% if s.qoldiq_neg %}neg{% endif %}">Qolgan limit: <b>{{ s.qoldiq_str }}</b></div>
-          <div style="font-size:11.5px; margin-top:3px;">Berildi: <b style="color:#15803d;">{{ s.berildi_str }}</b>{% if s.qarz_bor %} · Qarz: <b style="color:#b45309;">{{ s.qarz_str }}</b>{% else %} · <span style="color:#15803d;">✓ to'liq</span>{% endif %}</div>{% endif %}
+          {% if moliya_kora %}<div style="font-size:11.5px; margin-top:3px;">Berildi: <b style="color:#15803d;">{{ s.berildi_str }}</b>{% if s.qarz_bor %} · Qarz: <b style="color:#b45309;">{{ s.qarz_str }}</b>{% else %} · <span style="color:#15803d;">✓ to'liq</span>{% endif %}</div>{% endif %}{% endif %}
         </div>
       </div>
       <table>

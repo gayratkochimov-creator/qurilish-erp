@@ -28,9 +28,10 @@ def approvals(request):
             .select_related("yubordi").distinct().order_by("-created_at")[:10])
     except Exception:
         ctx["mening_xabarlarim"] = []
-    # Moliyalashtirish: buxgalter/admin uchun berilmagan qarz bormi (menyu belgisi)
+    # Moliyalashtirish: menyu faqat PTO/admin/buxgalterga; qarz belgisi
     try:
         from .roles import is_bux
+        ctx["nav_moliya"] = bool(u.is_superuser or is_bux(u) or _pto)
         if u.is_superuser or is_bux(u):
             from decimal import Decimal
             from django.db.models import DecimalField, ExpressionWrapper, F, Sum
