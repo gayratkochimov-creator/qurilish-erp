@@ -51,6 +51,10 @@
   .dot { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:4px; }
   .dot.mat { background:#2563eb; } .dot.lab { background:#16a34a; } .dot.mach { background:#d97706; } .dot.oth { background:#64748b; }
   tr.wsub td { background:#fbfcfe; font-size:12px; color:#475569; border-bottom:1px dashed #e2e8f0; padding:5px 10px; }
+  /* To'liq to'langan qator — yashil fon, ichi ko'rinib turadi */
+  tr.toliq-row td { background:#f0fdf4; }
+  tr.toliq-row:hover td { background:#dcfce7; }
+  .tq { display:inline-block; background:#15803d; color:#fff; border-radius:50%; width:16px; height:16px; font-size:11px; text-align:center; line-height:16px; margin-right:5px; font-weight:800; }
   /* Haftalik guruh sarlavhasi va itogosi */
   tr.whead td { background:#eef2f7; border-top:2px solid #cbd5e1; padding:9px 12px; }
   .wh-nom { font-weight:800; font-size:13.5px; color:#1e293b; }
@@ -108,12 +112,12 @@
         <tr class="whead">
           <td colspan="{% if yoza_oladi %}6{% else %}5{% endif %}">
             <span class="wh-nom">{{ g.p.name }}</span>
-            <span class="wh-sub">{{ g.p.code }} · {{ g.w.week_start|date:"d.m" }}–{{ g.w.week_end|date:"d.m.Y" }}{% if g.w.number %} · {{ g.w.number }}{% endif %} · {{ g.soni }} qator</span>
+            <span class="wh-sub">{{ g.p.code }} · {{ g.w.week_start|date:"d.m" }}–{{ g.w.week_end|date:"d.m.Y" }}{% if g.w.number %} · {{ g.w.number }}{% endif %} · {{ g.soni }} qator{% if g.toliq_soni %} · <span style="color:#15803d; font-weight:700;">✓ {{ g.toliq_soni }} ta to'liq to'langan</span>{% endif %}</span>
           </td>
         </tr>
         {% for r in g.rows %}
-        <tr>
-          <td style="padding-left:22px; color:var(--mut); font-size:12px;">{{ r.w.week_start|date:"d.m" }}–{{ r.w.week_end|date:"d.m" }}</td>
+        <tr class="{% if r.toliq %}toliq-row{% endif %}">
+          <td style="padding-left:22px; color:var(--mut); font-size:12px;">{% if r.toliq %}<span class="tq">✓</span>{% endif %}{{ r.w.week_start|date:"d.m" }}–{{ r.w.week_end|date:"d.m" }}</td>
           <td><span class="kind k-{{ r.cls }}">{{ r.kind_disp }}</span> {{ r.it.name }}{% if r.it.bolim %} <span style="font-size:10.5px; color:#64748b; font-weight:700;">📁 {{ r.it.bolim }}</span>{% endif %}<div style="font-size:11px; color:var(--mut);">{{ r.qty_str }} {{ r.it.unit }} × {{ r.price_str }}</div>
             {% if r.tolovlar %}<div class="tarix">{% for m in r.tolovlar %}<div>✓ {{ m.sana|date:"d.m.Y" }} — {{ m.summa|floatformat:"0" }}{% if m.miqdor %} ({{ m.miqdor|floatformat:"-3" }} {{ r.it.unit }}){% endif %}{% if m.izoh %} · {{ m.izoh }}{% endif %} · <i>{{ m.yozdi.username|default:"—" }}</i></div>{% endfor %}</div>{% endif %}
           </td>

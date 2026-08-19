@@ -3086,9 +3086,10 @@ def moliya(request):
         obyekt_qarz[p.pk]["tasdiq"] += t
         obyekt_qarz[p.pk]["berildi"] += b
         jami_t += t; jami_b += b; jami_q += q
-        if faqat_qarz and q <= 0:
-            continue
+        # «Faqat qarzlar» rejimida TO'LIQ to'langanlar ham ro'yxatda qoladi
+        # (yig'iq, yashil) — hafta ichida nima to'langani ko'rinib tursin
         rows.append({
+            "toliq": q <= 0,
             "it": it, "p": p, "w": it.request,
             "kind_disp": it.get_kind_display(), "cls": LI_CLS.get(it.kind, "mat"),
             "qty_str": _qty(it.quantity), "price_str": _money(it.unit_price),
@@ -3119,9 +3120,14 @@ def moliya(request):
         _g["t"] += _t_; _g["b"] += _b_; _g["q"] += _q_
         tk = _g["toifa"].setdefault(r_["it"].kind, {"t": Decimal("0"), "b": Decimal("0"), "q": Decimal("0")})
         tk["t"] += _t_; tk["b"] += _b_; tk["q"] += _q_
+    # «Faqat qarzlar»: qarzi YO'Q haftalar butunlay yashiriladi (ular «Hammasi»da),
+    # qarzli hafta ichida esa to'liq to'langan qatorlar ham ko'rinib turadi
+    if faqat_qarz:
+        guruhlar = [g_ for g_ in guruhlar if g_["q"] > 0]
     for g_ in guruhlar:
         g_["t_str"] = _money(g_["t"]); g_["b_str"] = _money(g_["b"]); g_["q_str"] = _money(g_["q"])
         g_["soni"] = len(g_["rows"])
+        g_["toliq_soni"] = sum(1 for r_ in g_["rows"] if r_["toliq"])
         g_["toifa_ro"] = [
             {"nom": _KN[k], "cls": _KC[k], "t_str": _money(v["t"]), "b_str": _money(v["b"]),
              "q_str": _money(v["q"]), "bor": v["t"] > 0}
