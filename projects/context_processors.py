@@ -31,7 +31,7 @@ def approvals(request):
     # Moliyalashtirish: menyu faqat PTO/admin/buxgalterga; qarz belgisi
     try:
         from .roles import is_bux
-        ctx["nav_moliya"] = bool(u.is_superuser or is_bux(u) or _pto)
+        ctx["nav_moliya"] = not _prorab   # faqat prorab ko'rmaydi
         if u.is_superuser or is_bux(u):
             from decimal import Decimal
             from django.db.models import DecimalField, ExpressionWrapper, F, Sum

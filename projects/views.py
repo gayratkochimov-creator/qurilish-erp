@@ -3049,10 +3049,10 @@ def _moliya_yoza_oladi(user):
 
 
 def moliya_kora_oladi(user):
-    """Moliyalashtirish bo'limini KIM KO'RADI: PTO, admin, buxgalter.
-    Direktor/prorab/snab — ko'rmaydi (menyu ham, sahifa ham)."""
-    from .roles import is_bux, is_pto
-    return bool(user.is_superuser or is_bux(user) or is_pto(user))
+    """Moliyalashtirish bo'limini KIM KO'RADI: hamma, FAQAT PRORAB emas
+    (menyu ham, sahifa ham, obyektdagi berildi/qarz ko'rsatkichlari ham)."""
+    from .roles import is_prorab
+    return bool(user.is_authenticated and not is_prorab(user))
 
 
 @login_required
@@ -3062,7 +3062,7 @@ def moliya(request):
     Firma/obyekt filtri, «faqat qarzlar» rejimi, to'lov jurnali."""
     from .models import Moliya
     if not moliya_kora_oladi(request.user):
-        raise PermissionDenied("Moliyalashtirish bo'limi faqat PTO, admin va buxgalterga.")
+        raise PermissionDenied("Moliyalashtirish bo'limi prorabga ko'rsatilmaydi.")
     yoza_oladi = _moliya_yoza_oladi(request.user)
     vp = visible_projects(request.user)
     firma_id = request.GET.get("firma") or ""
