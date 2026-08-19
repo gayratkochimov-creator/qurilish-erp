@@ -78,7 +78,7 @@
       <tbody>
         {% for r in rows %}
         <tr>
-          <td><b>{{ r.p.code }}</b><div style="font-size:11px; color:var(--mut);">{{ r.w.week_start|date:"d.m" }}–{{ r.w.week_end|date:"d.m.Y" }}{% if r.w.number %} · {{ r.w.number }}{% endif %}</div></td>
+          <td><b>{{ r.p.name }}</b><div style="font-size:11px; color:var(--mut);">{{ r.p.code }} · {{ r.w.week_start|date:"d.m" }}–{{ r.w.week_end|date:"d.m.Y" }}{% if r.w.number %} · {{ r.w.number }}{% endif %}</div></td>
           <td><span class="kind k-{{ r.cls }}">{{ r.kind_disp }}</span> {{ r.it.name }}<div style="font-size:11px; color:var(--mut);">{{ r.qty_str }} {{ r.it.unit }} × {{ r.price_str }}</div>
             {% if r.tolovlar %}<div class="tarix">{% for m in r.tolovlar %}<div>✓ {{ m.sana|date:"d.m.Y" }} — {{ m.summa|floatformat:"0" }}{% if m.miqdor %} ({{ m.miqdor|floatformat:"-3" }} {{ r.it.unit }}){% endif %}{% if m.izoh %} · {{ m.izoh }}{% endif %} · <i>{{ m.yozdi.username|default:"—" }}</i></div>{% endfor %}</div>{% endif %}
           </td>
@@ -112,7 +112,7 @@
       <h3>Obyektlar bo'yicha qarz</h3>
       {% for o in obyektlar %}
       <a class="obj-row" href="?firma={{ sel_firma }}&obyekt={{ o.p.id }}&qarz=1">
-        <div><div class="code">{{ o.p.code }}</div><div class="sub">{{ o.p.name|truncatechars:34 }}</div><div class="sub">tasdiq {{ o.tasdiq_str }} · berildi {{ o.berildi_str }}</div></div>
+        <div><div class="code">{{ o.p.name|truncatechars:38 }}</div><div class="sub">{{ o.p.code }}</div><div class="sub">tasdiq {{ o.tasdiq_str }} · berildi {{ o.berildi_str }}</div></div>
         <div class="num {% if o.qarz_str == '0' %}toliq{% else %}qarz{% endif %}">{{ o.qarz_str }}</div>
       </a>
       {% empty %}<div style="padding:16px; color:#94a3b8; font-size:13px;">Ma'lumot yo'q.</div>{% endfor %}
@@ -123,7 +123,7 @@
         <tbody>
           {% for m in jurnal %}
           <tr><td>{{ m.created_at|date:"d.m H:i" }}<div style="font-size:11px; color:var(--mut);">{{ m.yozdi.username|default:"—" }}</div></td>
-              <td>{{ m.item.request.project.code }} · {{ m.item.name|truncatechars:26 }}{% if m.izoh %}<div style="font-size:11px; color:var(--mut);">{{ m.izoh }}</div>{% endif %}</td>
+              <td>{{ m.item.request.project.name|truncatechars:22 }} · {{ m.item.name|truncatechars:24 }}{% if m.izoh %}<div style="font-size:11px; color:var(--mut);">{{ m.izoh }}</div>{% endif %}</td>
               <td class="num" style="font-weight:700; color:#15803d;">{{ m.summa|floatformat:"0" }}</td></tr>
           {% empty %}<tr><td style="color:#94a3b8; padding:14px;">Hali to'lov yozilmagan.</td></tr>{% endfor %}
         </tbody>

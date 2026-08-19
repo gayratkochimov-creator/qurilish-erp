@@ -3012,9 +3012,10 @@ def grafik_rabota(request, pk=None):
 
 
 def _moliya_yoza_oladi(user):
-    """To'lovni faqat BUXGALTER yoki ADMIN yozadi."""
+    """To'lovni FAQAT BUXGALTER yozadi (admin ham ko'radi, lekin yozmaydi —
+    moliya javobgarligi buxgalterda qolsin)."""
     from .roles import is_bux
-    return bool(user.is_superuser or is_bux(user))
+    return bool(is_bux(user))
 
 
 @login_required
@@ -3088,7 +3089,7 @@ def moliya_yozish(request, item_id):
     """Buxgalter/admin: haftalik qatoriga TO'LOV yozadi (jurnal — o'chirilmaydi)."""
     from .models import Moliya
     if not _moliya_yoza_oladi(request.user):
-        raise PermissionDenied("To'lovni faqat buxgalter yoki admin yozadi.")
+        raise PermissionDenied("To'lovni faqat BUXGALTER yozadi.")
     it = get_object_or_404(
         WeeklyRequestItem.objects.select_related("request", "request__project"), pk=item_id)
     _firma_yoki_403(request, it.request.project)
