@@ -42,6 +42,13 @@
   .obj-row .code { font-weight:700; }
   .obj-row .sub { font-size:11px; color:var(--mut); }
   .jur td { font-size:12.5px; }
+  /* Haftalik guruh sarlavhasi va itogosi */
+  tr.whead td { background:#eef2f7; border-top:2px solid #cbd5e1; padding:9px 12px; }
+  .wh-nom { font-weight:800; font-size:13.5px; color:#1e293b; }
+  .wh-sub { margin-left:10px; font-size:11.5px; color:#64748b; }
+  tr.wtot td { background:#f8fafc; font-weight:700; font-size:12.5px; border-bottom:2px solid #e2e8f0; color:#334155; }
+  tr.gtot td { background:#1e293b; color:#fff; font-weight:800; font-size:13.5px; padding:11px 12px; }
+  tr.gtot td.toliq { color:#86efac; } tr.gtot td.qarz { color:#fdba74; }
 </style>
 {% endblock %}
 
@@ -76,10 +83,17 @@
     <table>
       <thead><tr><th>Obyekt / hafta</th><th>Qator</th><th class="num">Tasdiqlangan</th><th class="num">Berildi</th><th class="num">Qoldi</th>{% if yoza_oladi %}<th>To'lov yozish</th>{% endif %}</tr></thead>
       <tbody>
-        {% for r in rows %}
+        {% for g in guruhlar %}
+        <tr class="whead">
+          <td colspan="{% if yoza_oladi %}6{% else %}5{% endif %}">
+            <span class="wh-nom">{{ g.p.name }}</span>
+            <span class="wh-sub">{{ g.p.code }} · {{ g.w.week_start|date:"d.m" }}–{{ g.w.week_end|date:"d.m.Y" }}{% if g.w.number %} · {{ g.w.number }}{% endif %} · {{ g.soni }} qator</span>
+          </td>
+        </tr>
+        {% for r in g.rows %}
         <tr>
-          <td><b>{{ r.p.name }}</b><div style="font-size:11px; color:var(--mut);">{{ r.p.code }} · {{ r.w.week_start|date:"d.m" }}–{{ r.w.week_end|date:"d.m.Y" }}{% if r.w.number %} · {{ r.w.number }}{% endif %}</div></td>
-          <td><span class="kind k-{{ r.cls }}">{{ r.kind_disp }}</span> {{ r.it.name }}<div style="font-size:11px; color:var(--mut);">{{ r.qty_str }} {{ r.it.unit }} × {{ r.price_str }}</div>
+          <td style="padding-left:22px; color:var(--mut); font-size:12px;">{{ r.w.week_start|date:"d.m" }}–{{ r.w.week_end|date:"d.m" }}</td>
+          <td><span class="kind k-{{ r.cls }}">{{ r.kind_disp }}</span> {{ r.it.name }}{% if r.it.bolim %} <span style="font-size:10.5px; color:#64748b; font-weight:700;">📁 {{ r.it.bolim }}</span>{% endif %}<div style="font-size:11px; color:var(--mut);">{{ r.qty_str }} {{ r.it.unit }} × {{ r.price_str }}</div>
             {% if r.tolovlar %}<div class="tarix">{% for m in r.tolovlar %}<div>✓ {{ m.sana|date:"d.m.Y" }} — {{ m.summa|floatformat:"0" }}{% if m.miqdor %} ({{ m.miqdor|floatformat:"-3" }} {{ r.it.unit }}){% endif %}{% if m.izoh %} · {{ m.izoh }}{% endif %} · <i>{{ m.yozdi.username|default:"—" }}</i></div>{% endfor %}</div>{% endif %}
           </td>
           <td class="num">{{ r.total_str }}</td>
@@ -100,10 +114,29 @@
           </td>
           {% endif %}
         </tr>
+        {% endfor %}
+        <tr class="wtot">
+          <td colspan="2">Hafta itogosi — {{ g.w.week_start|date:"d.m" }}–{{ g.w.week_end|date:"d.m.Y" }}</td>
+          <td class="num">{{ g.t_str }}</td>
+          <td class="num" style="color:#15803d;">{{ g.b_str }}</td>
+          <td class="num {% if g.q_str == '0' %}toliq{% else %}qarz{% endif %}">{{ g.q_str }}</td>
+          {% if yoza_oladi %}<td></td>{% endif %}
+        </tr>
         {% empty %}
         <tr><td colspan="6" style="text-align:center; color:#94a3b8; padding:26px;">{% if faqat_qarz %}Berilmagan qarz yo'q — hammasi moliyalashtirilgan ✓{% else %}Tasdiqlangan qatorlar yo'q.{% endif %}</td></tr>
         {% endfor %}
       </tbody>
+      {% if guruhlar %}
+      <tfoot>
+        <tr class="gtot">
+          <td colspan="2">UMUMIY ({{ guruhlar|length }} ta haftalik)</td>
+          <td class="num">{{ korin_t }}</td>
+          <td class="num" style="color:#15803d;">{{ korin_b }}</td>
+          <td class="num {% if korin_q == '0' %}toliq{% else %}qarz{% endif %}">{{ korin_q }}</td>
+          {% if yoza_oladi %}<td></td>{% endif %}
+        </tr>
+      </tfoot>
+      {% endif %}
     </table>
   </div>
 

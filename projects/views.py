@@ -3097,13 +3097,34 @@ def moliya(request):
     for d in obyektlar:
         d["qarz_str"] = _money(d["qarz"]); d["tasdiq_str"] = _money(d["tasdiq"])
         d["berildi_str"] = _money(d["berildi"])
+    # HAFTALIK bo'yicha guruhlash: har hafta ostida o'z ITOGOSI (tasdiq/berildi/qoldi)
+    guruhlar = []
+    _g = None
+    for r_ in rows:
+        w_ = r_["w"]
+        if _g is None or _g["w"].pk != w_.pk:
+            _g = {"w": w_, "p": r_["p"], "rows": [], "t": Decimal("0"), "b": Decimal("0"),
+                  "q": Decimal("0")}
+            guruhlar.append(_g)
+        _g["rows"].append(r_)
+        _g["t"] += r_["it"].total
+        _g["b"] += r_["it"].berildi
+        _g["q"] += r_["it"].qarz
+    for g_ in guruhlar:
+        g_["t_str"] = _money(g_["t"]); g_["b_str"] = _money(g_["b"]); g_["q_str"] = _money(g_["q"])
+        g_["soni"] = len(g_["rows"])
+    # Ko'rinayotgan qatorlar bo'yicha jami (filtrga mos)
+    korin_t = sum((g_["t"] for g_ in guruhlar), Decimal("0"))
+    korin_b = sum((g_["b"] for g_ in guruhlar), Decimal("0"))
+    korin_q = sum((g_["q"] for g_ in guruhlar), Decimal("0"))
     # So'nggi to'lovlar jurnali
     jurnal = (Moliya.objects.filter(item__request__project__in=visible_projects(request.user))
               .select_related("item", "item__request", "item__request__project", "yozdi")
               .order_by("-created_at")[:40])
     from django.utils import timezone
     return render(request, "projects/moliya.html", {
-        "rows": rows, "obyektlar": obyektlar, "jurnal": jurnal,
+        "rows": rows, "guruhlar": guruhlar, "obyektlar": obyektlar, "jurnal": jurnal,
+        "korin_t": _money(korin_t), "korin_b": _money(korin_b), "korin_q": _money(korin_q),
         "yoza_oladi": yoza_oladi,
         "firmalar": visible_firmas(request.user).order_by("name"),
         "obyekt_ro": visible_projects(request.user).order_by("code"),
