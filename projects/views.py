@@ -3142,10 +3142,23 @@ def moliya(request):
     korin_t = sum((g_["t"] for g_ in guruhlar), Decimal("0"))
     korin_b = sum((g_["b"] for g_ in guruhlar), Decimal("0"))
     korin_q = sum((g_["q"] for g_ in guruhlar), Decimal("0"))
-    # So'nggi to'lovlar jurnali
-    jurnal = (Moliya.objects.filter(item__request__project__in=visible_projects(request.user))
-              .select_related("item", "item__request", "item__request__project", "yozdi")
-              .order_by("-created_at")[:40])
+    # So'nggi to'lovlar jurnali — har biri bosilib ochiladi (to'liq ma'lumot bilan)
+    jurnal = []
+    for m_ in (Moliya.objects.filter(item__request__project__in=visible_projects(request.user))
+               .select_related("item", "item__request", "item__request__project", "yozdi")
+               .prefetch_related("item__moliyalar")
+               .order_by("-created_at")[:40]):
+        it_ = m_.item
+        jurnal.append({
+            "m": m_, "it": it_, "w": it_.request, "p": it_.request.project,
+            "summa_str": _money(m_.summa),
+            "miqdor_str": _qty(m_.miqdor) if m_.miqdor is not None else "",
+            "total_str": _money(it_.total), "berildi_str": _money(it_.berildi),
+            "qarz_str": _money(it_.qarz), "toliq": it_.qarz <= 0,
+            "kind_disp": it_.get_kind_display(),
+            "qty_str": _qty(it_.quantity), "price_str": _money(it_.unit_price),
+            "tolov_soni": it_.moliyalar.count(),
+        })
     from django.utils import timezone
     return render(request, "projects/moliya.html", {
         "rows": rows, "guruhlar": guruhlar, "obyektlar": obyektlar, "jurnal": jurnal,

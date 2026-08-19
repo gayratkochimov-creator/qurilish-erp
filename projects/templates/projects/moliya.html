@@ -42,6 +42,23 @@
   .obj-row .code { font-weight:700; }
   .obj-row .sub { font-size:11px; color:var(--mut); }
   .jur td { font-size:12.5px; }
+  /* To'lovlar jurnali — bosilib ochiladi */
+  .jd { border-bottom:1px solid #f1f5f9; }
+  .jd summary { cursor:pointer; list-style:none; padding:9px 14px; }
+  .jd summary::-webkit-details-marker { display:none; }
+  .jd summary:hover { background:#fafbff; }
+  .jd[open] summary { background:#f0fdf4; }
+  .jd-top { display:flex; gap:8px; align-items:baseline; font-size:12.5px; }
+  .jd-dt { color:var(--mut); white-space:nowrap; font-size:11.5px; }
+  .jd-obj { flex:1; font-weight:600; }
+  .jd-sum { font-weight:800; color:#15803d; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .jd-sub { font-size:11px; color:var(--mut); margin-top:2px; }
+  .jd-body { padding:8px 14px 12px; background:#fafcfa; font-size:12.5px; }
+  .jd-r { display:flex; justify-content:space-between; gap:10px; padding:3px 0; }
+  .jd-r span { color:var(--mut); white-space:nowrap; }
+  .jd-r b { text-align:right; font-weight:600; }
+  .jd-r small { color:var(--mut); }
+  .jd-hr { border:0; border-top:1px dashed #e2e8f0; margin:6px 0; }
   /* Toifa kartalari */
   .toifa-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(210px,1fr)); gap:12px; margin-bottom:16px; }
   .tc { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px 14px; box-shadow:var(--shadow-sm); }
@@ -187,15 +204,34 @@
     </div>
     <div class="panel">
       <h3>So'nggi to'lovlar</h3>
-      <table class="jur">
-        <tbody>
-          {% for m in jurnal %}
-          <tr><td>{{ m.created_at|date:"d.m H:i" }}<div style="font-size:11px; color:var(--mut);">{{ m.yozdi.username|default:"—" }}</div></td>
-              <td>{{ m.item.request.project.name|truncatechars:22 }} · {{ m.item.name|truncatechars:24 }}{% if m.izoh %}<div style="font-size:11px; color:var(--mut);">{{ m.izoh }}</div>{% endif %}</td>
-              <td class="num" style="font-weight:700; color:#15803d;">{{ m.summa|floatformat:"0" }}</td></tr>
-          {% empty %}<tr><td style="color:#94a3b8; padding:14px;">Hali to'lov yozilmagan.</td></tr>{% endfor %}
-        </tbody>
-      </table>
+      <div class="jur-list">
+        {% for j in jurnal %}
+        <details class="jd">
+          <summary>
+            <div class="jd-top">
+              <span class="jd-dt">{{ j.m.created_at|date:"d.m H:i" }}</span>
+              <span class="jd-obj">{{ j.p.name|truncatechars:26 }}</span>
+              <span class="jd-sum">{{ j.summa_str }}</span>
+            </div>
+            <div class="jd-sub">{{ j.it.name|truncatechars:34 }} · {{ j.m.yozdi.username|default:"—" }}{% if j.m.izoh %} · {{ j.m.izoh|truncatechars:20 }}{% endif %}</div>
+          </summary>
+          <div class="jd-body">
+            <div class="jd-r"><span>Obyekt</span><b>{{ j.p.name }}</b> <small>({{ j.p.code }})</small></div>
+            <div class="jd-r"><span>Hafta</span><b>{{ j.w.week_start|date:"d.m" }}–{{ j.w.week_end|date:"d.m.Y" }}</b>{% if j.w.number %} <small>· {{ j.w.number }}</small>{% endif %}</div>
+            <div class="jd-r"><span>Qator</span><b>{{ j.it.name }}</b> <small>· {{ j.kind_disp }}{% if j.it.bolim %} · 📁 {{ j.it.bolim }}{% endif %}</small></div>
+            <div class="jd-r"><span>Tasdiqlangan</span><b>{{ j.qty_str }} {{ j.it.unit }} × {{ j.price_str }} = {{ j.total_str }}</b></div>
+            <hr class="jd-hr">
+            <div class="jd-r"><span>Bu to'lov</span><b style="color:#15803d;">{{ j.summa_str }}</b>{% if j.miqdor_str %} <small>· {{ j.miqdor_str }} {{ j.it.unit }}</small>{% endif %}</div>
+            <div class="jd-r"><span>To'lov sanasi</span><b>{{ j.m.sana|date:"d.m.Y" }}</b></div>
+            {% if j.m.izoh %}<div class="jd-r"><span>Izoh</span><b>{{ j.m.izoh }}</b></div>{% endif %}
+            <div class="jd-r"><span>Yozdi</span><b>{{ j.m.yozdi.username|default:"—" }}</b> <small>· {{ j.m.created_at|date:"d.m.Y H:i" }}</small></div>
+            <hr class="jd-hr">
+            <div class="jd-r"><span>Qator bo'yicha jami berildi</span><b style="color:#15803d;">{{ j.berildi_str }}</b> <small>({{ j.tolov_soni }} ta to'lov)</small></div>
+            <div class="jd-r"><span>Qoldi</span><b class="{% if j.toliq %}toliq{% else %}qarz{% endif %}">{% if j.toliq %}✓ to'liq{% else %}{{ j.qarz_str }}{% endif %}</b></div>
+          </div>
+        </details>
+        {% empty %}<div style="color:#94a3b8; padding:14px; font-size:13px;">Hali to'lov yozilmagan.</div>{% endfor %}
+      </div>
     </div>
   </div>
 </div>
