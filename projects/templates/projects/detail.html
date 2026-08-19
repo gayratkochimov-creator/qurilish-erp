@@ -551,11 +551,11 @@
             <label style="flex:1; min-width:220px;">Izoh<input type="text" name="note" placeholder="izoh (ixtiyoriy)"></label>
           </div>
           <table class="addtable" style="padding:0 8px;">
-            <thead><tr><th class="rowno" style="width:34px;">№</th><th style="width:140px;">Turi</th><th style="width:260px;">Nomi</th><th>Izoh (primechaniye)</th><th style="width:80px;">Birlik</th><th class="num" style="width:90px;">Miqdor</th><th class="num" style="width:110px;">Narxi</th><th class="num" style="width:120px;">Summa</th><th style="width:104px;">Sana</th><th style="width:34px;"></th></tr></thead>
+            <thead><tr><th class="rowno" style="width:34px;">№</th><th style="width:130px;">Turi</th><th style="width:230px;">Nomi</th>{% if bolimlar_ro %}<th style="width:150px;">Bo'lim</th>{% endif %}<th>Izoh (primechaniye)</th><th style="width:80px;">Birlik</th><th class="num" style="width:90px;">Miqdor</th><th class="num" style="width:110px;">Narxi</th><th class="num" style="width:120px;">Summa</th><th style="width:104px;">Sana</th><th style="width:34px;"></th></tr></thead>
             <tbody id="wkrows"></tbody>
             <tfoot>
-              <tr><td colspan="7" class="num">Toifa bo'yicha:</td><td class="num" id="wk-cats" colspan="3" style="text-align:left; font-size:12px;">—</td></tr>
-              <tr><td colspan="7" class="num"><b>JAMI:</b></td><td class="num rsum" colspan="3" style="text-align:left;"><b id="wk-grand">0</b></td></tr>
+              <tr><td colspan="{% if bolimlar_ro %}8{% else %}7{% endif %}" class="num">Toifa bo'yicha:</td><td class="num" id="wk-cats" colspan="3" style="text-align:left; font-size:12px;">—</td></tr>
+              <tr><td colspan="{% if bolimlar_ro %}8{% else %}7{% endif %}" class="num"><b>JAMI:</b></td><td class="num rsum" colspan="3" style="text-align:left;"><b id="wk-grand">0</b></td></tr>
             </tfoot>
           </table>
           {% if limit_set %}
@@ -586,6 +586,13 @@
               <option value="other">Ko'zda tutilmagan</option>
             </select></td>
             <td><input type="text" name="name" class="txtgrow" placeholder="nomi"></td>
+            {% if bolimlar_ro %}<td>
+              <select name="item_bolim" class="bolimsel">
+                <option value="">— bo'lim —</option>
+                {% for b in bolimlar_ro %}<option value="{{ b }}">{{ b }}</option>{% endfor %}
+              </select>
+              <div class="bq" style="font-size:10.5px; color:var(--mut); margin-top:2px; white-space:nowrap;"></div>
+            </td>{% endif %}
             <td><textarea name="item_note" class="noteinp growa" rows="1" placeholder="izoh..."></textarea></td>
             <td><input type="text" name="unit" placeholder="birlik"></td>
             <td class="num"><input type="number" name="quantity" class="numgrow" step="0.001" placeholder="0"></td>
@@ -595,6 +602,36 @@
             <td><button type="button" class="delrow" title="O'chirish">×</button></td>
           </tr>
         </template>
+        {{ bolim_qoldiq|json_script:"bolimQoldiq" }}
+        <script>
+        // Bo'lim bo'yicha QOLDIQ: nom + bo'lim tanlanganda «limit N · qolgan M» ko'rsatiladi,
+        // so'ralgan miqdor qoldiqdan oshsa — qizil ogohlantirish
+        (function(){
+          var el=document.getElementById('bolimQoldiq');
+          var BQ=el?JSON.parse(el.textContent):{};
+          var wk=document.getElementById('wkrows'); if(!wk) return;
+          function fmtq(n){ return (Math.round(n*1000)/1000).toString().replace(/\B(?=(\d{3})+(?!\d))/g,' '); }
+          function qolla(tr){
+            var nm=tr.querySelector('[name=name]'), bs=tr.querySelector('[name=item_bolim]'), out=tr.querySelector('.bq');
+            if(!nm||!bs||!out) return;
+            var k=(nm.value||'').trim().toLowerCase()+'|'+(bs.value||'').trim().toLowerCase();
+            var d=BQ[k];
+            if(!d){ out.textContent=''; out.style.color=''; return; }
+            var q=parseFloat((tr.querySelector('[name=quantity]')||{}).value)||0;
+            var qol=d.qoldiq-q;
+            out.textContent='limit '+fmtq(d.limit)+' · qolgan '+fmtq(d.qoldiq)+(q?(' → '+fmtq(qol)):'')+' '+(d.unit||'');
+            out.style.color = qol<0 ? '#b91c1c' : (q?'#15803d':'');
+            out.style.fontWeight = qol<0 ? '700' : '';
+          }
+          wk.addEventListener('input', function(e){ var tr=e.target.closest('tr'); if(tr) qolla(tr); });
+          wk.addEventListener('change', function(e){ var tr=e.target.closest('tr'); if(tr) qolla(tr); });
+          // Bo'lim tanlanganda — shu bo'limdagi material narxini avtomatik olish
+          wk.addEventListener('change', function(e){
+            if(!e.target.matches('[name=item_bolim]')) return;
+            var tr=e.target.closest('tr'); qolla(tr);
+          });
+        })();
+        </script>
         <script>
         (function(){
           var tbody=document.getElementById('wkrows'), tpl=document.getElementById('wk-rowtpl');
@@ -812,7 +849,7 @@
           <tr data-kind="{{ q.cls }}">
             <td class="rowno">{{ forloop.counter }}</td>
             <td><span class="kind k-{{ q.cls }}">{{ q.kind }}</span></td>
-            <td>{{ q.nomi }}</td>
+            <td>{{ q.nomi }}{% if q.bolim %}<span style="display:block; font-size:10.5px; color:#64748b; font-weight:700;">📁 {{ q.bolim }}</span>{% endif %}</td>
             <td>{% if q.izoh %}<span class="itemnote" style="margin-top:0;">{{ q.izoh }}</span>{% else %}<span style="color:#cbd5e1;">—</span>{% endif %}</td>
             <td>{{ q.birlik }}</td>
             <td class="num">{{ q.miqdor }}</td>

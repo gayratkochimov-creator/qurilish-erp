@@ -60,7 +60,7 @@
       </div>
 
       <table class="addtable">
-        <thead><tr><th class="rowno" style="width:34px;">№</th><th style="width:140px;">Turi</th><th style="width:260px;">Nomi</th><th>Izoh (primechaniye)</th><th style="width:80px;">Birlik</th><th class="num" style="width:90px;">Miqdor</th><th class="num" style="width:110px;">Narxi</th><th class="num" style="width:120px;">Summa</th><th style="width:104px;">Sana</th><th style="width:36px;"></th></tr></thead>
+        <thead><tr><th class="rowno" style="width:34px;">№</th><th style="width:140px;">Turi</th><th style="width:240px;">Nomi</th>{% if bolimlar %}<th style="width:150px;">Bo'lim</th>{% endif %}<th>Izoh (primechaniye)</th><th style="width:80px;">Birlik</th><th class="num" style="width:90px;">Miqdor</th><th class="num" style="width:110px;">Narxi</th><th class="num" style="width:120px;">Summa</th><th style="width:104px;">Sana</th><th style="width:36px;"></th></tr></thead>
         <tbody id="rows">
           {% for it in items %}
           <tr>
@@ -72,6 +72,7 @@
               <option value="other" {% if it.kind == 'other' %}selected{% endif %}>Ko'zda tutilmagan</option>
             </select></td>
             <td><input type="text" name="name" value="{{ it.name }}"></td>
+            {% if bolimlar %}<td><select name="item_bolim"><option value="">— bo'lim —</option>{% for b in bolimlar %}<option value="{{ b }}" {% if it.bolim == b %}selected{% endif %}>{{ b }}</option>{% endfor %}{% if it.bolim and it.bolim not in bolimlar %}<option value="{{ it.bolim }}" selected>{{ it.bolim }}</option>{% endif %}</select></td>{% endif %}
             <td><input type="text" name="item_note" class="noteinp" value="{{ it.note }}" placeholder="izoh..."></td>
             <td><input type="text" name="unit" value="{{ it.unit }}"></td>
             <td class="num"><input type="number" name="quantity" step="0.001" value="{{ it.quantity|unlocalize }}"></td>
@@ -83,8 +84,8 @@
           {% endfor %}
         </tbody>
         <tfoot>
-          <tr><td colspan="7" class="num">Toifa bo'yicha:</td><td colspan="3" id="wc" style="font-size:12px; color:var(--mut);">—</td></tr>
-          <tr><td colspan="7" class="num"><b>JAMI:</b></td><td colspan="3"><b id="wg">0</b></td></tr>
+          <tr><td colspan="{% if bolimlar %}8{% else %}7{% endif %}" class="num">Toifa bo'yicha:</td><td colspan="3" id="wc" style="font-size:12px; color:var(--mut);">—</td></tr>
+          <tr><td colspan="{% if bolimlar %}8{% else %}7{% endif %}" class="num"><b>JAMI:</b></td><td colspan="3"><b id="wg">0</b></td></tr>
         </tfoot>
       </table>
 
@@ -100,6 +101,7 @@
         <td class="rowno"></td>
         <td><select name="kind"><option value="material">Material</option><option value="labor">Ish haqi</option><option value="machinery">Mashina chasti</option><option value="other">Ko'zda tutilmagan</option></select></td>
         <td><input type="text" name="name" placeholder="nomi"></td>
+        {% if bolimlar %}<td><select name="item_bolim"><option value="">— bo'lim —</option>{% for b in bolimlar %}<option value="{{ b }}">{{ b }}</option>{% endfor %}</select></td>{% endif %}
         <td><input type="text" name="item_note" class="noteinp" placeholder="izoh..."></td>
         <td><input type="text" name="unit" placeholder="birlik"></td>
         <td class="num"><input type="number" name="quantity" step="0.001" placeholder="0"></td>

@@ -914,6 +914,26 @@ def project_detail(request, pk):
         k = (it["name"] or "").strip().lower()
         if k and k not in limit_item_map:
             limit_item_map[k] = {"kind": it["kind"], "unit": it["unit"], "price": float(it["price_raw"])}
+    # BO'LIM bo'yicha qoldiq: (nom|bo'lim) -> {limit miqdori, tasdiqlangan haftaliklar, qoldiq}
+    # Bir xil material turli bo'limlarda — har bo'limning O'Z qoldig'i alohida yuriladi
+    bolim_qoldiq = {}
+    for it in limit_items:
+        k = (it["name"] or "").strip().lower() + "|" + (it["bolim"] or "").strip().lower()
+        d = bolim_qoldiq.setdefault(k, {"name": it["name"], "bolim": it["bolim"],
+                                        "unit": it["unit"], "limit": Decimal("0"),
+                                        "sarf": Decimal("0")})
+        d["limit"] += it["quantity"]
+    for wi in WeeklyRequestItem.objects.filter(request__project=p, request__status="approved"):
+        k = (wi.name or "").strip().lower() + "|" + (wi.bolim or "").strip().lower()
+        if k in bolim_qoldiq:
+            bolim_qoldiq[k]["sarf"] += wi.quantity
+    bolim_qoldiq_json = {
+        k: {"name": d["name"], "bolim": d["bolim"], "unit": d["unit"],
+            "limit": float(d["limit"]), "sarf": float(d["sarf"]),
+            "qoldiq": float(d["limit"] - d["sarf"])}
+        for k, d in bolim_qoldiq.items()
+    }
+    bolimlar_ro = sorted({(it["bolim"] or "").strip() for it in limit_items if (it["bolim"] or "").strip()})
     # Loyihaning O'Z materiallari (umumiy limit tarkibi) — haftalik tanlovda birinchi turadi
     proj_names = sorted({it["name"] for it in limit_items if it["name"]})
     mat_names = sorted(set(mat_names) | set(proj_names))
@@ -938,7 +958,7 @@ def project_detail(request, pk):
             qatorlar.append({
                 "kind": it.get_kind_display(),
                 "cls": KIND_CLS.get(it.kind, "mat"),
-                "bolim": it.work_section.name if it.work_section_id else "—",
+                "bolim": it.bolim or (it.work_section.name if it.work_section_id else ""),
                 "nomi": it.name,
                 "birlik": it.unit,
                 "miqdor": _qty(it.quantity),
@@ -1038,6 +1058,8 @@ def project_detail(request, pk):
         "unit_map": unit_map,
         "mat_names": mat_names,
         "limit_item_map": limit_item_map,
+        "bolim_qoldiq": bolim_qoldiq_json,
+        "bolimlar_ro": bolimlar_ro,
         "pending": pending,
         "pending_new_str": _money(pending.new_total) if pending else "",
         "qoldiq_json": {
@@ -1432,6 +1454,7 @@ def _tasdiqlar_data(status="dir", user=None):
                 "name": it.name, "unit": it.unit or "—",
                 "qty_str": _qty(it.quantity), "price_str": _money(it.unit_price),
                 "sum_str": _money(it.total), "izoh": it.note,
+                "bolim": it.bolim, "masul": "",
                 "holat": holat, "eski_str": eski_str,
                 "sana": it.created_at or w.created_at,
             })
@@ -1793,6 +1816,7 @@ def weekly_add(request, pk):
     prices = request.POST.getlist("unit_price")
     # Qator izohi — «note» so'rovning umumiy izohi uchun band, shuning uchun «item_note»
     inotes = request.POST.getlist("item_note")
+    bolims = request.POST.getlist("item_bolim")
     valid_kinds = set(KINDS)
     n = 0
     tashlangan = []   # nomi bor, lekin miqdor/narxi to'liq emas — indamay yo'qotmaymiz
@@ -1818,6 +1842,7 @@ def weekly_add(request, pk):
             name=name, unit=(units[i] if i < len(units) else "").strip(),
             quantity=q, unit_price=pr,
             note=(inotes[i] if i < len(inotes) else "").strip()[:500],
+            bolim=" ".join((bolims[i] if i < len(bolims) else "").split())[:200],
         )
         n += 1
     if n == 0:
@@ -2073,6 +2098,7 @@ def weekly_edit(request, pk):
         qtys = request.POST.getlist("quantity")
         prices = request.POST.getlist("unit_price")
         inotes = request.POST.getlist("item_note")
+        bolims = request.POST.getlist("item_bolim")
         valid = set(KINDS)
         new_items = []
         for i in range(len(names)):
@@ -2087,7 +2113,8 @@ def weekly_edit(request, pk):
                 continue
             new_items.append(WeeklyRequestItem(request=req, kind=kind, name=nm, unit=unit,
                                                quantity=q, unit_price=pr,
-                                               note=(inotes[i] if i < len(inotes) else "").strip()[:500]))
+                                               note=(inotes[i] if i < len(inotes) else "").strip()[:500],
+                                               bolim=" ".join((bolims[i] if i < len(bolims) else "").split())[:200]))
         if not new_items:
             messages.error(request, "Kamida bitta qator kiriting.")
             return redirect("weekly_edit", pk=pk)
@@ -2119,8 +2146,10 @@ def weekly_edit(request, pk):
     items = [{
         "kind": it.kind, "name": it.name, "unit": it.unit,
         "quantity": it.quantity, "unit_price": it.unit_price,
-        "note": it.note,
+        "note": it.note, "bolim": it.bolim,
     } for it in req.items.all()]
+    bolimlar = sorted({(li.bolim or "").strip() for li in p.limit_items.all()
+                       if (li.bolim or "").strip()})
 
     # birlik avtomat uchun nom->birlik xaritasi
     from ombor.models import Material
@@ -2137,7 +2166,7 @@ def weekly_edit(request, pk):
 
     return render(request, "projects/weekly_edit.html", {
         "req": req, "p": p, "items": items,
-        "unit_map": unit_map, "mat_names": mat_names,
+        "unit_map": unit_map, "mat_names": mat_names, "bolimlar": bolimlar,
     })
 
 
@@ -3274,8 +3303,8 @@ def weekly_export(request, pk):
     ws["A3"].font = Font(size=10, color="64748B")
     ws.append([])
     hrow = 5
-    ws.append(["Turi", "Nomi", "Izoh", "Birlik", "Miqdor", "Narxi", "Summa", "Kiritilgan sana",
-               "Berildi (fakt)", "Qoldi (qarz)"])
+    ws.append(["Turi", "Nomi", "Bo'lim", "Izoh", "Birlik", "Miqdor", "Narxi", "Summa",
+               "Kiritilgan sana", "Berildi (fakt)", "Qoldi (qarz)"])
     for c in ws[hrow]:
         c.font = hdr_font
         c.fill = hdr_fill
@@ -3284,18 +3313,18 @@ def weekly_export(request, pk):
 
     for it in w.items.prefetch_related("moliyalar"):
         ws.append([
-            KIND.get(it.kind, it.kind), it.name, it.note or "", it.unit or "",
+            KIND.get(it.kind, it.kind), it.name, it.bolim or "", it.note or "", it.unit or "",
             float(it.quantity), float(it.unit_price), None,
             _lt(it.created_at).strftime("%d.%m.%Y %H:%M") if it.created_at else "",
             float(it.berildi), None,
         ])
         # Summa = Miqdor x Narxi — jonli formula; Qoldi = Summa − Berildi
         rr_ = ws.max_row
-        ws.cell(rr_, 7).value = f"=E{rr_}*F{rr_}"
-        ws.cell(rr_, 10).value = f"=MAX(0,G{rr_}-I{rr_})"
+        ws.cell(rr_, 8).value = f"=F{rr_}*G{rr_}"
+        ws.cell(rr_, 11).value = f"=MAX(0,H{rr_}-J{rr_})"
     oxirgi_q = ws.max_row
     for r in range(hrow + 1, ws.max_row + 1):
-        for col in (5, 6, 7, 9, 10):
+        for col in (6, 7, 8, 10, 11):
             ws.cell(r, col).number_format = money
             ws.cell(r, col).alignment = right
         for c in ws[r]:
@@ -3306,24 +3335,24 @@ def weekly_export(request, pk):
         rr = ws.max_row + 1
         if tot_birinchi is None:
             tot_birinchi = rr
-        ws.cell(rr, 6, KIND[k] + " jami:").font = tot_font
-        c = ws.cell(rr, 7)
+        ws.cell(rr, 7, KIND[k] + " jami:").font = tot_font
+        c = ws.cell(rr, 8)
         if oxirgi_q > hrow:
-            c.value = f'=SUMIF($A${hrow + 1}:$A${oxirgi_q},"{KIND[k]}",$G${hrow + 1}:$G${oxirgi_q})'
+            c.value = f'=SUMIF($A${hrow + 1}:$A${oxirgi_q},"{KIND[k]}",$H${hrow + 1}:$H${oxirgi_q})'
         else:
             c.value = 0
         c.number_format = money
         c.font = tot_font
         c.fill = tot_fill
     rr = ws.max_row + 1
-    ws.cell(rr, 6, "JAMI:").font = Font(bold=True, size=12)
-    c = ws.cell(rr, 7)
-    c.value = f"=SUM(G{tot_birinchi}:G{rr - 1})"
+    ws.cell(rr, 7, "JAMI:").font = Font(bold=True, size=12)
+    c = ws.cell(rr, 8)
+    c.value = f"=SUM(H{tot_birinchi}:H{rr - 1})"
     c.number_format = money
     c.font = Font(bold=True, size=12, color="2563EB")
     c.fill = tot_fill
     ws.freeze_panes = "A6"
-    for i, kenglik in enumerate([16, 34, 30, 10, 12, 14, 16, 17], start=1):
+    for i, kenglik in enumerate([16, 32, 18, 28, 10, 12, 14, 16, 17, 15, 15], start=1):
         ws.column_dimensions[get_column_letter(i)].width = kenglik
 
     buf = io.BytesIO()

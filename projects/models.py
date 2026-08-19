@@ -375,6 +375,9 @@ class WeeklyRequestItem(models.Model):
     quantity = models.DecimalField("Miqdor", **QTY)
     unit_price = models.DecimalField("Narxi (1 birlik)", **MONEY)
     note = models.CharField("Primechaniye (qator izohi)", max_length=500, blank=True)
+    # Qaysi BO'LIM uchun (umumiy limitdagi bo'lim bilan bog'lanadi) —
+    # bir xil material har bo'limda o'z qoldig'i bilan yuriladi
+    bolim = models.CharField("Bo'lim", max_length=200, blank=True)
     created_at = models.DateTimeField("Kiritilgan sana", auto_now_add=True, null=True)
 
     class Meta:
