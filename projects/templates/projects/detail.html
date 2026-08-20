@@ -346,7 +346,7 @@
               <td><input type="text" name="name" class="txtgrow" value="{{ it.name }}"></td>
               <td><textarea name="item_note" class="noteinp growa" rows="1" placeholder="izoh...">{{ it.note }}</textarea></td>
               <td><input type="text" name="unit" value="{{ it.unit }}"></td>
-              <td class="num"><input type="number" name="quantity" class="numgrow" step="0.001" value="{{ it.quantity|unlocalize }}"></td>
+              <td class="num"><input type="number" name="quantity" class="numgrow" step="0.001" value="{{ it.quantity|unlocalize }}">{% if it.qoldiq_str %}<span style="display:block; font-size:10.5px; font-weight:700; color:{% if it.qoldiq_manfiy %}#b91c1c{% else %}#15803d{% endif %};">qoldi: {{ it.qoldiq_str }}</span>{% endif %}</td>
               <td class="num"><input type="number" name="unit_price" class="numgrow" step="0.01" value="{{ it.price_raw|unlocalize }}"></td>
               <td class="num rsum">0</td>
               <td class="lidate">
@@ -497,7 +497,7 @@
           </td></tr>
           {% endif %}
           {% for it in g.items %}
-          <tr data-lkind="{{ it.kind }}" data-lname="{{ it.name|lower }}"><td class="rowno">{{ it.nr }}</td><td><span class="kind k-{{ it.cls }}">{{ it.kind_disp }}</span></td><td>{{ it.name }}{% if it.note %}<span class="itemnote">{{ it.note }}</span>{% endif %}</td><td>{{ it.unit }}</td><td class="num">{{ it.qty_str }}</td><td class="num">{{ it.price_str }}</td><td class="num">{{ it.sum_str }}</td><td class="lidate">{% if it.ozgargan %}<span class="d-chg" title="Qo'shilgan: {{ it.qoshilgan|date:'d.m.Y H:i' }}">o'zg. {{ it.ozgartirilgan|date:"d.m.Y H:i" }}</span>{% elif it.qoshilgan %}<span class="d-new">{{ it.qoshilgan|date:"d.m.Y H:i" }}</span>{% else %}—{% endif %}</td></tr>
+          <tr data-lkind="{{ it.kind }}" data-lname="{{ it.name|lower }}"><td class="rowno">{{ it.nr }}</td><td><span class="kind k-{{ it.cls }}">{{ it.kind_disp }}</span></td><td>{{ it.name }}{% if it.note %}<span class="itemnote">{{ it.note }}</span>{% endif %}</td><td>{{ it.unit }}</td><td class="num">{{ it.qty_str }}{% if it.qoldiq_str %}<span style="display:block; font-size:10.5px; font-weight:700; color:{% if it.qoldiq_manfiy %}#b91c1c{% else %}#15803d{% endif %};">qoldi: {{ it.qoldiq_str }}</span>{% endif %}</td><td class="num">{{ it.price_str }}</td><td class="num">{{ it.sum_str }}</td><td class="lidate">{% if it.ozgargan %}<span class="d-chg" title="Qo'shilgan: {{ it.qoshilgan|date:'d.m.Y H:i' }}">o'zg. {{ it.ozgartirilgan|date:"d.m.Y H:i" }}</span>{% elif it.qoshilgan %}<span class="d-new">{{ it.qoshilgan|date:"d.m.Y H:i" }}</span>{% else %}—{% endif %}</td></tr>
           {% endfor %}
           {% empty %}
           <tr><td colspan="8" style="text-align:center; color:#9ca3af; padding:20px;">Limit tarkibi hali kiritilmagan.</td></tr>
@@ -555,11 +555,11 @@
             <label style="flex:1; min-width:220px;">Izoh<input type="text" name="note" placeholder="izoh (ixtiyoriy)"></label>
           </div>
           <table class="addtable" style="padding:0 8px;">
-            <thead><tr><th class="rowno" style="width:34px;">№</th><th style="width:130px;">Turi</th><th style="width:230px;">Nomi</th>{% if bolimlar_ro %}<th style="width:150px;">Bo'lim</th>{% endif %}<th>Izoh (primechaniye)</th><th style="width:80px;">Birlik</th><th class="num" style="width:90px;">Miqdor</th><th class="num" style="width:110px;">Narxi</th><th class="num" style="width:120px;">Summa</th><th style="width:104px;">Sana</th><th style="width:34px;"></th></tr></thead>
+            <thead><tr><th class="rowno" style="width:34px;">№</th><th style="width:130px;">Turi</th><th style="width:230px;">Nomi</th><th style="width:150px;">Bo'lim</th><th>Izoh (primechaniye)</th><th style="width:80px;">Birlik</th><th class="num" style="width:90px;">Miqdor</th><th class="num" style="width:110px;">Narxi</th><th class="num" style="width:120px;">Summa</th><th style="width:104px;">Sana</th><th style="width:34px;"></th></tr></thead>
             <tbody id="wkrows"></tbody>
             <tfoot>
-              <tr><td colspan="{% if bolimlar_ro %}8{% else %}7{% endif %}" class="num">Toifa bo'yicha:</td><td class="num" id="wk-cats" colspan="3" style="text-align:left; font-size:12px;">—</td></tr>
-              <tr><td colspan="{% if bolimlar_ro %}8{% else %}7{% endif %}" class="num"><b>JAMI:</b></td><td class="num rsum" colspan="3" style="text-align:left;"><b id="wk-grand">0</b></td></tr>
+              <tr><td colspan="8" class="num">Toifa bo'yicha:</td><td class="num" id="wk-cats" colspan="3" style="text-align:left; font-size:12px;">—</td></tr>
+              <tr><td colspan="8" class="num"><b>JAMI:</b></td><td class="num rsum" colspan="3" style="text-align:left;"><b id="wk-grand">0</b></td></tr>
             </tfoot>
           </table>
           {% if limit_set %}
@@ -590,13 +590,13 @@
               <option value="other">Ko'zda tutilmagan</option>
             </select></td>
             <td><input type="text" name="name" class="txtgrow" placeholder="nomi"></td>
-            {% if bolimlar_ro %}<td>
-              <select name="item_bolim" class="bolimsel">
+            <td>
+              {% if bolimlar_ro %}<select name="item_bolim" class="bolimsel">
                 <option value="">— bo'lim —</option>
                 {% for b in bolimlar_ro %}<option value="{{ b }}">{{ b }}</option>{% endfor %}
-              </select>
+              </select>{% else %}<input type="text" name="item_bolim" class="txtgrow" placeholder="bo'lim">{% endif %}
               <div class="bq" style="font-size:10.5px; color:var(--mut); margin-top:2px; white-space:nowrap;"></div>
-            </td>{% endif %}
+            </td>
             <td><textarea name="item_note" class="noteinp growa" rows="1" placeholder="izoh..."></textarea></td>
             <td><input type="text" name="unit" placeholder="birlik"></td>
             <td class="num"><input type="number" name="quantity" class="numgrow" step="0.001" placeholder="0"></td>
@@ -627,13 +627,22 @@
             out.style.color = qol<0 ? '#b91c1c' : (q?'#15803d':'');
             out.style.fontWeight = qol<0 ? '700' : '';
           }
-          wk.addEventListener('input', function(e){ var tr=e.target.closest('tr'); if(tr) qolla(tr); });
-          wk.addEventListener('change', function(e){ var tr=e.target.closest('tr'); if(tr) qolla(tr); });
-          // Bo'lim tanlanganda — shu bo'limdagi material narxini avtomatik olish
-          wk.addEventListener('change', function(e){
-            if(!e.target.matches('[name=item_bolim]')) return;
-            var tr=e.target.closest('tr'); qolla(tr);
+          // nom -> shu nom uchraydigan bo'limlar ro'yxati
+          var NB={};
+          Object.keys(BQ).forEach(function(k){
+            var p=k.split('|'); var nm=p[0], bl=BQ[k].bolim||'';
+            if(!bl) return;
+            (NB[nm]=NB[nm]||[]).push(bl);
           });
+          function bolimAvto(tr){
+            var nm=tr.querySelector('[name=name]'), bs=tr.querySelector('[name=item_bolim]');
+            if(!nm||!bs) return;
+            var lst=NB[(nm.value||'').trim().toLowerCase()]||[];
+            // Nom faqat BITTA bo'limda bo'lsa — avtomatik tanlanadi
+            if(lst.length===1 && bs.value!==lst[0]){ bs.value=lst[0]; }
+          }
+          wk.addEventListener('input', function(e){ var tr=e.target.closest('tr'); if(!tr) return; if(e.target.matches('[name=name]')) bolimAvto(tr); qolla(tr); });
+          wk.addEventListener('change', function(e){ var tr=e.target.closest('tr'); if(!tr) return; if(e.target.matches('[name=name]')) bolimAvto(tr); qolla(tr); });
         })();
         </script>
         <script>

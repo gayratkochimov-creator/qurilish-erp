@@ -934,6 +934,15 @@ def project_detail(request, pk):
         for k, d in bolim_qoldiq.items()
     }
     bolimlar_ro = sorted({(it["bolim"] or "").strip() for it in limit_items if (it["bolim"] or "").strip()})
+    # Umumiy limit jadvalida har qatorning QOLDIG'I ko'rinadi (tasdiqlangan
+    # haftaliklar shu nom+bo'limdan avtomatik ayirilgan holda)
+    for q in limit_items:
+        k = (q["name"] or "").strip().lower() + "|" + (q["bolim"] or "").strip().lower()
+        d = bolim_qoldiq.get(k)
+        if d and d["sarf"] > 0:
+            q["sarf_str"] = _qty(d["sarf"])
+            q["qoldiq_str"] = _qty(d["limit"] - d["sarf"])
+            q["qoldiq_manfiy"] = d["limit"] - d["sarf"] < 0
     # Loyihaning O'Z materiallari (umumiy limit tarkibi) — haftalik tanlovda birinchi turadi
     proj_names = sorted({it["name"] for it in limit_items if it["name"]})
     mat_names = sorted(set(mat_names) | set(proj_names))
