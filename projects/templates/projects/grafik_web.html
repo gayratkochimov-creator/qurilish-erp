@@ -102,7 +102,8 @@
         <button type="button" class="btn" onclick="window.print()">Chop etish</button>
         <a class="btn" href="{% url 'grafik_rabota_obj' p.id %}">Excel yuklab olish</a>
         {% if can_edit and not tasdiq_jarayonda %}
-        <form method="post" action="{% url 'grafik_tasdiq_yubor' p.id %}" style="display:inline;" onsubmit="return confirm('Grafik direktor tasdig\'iga yuborilsinmi?');">{% csrf_token %}<button type="submit" class="btn primary">Tasdiqqa yuborish</button></form>
+        {# DIQQAT: forma ichida forma bo'lmasin — tugma tashqaridagi #gtasForm ga bog'langan #}
+        <button type="submit" class="btn primary" form="gtasForm">Tasdiqqa yuborish</button>
         {% endif %}
         {% if g_tasdiq %}
         <span class="gstat s-{{ g_tasdiq.status }}">
@@ -190,6 +191,9 @@
       </tr>
     </template>
   </form>
+  {% if can_edit and not tasdiq_jarayonda %}
+  <form id="gtasForm" method="post" action="{% url 'grafik_tasdiq_yubor' p.id %}" onsubmit="return confirm('Grafik direktor tasdig\'iga yuborilsinmi?');">{% csrf_token %}</form>
+  {% endif %}
 
 <script>
 (function(){

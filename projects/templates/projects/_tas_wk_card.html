@@ -21,7 +21,7 @@
         <td class="num">{{ it.sum_str }}</td>
         <td>{% if it.holat == 'yangi' %}<span class="pi-chip new" title="{{ it.eski_str }}">YANGI</span>{% elif it.holat == 'ozgargan' %}<span class="pi-chip chg" title="{{ it.eski_str }}">BOSHQA NARX</span>{% else %}<span class="pi-chip old">—</span>{% endif %}</td>
         <td class="pi-sana">{{ it.sana|date:"d.m.Y H:i" }}</td>
-        <td><form method="post" action="{% url 'weekly_action' w.obj.id %}" onsubmit="return confirm('«{{ it.name }}» qatori so\'rovdan o\'chirilsinmi?');"><input type="hidden" name="action" value="delitem"><input type="hidden" name="item_id" value="{{ it.id }}"><input type="hidden" name="next" value="tasdiqlar">{% csrf_token %}<button class="pi-del" title="Qatorni o'chirish">×</button></form></td>
+        <td><form method="post" action="{% url 'weekly_action' w.obj.id %}" onsubmit="return confirm('«{{ it.name|escapejs }}» qatori so\'rovdan o\'chirilsinmi?');"><input type="hidden" name="action" value="delitem"><input type="hidden" name="item_id" value="{{ it.id }}"><input type="hidden" name="next" value="tasdiqlar">{% csrf_token %}<button class="pi-del" title="Qatorni o'chirish">×</button></form></td>
       </tr>{% endfor %}</tbody>
     </table>
     {% endif %}

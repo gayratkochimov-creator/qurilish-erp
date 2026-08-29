@@ -64,7 +64,7 @@
         <tbody id="rows">
           {% for it in items %}
           <tr>
-            <td class="rowno">{{ forloop.counter }}</td>
+            <td class="rowno">{{ forloop.counter }}<input type="hidden" name="item_id" value="{{ it.id }}"></td>
             <td><select name="kind">
               <option value="material" {% if it.kind == 'material' %}selected{% endif %}>Material</option>
               <option value="labor" {% if it.kind == 'labor' %}selected{% endif %}>Ish haqi</option>
@@ -98,7 +98,7 @@
 
     <template id="rowtpl">
       <tr>
-        <td class="rowno"></td>
+        <td class="rowno"><input type="hidden" name="item_id" value=""></td>
         <td><select name="kind"><option value="material">Material</option><option value="labor">Ish haqi</option><option value="machinery">Mashina chasti</option><option value="other">Ko'zda tutilmagan</option></select></td>
         <td><input type="text" name="name" placeholder="nomi"></td>
         <td>{% if bolimlar %}<select name="item_bolim"><option value="">— bo'lim —</option>{% for b in bolimlar %}<option value="{{ b }}">{{ b }}</option>{% endfor %}</select>{% else %}<input type="text" name="item_bolim" placeholder="bo'lim">{% endif %}</td>

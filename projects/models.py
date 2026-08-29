@@ -258,6 +258,11 @@ class LimitChangeRequest(models.Model):
         proposed = list(self.proposed_items.all())
         # Limitni qo'llash + statusni yozish BITTA tranzaksiyada — yarim holat qolmasin
         with transaction.atomic():
+            # Qulf + status qayta tekshiruvi: ikki admin bir vaqtda bossa faqat bittasi o'tadi
+            joriy = (LimitChangeRequest.objects.select_for_update()
+                     .values_list("status", flat=True).get(pk=self.pk))
+            if joriy != self.Status.ADM:
+                return
             if proposed:
                 # «Limit ichi» tarkibi bo'yicha so'rov — taklif etilgan tarkibni qo'llash
                 # (o'chirib-qayta yaratmaymiz — o'zgarmagan qatorlarning sanasi saqlansin)

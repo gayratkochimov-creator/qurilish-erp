@@ -129,7 +129,7 @@
 
 <div class="grid">
   <div class="panel">
-    <h3>{% if faqat_qarz %}Berilmagan qatorlar{% else %}Tasdiqlangan qatorlar{% endif %} ({{ rows|length }})</h3>
+    <h3>{% if faqat_qarz %}Berilmagan qatorlar{% else %}Tasdiqlangan qatorlar{% endif %} ({{ korin_soni }})</h3>
     <table>
       <thead><tr><th>Obyekt / hafta</th><th>Qator</th><th class="num">Tasdiqlangan</th><th class="num">Berildi</th><th class="num">Qoldi</th>{% if yoza_oladi %}<th>To'lov yozish</th>{% endif %}</tr></thead>
       <tbody>
@@ -183,7 +183,7 @@
           {% if yoza_oladi %}<td></td>{% endif %}
         </tr>
         {% empty %}
-        <tr><td colspan="6" style="text-align:center; color:#94a3b8; padding:26px;">{% if faqat_qarz %}Berilmagan qarz yo'q — hammasi moliyalashtirilgan ✓{% else %}Tasdiqlangan qatorlar yo'q.{% endif %}</td></tr>
+        <tr><td colspan="{% if yoza_oladi %}6{% else %}5{% endif %}" style="text-align:center; color:#94a3b8; padding:26px;">{% if faqat_qarz %}Berilmagan qarz yo'q — hammasi moliyalashtirilgan ✓{% else %}Tasdiqlangan qatorlar yo'q.{% endif %}</td></tr>
         {% endfor %}
       </tbody>
       {% if guruhlar %}

@@ -161,6 +161,7 @@ def _limitga_yangi_materiallar(req):
         yangi.append(LimitItem(
             project=p, kind=it.kind, name=nom, unit=it.unit or "",
             quantity=Decimal("0"), unit_price=it.unit_price or Decimal("0"),
+            bolim=(it.bolim or "").strip()[:200],   # bo'lim qoldig'i to'g'ri yurishi uchun
         ))
     if yangi:
         LimitItem.objects.bulk_create(yangi)
@@ -853,11 +854,16 @@ def project_detail(request, pk):
         k = (nm or "").strip().lower()
         if k and un and k not in unit_map:
             unit_map[k] = un
+    # FAQAT o'z doirasidagi (ko'rinadigan loyihalar) nomlar — boshqa firmalarning
+    # material ro'yxati sahifa JSON'iga chiqib ketmasin
+    _vp_nomlar = visible_projects(request.user)
     for m in Material.objects.all():
         _umap(m.name, m.unit)
-    for it in WeeklyRequestItem.objects.filter(kind="material").exclude(unit="").values("name", "unit"):
+    for it in (WeeklyRequestItem.objects.filter(kind="material", request__project__in=_vp_nomlar)
+               .exclude(unit="").values("name", "unit")):
         _umap(it["name"], it["unit"])
-    for it in LimitItem.objects.filter(kind="material").exclude(unit="").values("name", "unit"):
+    for it in (LimitItem.objects.filter(kind="material", project__in=_vp_nomlar)
+               .exclude(unit="").values("name", "unit")):
         _umap(it["name"], it["unit"])
     mat_names = sorted({m.name for m in Material.objects.all()})
 
@@ -1039,7 +1045,7 @@ def project_detail(request, pk):
         "qoldiq_str": _money(limit - sarf),
         "berildi_str": _money(_berildi),
         "qarz_str": _money(_qarz),
-        "qarz_bor": _qarz > 0,
+        "qarz_bor": _qarz > Decimal("0.5"),   # tiyin yaxlitlash farqi «qarz» sanalmasin
         "moliya_kora": moliya_kora_oladi(request.user),
         "oxirgi_haftalik": oxirgi_haftalik,
         "holat": holat,
@@ -1330,6 +1336,12 @@ def weekly_return_pto(request, pk):
     if req.status != WeeklyRequest.Status.APPROVED:
         messages.error(request, "Faqat tasdiqlangan haftalik so'rov qaytariladi.")
         return redirect("project_detail", pk=p.pk)
+    # To'lov yozilgan so'rov qaytarilmaydi — berilgan pul hisobdan yo'qolib qolmasin
+    from .models import Moliya as _M
+    if _M.objects.filter(item__request=req).exists():
+        messages.error(request, "Bu haftalikka to'lovlar yozilgan — PTOga qaytarib bo'lmaydi. "
+                                "Avval moliya masalasini buxgalter bilan hal qiling.")
+        return redirect("project_detail", pk=p.pk)
     nomi = f"{p.code} — {req.week_start:%d.%m.%Y} haftalik"
 
     if request.method != "POST":
@@ -1512,7 +1524,9 @@ def limit_request_action(request, pk):
             # Har kim FAQAT O'Z bosqichida o'chiradi: snab->snab, pto->pto2,
             # direktor->dir, admin->adm.
             _stage_ok = (req.status == S.ADM and is_admin(request.user)) or \
-                        (req.status == S.DIR and is_director(request.user)) or \
+                        (req.status == S.DIR and
+                         ((is_director(request.user) and not request.user.is_superuser)
+                          or is_asosiy_admin(request.user))) or \
                         (req.status == S.SNAB and is_snab(request.user)) or \
                         (req.status == S.PTO2 and is_pto(request.user))
             it = req.proposed_items.filter(id=request.POST.get("item_id")).first()
@@ -1880,6 +1894,11 @@ def weekly_add(request, pk):
         req.approved_by = request.user
         req.approved_at = _tz.now()
         req.save(update_fields=["status", "approved_by", "approved_at"])
+        # Oddiy tasdiqlash yo'lidagidek — yangi materiallar limit ro'yxatiga kiradi
+        qoshildi = _limitga_yangi_materiallar(req)
+        if qoshildi:
+            messages.info(request, "Umumiy limit ro'yxatiga yangi material qo'shildi (miqdor 0): "
+                                   + ", ".join(qoshildi))
         messages.success(request, f"Haftalik so'rov saqlandi va tasdiqlandi ({n} qator) — limitdan ayirildi.")
     else:
         req.status = WeeklyRequest.Status.DIR
@@ -1916,8 +1935,11 @@ def weekly_action(request, pk):
             # navbatidagi tarkibni o'zgartirib qo'yadi).
             if not (is_director(request.user) or is_admin(request.user)):
                 raise PermissionDenied("Qatorni faqat direktor yoki admin o'chiradi.")
+            from .roles import is_asosiy_admin as _asos0
             _stage_ok = (req.status == WS.SUBMITTED and is_admin(request.user)) or \
-                        (req.status == WS.DIR and is_director(request.user))
+                        (req.status == WS.DIR and
+                         ((is_director(request.user) and not request.user.is_superuser)
+                          or _asos0(request.user)))
             it = req.items.filter(id=request.POST.get("item_id")).first()
             if req.status == WeeklyRequest.Status.APPROVED:
                 messages.error(request, "Tasdiqlangan so'rov qatorini o'chirib bo'lmaydi.")
@@ -2011,6 +2033,14 @@ def weekly_action(request, pk):
                 with transaction.atomic():
                     req = (WeeklyRequest.objects.select_for_update()
                            .select_related("project").get(pk=req.pk))
+                    if req.status != WS.SUBMITTED:
+                        messages.error(request, "Bu so'rov allaqachon ko'rib chiqilgan.")
+                        if request.POST.get("next") == "tasdiqlar":
+                            return redirect(reverse("dashboard") + "?tab=tasdiqlar")
+                        return redirect("project_detail", pk=proj_id)
+                    # Loyihani ham qulflaymiz — IKKI XIL so'rov parallel tasdiqlanganda
+                    # ikkalasi ham "limitga sig'adi" bo'lib qolmasin
+                    Project.objects.select_for_update().get(pk=req.project_id)
                     oshgan = _limit_oshish(
                         req.project, _items_by_kind(req.items.all()),
                         exclude_request_id=req.id,
@@ -2071,8 +2101,13 @@ def weekly_action(request, pk):
             elif req.status in (WeeklyRequest.Status.DIR, WeeklyRequest.Status.SUBMITTED):
                 messages.error(request, "Yuborilgan so'rovni avval «Qaytarib olish» qiling, so'ng o'chirasiz.")
             else:
-                req.delete()
-                messages.info(request, "So'rov o'chirildi.")
+                from .models import Moliya as _M2
+                if _M2.objects.filter(item__request=req).exists():
+                    # To'lov jurnali bor so'rov o'chirilmaydi — pul izsiz yo'qolmasin
+                    messages.error(request, "Bu so'rovga to'lovlar yozilgan — o'chirib bo'lmaydi.")
+                else:
+                    req.delete()
+                    messages.info(request, "So'rov o'chirildi.")
     if request.POST.get("next") == "tasdiqlar":
         return redirect(reverse("dashboard") + "?tab=tasdiqlar")
     return redirect("project_detail", pk=proj_id)
@@ -2084,6 +2119,7 @@ def weekly_edit(request, pk):
     req = get_object_or_404(WeeklyRequest.objects.select_related("project"), pk=pk)
     if not is_admin(request.user):
         raise PermissionDenied("Haftalik so'rovni faqat asosiy admin tahrirlaydi.")
+    _firma_yoki_403(request, req.project)
     # Admin har qanday holatda (tasdiqlangan bo'lsa ham) tahrirlay oladi.
     # Sarf jonli hisoblanadi (tasdiqlangan qatorlar yig'indisi) — tahrir darrov aks etadi.
     was_approved = req.status == WeeklyRequest.Status.APPROVED
@@ -2109,8 +2145,13 @@ def weekly_edit(request, pk):
         prices = request.POST.getlist("unit_price")
         inotes = request.POST.getlist("item_note")
         bolims = request.POST.getlist("item_bolim")
+        item_ids = request.POST.getlist("item_id")
         valid = set(KINDS)
-        new_items = []
+        # Qatorlar item_id bo'yicha YANGILANADI (o'chirib qayta yaratilmaydi) —
+        # aks holda qatorga bog'langan Moliya to'lovlari jurnali yo'qolib ketadi
+        eski = {it.pk: it for it in req.items.all()}
+        saqlanadi, yangilar = [], []
+        korilgan_ids = set()
         for i in range(len(names)):
             nm = (names[i] or "").strip()
             if not nm:
@@ -2121,13 +2162,38 @@ def weekly_edit(request, pk):
             pr = _to_dec(prices[i] if i < len(prices) else "0") or Decimal("0")
             if q < 0 or pr < 0:
                 continue
-            new_items.append(WeeklyRequestItem(request=req, kind=kind, name=nm, unit=unit,
-                                               quantity=q, unit_price=pr,
-                                               note=(inotes[i] if i < len(inotes) else "").strip()[:500],
-                                               bolim=" ".join((bolims[i] if i < len(bolims) else "").split())[:200]))
-        if not new_items:
+            note = (inotes[i] if i < len(inotes) else "").strip()[:500]
+            bolim = " ".join((bolims[i] if i < len(bolims) else "").split())[:200]
+            try:
+                iid = int(item_ids[i]) if i < len(item_ids) and item_ids[i] else 0
+            except ValueError:
+                iid = 0
+            it = eski.get(iid)
+            if it is not None and iid not in korilgan_ids:
+                korilgan_ids.add(iid)
+                yangi_total = (q * pr).quantize(Decimal("0.01"))
+                if yangi_total < it.berildi:
+                    messages.error(request, f"«{it.name}» qatoriga {_money(it.berildi)} to'lov "
+                                            "yozilgan — summani to'lovdan kamaytirib bo'lmaydi.")
+                    return redirect("weekly_edit", pk=pk)
+                it.kind, it.name, it.unit = kind, nm, unit
+                it.quantity, it.unit_price = q, pr
+                it.note, it.bolim = note, bolim
+                saqlanadi.append(it)
+            else:
+                yangilar.append(WeeklyRequestItem(request=req, kind=kind, name=nm, unit=unit,
+                                                  quantity=q, unit_price=pr,
+                                                  note=note, bolim=bolim))
+        if not (saqlanadi or yangilar):
             messages.error(request, "Kamida bitta qator kiriting.")
             return redirect("weekly_edit", pk=pk)
+        # O'chirilayotgan qatorlar: to'lov yozilgan bo'lsa — o'chirish taqiqlanadi
+        ochiriladi = [it for iid, it in eski.items() if iid not in korilgan_ids]
+        for it in ochiriladi:
+            if it.moliyalar.exists():
+                messages.error(request, f"«{it.name}» qatoriga to'lov yozilgan — uni o'chirib "
+                                        "bo'lmaydi. Avval buxgalter bilan hal qiling.")
+                return redirect("weekly_edit", pk=pk)
 
         req.week_start = ws
         req.week_end = we
@@ -2139,8 +2205,13 @@ def weekly_edit(request, pk):
         with transaction.atomic():
             req.save(update_fields=["week_start", "week_end", "number", "note",
                                     "edited_by", "edited_at"])
-            req.items.all().delete()
-            WeeklyRequestItem.objects.bulk_create(new_items)
+            for it in saqlanadi:
+                it.save(update_fields=["kind", "name", "unit", "quantity",
+                                       "unit_price", "note", "bolim"])
+            for it in ochiriladi:
+                it.delete()
+            if yangilar:
+                WeeklyRequestItem.objects.bulk_create(yangilar)
             if was_approved:
                 # Tasdiqlangan so'rov tahrirlangach yangi materiallarni ham qo'shamiz
                 _limitga_yangi_materiallar(req)
@@ -2154,9 +2225,9 @@ def weekly_edit(request, pk):
 
     # GET — tahrir formasi (prefilled)
     items = [{
-        "kind": it.kind, "name": it.name, "unit": it.unit,
+        "id": it.pk, "kind": it.kind, "name": it.name, "unit": it.unit,
         "quantity": it.quantity, "unit_price": it.unit_price,
-        "note": it.note, "bolim": it.bolim,
+        "note": it.note, "bolim": it.bolim, "created_at": it.created_at,
     } for it in req.items.all()]
     bolimlar = sorted({(li.bolim or "").strip() for li in p.limit_items.all()
                        if (li.bolim or "").strip()})
@@ -2168,7 +2239,9 @@ def weekly_edit(request, pk):
         k = m.name.strip().lower()
         if k and m.unit and k not in unit_map:
             unit_map[k] = m.unit
-    for it in WeeklyRequestItem.objects.filter(kind="material").exclude(unit="").values("name", "unit"):
+    for it in (WeeklyRequestItem.objects
+               .filter(kind="material", request__project__in=visible_projects(request.user))
+               .exclude(unit="").values("name", "unit")):
         k = (it["name"] or "").strip().lower()
         if k and k not in unit_map:
             unit_map[k] = it["unit"]
@@ -3050,6 +3123,16 @@ def grafik_rabota(request, pk=None):
     return resp
 
 
+def _xavfsiz_referer(request, fallback_name):
+    """Referer'ga qaytish — faqat o'z saytimiz ichida bo'lsa (ochiq redirect emas)."""
+    from django.utils.http import url_has_allowed_host_and_scheme
+    ref = request.META.get("HTTP_REFERER") or ""
+    if ref and url_has_allowed_host_and_scheme(ref, allowed_hosts={request.get_host()},
+                                               require_https=request.is_secure()):
+        return ref
+    return reverse(fallback_name)
+
+
 def _moliya_yoza_oladi(user):
     """To'lovni FAQAT BUXGALTER yozadi (admin ham ko'radi, lekin yozmaydi —
     moliya javobgarligi buxgalterda qolsin)."""
@@ -3161,6 +3244,7 @@ def moliya(request):
     korin_t = sum((g_["t"] for g_ in guruhlar), Decimal("0"))
     korin_b = sum((g_["b"] for g_ in guruhlar), Decimal("0"))
     korin_q = sum((g_["q"] for g_ in guruhlar), Decimal("0"))
+    korin_soni = sum(g_["soni"] for g_ in guruhlar)
     # So'nggi to'lovlar jurnali — har biri bosilib ochiladi (to'liq ma'lumot bilan)
     jurnal = []
     for m_ in (Moliya.objects.filter(item__request__project__in=visible_projects(request.user))
@@ -3183,6 +3267,7 @@ def moliya(request):
         "rows": rows, "guruhlar": guruhlar, "obyektlar": obyektlar, "jurnal": jurnal,
         "toifa_ro": toifa_ro,
         "korin_t": _money(korin_t), "korin_b": _money(korin_b), "korin_q": _money(korin_q),
+        "korin_soni": korin_soni,
         "yoza_oladi": yoza_oladi,
         "firmalar": visible_firmas(request.user).order_by("name"),
         "obyekt_ro": visible_projects(request.user).order_by("code"),
@@ -3215,20 +3300,30 @@ def moliya_yozish(request, item_id):
         sana = datetime.date.today()
     if summa is None or summa <= 0:
         messages.error(request, "Berilgan summani kiriting (0 dan katta).")
-        return redirect(request.META.get("HTTP_REFERER") or reverse("moliya"))
-    qarz = it.qarz
-    if summa > qarz + Decimal("0.01"):
-        messages.error(request,
-            f"Summa qarzdan katta: qarz {_money(qarz)}, siz {_money(summa)} yozdingiz. "
-            "Ortiqcha to'lov yozilmaydi.")
-        return redirect(request.META.get("HTTP_REFERER") or reverse("moliya"))
-    Moliya.objects.create(item=it, summa=summa, miqdor=miqdor, izoh=izoh,
-                          sana=sana, yozdi=request.user)
+        return redirect(_xavfsiz_referer(request, "moliya"))
+    if miqdor is not None and miqdor < 0:
+        miqdor = None
+    # Tekshiruv + yozish BITTA tranzaksiyada, qator qulflanadi — ikki marta
+    # bosilganda (yoki ikki oynadan) qarzdan ORTIQCHA to'lov yozilib qolmasin
+    with transaction.atomic():
+        it = (WeeklyRequestItem.objects.select_for_update()
+              .select_related("request").get(pk=it.pk))
+        if it.request.status != WeeklyRequest.Status.APPROVED:
+            messages.error(request, "Faqat TASDIQLANGAN haftalik qatoriga to'lov yoziladi.")
+            return redirect(_xavfsiz_referer(request, "moliya"))
+        qarz = it.qarz
+        if summa > qarz + Decimal("0.01"):
+            messages.error(request,
+                f"Summa qarzdan katta: qarz {_money(qarz)}, siz {_money(summa)} yozdingiz. "
+                "Ortiqcha to'lov yozilmaydi.")
+            return redirect(_xavfsiz_referer(request, "moliya"))
+        Moliya.objects.create(item=it, summa=summa, miqdor=miqdor, izoh=izoh,
+                              sana=sana, yozdi=request.user)
     qoldi = it.qarz
     messages.success(request,
         f"«{it.name}» — {_money(summa)} berildi deb yozildi. "
         + ("Qator TO'LIQ moliyalashtirildi ✓" if qoldi <= 0 else f"Qoldi: {_money(qoldi)}"))
-    return redirect(request.META.get("HTTP_REFERER") or reverse("moliya"))
+    return redirect(_xavfsiz_referer(request, "moliya"))
 
 
 @login_required
@@ -3323,11 +3418,14 @@ def xabar_yuborish(request):
 @login_required
 def xabar_oqidim(request, pk):
     """Xodim xabarni o'qiganini belgilaydi — banner yo'qoladi."""
+    from django.db.models import Q
     from .models import Xabar, XabarOqildi
     if request.method == "POST":
-        x = get_object_or_404(Xabar, pk=pk)
+        # Faqat O'ZIGA yuborilgan (yoki hammaga) xabarni belgilay oladi
+        x = get_object_or_404(Xabar.objects.filter(Q(hammaga=True) | Q(kimga=request.user)),
+                              pk=pk)
         XabarOqildi.objects.get_or_create(xabar=x, user=request.user)
-    return redirect(request.META.get("HTTP_REFERER") or "/")
+    return redirect(_xavfsiz_referer(request, "dashboard"))
 
 
 @login_required
@@ -3382,8 +3480,13 @@ def weekly_export(request, pk):
     ws["A3"].font = Font(size=10, color="64748B")
     ws.append([])
     hrow = 5
-    ws.append(["Turi", "Nomi", "Bo'lim", "Izoh", "Birlik", "Miqdor", "Narxi", "Summa",
-               "Kiritilgan sana", "Berildi (fakt)", "Qoldi (qarz)"])
+    # Moliya ustunlari (Berildi/Qoldi) — prorabga KO'RSATILMAYDI (moliya sirlari)
+    moliya_kora = moliya_kora_oladi(request.user)
+    sarlavha = ["Turi", "Nomi", "Bo'lim", "Izoh", "Birlik", "Miqdor", "Narxi", "Summa",
+                "Kiritilgan sana"]
+    if moliya_kora:
+        sarlavha += ["Berildi (fakt)", "Qoldi (qarz)"]
+    ws.append(sarlavha)
     for c in ws[hrow]:
         c.font = hdr_font
         c.fill = hdr_fill
@@ -3391,19 +3494,23 @@ def weekly_export(request, pk):
         c.alignment = Alignment(horizontal="center", vertical="center")
 
     for it in w.items.prefetch_related("moliyalar"):
-        ws.append([
+        qator = [
             KIND.get(it.kind, it.kind), it.name, it.bolim or "", it.note or "", it.unit or "",
             float(it.quantity), float(it.unit_price), None,
             _lt(it.created_at).strftime("%d.%m.%Y %H:%M") if it.created_at else "",
-            float(it.berildi), None,
-        ])
+        ]
+        if moliya_kora:
+            qator += [float(it.berildi), None]
+        ws.append(qator)
         # Summa = Miqdor x Narxi — jonli formula; Qoldi = Summa − Berildi
         rr_ = ws.max_row
         ws.cell(rr_, 8).value = f"=F{rr_}*G{rr_}"
-        ws.cell(rr_, 11).value = f"=MAX(0,H{rr_}-J{rr_})"
+        if moliya_kora:
+            ws.cell(rr_, 11).value = f"=MAX(0,H{rr_}-J{rr_})"
     oxirgi_q = ws.max_row
+    pul_ustunlar = (6, 7, 8, 10, 11) if moliya_kora else (6, 7, 8)
     for r in range(hrow + 1, ws.max_row + 1):
-        for col in (6, 7, 8, 10, 11):
+        for col in pul_ustunlar:
             ws.cell(r, col).number_format = money
             ws.cell(r, col).alignment = right
         for c in ws[r]:
@@ -3665,6 +3772,9 @@ def material_sorov_korish(request, pk):
     req = get_object_or_404(
         MaterialRequest.objects.select_related("project", "created_by", "decided_by"), pk=pk)
     _firma_yoki_403(request, req.project)
+    # Prorab faqat O'ZI yaratgan so'rovni ochadi (ro'yxatdagi filtr bilan bir xil)
+    if is_prorab(request.user) and req.created_by_id != request.user.id:
+        raise PermissionDenied("Bu so'rov sizniki emas.")
     pto = is_pto(request.user)
     items = list(req.items.all())
     jami = Decimal("0")
