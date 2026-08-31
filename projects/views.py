@@ -940,6 +940,7 @@ def project_detail(request, pk):
         for k, d in bolim_qoldiq.items()
     }
     bolimlar_ro = sorted({(it["bolim"] or "").strip() for it in limit_items if (it["bolim"] or "").strip()})
+    masullar_ro = sorted({(it["masul"] or "").strip() for it in limit_items if (it["masul"] or "").strip()})
     # Umumiy limit jadvalida har qatorning QOLDIG'I ko'rinadi (tasdiqlangan
     # haftaliklar shu nom+bo'limdan avtomatik ayirilgan holda)
     for q in limit_items:
@@ -1076,6 +1077,7 @@ def project_detail(request, pk):
         "limit_item_map": limit_item_map,
         "bolim_qoldiq": bolim_qoldiq_json,
         "bolimlar_ro": bolimlar_ro,
+        "masullar_ro": masullar_ro,
         "pending": pending,
         "pending_new_str": _money(pending.new_total) if pending else "",
         "qoldiq_json": {

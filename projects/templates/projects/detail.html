@@ -335,8 +335,8 @@
             {% for it in limit_items %}
             <tr>
               <td class="rowno">{{ it.nr }}</td>
-              <td><textarea name="item_bolim" class="bolimimp growa" rows="1" placeholder="bo'lim...">{{ it.bolim }}</textarea></td>
-              <td><textarea name="item_masul" class="bolimimp growa" rows="1" placeholder="mas'ul...">{{ it.masul }}</textarea></td>
+              <td><input type="text" name="item_bolim" class="bolimimp" list="bolimList" value="{{ it.bolim }}" placeholder="bo'lim..."></td>
+              <td><input type="text" name="item_masul" class="bolimimp" list="masulList" value="{{ it.masul }}" placeholder="mas'ul..."></td>
               <td><select name="kind">
                 <option value="material" {% if it.kind == 'material' %}selected{% endif %}>Material</option>
                 <option value="labor" {% if it.kind == 'labor' %}selected{% endif %}>Ish haqi</option>
@@ -384,11 +384,14 @@
         <button type="submit" style="background:#b45309; color:#fff; border:0; border-radius:8px; padding:9px 15px; font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap;">↩ PTOga qaytarish</button>
       </form>
       {% endif %}
+      {# Bo'lim/Mas'ul takliflari — bir xil nomni har xil yozib yubormaslik uchun #}
+      <datalist id="bolimList">{% for b in bolimlar_ro %}<option value="{{ b }}"></option>{% endfor %}</datalist>
+      <datalist id="masulList">{% for m in masullar_ro %}<option value="{{ m }}"></option>{% endfor %}</datalist>
       <template id="li-rowtpl">
         <tr>
           <td class="rowno"></td>
-          <td><textarea name="item_bolim" class="bolimimp growa" rows="1" placeholder="bo'lim..."></textarea></td>
-          <td><textarea name="item_masul" class="bolimimp growa" rows="1" placeholder="mas'ul..."></textarea></td>
+          <td><input type="text" name="item_bolim" class="bolimimp" list="bolimList" placeholder="bo'lim..."></td>
+          <td><input type="text" name="item_masul" class="bolimimp" list="masulList" placeholder="mas'ul..."></td>
           <td><select name="kind"><option value="material">Material</option><option value="labor">Ish haqi</option><option value="machinery">Mashina chasti</option><option value="other">Ko'zda tutilmagan</option></select></td>
           <td><input type="text" name="name" class="txtgrow" placeholder="nomi..."></td>
           <td><textarea name="item_note" class="noteinp growa" rows="1" placeholder="izoh..."></textarea></td>
@@ -431,7 +434,38 @@
           recompute();
         }
         document.getElementById('li-addrow').addEventListener('click', addRow);
-        tbody.addEventListener('click', function(e){ if(e.target.classList.contains('delrow')){ if(tbody.children.length>1){ e.target.closest('tr').remove(); } recompute(); } });
+        tbody.addEventListener('click', function(e){
+          if(!e.target.classList.contains('delrow')) return;
+          var tr=e.target.closest('tr');
+          // To'ldirilgan qator tasdiqsiz o'chmasin
+          var nomV=(tr.querySelector('[name=name]')||{}).value||'';
+          var qV=parseFloat((tr.querySelector('[name=quantity]')||{}).value)||0;
+          if((nomV.trim()||qV) && !confirm('«'+(nomV.trim()||'qator')+'» o\'chirilsinmi?')) return;
+          if(tbody.children.length>1){ tr.remove(); }
+          recompute();
+        });
+        // Oxirgi qatorda NOM yozila boshlasa — yangi bo'sh qator o'zi qo'shiladi
+        tbody.addEventListener('input', function(e){
+          if(e.target.name!=='name') return;
+          var tr=e.target.closest('tr');
+          if(tr===tbody.lastElementChild && e.target.value.trim()) addRow();
+        });
+        // Saqlashdan oldin: bir xil NOM+BO'LIM ikki qatorda bo'lsa ogohlantirish
+        var liForm = tbody.closest('form');
+        if(liForm) liForm.addEventListener('submit', function(ev){
+          var korilgan={}, dubl=[];
+          tbody.querySelectorAll('tr').forEach(function(tr){
+            var nm=((tr.querySelector('[name=name]')||{}).value||'').trim().toLowerCase();
+            if(!nm) return;
+            var bl=((tr.querySelector('[name=item_bolim]')||{}).value||'').trim().toLowerCase();
+            var k=nm+'|'+bl;
+            if(korilgan[k]) dubl.push(nm+(bl?' ('+bl+')':''));
+            korilgan[k]=1;
+          });
+          if(dubl.length && !confirm('DIQQAT: bir xil nom+bo\'lim TAKRORLANGAN:\n— '+dubl.join('\n— ')+'\n\nQoldiq hisobida ular qo\'shilib ketadi. Baribir saqlansinmi?')){
+            ev.preventDefault();
+          }
+        });
         // Bo'lim/Mas'ul avval YONGA (32 belgigacha), so'ng PASTGA kengayadi.
         // Izoh faqat pastga o'sadi. Nomi (avto-taklif saqlanishi uchun input)
         // yoniga 44 belgigacha, Miqdor/Narxi raqamga qarab yoniga kengayadi.
@@ -456,6 +490,7 @@
         }
         function hammaKengay(){
           tbody.querySelectorAll('textarea.growa').forEach(kengay);
+          tbody.querySelectorAll('input.bolimimp').forEach(function(el){ enKengay(el, 12, 32); });
           tbody.querySelectorAll('input.txtgrow').forEach(function(el){ enKengay(el, 16, 44); });
           tbody.querySelectorAll('input.numgrow').forEach(function(el){ enKengay(el, 9, 20); });
           raqamla();
