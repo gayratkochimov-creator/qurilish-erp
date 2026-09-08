@@ -64,7 +64,7 @@
         <tbody id="rows">
           {% for it in items %}
           <tr>
-            <td class="rowno">{{ forloop.counter }}<input type="hidden" name="item_id" value="{{ it.id }}"></td>
+            <td class="rowno"><span class="rn">{{ forloop.counter }}</span><input type="hidden" name="item_id" value="{{ it.id }}"></td>
             <td><select name="kind">
               <option value="material" {% if it.kind == 'material' %}selected{% endif %}>Material</option>
               <option value="labor" {% if it.kind == 'labor' %}selected{% endif %}>Ish haqi</option>
@@ -147,9 +147,14 @@
     document.getElementById('wg').textContent=fmt(grand);
   }
   function raqamla(){
+    // DIQQAT: .rowno ichida yashirin item_id inputi bor — textContent uni
+    // o'chirib yuboradi, shuning uchun raqam alohida span'ga yoziladi
     var i=1;
     tbody.querySelectorAll('tr').forEach(function(tr){
-      var c=tr.querySelector('.rowno'); if(c) c.textContent=i++;
+      var c=tr.querySelector('.rowno'); if(!c) return;
+      var s=c.querySelector('.rn');
+      if(!s){ s=document.createElement('span'); s.className='rn'; c.insertBefore(s, c.firstChild); }
+      s.textContent=i++;
     });
   }
   function initRow(tr){ autoUnit(tr,false); }
