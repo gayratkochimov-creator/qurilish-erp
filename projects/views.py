@@ -2378,7 +2378,8 @@ def _obj_limit_wb(p):
     tot_fill = PatternFill("solid", fgColor="EFF4FF")
     thin = Side(style="thin", color="E2E8F0")
     border = Border(left=thin, right=thin, top=thin, bottom=thin)
-    money = '# ##0'
+    money = '#,##0'
+    qtyfmt = '#,##0.###'
     right = Alignment(horizontal="right")
 
     def style_head(ws, row):
@@ -2386,59 +2387,128 @@ def _obj_limit_wb(p):
             c.font = hdr_font
             c.fill = hdr_fill
             c.border = border
-            c.alignment = Alignment(horizontal="center", vertical="center")
+            c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
 
     wb = openpyxl.Workbook()
 
-    # ===== 1-VARAQ: Umumiy limit ichi =====
+    # ===== 1-VARAQ: REJA — BAJARILGAN — QOLGAN (Sirdaryo qolipi uslubida) =====
+    # Bitta qatorda: limit (reja) | tasdiqlangan haftaliklar (fakt) | qoldiq.
+    # Bo'lim(blok)larga guruhlangan, har blok ostida jami, jonli formulalar.
     ws1 = wb.active
-    ws1.title = "Umumiy limit"
+    ws1.title = "Limit (Reja-Fakt)"
     ws1["A1"] = f"{p.code} — {p.name}"
     ws1["A1"].font = title_font
-    ws1["A2"] = f"Umumiy limit tarkibi · Jami: {float(p.budget_total):,.0f} so'm".replace(",", " ")
+    ws1["A2"] = "Umumiy limit: REJA · BAJARILGAN (tasdiqlangan haftaliklar) · QOLGAN"
     ws1["A2"].font = sub_font
-    ws1.append([])
-    hrow = 4
-    ws1.append(["Bo'lim", "Mas'ul", "Turi", "Nomi", "Izoh", "Birlik", "Miqdor", "Narxi", "Summa", "Qo'shilgan sana"])
-    style_head(ws1, hrow)
+
+    # FAKT: tasdiqlangan haftalik qatorlari (nom+bo'lim kesimida yig'ilgan)
+    fakt = {}
+    for wi in WeeklyRequestItem.objects.filter(request__project=p, request__status="approved"):
+        fk = (wi.name or "").strip().lower() + "|" + (wi.bolim or "").strip().lower()
+        d = fakt.setdefault(fk, {"qty": Decimal("0"), "sum": Decimal("0")})
+        d["qty"] += wi.quantity
+        d["sum"] += wi.total
+
+    # Bo'limlar bo'yicha guruhlash (sahifadagi tartib: birinchi uchragan, bo'limsiz oxirida)
+    guruh = {}
     for it in p.limit_items.all().order_by("id"):
-        ws1.append([
-            it.bolim or "", it.masul or "",
-            KIND.get(it.kind, it.kind), it.name, it.note or "", it.unit or "",
-            float(it.quantity), float(it.unit_price), None,
-            _tzloc(it.created_at).strftime("%d.%m.%Y %H:%M") if it.created_at else "",
-        ])
-    last = ws1.max_row
-    for r in range(hrow + 1, last + 1):
-        # Summa = Miqdor x Narxi — JONLI formula (Excelda o'zgartirilsa qayta hisoblanadi)
-        ws1.cell(r, 9).value = f"=G{r}*H{r}"
-        for col in (7, 8, 9):
-            ws1.cell(r, col).number_format = money
-            ws1.cell(r, col).alignment = right
-        for c in ws1[r]:
-            c.border = border
-    # kategoriya bo'yicha jami — SUMIF formulalari (jonli)
+        kal = (it.bolim or "").strip()
+        guruh.setdefault(kal, []).append(it)
+    tartib = [k for k in guruh if k] + ([""] if "" in guruh else [])
+
+    # Ikki qatorli sarlavha (guruh ustunlari birlashtirilgan)
     ws1.append([])
-    tot_birinchi = None
-    for k in KINDS:
+    h1, h2 = 4, 5
+    ws1.append(["№", "Turi", "Nomi", "Izoh", "Birlik",
+                "REJA (limit)", None, None, "BAJARILGAN", None, "QOLGAN", None])
+    ws1.append([None, None, None, None, None,
+                "Miqdor", "Narx", "Summa", "Miqdor", "Summa", "Miqdor", "Summa"])
+    for a, b in (("A", "A"), ("B", "B"), ("C", "C"), ("D", "D"), ("E", "E")):
+        ws1.merge_cells(f"{a}{h1}:{b}{h2}")
+    ws1.merge_cells(f"F{h1}:H{h1}")
+    ws1.merge_cells(f"I{h1}:J{h1}")
+    ws1.merge_cells(f"K{h1}:L{h1}")
+    style_head(ws1, h1)
+    style_head(ws1, h2)
+    fakt_fill = PatternFill("solid", fgColor="1D4ED8")
+    qol_fill = PatternFill("solid", fgColor="B45309")
+    for cc in ("I", "J"):
+        ws1[f"{cc}{h1}"].fill = fakt_fill; ws1[f"{cc}{h2}"].fill = fakt_fill
+    for cc in ("K", "L"):
+        ws1[f"{cc}{h1}"].fill = qol_fill; ws1[f"{cc}{h2}"].fill = qol_fill
+
+    grp_fill = PatternFill("solid", fgColor="E8EEF7")
+    grp_font = Font(bold=True, size=11, color="0B1C30")
+    nr = 0
+    fakt_berildi = set()
+    jami_qatorlar = []   # blok-jami qator raqamlari (UMUMIYda yig'iladi)
+    for kal in tartib:
+        items = guruh[kal]
+        # Blok sarlavhasi
         rr = ws1.max_row + 1
-        if tot_birinchi is None:
-            tot_birinchi = rr
-        ws1.cell(rr, 8, KIND[k] + " jami:").font = tot_font
-        c = ws1.cell(rr, 9)
-        if last > hrow:
-            c.value = f'=SUMIF($C${hrow + 1}:$C${last},"{KIND[k]}",$I${hrow + 1}:$I${last})'
-        else:
-            c.value = 0
-        c.number_format = money; c.font = tot_font; c.fill = tot_fill
-    rr = ws1.max_row + 1
-    ws1.cell(rr, 8, "UMUMIY LIMIT:").font = Font(bold=True, size=12)
-    c = ws1.cell(rr, 9)
-    c.value = f"=SUM(I{tot_birinchi}:I{rr - 1})"
-    c.number_format = money
-    c.font = Font(bold=True, size=12, color="2563EB"); c.fill = tot_fill
-    ws1.freeze_panes = "A5"
-    for i, w in enumerate([22, 16, 16, 34, 30, 10, 12, 14, 16, 16], start=1):
+        masul = next((x.masul for x in items if (x.masul or "").strip()), "")
+        nomi = kal or "Bo'limsiz qatorlar"
+        ws1.cell(rr, 1, nomi + (f"  ·  Mas'ul: {masul}" if masul else ""))
+        ws1.merge_cells(start_row=rr, start_column=1, end_row=rr, end_column=12)
+        for c in ws1[rr]:
+            c.fill = grp_fill; c.font = grp_font; c.border = border
+        boshi = rr + 1
+        for it in items:
+            nr += 1
+            fk = (it.name or "").strip().lower() + "|" + (it.bolim or "").strip().lower()
+            # Bir xil nom+bo'lim ikki qatorda bo'lsa fakt faqat birinchisiga yoziladi
+            f = fakt.get(fk) if fk not in fakt_berildi else None
+            fakt_berildi.add(fk)
+            ws1.append([
+                nr, KIND.get(it.kind, it.kind), it.name, it.note or "", it.unit or "",
+                float(it.quantity), float(it.unit_price), None,
+                float(f["qty"]) if f else 0, float(f["sum"]) if f else 0,
+                None, None,
+            ])
+            r = ws1.max_row
+            ws1.cell(r, 8).value = f"=F{r}*G{r}"      # reja summa
+            ws1.cell(r, 11).value = f"=F{r}-I{r}"     # qolgan miqdor
+            ws1.cell(r, 12).value = f"=H{r}-J{r}"     # qolgan summa
+            for col in (7, 8, 10, 12):
+                ws1.cell(r, col).number_format = money
+                ws1.cell(r, col).alignment = right
+            for col in (6, 9, 11):
+                ws1.cell(r, col).number_format = qtyfmt
+                ws1.cell(r, col).alignment = right
+            for c in ws1[r]:
+                c.border = border
+        # Blok jami
+        rr = ws1.max_row + 1
+        ws1.cell(rr, 3, f"«{nomi}» jami:").font = tot_font
+        for col, harf in ((8, "H"), (10, "J"), (12, "L")):
+            c = ws1.cell(rr, col)
+            c.value = f"=SUM({harf}{boshi}:{harf}{rr - 1})"
+            c.number_format = money; c.font = tot_font
+        for c in ws1[rr]:
+            c.fill = tot_fill; c.border = border
+        jami_qatorlar.append(rr)
+
+    oxiri = ws1.max_row
+    # UMUMIY (blok jamilari yig'indisi)
+    rr = ws1.max_row + 2
+    ws1.cell(rr, 3, "UMUMIY:").font = Font(bold=True, size=12)
+    for col, harf in ((8, "H"), (10, "J"), (12, "L")):
+        c = ws1.cell(rr, col)
+        c.value = "=" + "+".join(f"{harf}{j}" for j in jami_qatorlar) if jami_qatorlar else 0
+        c.number_format = money
+        c.font = Font(bold=True, size=12, color="2563EB")
+        c.fill = tot_fill
+    # Toifa bo'yicha jami (SUMIF — blok sarlavha/jami qatorlarida Turi bo'sh, qo'shilmaydi)
+    if oxiri > h2:
+        for k in KINDS:
+            rr = ws1.max_row + 1
+            ws1.cell(rr, 3, KIND[k] + " jami:").font = tot_font
+            for col, harf in ((8, "H"), (10, "J"), (12, "L")):
+                c = ws1.cell(rr, col)
+                c.value = f'=SUMIF($B${h2 + 1}:$B${oxiri},"{KIND[k]}",${harf}${h2 + 1}:${harf}${oxiri})'
+                c.number_format = money
+    ws1.freeze_panes = "A6"
+    for i, w in enumerate([6, 15, 32, 24, 9, 11, 13, 15, 11, 15, 11, 15], start=1):
         ws1.column_dimensions[get_column_letter(i)].width = w
 
     # ===== 2-VARAQ: Haftalik so'rovlar =====
@@ -3453,7 +3523,7 @@ def weekly_export(request, pk):
     tot_fill = PatternFill("solid", fgColor="EFF4FF")
     thin = Side(style="thin", color="E2E8F0")
     border = Border(left=thin, right=thin, top=thin, bottom=thin)
-    money = '# ##0'
+    money = '#,##0'
     right = Alignment(horizontal="right")
 
     wb = openpyxl.Workbook()
@@ -3510,11 +3580,13 @@ def weekly_export(request, pk):
         if moliya_kora:
             ws.cell(rr_, 11).value = f"=MAX(0,H{rr_}-J{rr_})"
     oxirgi_q = ws.max_row
-    pul_ustunlar = (6, 7, 8, 10, 11) if moliya_kora else (6, 7, 8)
+    pul_ustunlar = (7, 8, 10, 11) if moliya_kora else (7, 8)
     for r in range(hrow + 1, ws.max_row + 1):
         for col in pul_ustunlar:
             ws.cell(r, col).number_format = money
             ws.cell(r, col).alignment = right
+        ws.cell(r, 6).number_format = '#,##0.###'   # miqdor kasrli bo'lishi mumkin
+        ws.cell(r, 6).alignment = right
         for c in ws[r]:
             c.border = border
     ws.append([])
