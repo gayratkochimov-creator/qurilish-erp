@@ -83,6 +83,7 @@
   {% endif %}
   <button class="b-gray" id="btnHisobot">📊 Нарх тарихи ҳисоботи</button>
   <button class="b-gray" onclick="window.print()">Чоп этиш</button>
+  <a href="{% url 'project_detail' p.id %}" class="b-gray" style="padding:6px 14px; border-radius:4px; color:#fff; font-size:12.5px; text-decoration:none;">⚙️ Обект саҳифаси</a>
 </div>
 <div id="ljOk">✔ Хато йўқ</div>
 <div id="ljErr"><div class="hdr" id="ljErrHdr"></div><ul id="ljErrList"></ul></div>
@@ -107,6 +108,12 @@
     <th class="g-mat">Бирл.</th><th class="g-mat">Объём</th><th class="g-mat">Нархи</th><th class="g-mat">Сумма</th>
   </tr></thead>
   <tbody id="ljBody">
+  {% if not guruhlar %}
+    <tr><td colspan="16" style="text-align:center; color:#94a3b8; padding:26px;">
+      Умумий лимит ҳали киритилмаган.
+      {% if is_adm %}Юқоридаги <b>«+ Блок (бўлим)»</b> тугмаси билан шу ерда киритинг.{% else %}ПТО «Обект саҳифаси → Умумий лимит ичи» орқали киритади (занжир билан).{% endif %}
+    </td></tr>
+  {% endif %}
   {% for g in guruhlar %}
     <tr class="block"><td></td><td colspan="14">{{ g.bolim|default:"Бўлимсиз қаторлар" }}{% if g.masul %} &nbsp;·&nbsp; Масъул: {{ g.masul }}{% endif %}</td><td></td></tr>
     {% for r in g.rows %}

@@ -1,4 +1,4 @@
-{% extends "base_site.html" %}
+﻿{% extends "base_site.html" %}
 {% load static l10n %}
 {% block title %}Boshqaruv paneli — Qurilish ERP{% endblock %}
 {% block page_title %}Boshqaruv paneli{% endblock %}
@@ -448,9 +448,9 @@
       <tbody>
         {% for row in qatorlar %}
         <tr>
-          <td><a class="lnk" href="{% url 'project_detail' row.obj.id %}">{{ row.obj.code }}</a></td>
+          <td><a class="lnk" href="{% url 'project_detail' row.obj.id %}" title="Obyekt sahifasi (kiritish/KPI)">{{ row.obj.code }}</a></td>
           <td>
-            <a class="lnk" href="{% url 'project_detail' row.obj.id %}">{{ row.obj.name }}</a>
+            <a class="lnk" href="{% url 'limit_jadval' row.obj.id %}" title="Limit jadvali — UMUMIY | BAJARILGAN | QOLGAN | HAFTA">{{ row.obj.name }}</a>
             <div class="mb"><span style="width:{{ row.foiz_bar }}%; background:{{ row.rang }};"></span></div>
           </td>
           <td class="num">{{ row.limit_str }}</td>
@@ -490,13 +490,13 @@
             {% for r in fb.rows %}
             <tr class="orow" data-name="{{ r.p.name|lower }}" data-limit="{% if r.p.budget_total > 0 %}1{% else %}0{% endif %}">
               {% if r.editable %}
-              <td><a class="objlink" href="{% url 'project_detail' r.p.id %}">{{ r.p.name }}</a> <a class="ichi" href="{% url 'project_detail' r.p.id %}">ichi</a></td>
+              <td><a class="objlink" href="{% url 'limit_jadval' r.p.id %}">{{ r.p.name }}</a> <a class="ichi" href="{% url 'project_detail' r.p.id %}">ichi</a></td>
               <td class="num"><input type="number" step="0.01" min="0" placeholder="0" name="m_{{ r.p.id }}" value="{{ r.p.limit_material|default_if_none:''|unlocalize }}"></td>
               <td class="num"><input type="number" step="0.01" min="0" placeholder="0" name="l_{{ r.p.id }}" value="{{ r.p.limit_labor|default_if_none:''|unlocalize }}"></td>
               <td class="num"><input type="number" step="0.01" min="0" placeholder="0" name="k_{{ r.p.id }}" value="{{ r.p.limit_machinery|default_if_none:''|unlocalize }}"></td>
               <td class="num"><input type="number" step="0.01" min="0" placeholder="0" name="o_{{ r.p.id }}" value="{{ r.p.limit_other|default_if_none:''|unlocalize }}"></td>
               {% else %}
-              <td><a class="objlink" href="{% url 'project_detail' r.p.id %}">{{ r.p.name }}</a> <a class="ichi" href="{% url 'project_detail' r.p.id %}">ichi</a></td>
+              <td><a class="objlink" href="{% url 'limit_jadval' r.p.id %}">{{ r.p.name }}</a> <a class="ichi" href="{% url 'project_detail' r.p.id %}">ichi</a></td>
               <td class="num ro">{{ r.p.limit_material|floatformat:0 }}</td>
               <td class="num ro">{{ r.p.limit_labor|floatformat:0 }}</td>
               <td class="num ro">{{ r.p.limit_machinery|floatformat:0 }}</td>
@@ -520,13 +520,13 @@
             {% for r in entry_no_firm %}
             <tr class="orow" data-name="{{ r.p.name|lower }}" data-limit="{% if r.p.budget_total > 0 %}1{% else %}0{% endif %}">
               {% if r.editable %}
-              <td><a class="objlink" href="{% url 'project_detail' r.p.id %}">{{ r.p.name }}</a> <a class="ichi" href="{% url 'project_detail' r.p.id %}">ichi</a></td>
+              <td><a class="objlink" href="{% url 'limit_jadval' r.p.id %}">{{ r.p.name }}</a> <a class="ichi" href="{% url 'project_detail' r.p.id %}">ichi</a></td>
               <td class="num"><input type="number" step="0.01" min="0" placeholder="0" name="m_{{ r.p.id }}" value="{{ r.p.limit_material|default_if_none:''|unlocalize }}"></td>
               <td class="num"><input type="number" step="0.01" min="0" placeholder="0" name="l_{{ r.p.id }}" value="{{ r.p.limit_labor|default_if_none:''|unlocalize }}"></td>
               <td class="num"><input type="number" step="0.01" min="0" placeholder="0" name="k_{{ r.p.id }}" value="{{ r.p.limit_machinery|default_if_none:''|unlocalize }}"></td>
               <td class="num"><input type="number" step="0.01" min="0" placeholder="0" name="o_{{ r.p.id }}" value="{{ r.p.limit_other|default_if_none:''|unlocalize }}"></td>
               {% else %}
-              <td><a class="objlink" href="{% url 'project_detail' r.p.id %}">{{ r.p.name }}</a> <a class="ichi" href="{% url 'project_detail' r.p.id %}">ichi</a></td>
+              <td><a class="objlink" href="{% url 'limit_jadval' r.p.id %}">{{ r.p.name }}</a> <a class="ichi" href="{% url 'project_detail' r.p.id %}">ichi</a></td>
               <td class="num ro">{{ r.p.limit_material|floatformat:0 }}</td>
               <td class="num ro">{{ r.p.limit_labor|floatformat:0 }}</td>
               <td class="num ro">{{ r.p.limit_machinery|floatformat:0 }}</td>
