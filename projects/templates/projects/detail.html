@@ -214,6 +214,82 @@
     .empty { padding: 44px 20px; text-align: center; color: #94a3b8; font-size: 14px; line-height: 1.7; background: var(--card); border: 1px solid var(--line); border-radius: var(--r-card); box-shadow: var(--shadow-sm); }
     .draft { opacity: .62; }
     .flag { font-size: 11px; color: #94a3b8; font-weight: 600; }
+    /* Sirdaryo qolipi jadvali (o'qish rejimi): 4 guruh × 4 ustun, rangli sarlavhalar,
+       blok (sariq) / blok yakuni (havorang) / JAMI (yashil, pastga yopishgan) */
+    .sd-wrap { overflow: auto; max-height: 72vh; }
+    table.sd { border-collapse: separate; border-spacing: 0; min-width: 1500px; font-size: 12.5px; }
+    table.sd th, table.sd td { border: 1px solid #c8ccd0; padding: 4px 6px; background: #fff; white-space: nowrap; }
+    table.sd thead th { color: #fff; text-align: center; font-weight: 600; font-size: 12px; letter-spacing: 0; text-transform: none; position: sticky; z-index: 3; }
+    table.sd thead tr:first-child th { top: 0; }
+    table.sd thead tr.sub th { top: 27px; font-size: 11.5px; font-weight: 500; }
+    table.sd th .hd-sub { display: block; font-size: 10.5px; font-weight: 400; opacity: .9; }
+    table.sd th.g-main { background: #1a5fb4; } table.sd thead tr.sub th.g-main { background: #3584e4; }
+    table.sd th.g-done { background: #26a269; } table.sd thead tr.sub th.g-done { background: #33b579; }
+    table.sd th.g-left { background: #e66100; } table.sd thead tr.sub th.g-left { background: #f57900; }
+    table.sd th.g-mat  { background: #813d9c; } table.sd thead tr.sub th.g-mat  { background: #9450ab; }
+    table.sd td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    table.sd td.ctr { text-align: center; }
+    table.sd td.nm { white-space: normal; min-width: 200px; font-weight: 600; }
+    table.sd td.izoh { white-space: normal; min-width: 100px; color: #6b5b2a; font-size: 11.5px; }
+    table.sd td.mat { background: #fbf6fd; }
+    table.sd td.merged { text-align: center; color: var(--mut); font-size: 11px; white-space: normal; }
+    table.sd tr.block td { background: #fde8b0; font-weight: 700; }
+    table.sd tr.block .bh-masul { margin-left: 12px; font-weight: 500; }
+    table.sd tr.subtotal td { background: #e8f0fe; font-weight: 700; }
+    table.sd tr.grand td { background: #d1e7dd; font-weight: 700; font-size: 13.5px; position: sticky; bottom: 0; z-index: 2; }
+    table.sd tr.row-warn td { background: #fdf3d8; }
+    table.sd tbody tr:hover td { background: #fafbff; }
+    table.sd .neg { color: #c01c28; font-weight: 700; }
+    table.sd .narx-eski { color: #999; text-decoration: line-through; font-size: 11px; margin-right: 3px; }
+    /* REJA — BAJARILGAN — QOLGAN — NARX FARQI jadvali (o'qish rejimi) */
+    .rf-wrap { overflow-x: auto; }
+    table.rf th, table.rf td { padding: 8px 10px; white-space: nowrap; }
+    table.rf th.g { text-align: center; color: #fff; font-size: 11px; letter-spacing: .06em; }
+    table.rf th.g-rej { background: #334155; }
+    table.rf th.g-baj { background: #1e9e5a; }
+    table.rf th.g-qol { background: #e35c1e; }
+    table.rf th.g-frq { background: #7f1d1d; }
+    table.rf th.s-baj { background: #ecfdf5; color: #166534; }
+    table.rf th.s-qol { background: #fff7ed; color: #9a3412; }
+    table.rf th.s-frq { background: #fef2f2; color: #991b1b; }
+    table.rf td.sub { font-size: 11px; color: var(--mut); }
+    table.rf td.sub b { color: var(--ink); font-weight: 600; }
+    table.rf td.name { white-space: normal; min-width: 180px; }
+    table.rf .farq-pos { color: var(--bad); font-weight: 700; }
+    table.rf .farq-neg { color: var(--ok); font-weight: 700; }
+    .farq-pct { font-size: 10.5px; font-weight: 700; border-radius: 999px; padding: 1px 7px; margin-left: 5px; vertical-align: middle; }
+    .farq-pct.up { background: #fef2f2; color: #b91c1c; }
+    .farq-pct.down { background: #f0fdf4; color: #15803d; }
+    .rf-sum { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; padding: 10px 14px; border-top: 2px solid var(--line); font-size: 12.5px; }
+    .rf-sum .st { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 999px; padding: 5px 13px; font-variant-numeric: tabular-nums; background: #f8fafc; }
+    .rf-sum .st b { font-weight: 800; }
+    .rf-sum .st.baj { border-color: #bbf7d0; background: #f0fdf4; }
+    .rf-sum .st.qol { border-color: #fed7aa; background: #fff7ed; }
+    .rf-sum .st.frq-pos { border-color: #fecaca; background: #fef2f2; color: #991b1b; }
+    .rf-sum .st.frq-neg { border-color: #bbf7d0; background: #f0fdf4; color: #166534; }
+    /* Narx o'zgarishi ogohlantirish qutisi */
+    .farqbox { background: #fff7ed; border: 1px solid #fed7aa; border-left: 3px solid #e35c1e; border-radius: var(--r-card); padding: 14px 18px; margin-bottom: 16px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+    .farqbox .fb-main { flex: 1; min-width: 260px; }
+    .farqbox b.t { color: #9a3412; font-size: 13px; letter-spacing: .02em; text-transform: uppercase; display: block; margin-bottom: 4px; }
+    .farqbox .fb-sub { font-size: 13px; color: #7c2d12; line-height: 1.6; }
+    .farqbox .fb-sub b { color: #7f1d1d; }
+    .farqbox.tejam { background: #f0fdf4; border-color: #bbf7d0; border-left-color: var(--ok); }
+    .farqbox.tejam b.t { color: #166534; }
+    .farqbox.tejam .fb-sub { color: #14532d; }
+    .farqbox.tejam .fb-sub b { color: #14532d; }
+    .fb-btn { background: #e35c1e; color: #fff; border: 0; border-radius: 8px; padding: 9px 16px; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+    .fb-btn:hover { filter: brightness(.93); }
+    /* Haftalik so'rov: narxi limit narxidan farq qilgan qator */
+    .addtable tr.narx-chg td { background: #fffbeb; }
+    .addtable .nq { font-size: 10.5px; color: var(--mut); margin-top: 2px; white-space: nowrap; text-align: right; }
+    .addtable .nq.up { color: #b91c1c; font-weight: 700; }
+    .addtable .nq.down { color: #15803d; font-weight: 700; }
+    .addtable textarea.need { border-color: #dc2626 !important; border-style: solid !important; background: #fef2f2; }
+    .addtable textarea.need::placeholder { color: #b91c1c; }
+    .wq-farq { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--line); font-size: 12.5px; display: flex; justify-content: space-between; gap: 10px; color: var(--mut); }
+    .wq-farq b { font-variant-numeric: tabular-nums; }
+    .wq-farq.up b { color: var(--bad); }
+    .wq-farq.down b { color: var(--ok); }
     @media (max-width: 820px) { .cards { grid-template-columns: repeat(2, 1fr); } }
   </style>
 {% endblock %}
@@ -259,7 +335,7 @@
     <div class="req" style="margin-bottom:18px;">
       <table>
         <thead>
-          <tr><th>Kategoriya</th><th class="num">Limit</th><th class="num">Sarflangan</th><th class="num">Qolgan</th><th class="num">%</th></tr>
+          <tr><th>Kategoriya</th><th class="num">Limit</th><th class="num">Sarflangan</th><th class="num">Qolgan</th><th class="num">%</th><th class="num" title="Bajarilgan (haqiqiy) + qolgan miqdor × joriy narx">Joriy narxda kerak</th><th class="num" title="Joriy narxda kerak − limit. Faqat NARX ta'siri (miqdor oshishi kirmaydi)">Narx farqi</th></tr>
         </thead>
         <tbody>
           {% for k in kategoriyalar %}
@@ -269,11 +345,39 @@
             <td class="num">{{ k.sarf_str }}</td>
             <td class="num {% if k.oshgan %}neg{% endif %}">{{ k.qoldiq_str }}</td>
             <td class="num {% if k.oshgan %}neg{% endif %}">{{ k.foiz }}%</td>
+            <td class="num">{{ k.kerak_str }}</td>
+            <td class="num {% if k.farq > 0 %}neg{% elif k.farq < 0 %}{% endif %}" style="{% if k.farq < 0 %}color:var(--ok); font-weight:700;{% endif %}">{{ k.farq_str }}</td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
+
+    {% if narx_umum.korsat %}
+    <div class="farqbox {% if not narx_umum.jami_pos %}tejam{% endif %}">
+      <div class="fb-main">
+        <b class="t">{% if narx_umum.jami_pos %}Joriy narxda limit yetmaydi{% if narx_umum.farq_pos %} — narx o'zgardi{% endif %}{% else %}Joriy narxda limit yetadi{% if narx_umum.farq_neg %} — narx tushdi (tejam){% endif %}{% endif %}</b>
+        <div class="fb-sub">
+          Ishlarni joriy narxda tugatish uchun <b>{{ narx_umum.kerak_str }}</b> kerak
+          (bajarilgan {{ narx_umum.fakt_str }} + qolgan {{ narx_umum.prognoz_str }}), limit <b>{{ limit_str }}</b> → jami farq <b>{{ narx_umum.jami_farq_str }}</b>.<br>
+          Shundan <b>narx ta'siri: {{ narx_umum.farq_str }}</b> ({{ narx_umum.ozgargan }} ta qator narxi o'zgargan)
+          {% if narx_umum.miqdor_bor %} · <b>miqdor ta'siri: {{ narx_umum.miqdor_farq_str }}</b> (limitdan oshgan miqdor — «qoldi: manfiy» qatorlar){% endif %}.
+          {% if narx_umum.farq_neg %}Narx tejami o'z-o'zidan qo'shimcha miqdor bermaydi — miqdor limiti o'zgarmaydi.{% endif %}
+        </div>
+      </div>
+      {% if is_pto and narx_umum.farq_pos %}
+        {% if pending %}
+          <span class="lim-waitchip">{{ pending.get_status_display }}</span>
+        {% else %}
+        <form method="post" action="{% url 'limit_narx_yangilash' p.id %}"
+              onsubmit="return confirm('Umumiy limit JORIY narxda yangilansinmi?\n\nMiqdorlar o\'zgarmaydi — narxi o\'zgargan nomlarning narxi (barcha bo\'limlarda) oxirgi tasdiqlangan haftalik narxiga o\'tadi.{% if not is_admin %} So\'rov odatdagi tasdiqlash zanjiridan o\'tadi.{% endif %}');">
+          {% csrf_token %}
+          <button type="submit" class="fb-btn">{% if is_admin %}Limitni joriy narxda yangilash{% else %}Limitni joriy narxda yangilash so'rovi{% endif %}</button>
+        </form>
+        {% endif %}
+      {% endif %}
+    </div>
+    {% endif %}
 
     {% if pending %}
     <div class="limitbox pend">
@@ -318,6 +422,7 @@
         <span class="lim-waitchip">{{ pending.get_status_display }}</span>
         {% endif %}
         <a class="tgl lim-export" href="{% url 'limit_export_obj' p.id %}" title="Umumiy limit + haftalik so'rovlar — Excel">⬇ Eksport</a>
+        <a class="tgl" href="{% url 'limit_jadval' p.id %}" style="background:#1a5fb4; color:#fff; border-color:#1a5fb4;" title="REJA | BAJARILGAN | QOLGAN | HAFTA — bitta jadvalda">📊 Limit jadvali</a>
         <button type="button" class="tgl" data-target="limitBody" data-key="limitBody">Yashirish</button>
       </div>
       <div id="limitBody">
@@ -520,41 +625,97 @@
       </script>
       {% else %}
       {% include "projects/_limit_filter.html" %}
-      <table>
-        <thead><tr><th class="rowno" style="width:36px;">№</th><th>Turi</th><th>Nomi</th><th>Birlik</th><th class="num">Miqdor</th><th class="num">Narxi</th><th class="num">Summa</th><th style="width:130px;">Sana (soat bilan)</th></tr></thead>
+      {# Sirdaryo qolipi: UMUMIY · BAJARILGAN · QOLGAN · N-HAFTALIK — har guruh 4 ustun, blok jamilari, JAMI #}
+      <div class="sd-wrap">
+      <table class="sd">
+        <thead>
+          <tr>
+            <th class="g-main" rowspan="2" style="width:36px;">№</th>
+            <th class="g-main" rowspan="2" style="min-width:200px;">Ish turi</th>
+            <th class="g-main" rowspan="2" style="min-width:100px;">Izoh</th>
+            <th class="g-main" colspan="4">Umumiy</th>
+            <th class="g-done" colspan="4">Bajarilgan ishlar</th>
+            <th class="g-left" colspan="4">Qolgan ishlar</th>
+            <th class="g-mat" colspan="4">{% if hafta_info %}{{ hafta_info.seq }}-haftalik ish uchun material {% if hafta_info.approved %}🔒{% else %}✏️{% endif %}<span class="hd-sub">{{ hafta_info.obj.week_start|date:"d.m" }}–{{ hafta_info.obj.week_end|date:"d.m" }}{% if not hafta_info.approved %} · {{ hafta_info.obj.get_status_display|lower }}{% endif %}</span>{% else %}Haftalik ish uchun material{% endif %}</th>
+          </tr>
+          <tr class="sub">
+            <th class="g-main">O'lch. birl.</th><th class="g-main">Obyom</th><th class="g-main">Narxi</th><th class="g-main">Summa</th>
+            <th class="g-done">O'lch. birl.</th><th class="g-done">Obyom</th><th class="g-done" title="Tasdiqlangan haftaliklar o'rtacha narxi">Narxi</th><th class="g-done">Summa</th>
+            <th class="g-left">O'lch. birl.</th><th class="g-left">Obyom</th><th class="g-left" title="Joriy narx — shu nomdagi oxirgi tasdiqlangan haftalik narxi">Narxi</th><th class="g-left" title="Qolgan obyom × joriy narx">Summa</th>
+            <th class="g-mat">O'lch. birl.</th><th class="g-mat">Obyom</th><th class="g-mat">Narxi</th><th class="g-mat">Summa</th>
+          </tr>
+        </thead>
         <tbody>
           {% for g in limit_groups %}
-          {% if bolim_bor %}
-          <tr class="bolim-head"><td colspan="8">
-            <span class="bh-nom">{{ g.bolim|default:"Bo'limsiz qatorlar" }}</span>
-            {% if g.masul %}<span class="bh-masul">Mas'ul: <b>{{ g.masul }}</b></span>{% endif %}
-            <span class="bh-sum">Bo'lim jami: <b>{{ g.sum_str }}</b></span>
-          </td></tr>
-          {% endif %}
+          <tr class="block"><td></td><td colspan="18">{{ g.bolim|default:"Bo'limsiz qatorlar" }}{% if g.masul %}<span class="bh-masul">Mas'ul: <b>{{ g.masul }}</b></span>{% endif %}</td></tr>
           {% for it in g.items %}
-          <tr data-lkind="{{ it.kind }}" data-lname="{{ it.name|lower }}"><td class="rowno">{{ it.nr }}</td><td><span class="kind k-{{ it.cls }}">{{ it.kind_disp }}</span></td><td>{{ it.name }}{% if it.note %}<span class="itemnote">{{ it.note }}</span>{% endif %}</td><td>{{ it.unit }}</td><td class="num">{{ it.qty_str }}{% if it.qoldiq_str %}<span style="display:block; font-size:10.5px; font-weight:700; color:{% if it.qoldiq_manfiy %}#b91c1c{% else %}#15803d{% endif %};">qoldi: {{ it.qoldiq_str }}</span>{% endif %}</td><td class="num">{{ it.price_str }}</td><td class="num">{{ it.sum_str }}</td><td class="lidate">{% if it.ozgargan %}<span class="d-chg" title="Qo'shilgan: {{ it.qoshilgan|date:'d.m.Y H:i' }}">o'zg. {{ it.ozgartirilgan|date:"d.m.Y H:i" }}</span>{% elif it.qoshilgan %}<span class="d-new">{{ it.qoshilgan|date:"d.m.Y H:i" }}</span>{% else %}—{% endif %}</td></tr>
-          {% endfor %}
-          {% empty %}
-          <tr><td colspan="8" style="text-align:center; color:#9ca3af; padding:20px;">Limit tarkibi hali kiritilmagan.</td></tr>
-          {% endfor %}
-        </tbody>
-        {% if has_items %}
-        <tfoot>
-          <tr>
-            <td colspan="8" style="border-top:2px solid var(--line); padding:11px 14px;">
-              <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-                {% for c in li_cat_sums %}
-                <span class="catsum" data-lfsum="{{ c.kind }}" style="display:inline-flex; align-items:center; gap:6px; background:#f8fafc; border:1px solid var(--line); border-radius:999px; padding:5px 13px; font-size:12.5px; font-variant-numeric:tabular-nums;">
-                  <span class="dot {{ c.cls }}"></span>{{ c.nom }}: <b>{{ c.sum_str }}</b>
-                </span>
-                {% endfor %}
-                <span style="margin-left:auto; font-size:13.5px; font-weight:800; font-variant-numeric:tabular-nums;">JAMI: {{ li_jami_str }}</span>
-              </div>
-            </td>
+          <tr data-lkind="{{ it.kind }}" data-lname="{{ it.name|lower }}" class="{% if it.ql_manfiy %}row-warn{% endif %}">
+            <td class="ctr">{{ it.nr }}{% if it.ql_manfiy %} ⚠️{% endif %}</td>
+            <td class="nm" title="{% if it.ozgargan %}O'zgartirilgan: {{ it.ozgartirilgan|date:'d.m.Y H:i' }} · {% endif %}Qo'shilgan: {{ it.qoshilgan|date:'d.m.Y H:i' }}"><span class="dot {{ it.cls }}"></span>{{ it.name }}</td>
+            <td class="izoh">{{ it.note }}</td>
+            <td class="ctr">{{ it.unit }}</td>
+            <td class="num">{{ it.qty_str }}</td>
+            <td class="num">{% if it.row_narx_chg %}<span class="narx-eski">{{ it.price_str }}</span>{{ it.joriy_str }} <span class="farq-pct {% if it.row_foiz > 0 %}up{% else %}down{% endif %}" title="Joriy narx (oxirgi tasdiqlangan haftalik) limit narxidan farq qiladi">{{ it.row_foiz_str }}</span>{% else %}{{ it.price_str }}{% endif %}</td>
+            <td class="num">{{ it.sum_str }}</td>
+            {% if it.bj_dup %}
+            <td class="merged" colspan="8">↑ shu nom+bo'limning yuqoridagi qatori bilan birga hisoblanadi</td>
+            {% else %}
+            <td class="ctr">{{ it.unit }}</td>
+            <td class="num">{% if it.bj_bor %}{{ it.bj_qty_str }}{% else %}0{% endif %}</td>
+            <td class="num">{% if it.bj_bor %}{{ it.bj_narx_str }}{% else %}—{% endif %}</td>
+            <td class="num">{% if it.bj_bor %}{{ it.bj_sum_str }}{% else %}0{% endif %}</td>
+            <td class="ctr">{{ it.unit }}</td>
+            <td class="num {% if it.ql_manfiy %}neg{% endif %}" {% if it.bj_birga %}title="Bir xil nom+bo'lim bir necha qatorda — hisob birga yuritiladi"{% endif %}>{{ it.ql_qty_str|default:it.qty_str }}</td>
+            <td class="num">{{ it.ql_narx_str|default:it.price_str }}</td>
+            <td class="num {% if it.ql_manfiy %}neg{% endif %}">{{ it.ql_sum_str|default:it.sum_str }}</td>
+            {% endif %}
+            <td class="ctr mat">{% if it.hf_qty_str %}{{ it.unit }}{% endif %}</td>
+            <td class="num mat">{{ it.hf_qty_str|default:"" }}</td>
+            <td class="num mat">{{ it.hf_narx_str|default:"" }}</td>
+            <td class="num mat">{{ it.hf_sum_str|default:"" }}</td>
           </tr>
-        </tfoot>
-        {% endif %}
+          {% endfor %}
+          <tr class="subtotal">
+            <td colspan="6" style="text-align:right;">Blok yakuni:</td>
+            <td class="num">{{ g.sum_str }}</td><td colspan="3"></td>
+            <td class="num">{{ g.fakt_str }}</td><td colspan="3"></td>
+            <td class="num">{{ g.prognoz_str }}</td><td colspan="3"></td>
+            <td class="num">{{ g.hafta_str }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="19" style="text-align:center; color:#9ca3af; padding:20px;">Limit tarkibi hali kiritilmagan.</td></tr>
+          {% endfor %}
+          {% if has_items %}
+          <tr class="grand">
+            <td colspan="6" style="text-align:right;">JAMI:</td>
+            <td class="num">{{ limit_str }}</td><td colspan="3"></td>
+            <td class="num">{{ narx_umum.fakt_str }}</td><td colspan="3"></td>
+            <td class="num">{{ narx_umum.prognoz_str }}</td><td colspan="3"></td>
+            <td class="num">{{ jami_hafta_str }}</td>
+          </tr>
+          {% endif %}
+        </tbody>
       </table>
+      </div>
+      {% if has_items %}
+      <div style="padding:11px 14px; border-top:1px solid var(--line);">
+        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+          {% for c in li_cat_sums %}
+          <span class="catsum" data-lfsum="{{ c.kind }}" style="display:inline-flex; align-items:center; gap:6px; background:#f8fafc; border:1px solid var(--line); border-radius:999px; padding:5px 13px; font-size:12.5px; font-variant-numeric:tabular-nums;">
+            <span class="dot {{ c.cls }}"></span>{{ c.nom }}: <b>{{ c.sum_str }}</b>
+          </span>
+          {% endfor %}
+          <span style="margin-left:auto; font-size:13.5px; font-weight:800; font-variant-numeric:tabular-nums;">JAMI: {{ li_jami_str }}</span>
+        </div>
+      </div>
+      <div class="rf-sum">
+        <span class="st">Umumiy (reja): <b>{{ limit_str }}</b></span>
+        <span class="st baj">Bajarilgan: <b>{{ narx_umum.fakt_str }}</b></span>
+        <span class="st qol">Qolgan (joriy narxda): <b>{{ narx_umum.prognoz_str }}</b></span>
+        <span class="st">Jami kerak: <b>{{ narx_umum.kerak_str }}</b></span>
+        <span class="st {% if narx_umum.farq_pos %}frq-pos{% elif narx_umum.farq_neg %}frq-neg{% endif %}" style="margin-left:auto;">Narx farqi: <b>{{ narx_umum.farq_str }}</b></span>
+      </div>
+      {% endif %}
       {% if pending %}<div style="padding:10px 16px; font-size:12px; color:#b45309;">Tarkibni o'zgartirishga so'rov yuborilgan — {{ pending.get_status_display|lower }}.</div>{% endif %}
       {% endif %}
       </div>{# /limitBody #}
@@ -606,6 +767,7 @@
             <div class="wq-row"><span class="wq-k"><span class="dot mach"></span>Mashina chasti</span><span class="wq-rem">{{ rem_mach_str }}</span><span class="wq-after" id="wq-machinery">—</span></div>
             <div class="wq-row"><span class="wq-k"><span class="dot oth"></span>Ko'zda tutilmagan</span><span class="wq-rem">{{ rem_oth_str }}</span><span class="wq-after" id="wq-other">—</span></div>
             <div class="wq-warn" id="wq-warn" style="display:none;">Diqqat: bu so'rov qolgan limitdan oshib ketadi.</div>
+            <div class="wq-farq" id="wq-farq" style="display:none;"><span>Narx farqi (limit narxiga nisbatan) · <span id="wq-farq-n">0</span> qator</span><b id="wq-farq-v">0</b></div>
           </div>
           {{ qoldiq_json|json_script:"qoldiqData" }}
           {% endif %}
@@ -635,7 +797,7 @@
             <td><textarea name="item_note" class="noteinp growa" rows="1" placeholder="izoh..."></textarea></td>
             <td><input type="text" name="unit" placeholder="birlik"></td>
             <td class="num"><input type="number" name="quantity" class="numgrow" step="0.001" placeholder="0"></td>
-            <td class="num"><input type="number" name="unit_price" class="numgrow" step="0.01" placeholder="0"></td>
+            <td class="num"><input type="number" name="unit_price" class="numgrow" step="0.01" placeholder="0"><div class="nq"></div></td>
             <td class="num rsum">0</td>
             <td class="lidate"><span class="d-new">yangi</span></td>
             <td><button type="button" class="delrow" title="O'chirish">×</button></td>
@@ -1068,11 +1230,61 @@
         var k=tr.querySelector('[name=kind]'), u=tr.querySelector('[name=unit]'), pr=tr.querySelector('[name=unit_price]');
         if(k) k.value=m.kind;
         if(u){ u.value=m.unit; u.readOnly=false; u.style.background=''; u.style.color=''; }
-        if(pr && !pr.value.trim()) pr.value=m.price;
+        // Narx maydoniga JORIY narx (oxirgi tasdiqlangan haftalik) to'ladi — limit narxi emas
+        if(pr && !pr.value.trim()) pr.value=(m.joriy!==undefined?m.joriy:m.price);
         tr.dispatchEvent(new Event('input',{bubbles:true}));
       }
       document.addEventListener('change', function(e){
         if(e.target.matches('#wkrows [name=name]')) fill(e.target.closest('tr'));
+      });
+
+      // NARX FARQI: haftalik narx limit narxidan {{ narx_farq_foiz }}% dan ko'p farq qilsa —
+      // qator sariq, narx ostida farq, IZOH (sabab) majburiy. Pastda so'rov bo'yicha jami farq.
+      var FOIZ={{ narx_farq_foiz|unlocalize }};   // l10n: «5,0» emas, «5.0»
+      function fmtM(n){ var neg=n<0; n=Math.abs(Math.round(n)); var s=n.toString().replace(/\B(?=(\d{3})+(?!\d))/g,' '); return (neg?'−':'+')+s; }
+      function narxTekshir(tr){
+        var nm=tr.querySelector('[name=name]'), pr=tr.querySelector('[name=unit_price]'), out=tr.querySelector('.nq'), nt=tr.querySelector('[name=item_note]');
+        if(!nm||!pr||!out) return 0;
+        var m=LMAP[(nm.value||'').trim().toLowerCase()];
+        var p=parseFloat(pr.value)||0, q=parseFloat((tr.querySelector('[name=quantity]')||{}).value)||0;
+        if(!m || !(m.price>0) || !p){ out.textContent=''; out.className='nq'; tr.classList.remove('narx-chg'); if(nt) nt.classList.remove('need'); return 0; }
+        var foiz=(p-m.price)/m.price*100, farq=(p-m.price)*q;
+        if(Math.abs(foiz)<=FOIZ){
+          out.textContent = (p!==m.price) ? ('limit '+fmtM(m.price).slice(1)) : '';
+          out.className='nq'; tr.classList.remove('narx-chg'); if(nt){ nt.classList.remove('need'); nt.placeholder='izoh...'; }
+          return 0;
+        }
+        out.textContent='limit '+fmtM(m.price).slice(1)+' · '+fmtM(p-m.price)+' ('+(foiz>0?'+':'')+(Math.round(foiz*10)/10)+'%)';
+        out.className='nq '+(foiz>0?'up':'down');
+        tr.classList.add('narx-chg');
+        if(nt){ nt.classList.toggle('need', !nt.value.trim()); nt.placeholder = nt.value.trim() ? 'izoh...' : 'narx o\'zgarish sababi (majburiy)...'; }
+        return farq;
+      }
+      function hammasi(){
+        var jami=0, n=0;
+        wk.querySelectorAll('tr').forEach(function(tr){ var f=narxTekshir(tr); if(tr.classList.contains('narx-chg')){ n++; jami+=f; } });
+        var box=document.getElementById('wq-farq'); if(!box) return;
+        box.style.display = n ? '' : 'none';
+        box.className='wq-farq '+(jami>0?'up':(jami<0?'down':''));
+        document.getElementById('wq-farq-n').textContent=n;
+        document.getElementById('wq-farq-v').textContent=fmtM(jami);
+      }
+      wk.addEventListener('input', hammasi);
+      wk.addEventListener('change', hammasi);
+      new MutationObserver(hammasi).observe(wk, {childList:true});
+      var wkForm=wk.closest('form');
+      if(wkForm) wkForm.addEventListener('submit', function(ev){
+        hammasi();
+        var yoq=[];
+        wk.querySelectorAll('tr.narx-chg').forEach(function(tr){
+          var nt=tr.querySelector('[name=item_note]');
+          if(nt && !nt.value.trim()) yoq.push(tr);
+        });
+        if(yoq.length){
+          ev.preventDefault();
+          alert('Narx umumiy limit narxidan farq qiladi — '+yoq.length+' ta qatorga IZOH (sabab) yozing.\nDirektor va admin tasdiqlashda narx farqini ko\'radi.');
+          var nt=yoq[0].querySelector('[name=item_note]'); if(nt){ nt.focus(); }
+        }
       });
     })();
     </script>

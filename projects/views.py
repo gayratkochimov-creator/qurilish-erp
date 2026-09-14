@@ -194,6 +194,133 @@ def _holat(limit, sarf):
     return "normal"
 
 
+# Haftalik narx umumiy limit narxidan shuncha FOIZdan ko'p farq qilsa — qator
+# «narx o'zgargan» sanaladi: PTO izoh yozishi shart, tasdiqlovchiga farq ko'rinadi
+NARX_FARQ_FOIZ = Decimal("5")
+
+
+def _narx_farq_foiz(limit_narx, narx):
+    """Narx farqi foizda (limit narxiga nisbatan). Limit narxi 0 bo'lsa — 0."""
+    if not limit_narx or limit_narx <= 0:
+        return Decimal("0")
+    return ((narx - limit_narx) / limit_narx * 100).quantize(Decimal("0.1"))
+
+
+def _nom_kalit(kind, name):
+    return (kind, (name or "").strip().lower())
+
+
+def _joriy_narxlar(p):
+    """Har nom uchun JORIY narx — shu nomdagi ENG OXIRGI tasdiqlangan haftalik narxi.
+    {(kind, nom): narx}. Hali so'ralmagan nomlar ro'yxatda bo'lmaydi (limit narxi qoladi)."""
+    joriy = {}
+    qs = (WeeklyRequestItem.objects
+          .filter(request__project=p, request__status=WeeklyRequest.Status.APPROVED)
+          .order_by("request__week_start", "request_id", "id")
+          .values_list("kind", "name", "unit_price"))
+    for kind, name, narx in qs:
+        joriy[_nom_kalit(kind, name)] = narx     # oxirgisi g'olib
+    return joriy
+
+
+def _narx_tahlil(p):
+    """REJA — BAJARILGAN — QOLGAN — NARX FARQI (nom+bo'lim kesimida).
+
+    Limit MIQDOR bilan nazorat qilinadi, pul JORIY narx bilan hisoblanadi:
+      bajarilgan  = tasdiqlangan haftaliklar (haqiqiy summa → o'rtacha narx)
+      qolgan      = (limit miqdori − bajarilgan miqdor) × JORIY narx  (prognoz)
+      joriy narx  = shu nomdagi eng oxirgi tasdiqlangan haftalik narxi,
+                    hali so'ralmagan bo'lsa — limit narxi
+      narx farqi  = bajarilgan + qolgan prognozi − limit summasi
+                    (faqat NARX ta'siri; miqdor oshishi bunga kirmaydi —
+                     u avvalgidek «qoldi: manfiy» / «oshgan» bilan ko'rsatiladi)
+    Qaytaradi: (qatorlar {kalit: {...}}, toifa jami {kind: {...}}, umumiy {...})
+    kalit = nom|bo'lim (kichik harf) — bolim_qoldiq bilan bir xil.
+    """
+    joriy_map = _joriy_narxlar(p)
+    qat = {}
+    # Limitda YO'Q (nom+bo'lim mos kelmagan) tasdiqlangan qatorlar — toifa jamiga
+    # kiradi, aks holda «joriy narxda kerak» sarflangandan kam chiqib qoladi
+    yoq = {k: Decimal("0") for k in KINDS}
+    for li in p.limit_items.all().order_by("id"):
+        k = (li.name or "").strip().lower() + "|" + (li.bolim or "").strip().lower()
+        d = qat.get(k)
+        if d is None:
+            d = qat[k] = {
+                "kind": li.kind, "name": li.name, "bolim": li.bolim, "unit": li.unit,
+                "limit_qty": Decimal("0"), "limit_sum": Decimal("0"),
+                "limit_price": li.unit_price or Decimal("0"),
+                "fakt_qty": Decimal("0"), "fakt_sum": Decimal("0"),
+            }
+        d["limit_qty"] += li.quantity
+        d["limit_sum"] += li.total
+    for wi in (WeeklyRequestItem.objects
+               .filter(request__project=p, request__status=WeeklyRequest.Status.APPROVED)):
+        k = (wi.name or "").strip().lower() + "|" + (wi.bolim or "").strip().lower()
+        d = qat.get(k)
+        if d is None:
+            yoq[wi.kind if wi.kind in yoq else "material"] += wi.total
+            continue
+        d["fakt_qty"] += wi.quantity
+        d["fakt_sum"] += wi.total
+
+    kat = {k: {"limit_sum": Decimal("0"), "fakt_sum": yoq[k],
+               "prognoz": Decimal("0"), "farq": Decimal("0"), "ozgargan": 0}
+           for k in KINDS}
+    for d in qat.values():
+        # bir nom bir necha qatorda turli narxda bo'lsa — o'rtacha limit narxi
+        # (tiyingacha yaxlitlangan BITTA qiymat hamma hisobda ishlatiladi)
+        if d["limit_qty"] > 0:
+            d["limit_price"] = (d["limit_sum"] / d["limit_qty"]).quantize(Decimal("0.01"))
+        lp = d["limit_price"]
+        d["joriy"] = joriy_map.get(_nom_kalit(d["kind"], d["name"]), lp)
+        d["fakt_avg"] = ((d["fakt_sum"] / d["fakt_qty"]).quantize(Decimal("0.01"))
+                         if d["fakt_qty"] > 0 else Decimal("0"))
+        d["qolgan_qty"] = d["limit_qty"] - d["fakt_qty"]
+        qolgan = max(d["qolgan_qty"], Decimal("0"))
+        # prognoz: qolgan (manfiy bo'lsa 0) × joriy narx
+        d["prognoz"] = (qolgan * d["joriy"]).quantize(Decimal("0.01"))
+        # narx farqi: sarflangan qism (haqiqiy − limit narxida) + kutilayotgan qism
+        d["farq_sarf"] = (d["fakt_sum"] - d["fakt_qty"] * lp).quantize(Decimal("0.01"))
+        d["farq_kut"] = (qolgan * (d["joriy"] - lp)).quantize(Decimal("0.01"))
+        d["farq"] = d["farq_sarf"] + d["farq_kut"]
+        d["farq_foiz"] = _narx_farq_foiz(lp, d["joriy"])
+        d["narx_ozgargan"] = d["joriy"] != lp
+        kk = kat[d["kind"]] if d["kind"] in kat else kat["material"]
+        kk["limit_sum"] += d["limit_sum"]
+        kk["fakt_sum"] += d["fakt_sum"]
+        kk["prognoz"] += d["prognoz"]
+        kk["farq"] += d["farq"]
+        if d["narx_ozgargan"]:
+            kk["ozgargan"] += 1
+    umum = {n: sum((kat[k][n] for k in KINDS), Decimal("0"))
+            for n in ("limit_sum", "fakt_sum", "prognoz", "farq")}
+    umum["ozgargan"] = sum(kat[k]["ozgargan"] for k in KINDS)
+    umum["yoq"] = sum(yoq.values(), Decimal("0"))   # limitda yo'q qatorlar summasi
+    # Ishlarni JORIY narxda tugatish uchun jami kerak bo'ladigan pul
+    umum["kerak"] = umum["fakt_sum"] + umum["prognoz"]
+    return qat, kat, umum
+
+
+def _limit_narxlar(p):
+    """Nom (kichik harf) → limit narxi: id tartibida BIRINCHI uchragan qator.
+    Brauzerdagi (limitMap) va serverdagi (weekly_add) narx tekshiruvi BITTA
+    manbadan bo'lsin — aks holda JS o'tkazib, server rad etib formani yo'qotadi."""
+    m = {}
+    for li in p.limit_items.all().order_by("id"):
+        k = (li.name or "").strip().lower()
+        if k and k not in m:
+            m[k] = li
+    return m
+
+
+def _farq_str(v):
+    """Narx farqi matni: +1 200 000 / −300 000 / — (nol)."""
+    if not v:
+        return "—"
+    return ("+" if v > 0 else "−") + _money(abs(v))
+
+
 @login_required
 def dashboard(request):
     firma_id = request.GET.get("firma") or ""
@@ -835,15 +962,22 @@ def project_detail(request, pk):
         ("Mashina chasti", p.limit_machinery or Decimal("0"), split["machinery"], "mach"),
         ("Ko'zda tutilmagan", p.limit_other or Decimal("0"), split["other"], "oth"),
     ]
+    # REJA — BAJARILGAN — QOLGAN — NARX FARQI (joriy narxda prognoz)
+    narx_qat, narx_kat, narx_umum = _narx_tahlil(p)
+    KAT_KIND = {"mat": "material", "lab": "labor", "mach": "machinery", "oth": "other"}
     kategoriyalar = []
     for nom, klimit, ksarf, cls in kats:
         kfoiz = round(float(ksarf) / float(klimit) * 100) if klimit else 0
+        nk = narx_kat[KAT_KIND[cls]]
         kategoriyalar.append({
             "nom": nom, "cls": cls,
             "limit_str": _money(klimit), "sarf_str": _money(ksarf),
             "qoldiq_str": _money(klimit - ksarf),
             "foiz": kfoiz, "foiz_bar": min(kfoiz, 100),
             "oshgan": ksarf > klimit and klimit > 0,
+            # joriy narxda ishlarni tugatish uchun kerak bo'ladigan jami pul
+            "kerak_str": _money(nk["fakt_sum"] + nk["prognoz"]),
+            "farq": nk["farq"], "farq_str": _farq_str(nk["farq"]),
         })
 
     # Nom -> birlik xaritasi (material birligini avtomatik to'ldirish uchun)
@@ -915,11 +1049,16 @@ def project_detail(request, pk):
     li_jami_str = _money(sum(li_cat.values()))
 
     # Haftalik so'rovda limit tarkibidan tanlash uchun: nom -> {turi, birlik, narx}
+    # Manba weekly_add'dagi server tekshiruvi bilan BIR XIL (_limit_narxlar)
     limit_item_map = {}
-    for it in limit_items:
-        k = (it["name"] or "").strip().lower()
-        if k and k not in limit_item_map:
-            limit_item_map[k] = {"kind": it["kind"], "unit": it["unit"], "price": float(it["price_raw"])}
+    _joriy = _joriy_narxlar(p)
+    for k, li in _limit_narxlar(p).items():
+        limit_item_map[k] = {
+            "kind": li.kind, "unit": li.unit, "price": float(li.unit_price),
+            # narx maydoniga JORIY narx to'ladi (oxirgi tasdiqlangan haftalik);
+            # «price» — limit narxi, farq shunga nisbatan hisoblanadi
+            "joriy": float(_joriy.get(_nom_kalit(li.kind, li.name), li.unit_price)),
+        }
     # BO'LIM bo'yicha qoldiq: (nom|bo'lim) -> {limit miqdori, tasdiqlangan haftaliklar, qoldiq}
     # Bir xil material turli bo'limlarda — har bo'limning O'Z qoldig'i alohida yuriladi
     bolim_qoldiq = {}
@@ -943,6 +1082,7 @@ def project_detail(request, pk):
     masullar_ro = sorted({(it["masul"] or "").strip() for it in limit_items if (it["masul"] or "").strip()})
     # Umumiy limit jadvalida har qatorning QOLDIG'I ko'rinadi (tasdiqlangan
     # haftaliklar shu nom+bo'limdan avtomatik ayirilgan holda)
+    _narx_korildi = set()
     for q in limit_items:
         k = (q["name"] or "").strip().lower() + "|" + (q["bolim"] or "").strip().lower()
         d = bolim_qoldiq.get(k)
@@ -950,6 +1090,36 @@ def project_detail(request, pk):
             q["sarf_str"] = _qty(d["sarf"])
             q["qoldiq_str"] = _qty(d["limit"] - d["sarf"])
             q["qoldiq_manfiy"] = d["limit"] - d["sarf"] < 0
+        # O'qish jadvali: BAJARILGAN (miqdor · o'rt. narx · summa) |
+        # QOLGAN (miqdor · joriy narx · prognoz) | NARX FARQI
+        # Bir xil nom+bo'lim bir necha qatorda (masalan «Гранит» ikki narxda) —
+        # hisob BIRGALIKDA yuritiladi, faqat birinchi qatorda ko'rsatiladi
+        n = narx_qat.get(k)
+        if n:
+            # «Umumiy → Narxi» katagi: shu QATOR narxi joriy narxdan farq qilsa —
+            # eskisi ustidan chizilib, yonida joriy narx + foiz (Sirdaryo qolipi)
+            q["row_narx_chg"] = n["joriy"] != q["price_raw"]
+            q["joriy_str"] = _money(n["joriy"])
+            _rf = _narx_farq_foiz(q["price_raw"], n["joriy"])
+            q["row_foiz"] = _rf
+            q["row_foiz_str"] = f"{'+' if _rf > 0 else ''}{_rf}%"   # l10n «12,5» emas
+        if n and k in _narx_korildi:
+            q["bj_dup"] = True
+        elif n:
+            _narx_korildi.add(k)
+            q["bj_bor"] = n["fakt_qty"] > 0
+            q["bj_birga"] = n["limit_qty"] != q["quantity"]   # boshqa qatorlar bilan qo'shilgan
+            q["bj_qty_str"] = _qty(n["fakt_qty"])
+            q["bj_narx_str"] = _money(n["fakt_avg"])
+            q["bj_sum_str"] = _money(n["fakt_sum"])
+            q["ql_qty_str"] = _qty(n["qolgan_qty"])
+            q["ql_manfiy"] = n["qolgan_qty"] < 0
+            q["ql_narx_str"] = _money(n["joriy"])
+            q["ql_sum_str"] = _money(n["prognoz"])
+            q["farq"] = n["farq"]
+            q["farq_str"] = _farq_str(n["farq"])
+            q["farq_foiz"] = n["farq_foiz"]
+            q["narx_ozgargan"] = n["narx_ozgargan"]
     # Loyihaning O'Z materiallari (umumiy limit tarkibi) — haftalik tanlovda birinchi turadi
     proj_names = sorted({it["name"] for it in limit_items if it["name"]})
     mat_names = sorted(set(mat_names) | set(proj_names))
@@ -1037,8 +1207,42 @@ def project_detail(request, pk):
     # sorovlar «-week_start» tartibda, shuning uchun birinchi approved = eng oxirgisi.
     oxirgi_haftalik = next((s for s in sorovlar if s["is_approved"]), None)
 
+    # «N-haftalik ish uchun material» ustuni (Sirdaryo qolipi): ENG OXIRGI haftalik
+    # so'rov qatorlari nom+bo'lim bo'yicha umumiy limit qatorlari yoniga qo'yiladi
+    hafta_map, hafta_info = {}, None
+    if sorovlar:
+        hafta_info = {"seq": _yangi["seq"], "obj": _yangi["obj"],
+                      "approved": _yangi["is_approved"], "jami_str": _yangi["jami_str"]}
+        for it in _yangi["obj"].items.all():
+            k = (it.name or "").strip().lower() + "|" + (it.bolim or "").strip().lower()
+            d = hafta_map.setdefault(k, {"qty": Decimal("0"), "sum": Decimal("0"),
+                                         "price": it.unit_price})
+            d["qty"] += it.quantity
+            d["sum"] += it.total
+    _hf_korildi = set()
+    for q in limit_items:
+        k = (q["name"] or "").strip().lower() + "|" + (q["bolim"] or "").strip().lower()
+        h = hafta_map.get(k)
+        if h and k not in _hf_korildi:
+            _hf_korildi.add(k)
+            q["hf_qty_str"] = _qty(h["qty"])
+            q["hf_narx_str"] = _money(h["price"])
+            q["hf_sum_str"] = _money(h["sum"])
+    # Blok (bo'lim) jamilari — 4 guruh: reja · bajarilgan · qolgan prognozi · hafta
+    jami_hafta = Decimal("0")
+    for g in limit_groups:
+        keys = {(q["name"] or "").strip().lower() + "|" + (q["bolim"] or "").strip().lower()
+                for q in g["items"]}
+        fakt = sum((narx_qat[k]["fakt_sum"] for k in keys if k in narx_qat), Decimal("0"))
+        prog = sum((narx_qat[k]["prognoz"] for k in keys if k in narx_qat), Decimal("0"))
+        hf = sum((hafta_map[k]["sum"] for k in keys if k in hafta_map), Decimal("0"))
+        jami_hafta += hf
+        g["fakt_str"], g["prognoz_str"], g["hafta_str"] = _money(fakt), _money(prog), _money(hf)
+
     _berildi = p.berildi()
     _qarz = p.qarz()
+    # Joriy narxda tugatish uchun kerak − limit (narx + miqdor ta'siri birga)
+    _kerak_farq = narx_umum["kerak"] - limit
     kontekst = {
         "p": p,
         "limit_str": _money(limit),
@@ -1075,6 +1279,28 @@ def project_detail(request, pk):
         "unit_map": unit_map,
         "mat_names": mat_names,
         "limit_item_map": limit_item_map,
+        "narx_farq_foiz": float(NARX_FARQ_FOIZ),
+        "hafta_info": hafta_info,
+        "jami_hafta_str": _money(jami_hafta),
+        # Narx o'zgarishi xulosasi: joriy narxda tugatish uchun kerak / limitdan farq
+        "narx_umum": {
+            "kerak_str": _money(narx_umum["kerak"]),
+            "fakt_str": _money(narx_umum["fakt_sum"]),
+            "prognoz_str": _money(narx_umum["prognoz"]),
+            # NARX ta'siri (faqat narx o'zgarishidan)
+            "farq": narx_umum["farq"],
+            "farq_str": _farq_str(narx_umum["farq"]),
+            "farq_pos": narx_umum["farq"] > 0,
+            "farq_neg": narx_umum["farq"] < 0,
+            # JAMI: joriy narxda kerak − limit; qolgani MIQDOR ta'siri (limitdan oshgan miqdor)
+            "jami_farq": _kerak_farq,
+            "jami_farq_str": _farq_str(_kerak_farq),
+            "jami_pos": _kerak_farq > 0,
+            "miqdor_farq_str": _farq_str(_kerak_farq - narx_umum["farq"]),
+            "miqdor_bor": (_kerak_farq - narx_umum["farq"]) != 0,
+            "korsat": bool(_kerak_farq or narx_umum["farq"]),
+            "ozgargan": narx_umum["ozgargan"],
+        },
         "bolim_qoldiq": bolim_qoldiq_json,
         "bolimlar_ro": bolimlar_ro,
         "masullar_ro": masullar_ro,
@@ -1207,6 +1433,62 @@ def limit_items_edit(request, pk):
             )
             LimitChangeItem.objects.bulk_create([LimitChangeItem(request=req, **it) for it in items])
         messages.success(request, _limit_yubor_xabar(_st))
+    return redirect("project_detail", pk=pk)
+
+
+@login_required
+def limit_narx_yangilash(request, pk):
+    """Narx o'zgarganda umumiy limitni JORIY narxda yangilash so'rovi.
+
+    Miqdorlar o'zgarmaydi — faqat narxi o'zgargan qatorlarning narxi oxirgi
+    tasdiqlangan haftalik narxiga ko'tariladi/tushiriladi. Odatdagi zanjirdan
+    o'tadi (snab → PTO2 → direktor → admin); admin bo'lsa to'g'ridan-to'g'ri.
+    Narx hech qachon AVTOMATIK o'zgarmaydi — bu tasdiqlash zanjirini chetlab o'tish bo'lardi.
+    """
+    p = _firma_yoki_403(request, get_object_or_404(Project, pk=pk))
+    if not is_pto(request.user):
+        raise PermissionDenied("Limit so'rovini faqat PTO yuboradi.")
+    if request.method != "POST":
+        return redirect("project_detail", pk=pk)
+    if p.limit_requests.filter(status__in=LIM_JARAYON).exists():
+        messages.error(request, "Tasdiq kutilayotgan so'rov bor — yangi so'rov yuborib bo'lmaydi.")
+        return redirect("project_detail", pk=pk)
+
+    joriy = _joriy_narxlar(p)
+    items, ozgardi, sums = [], [], {k: Decimal("0") for k in KINDS}
+    for li in p.limit_items.all().order_by("id"):
+        narx = joriy.get(_nom_kalit(li.kind, li.name), li.unit_price)
+        if narx != li.unit_price:
+            ozgardi.append(f"{li.name} {_money(li.unit_price)} → {_money(narx)}")
+        items.append({"kind": li.kind, "name": li.name, "unit": li.unit,
+                      "quantity": li.quantity, "unit_price": narx, "note": li.note,
+                      "bolim": li.bolim, "masul": li.masul})
+        sums[li.kind if li.kind in sums else "material"] += (li.quantity * narx).quantize(Decimal("0.01"))
+    if not ozgardi:
+        messages.info(request, "Narxi o'zgargan qator yo'q — limit joriy narxlarda.")
+        return redirect("project_detail", pk=pk)
+
+    reason = ("Narx o'zgarishi (joriy narxda yangilash): " + "; ".join(ozgardi))[:255]
+    if is_admin(request.user):
+        with transaction.atomic():
+            sync_limit_items(p, items)
+            p.recompute_limits()
+        messages.success(request, f"Limit joriy narxda yangilandi (admin). Umumiy limit: {_money(p.budget_total)}. "
+                                  f"O'zgargan: {len(ozgardi)} qator.")
+    else:
+        _st = _limit_boshlangich(p)
+        with transaction.atomic():
+            req = LimitChangeRequest.objects.create(
+                project=p,
+                old_material=p.limit_material, old_labor=p.limit_labor,
+                old_machinery=p.limit_machinery, old_other=p.limit_other,
+                new_material=sums["material"], new_labor=sums["labor"],
+                new_machinery=sums["machinery"], new_other=sums["other"],
+                reason=reason, requested_by=request.user, status=_st,
+            )
+            LimitChangeItem.objects.bulk_create([LimitChangeItem(request=req, **it) for it in items])
+        messages.success(request, f"{len(ozgardi)} qator narxi joriy narxga yangilanib so'rov yuborildi. "
+                                  + _limit_yubor_xabar(_st))
     return redirect("project_detail", pk=pk)
 
 
@@ -1463,13 +1745,22 @@ def _tasdiqlar_data(status="dir", user=None):
         for li in w.project.limit_items.all():
             limit_map.setdefault((li.kind, (li.name or "").strip().lower()), li)
         witems = []
+        narx_farq, narx_soni = Decimal("0"), 0   # so'rov bo'yicha narx farqi jami
         for it in w.items.all():
             li = limit_map.get((it.kind, (it.name or "").strip().lower()))
+            farq_str, foiz_str = "", ""
             if li is None:
                 holat, eski_str = "yangi", "Umumiy limitda yo'q — tasdiqlangach ro'yxatga qo'shiladi"
             elif li.unit_price != it.unit_price:
                 holat = "ozgargan"
-                eski_str = f"Umumiy limitdagi narx: {_money(li.unit_price)}"
+                farq = ((it.unit_price - li.unit_price) * it.quantity).quantize(Decimal("0.01"))
+                foiz = _narx_farq_foiz(li.unit_price, it.unit_price)
+                narx_farq += farq
+                narx_soni += 1
+                farq_str = _farq_str(farq)
+                foiz_str = f"{'+' if foiz > 0 else ''}{foiz}%"
+                eski_str = (f"Umumiy limitdagi narx: {_money(li.unit_price)} · farq {farq_str}"
+                            + (f" ({foiz_str})" if li.unit_price else ""))
             else:
                 holat, eski_str = "", ""
             witems.append({
@@ -1480,6 +1771,8 @@ def _tasdiqlar_data(status="dir", user=None):
                 "sum_str": _money(it.total), "izoh": it.note,
                 "bolim": it.bolim, "masul": "",
                 "holat": holat, "eski_str": eski_str,
+                "farq_str": farq_str, "foiz_str": foiz_str,
+                "limit_narx_str": _money(li.unit_price) if li is not None else "",
                 "sana": it.created_at or w.created_at,
             })
         wk_list.append({
@@ -1487,6 +1780,9 @@ def _tasdiqlar_data(status="dir", user=None):
             "jami_str": _money(sum((it.total for it in w.items.all()), Decimal("0.00"))),
             "soni": len(w.items.all()),
             "items": witems,
+            # Direktor/admin tasdiqlashdan oldin narx farqini ko'rsin
+            "narx_farq_str": _farq_str(narx_farq), "narx_farq_pos": narx_farq > 0,
+            "narx_soni": narx_soni,
             # Admin tasdiqlashdan OLDIN limitdan oshishini ko'rsin
             "oshgan": _limit_oshish(w.project, _items_by_kind(w.items.all()),
                                     exclude_request_id=w.id),
@@ -1829,12 +2125,6 @@ def weekly_add(request, pk):
         messages.error(request, xato)
         return redirect("project_detail", pk=pk)
 
-    req = WeeklyRequest.objects.create(
-        project=p, week_start=ws, week_end=we,
-        number=(request.POST.get("number") or "").strip(),
-        note=(request.POST.get("note") or "").strip(),
-        status="draft", created_by=request.user,
-    )
     kinds = request.POST.getlist("kind")
     names = request.POST.getlist("name")
     units = request.POST.getlist("unit")
@@ -1844,7 +2134,11 @@ def weekly_add(request, pk):
     inotes = request.POST.getlist("item_note")
     bolims = request.POST.getlist("item_bolim")
     valid_kinds = set(KINDS)
-    n = 0
+    # Umumiy limit narxlari — haftalik narx undan NARX_FARQ_FOIZ dan ko'p farq qilsa
+    # sabab (qator izohi) yozilishi SHART (brauzerdagi tekshiruvning server nusxasi)
+    limit_narx = {k: li.unit_price for k, li in _limit_narxlar(p).items()}
+    qatorlar = []
+    izohsiz = []      # narxi o'zgargan, lekin sababi yozilmagan qatorlar
     tashlangan = []   # nomi bor, lekin miqdor/narxi to'liq emas — indamay yo'qotmaymiz
     for i in range(len(names)):
         name = (names[i] or "").strip()
@@ -1863,21 +2157,36 @@ def weekly_add(request, pk):
         kind = kinds[i] if i < len(kinds) else "material"
         if kind not in valid_kinds:
             kind = "material"
-        WeeklyRequestItem.objects.create(
-            request=req, kind=kind,
-            name=name, unit=(units[i] if i < len(units) else "").strip(),
-            quantity=q, unit_price=pr,
-            note=(inotes[i] if i < len(inotes) else "").strip()[:500],
+        note = (inotes[i] if i < len(inotes) else "").strip()[:500]
+        ln = limit_narx.get(name.lower())
+        foiz = _narx_farq_foiz(ln, pr) if ln else Decimal("0")
+        if abs(foiz) > NARX_FARQ_FOIZ and not note:
+            izohsiz.append(f"«{name}»: limit narxi {_money(ln)}, so'ralmoqda {_money(pr)} "
+                           f"({'+' if foiz > 0 else ''}{foiz}%)")
+        qatorlar.append(dict(
+            kind=kind, name=name, unit=(units[i] if i < len(units) else "").strip(),
+            quantity=q, unit_price=pr, note=note,
             bolim=" ".join((bolims[i] if i < len(bolims) else "").split())[:200],
-        )
-        n += 1
+        ))
+    if izohsiz:
+        messages.error(request, "Narx umumiy limit narxidan farq qiladi — qator izohiga SABAB yozing: "
+                                + "; ".join(izohsiz))
+        return redirect("project_detail", pk=pk)
+    n = len(qatorlar)
     if n == 0:
-        req.delete()
         if tashlangan:
             messages.error(request, "So'rov saqlanmadi — hech bir qator to'liq emas: " + "; ".join(tashlangan))
         else:
             messages.error(request, "Kamida bitta to'liq qator (nomi, objём, narx) kiriting.")
         return redirect("project_detail", pk=pk)
+
+    req = WeeklyRequest.objects.create(
+        project=p, week_start=ws, week_end=we,
+        number=(request.POST.get("number") or "").strip(),
+        note=(request.POST.get("note") or "").strip(),
+        status="draft", created_by=request.user,
+    )
+    WeeklyRequestItem.objects.bulk_create([WeeklyRequestItem(request=req, **qt) for qt in qatorlar])
 
     if tashlangan:
         messages.warning(
@@ -2398,16 +2707,12 @@ def _obj_limit_wb(p):
     ws1.title = "Limit (Reja-Fakt)"
     ws1["A1"] = f"{p.code} — {p.name}"
     ws1["A1"].font = title_font
-    ws1["A2"] = "Umumiy limit: REJA · BAJARILGAN (tasdiqlangan haftaliklar) · QOLGAN"
+    ws1["A2"] = ("Umumiy limit: REJA · BAJARILGAN (tasdiqlangan haftaliklar) · "
+                 "QOLGAN (joriy narxda prognoz) · NARX FARQI")
     ws1["A2"].font = sub_font
 
-    # FAKT: tasdiqlangan haftalik qatorlari (nom+bo'lim kesimida yig'ilgan)
-    fakt = {}
-    for wi in WeeklyRequestItem.objects.filter(request__project=p, request__status="approved"):
-        fk = (wi.name or "").strip().lower() + "|" + (wi.bolim or "").strip().lower()
-        d = fakt.setdefault(fk, {"qty": Decimal("0"), "sum": Decimal("0")})
-        d["qty"] += wi.quantity
-        d["sum"] += wi.total
+    # FAKT + JORIY NARX: sahifadagi bilan BIR XIL hisob (nom+bo'lim kesimida)
+    fakt, _, _ = _narx_tahlil(p)
 
     # Bo'limlar bo'yicha guruhlash (sahifadagi tartib: birinchi uchragan, bo'limsiz oxirida)
     guruh = {}
@@ -2416,32 +2721,44 @@ def _obj_limit_wb(p):
         guruh.setdefault(kal, []).append(it)
     tartib = [k for k in guruh if k] + ([""] if "" in guruh else [])
 
-    # Ikki qatorli sarlavha (guruh ustunlari birlashtirilgan)
+    # Ikki qatorli sarlavha (guruh ustunlari birlashtirilgan):
+    #   F-H REJA | I-K BAJARILGAN | L-N QOLGAN | O NARX FARQI
     ws1.append([])
     h1, h2 = 4, 5
     ws1.append(["№", "Turi", "Nomi", "Izoh", "Birlik",
-                "REJA (limit)", None, None, "BAJARILGAN", None, "QOLGAN", None])
+                "REJA (limit)", None, None,
+                "BAJARILGAN ISHLAR", None, None,
+                "QOLGAN ISHLAR", None, None,
+                "NARX FARQI"])
     ws1.append([None, None, None, None, None,
-                "Miqdor", "Narx", "Summa", "Miqdor", "Summa", "Miqdor", "Summa"])
-    for a, b in (("A", "A"), ("B", "B"), ("C", "C"), ("D", "D"), ("E", "E")):
+                "Miqdor", "Narx", "Summa",
+                "Miqdor", "O'rt. narx", "Summa",
+                "Miqdor", "Joriy narx", "Prognoz",
+                "Summa"])
+    for a, b in (("A", "A"), ("B", "B"), ("C", "C"), ("D", "D"), ("E", "E"), ("O", "O")):
         ws1.merge_cells(f"{a}{h1}:{b}{h2}")
     ws1.merge_cells(f"F{h1}:H{h1}")
-    ws1.merge_cells(f"I{h1}:J{h1}")
-    ws1.merge_cells(f"K{h1}:L{h1}")
+    ws1.merge_cells(f"I{h1}:K{h1}")
+    ws1.merge_cells(f"L{h1}:N{h1}")
     style_head(ws1, h1)
     style_head(ws1, h2)
-    fakt_fill = PatternFill("solid", fgColor="1D4ED8")
-    qol_fill = PatternFill("solid", fgColor="B45309")
-    for cc in ("I", "J"):
+    fakt_fill = PatternFill("solid", fgColor="1E9E5A")   # yashil — bajarilgan
+    qol_fill = PatternFill("solid", fgColor="E35C1E")    # to'q sariq — qolgan
+    farq_fill = PatternFill("solid", fgColor="7F1D1D")   # narx farqi
+    for cc in ("I", "J", "K"):
         ws1[f"{cc}{h1}"].fill = fakt_fill; ws1[f"{cc}{h2}"].fill = fakt_fill
-    for cc in ("K", "L"):
+    for cc in ("L", "M", "N"):
         ws1[f"{cc}{h1}"].fill = qol_fill; ws1[f"{cc}{h2}"].fill = qol_fill
+    ws1[f"O{h1}"].fill = farq_fill; ws1[f"O{h2}"].fill = farq_fill
 
     grp_fill = PatternFill("solid", fgColor="E8EEF7")
     grp_font = Font(bold=True, size=11, color="0B1C30")
+    farq_pos_font = Font(bold=True, color="B91C1C")
+    farq_neg_font = Font(bold=True, color="15803D")
     nr = 0
     fakt_berildi = set()
     jami_qatorlar = []   # blok-jami qator raqamlari (UMUMIYda yig'iladi)
+    SUM_COLS = ((8, "H"), (11, "K"), (14, "N"), (15, "O"))
     for kal in tartib:
         items = guruh[kal]
         # Blok sarlavhasi
@@ -2449,7 +2766,7 @@ def _obj_limit_wb(p):
         masul = next((x.masul for x in items if (x.masul or "").strip()), "")
         nomi = kal or "Bo'limsiz qatorlar"
         ws1.cell(rr, 1, nomi + (f"  ·  Mas'ul: {masul}" if masul else ""))
-        ws1.merge_cells(start_row=rr, start_column=1, end_row=rr, end_column=12)
+        ws1.merge_cells(start_row=rr, start_column=1, end_row=rr, end_column=15)
         for c in ws1[rr]:
             c.fill = grp_fill; c.font = grp_font; c.border = border
         boshi = rr + 1
@@ -2459,28 +2776,36 @@ def _obj_limit_wb(p):
             # Bir xil nom+bo'lim ikki qatorda bo'lsa fakt faqat birinchisiga yoziladi
             f = fakt.get(fk) if fk not in fakt_berildi else None
             fakt_berildi.add(fk)
+            joriy = float(f["joriy"]) if f else float(it.unit_price)
             ws1.append([
                 nr, KIND.get(it.kind, it.kind), it.name, it.note or "", it.unit or "",
                 float(it.quantity), float(it.unit_price), None,
-                float(f["qty"]) if f else 0, float(f["sum"]) if f else 0,
-                None, None,
+                float(f["fakt_qty"]) if f else 0, None, float(f["fakt_sum"]) if f else 0,
+                None, joriy, None,
+                None,
             ])
             r = ws1.max_row
-            ws1.cell(r, 8).value = f"=F{r}*G{r}"      # reja summa
-            ws1.cell(r, 11).value = f"=F{r}-I{r}"     # qolgan miqdor
-            ws1.cell(r, 12).value = f"=H{r}-J{r}"     # qolgan summa
-            for col in (7, 8, 10, 12):
+            ws1.cell(r, 8).value = f"=F{r}*G{r}"                 # reja summa
+            ws1.cell(r, 10).value = f"=IF(I{r}>0,K{r}/I{r},0)"   # bajarilgan o'rtacha narx
+            ws1.cell(r, 12).value = f"=F{r}-I{r}"                # qolgan miqdor
+            ws1.cell(r, 14).value = f"=MAX(L{r},0)*M{r}"         # qolgan prognoz (joriy narxda)
+            # narx farqi = FAQAT narx ta'siri (sahifadagi bilan bir xil):
+            #   (fakt summa − fakt miqdor × limit narxi) + qolgan × (joriy − limit narxi)
+            ws1.cell(r, 15).value = f"=K{r}-I{r}*G{r}+MAX(L{r},0)*(M{r}-G{r})"
+            for col in (7, 8, 10, 11, 13, 14, 15):
                 ws1.cell(r, col).number_format = money
                 ws1.cell(r, col).alignment = right
-            for col in (6, 9, 11):
+            for col in (6, 9, 12):
                 ws1.cell(r, col).number_format = qtyfmt
                 ws1.cell(r, col).alignment = right
+            if f and f["farq"]:
+                ws1.cell(r, 15).font = farq_pos_font if f["farq"] > 0 else farq_neg_font
             for c in ws1[r]:
                 c.border = border
         # Blok jami
         rr = ws1.max_row + 1
         ws1.cell(rr, 3, f"«{nomi}» jami:").font = tot_font
-        for col, harf in ((8, "H"), (10, "J"), (12, "L")):
+        for col, harf in SUM_COLS:
             c = ws1.cell(rr, col)
             c.value = f"=SUM({harf}{boshi}:{harf}{rr - 1})"
             c.number_format = money; c.font = tot_font
@@ -2492,7 +2817,7 @@ def _obj_limit_wb(p):
     # UMUMIY (blok jamilari yig'indisi)
     rr = ws1.max_row + 2
     ws1.cell(rr, 3, "UMUMIY:").font = Font(bold=True, size=12)
-    for col, harf in ((8, "H"), (10, "J"), (12, "L")):
+    for col, harf in SUM_COLS:
         c = ws1.cell(rr, col)
         c.value = "=" + "+".join(f"{harf}{j}" for j in jami_qatorlar) if jami_qatorlar else 0
         c.number_format = money
@@ -2503,12 +2828,12 @@ def _obj_limit_wb(p):
         for k in KINDS:
             rr = ws1.max_row + 1
             ws1.cell(rr, 3, KIND[k] + " jami:").font = tot_font
-            for col, harf in ((8, "H"), (10, "J"), (12, "L")):
+            for col, harf in SUM_COLS:
                 c = ws1.cell(rr, col)
                 c.value = f'=SUMIF($B${h2 + 1}:$B${oxiri},"{KIND[k]}",${harf}${h2 + 1}:${harf}${oxiri})'
                 c.number_format = money
     ws1.freeze_panes = "A6"
-    for i, w in enumerate([6, 15, 32, 24, 9, 11, 13, 15, 11, 15, 11, 15], start=1):
+    for i, w in enumerate([6, 15, 32, 24, 9, 11, 13, 15, 11, 13, 15, 11, 13, 15, 15], start=1):
         ws1.column_dimensions[get_column_letter(i)].width = w
 
     # ===== 2-VARAQ: Haftalik so'rovlar =====
@@ -3922,3 +4247,198 @@ def material_sorov_action(request, pk):
     elif action == "save":
         messages.success(request, "O'zgarishlar saqlandi.")
     return redirect("material_sorov_korish", pk=pk)
+
+
+# ================== LIMIT JADVALI (Sirdaryo ko'rinishi) ==================
+
+def _lj_key(name, bolim):
+    return (name or "").strip().lower() + "|" + (bolim or "").strip().lower()
+
+
+@login_required
+def limit_jadval(request, pk):
+    """Bitta katta jadval: UMUMIY | BAJARILGAN | QOLGAN | tanlangan HAFTA.
+    Hafta tablari: tasdiqlangan/yuborilganlar qulflangan, qoralama tahrirlanadi.
+    Qoralama ustuni shu yerdan to'ldiriladi -> oddiy haftalik so'rov bo'lib
+    direktor-admin zanjiridan o'tadi. Narx o'zgarsa qator bo'linadi (bo'lak)."""
+    import json as _json
+    p = get_object_or_404(Project, pk=pk)
+    _firma_yoki_403(request, p)
+    can_edit = is_pto(request.user) or is_admin(request.user)
+
+    haftalar = list(WeeklyRequest.objects.filter(project=p)
+                    .exclude(status="rejected")
+                    .order_by("week_start", "id")
+                    .prefetch_related("items"))
+    draft = next((w for w in haftalar if w.status == "draft"), None)
+
+    # ---------- POST: qoralamani saqlash / tasdiqqa yuborish ----------
+    if request.method == "POST":
+        if not can_edit:
+            raise PermissionDenied("Haftalik ustunini faqat PTO yoki admin to'ldiradi.")
+        try:
+            payload = _json.loads(request.POST.get("payload") or "{}")
+        except ValueError:
+            messages.error(request, "Ma'lumot o'qilmadi — qayta urinib ko'ring.")
+            return redirect("limit_jadval", pk=pk)
+        try:
+            ws_ = datetime.date.fromisoformat(str(payload.get("week_start") or ""))
+            we_ = datetime.date.fromisoformat(str(payload.get("week_end") or ""))
+        except ValueError:
+            messages.error(request, "Hafta boshi va oxiri sanasini kiriting.")
+            return redirect("limit_jadval", pk=pk)
+        xato = _hafta_sana_xatosi(p, ws_, we_, exclude_id=draft.id if draft else None)
+        if xato:
+            messages.error(request, xato)
+            return redirect("limit_jadval", pk=pk)
+
+        # Qoldiq (tasdiqlanganlar bo'yicha) — server tomonda qayta tekshiramiz
+        qoldiq = {}
+        for li in p.limit_items.all():
+            d = qoldiq.setdefault(_lj_key(li.name, li.bolim),
+                                  {"qty": Decimal("0"), "unit": li.unit, "nom": li.name})
+            d["qty"] += li.quantity
+        for w in haftalar:
+            if w.status != "approved":
+                continue
+            for it in w.items.all():
+                k = _lj_key(it.name, it.bolim)
+                if k in qoldiq:
+                    qoldiq[k]["qty"] -= it.quantity
+
+        valid_kind = set(KINDS)
+        yangi_items, sorov = [], {}
+        for row in payload.get("items") or []:
+            nm = " ".join(str(row.get("name") or "").split())[:300]
+            if not nm:
+                continue
+            q = _to_dec(str(row.get("qty") or "0")) or Decimal("0")
+            pr = _to_dec(str(row.get("price") or "0")) or Decimal("0")
+            if q <= 0:
+                continue
+            if pr <= 0:
+                messages.error(request, f"«{nm}»: narx kiritilmagan — saqlanmadi.")
+                return redirect("limit_jadval", pk=pk)
+            bolim = " ".join(str(row.get("bolim") or "").split())[:200]
+            kind = str(row.get("kind") or "material")
+            if kind not in valid_kind:
+                kind = "material"
+            yangi_items.append(WeeklyRequestItem(
+                kind=kind, name=nm,
+                unit=" ".join(str(row.get("unit") or "").split())[:50],
+                quantity=q, unit_price=pr,
+                note=" ".join(str(row.get("izoh") or "").split())[:500],
+                bolim=bolim))
+            k = _lj_key(nm, bolim)
+            sorov[k] = sorov.get(k, Decimal("0")) + q
+        # Qolgandan oshmasin (shu sahifaning qat'iy nazorati)
+        for k, jq in sorov.items():
+            d = qoldiq.get(k)
+            if d is not None and jq > d["qty"] + Decimal("0.001"):
+                messages.error(request,
+                    f"«{d['nom']}»: so'ralgan {_qty(jq)} {d['unit']} — qolgan "
+                    f"{_qty(d['qty'])} {d['unit']} dan ORTIQ. Saqlanmadi.")
+                return redirect("limit_jadval", pk=pk)
+        if not yangi_items:
+            messages.error(request, "Kamida bitta qatorga miqdor kiriting.")
+            return redirect("limit_jadval", pk=pk)
+
+        with transaction.atomic():
+            if draft is None:
+                draft = WeeklyRequest.objects.create(
+                    project=p, week_start=ws_, week_end=we_,
+                    status="draft", created_by=request.user)
+            else:
+                draft.week_start, draft.week_end = ws_, we_
+                draft.save(update_fields=["week_start", "week_end"])
+                draft.items.all().delete()   # qoralama — unga to'lov yozilmaydi
+            for it in yangi_items:
+                it.request = draft
+            WeeklyRequestItem.objects.bulk_create(yangi_items)
+            if payload.get("action") == "submit":
+                draft.status = WeeklyRequest.Status.DIR
+                draft.save(update_fields=["status"])
+        if payload.get("action") == "submit":
+            messages.success(request, "Hafta yopildi — so'rov direktor tasdig'iga yuborildi.")
+        else:
+            messages.success(request, f"Qoralama saqlandi ({len(yangi_items)} qator).")
+        return redirect("limit_jadval", pk=pk)
+
+    # ---------- GET ----------
+    # Fakt (tasdiqlangan) nom+bo'lim kesimida
+    fakt = {}
+    for w in haftalar:
+        if w.status != "approved":
+            continue
+        for it in w.items.all():
+            k = _lj_key(it.name, it.bolim)
+            d = fakt.setdefault(k, {"qty": Decimal("0"), "sum": Decimal("0")})
+            d["qty"] += it.quantity
+            d["sum"] += it.total
+
+    # Limit qatorlari bo'lim guruhlari bilan
+    korilgan_fakt = set()
+    _g = {}
+    for li in p.limit_items.all().order_by("id"):
+        kal = (li.bolim or "").strip()
+        g = _g.get(kal)
+        if g is None:
+            g = _g[kal] = {"bolim": kal, "masul": (li.masul or "").strip(), "rows": []}
+        if not g["masul"] and (li.masul or "").strip():
+            g["masul"] = li.masul.strip()
+        k = _lj_key(li.name, li.bolim)
+        f = fakt.get(k) if k not in korilgan_fakt else None
+        korilgan_fakt.add(k)
+        g["rows"].append({
+            "key": k, "name": li.name, "izoh": li.note or "", "unit": li.unit or "",
+            "kind": li.kind, "bolim": kal,
+            "vol": float(li.quantity), "price": float(li.unit_price),
+            "fakt_qty": float(f["qty"]) if f else 0.0,
+            "fakt_sum": float(f["sum"]) if f else 0.0,
+        })
+    guruhlar = [g for kk, g in _g.items() if kk] + [g for kk, g in _g.items() if not kk]
+    nr = 0
+    for g in guruhlar:
+        for r in g["rows"]:
+            nr += 1
+            r["nr"] = nr
+
+    limit_keys = {r["key"] for g in guruhlar for r in g["rows"]}
+
+    # Hafta tablari ma'lumoti (JSONga)
+    hafta_data = []
+    for i, w in enumerate(haftalar, start=1):
+        items_map, boshqa = {}, []
+        for it in w.items.all():
+            k = _lj_key(it.name, it.bolim)
+            row = {"qty": float(it.quantity), "price": float(it.unit_price),
+                   "sum": float(it.total), "izoh": it.note or "",
+                   "name": it.name, "bolim": it.bolim or "",
+                   "unit": it.unit or "", "kind": it.kind}
+            if k in limit_keys:
+                items_map.setdefault(k, []).append(row)
+            else:
+                boshqa.append(row)
+        hafta_data.append({
+            "id": w.id, "raqam": i,
+            "sana": f"{w.week_start:%d.%m}-{w.week_end:%d.%m.%Y}",
+            "ws": w.week_start.isoformat(), "we": w.week_end.isoformat(),
+            "status": w.status, "locked": w.status != "draft",
+            "number": w.number or "", "items": items_map, "boshqa": boshqa,
+        })
+
+    # Yangi hafta uchun taklif sanalar
+    if haftalar:
+        oxirgi = max(w.week_end for w in haftalar)
+        t_ws = oxirgi + datetime.timedelta(days=1)
+    else:
+        t_ws = datetime.date.today()
+    t_we = t_ws + datetime.timedelta(days=6)
+
+    return render(request, "projects/limit_jadval.html", {
+        "p": p, "guruhlar": guruhlar, "can_edit": can_edit,
+        "hafta_json": hafta_data,
+        "draft_id": draft.id if draft else None,
+        "taklif_ws": t_ws.isoformat(), "taklif_we": t_we.isoformat(),
+    })
+
