@@ -66,7 +66,8 @@
 {% if messages %}{% for m in messages %}<div class="msg {{ m.tags }}">{{ m }}</div>{% endfor %}{% endif %}
 
 <div class="lj-top"><h2>{{ p.name }} — ҳафталик лимит</h2></div>
-<div class="lj-sub">{% if can_edit %}Ҳафта ичида нарх ўзгарса: қатордаги ✂ тугмасини босасиз → эски нархда сўралган объёмни ёзасиз → қолгани янги нархда алоҳида қатор бўлади. Ҳамма сумма автоматик. «Ҳафтани ёпиш» — сўров директор тасдиғига юборилади.{% else %}Кўриш режими — ҳафталик устунини ПТО/админ тўлдиради.{% endif %}</div>
+<div class="lj-sub">{% if can_edit %}Ҳафта ичида нарх ўзгарса: қатордаги ✂ тугмасини босасиз → эски нархда сўралган объёмни ёзасиз → қолгани янги нархда алоҳида қатор бўлади. Ҳамма сумма автоматик. «Ҳафтани ёпиш» — сўров директор тасдиғига юборилади.{% if is_adm %} Админ сифатида Умумий объём/нархни ҳам шу ерда тўғрилайсиз.{% endif %}{% else %}Кўриш режими — ҳафталик устунини ПТО/админ тўлдиради.{% endif %}
+{% if is_adm and lim_pending %}<br><b style="color:#b45309;">⏳ Лимит ўзгартириш сўрови занжирда — у якунлангунча Умумий устуни тахрирланмайди.</b>{% endif %}</div>
 
 <div class="lj-tabs" id="ljTabs"></div>
 <div class="lj-bar">
@@ -74,6 +75,7 @@
   <button class="b-green" id="btnSaqla">💾 Сақлаш</button>
   <button class="b-green" id="btnYopish">▶ Ҳафтани ёпиш</button>
   <button class="b-blue" id="btnIsh">+ Иш</button>
+  {% if is_adm %}<button class="b-blue" id="btnBlok">+ Блок (бўлим)</button>{% endif %}
   <span id="sanaBox" style="display:flex; gap:6px; align-items:center;">
     <label>Ҳафта боши <input type="date" id="wkStart" value="{{ taklif_ws }}"></label>
     <label>охири <input type="date" id="wkEnd" value="{{ taklif_we }}"></label>
@@ -131,6 +133,7 @@
       <td class="num s-wsum"></td><td></td></tr>
   {% endfor %}
   </tbody>
+  <tbody id="yangiBody"></tbody>
   <tbody id="boshqaBody"></tbody>
   <tbody>
     <tr class="grand"><td colspan="6" style="text-align:right;">ЖАМИ:</td>
@@ -176,7 +179,9 @@
 (function(){
   var HAFTA = JSON.parse(document.getElementById('haftaJson').textContent);
   var CAN_EDIT = {{ can_edit|yesno:"true,false" }};
+  var IS_ADM = {{ is_adm|yesno:"true,false" }} && !{{ lim_pending|yesno:"true,false" }};
   var DRAFT_ID = {{ draft_id|default:"null" }};
+  var yangiBloklar = [];   // admin qo'shgan yangi limit bloklari (saqlanmagan)
   var STATUS_NOMI = { dir:"Директор тасдиғида", submitted:"Админ тасдиғида", approved:"Тасдиқланган", draft:"Қоралама" };
   var sel = DRAFT_ID !== null ? ('w'+DRAFT_ID)
             : (CAN_EDIT ? 'yangi' : (HAFTA.length ? 'w'+HAFTA[HAFTA.length-1].id : 'yangi'));
@@ -228,8 +233,14 @@
       var key = tr.dataset.key;
       var vol = pf(tr.dataset.vol), price = pf(tr.dataset.price);
       var fq = pf(tr.dataset.fqty), fs = pf(tr.dataset.fsum);
-      tr.querySelector('.c-vol').textContent = fmt(vol);
-      tr.querySelector('.c-price').textContent = fmt(price);
+      if (edit && IS_ADM){
+        // Админ Умумийни шу ерда тўғрилайди — сариқ катаклар
+        tr.querySelector('.c-vol').innerHTML = '<input class="wkin lim-q" type="number" min="0" step="0.001" value="'+(vol||'')+'">';
+        tr.querySelector('.c-price').innerHTML = '<input class="wkin lim-p" type="number" min="0" value="'+(price||'')+'">';
+      } else {
+        tr.querySelector('.c-vol').textContent = fmt(vol);
+        tr.querySelector('.c-price').textContent = fmt(price);
+      }
       tr.querySelector('.c-total').textContent = fmt(vol*price);
       tr.querySelector('.c-fqty').textContent = fmt(fq);
       tr.querySelector('.c-fsum').textContent = fmt(fs);
@@ -269,8 +280,72 @@
                qty:x.qty, price:x.price, izoh:x.izoh||'' };
     }) : [];
     chizExtralar();
+    chizYangiBloklar();
     hisobla();
   }
+
+  function rowVol(tr){ var i=tr.querySelector('.lim-q'); return i?pf(i.value):pf(tr.dataset.vol); }
+  function rowPrice(tr){ var i=tr.querySelector('.lim-p'); return i?pf(i.value):pf(tr.dataset.price); }
+
+  // -------- + Блок (бўлим) — админ янги лимит блоки қўшади --------
+  function chizYangiBloklar(){
+    var tb = document.getElementById('yangiBody'); tb.innerHTML='';
+    if (!yangiBloklar.length) return;
+    yangiBloklar.forEach(function(blk, bi){
+      var hr = document.createElement('tr'); hr.className='block';
+      hr.innerHTML = '<td></td><td colspan="13">'+esc(blk.bolim)+(blk.masul?(' &nbsp;·&nbsp; Масъул: '+esc(blk.masul)):'')+' <span style="font-weight:400; font-size:11px; color:#8a5a00;">(янги — сақланмаган)</span></td>'+
+        '<td class="ctr"><button type="button" class="b-blue" style="border:none; border-radius:4px; color:#fff; cursor:pointer; padding:1px 8px; font-size:11px;" title="Қатор қўшиш">+</button></td>'+
+        '<td class="ctr"><button type="button" class="del-btn" title="Блокни ўчириш">✕</button></td>';
+      hr.querySelector('.b-blue').onclick = function(){ blk.rows.push({name:'',unit:'',kind:'material',vol:0,price:0}); chizYangiBloklar(); hisobla(); };
+      hr.querySelector('.del-btn').onclick = function(){
+        var bor = blk.rows.some(function(x){ return (x.name||'').trim() || x.vol>0; });
+        if (bor && !confirm('"'+blk.bolim+'" блокида маълумот бор. Барибир ўчирилсинми?')) return;
+        yangiBloklar.splice(bi,1); chizYangiBloklar(); hisobla();
+      };
+      tb.appendChild(hr);
+      blk.rows.forEach(function(x, ri){
+        var r = document.createElement('tr'); r.className='extra';
+        r.innerHTML = '<td class="ctr">'+(ri+1)+'</td>'+
+          '<td><input class="wkin tx yb-n" value="'+esc(x.name||'')+'" placeholder="иш номи...">'+
+          '<select class="ksel yb-k"><option value="material">Материал</option><option value="labor">Иш ҳақи</option><option value="machinery">Машина части</option><option value="other">Кўзда тутилмаган</option></select></td>'+
+          '<td></td>'+
+          '<td class="ctr"><input class="wkin kichik yb-u" value="'+esc(x.unit||'')+'" placeholder="бирл."></td>'+
+          '<td class="num"><input class="wkin yb-q" type="number" min="0" step="0.001" value="'+(x.vol||'')+'"></td>'+
+          '<td class="num"><input class="wkin yb-p" type="number" min="0" value="'+(x.price||'')+'"></td>'+
+          '<td class="num yb-s">'+fmt((x.vol||0)*(x.price||0))+'</td>'+
+          '<td class="num">0</td><td class="num">0</td>'+
+          '<td class="num yb-lq">'+fmt(x.vol||0)+'</td><td class="num yb-ls">'+fmt((x.vol||0)*(x.price||0))+'</td>'+
+          '<td class="ctr dim">—</td><td class="num dim">—</td><td class="num dim">—</td><td class="num dim">—</td>'+
+          '<td class="ctr"><button type="button" class="del-btn" title="Қаторни ўчириш">✕</button></td>';
+        r.querySelector('.yb-k').value = x.kind||'material';
+        r.querySelector('.del-btn').onclick = function(){ blk.rows.splice(ri,1); chizYangiBloklar(); hisobla(); };
+        [['yb-n','name'],['yb-u','unit'],['yb-k','kind'],['yb-q','vol'],['yb-p','price']].forEach(function(pr){
+          var inp = r.querySelector('.'+pr[0]);
+          inp.addEventListener('input', function(){
+            x[pr[1]] = (pr[1]==='vol'||pr[1]==='price') ? pf(inp.value) : inp.value;
+            r.querySelector('.yb-s').textContent = fmt((x.vol||0)*(x.price||0));
+            r.querySelector('.yb-lq').textContent = fmt(x.vol||0);
+            r.querySelector('.yb-ls').textContent = fmt((x.vol||0)*(x.price||0));
+            hisobla();
+          });
+        });
+        tb.appendChild(r);
+      });
+    });
+  }
+  var bBlok = document.getElementById('btnBlok');
+  if (bBlok) bBlok.onclick = function(){
+    if (!IS_ADM){ alert('⏳ Лимит сўрови занжирда — ҳозир блок қўшилмайди.'); return; }
+    var nomi = prompt('Янги блок (бўлим) номи:', '');
+    if (!nomi || !nomi.trim()) return;
+    var masul = prompt('Масъул (ихтиёрий):', '') || '';
+    yangiBloklar.push({ bolim:nomi.trim(), masul:masul.trim(),
+      rows:[{name:'',unit:'',kind:'material',vol:0,price:0},
+            {name:'',unit:'',kind:'material',vol:0,price:0},
+            {name:'',unit:'',kind:'material',vol:0,price:0}] });
+    chizYangiBloklar(); hisobla();
+    var f = document.querySelector('#yangiBody tr.extra .yb-n'); if (f) f.focus();
+  };
 
   function chizBolaklar(tr, key, edit){
     var lst = bolaklar[key] || [];
@@ -400,12 +475,20 @@
     Array.prototype.forEach.call(body.rows, function(tr){
       if (tr.classList.contains('block')){ sT=0;sF=0;sL=0;sW=0; return; }
       if (tr.classList.contains('ish')){
-        var vol=pf(tr.dataset.vol), price=pf(tr.dataset.price), fs=pf(tr.dataset.fsum), fq=pf(tr.dataset.fqty);
+        var vol=rowVol(tr), price=rowPrice(tr), fs=pf(tr.dataset.fsum), fq=pf(tr.dataset.fqty);
         var w = rowWeek(tr);
+        // Умумий тахрирланса — Сумма ва Қолган жонли янгиланади
+        tr.querySelector('.c-total').textContent = fmt(vol*price);
+        tr.querySelector('.c-lqty').textContent = fmt(vol-fq);
+        tr.querySelector('.c-lsum').textContent = fmt(vol*price-fs);
         sT+=vol*price; sF+=fs; sL+=vol*price-fs; sW+=w.s;
         gT+=vol*price; gF+=fs; gL+=vol*price-fs; gW+=w.s;
         tr.classList.remove('row-err');
         var rn = tr.querySelector('.rn'); rn.textContent = tr.dataset.n;
+        if (edit && IS_ADM && vol < fq - 0.001){
+          errs.push('"'+tr.dataset.name+'": умумий объём ('+fmt(vol)+') бажарилгандан ('+fmt(fq)+') кам бўлолмайди');
+          tr.classList.add('row-err'); rn.textContent = tr.dataset.n+' ⛔';
+        }
         if (edit){
           var lq = vol-fq;
           var xatoBor = false;
@@ -428,6 +511,15 @@
         tr.querySelector('.s-lsum').textContent = fmt(sL);
         tr.querySelector('.s-wsum').textContent = fmt(sW);
       }
+    });
+    // Yangi (saqlanmagan) limit bloklari — Умумий ва Қолганга qo'shiladi
+    yangiBloklar.forEach(function(blk){
+      blk.rows.forEach(function(x){
+        var s0 = (x.vol||0)*(x.price||0);
+        gT += s0; gL += s0;
+        if ((x.vol||0)>0 && !(x.name||'').trim()) errs.push('"'+blk.bolim+'" блоки: иш номи ёзилмаган');
+        if ((x.vol||0)>0 && (x.price||0)<=0) errs.push('"'+(x.name||blk.bolim)+'": нарх киритилмаган');
+      });
     });
     extralar.forEach(function(x, i){
       gW += (x.qty||0)*(x.price||0);
@@ -460,7 +552,8 @@
   }
 
   document.getElementById('ljBody').addEventListener('input', function(e){
-    if (e.target.classList.contains('in-q') || e.target.classList.contains('in-p')) hisobla();
+    if (e.target.classList.contains('in-q') || e.target.classList.contains('in-p') ||
+        e.target.classList.contains('lim-q') || e.target.classList.contains('lim-p')) hisobla();
   });
 
   // -------- ✂ БЎЛИШ --------
@@ -529,9 +622,27 @@
         items.push({ name:x.name, bolim:x.bolim, unit:x.unit, kind:x.kind||'material',
                      qty:x.qty, price:x.price, izoh:x.izoh||'' });
     });
-    if (!items.length){ alert('Камида битта қаторга объём киритинг.'); return; }
+    // Админ Умумий тахрирлари: қиймати ўзгарган қаторлар
+    var limEdits = [], limNew = [];
+    if (IS_ADM){
+      ishRows().forEach(function(tr){
+        var lq = tr.querySelector('.lim-q'), lp = tr.querySelector('.lim-p');
+        if (!lq) return;
+        if (Math.abs(pf(lq.value)-pf(tr.dataset.vol))>0.0001 || Math.abs(pf(lp.value)-pf(tr.dataset.price))>0.0001)
+          limEdits.push({ key:tr.dataset.key, vol:pf(lq.value), price:pf(lp.value) });
+      });
+      yangiBloklar.forEach(function(blk){
+        blk.rows.forEach(function(x){
+          if ((x.name||'').trim() && (x.vol||0)>0)
+            limNew.push({ bolim:blk.bolim, masul:blk.masul, name:x.name, unit:x.unit,
+                          kind:x.kind||'material', vol:x.vol, price:x.price });
+        });
+      });
+    }
+    if (!items.length && !limEdits.length && !limNew.length){ alert('Камида битта қаторга объём киритинг.'); return; }
+    if (!items.length && action==='submit'){ alert('Ҳафтани ёпиш учун ҳафталик устунига объём киритинг.'); return; }
     var h = haftaTop(sel);
-    var payload = { action:action, items:items,
+    var payload = { action:action, items:items, limit_edits:limEdits, limit_new:limNew,
       week_start: document.getElementById('wkStart').value || (h?h.ws:''),
       week_end: document.getElementById('wkEnd').value || (h?h.we:'') };
     if (action==='submit' && !confirm('Ҳафта ёпилади — сўров директор тасдиғига юборилади. Давом этамизми?')) return;

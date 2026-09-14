@@ -4292,6 +4292,52 @@ def limit_jadval(request, pk):
             messages.error(request, xato)
             return redirect("limit_jadval", pk=pk)
 
+        # ---- ADMIN: Умумий ustunini shu jadvaldan tahrirlash + yangi blok/qator ----
+        lim_edits = payload.get("limit_edits") or []
+        lim_new = payload.get("limit_new") or []
+        lim_ozgardi = False
+        if (lim_edits or lim_new) and is_admin(request.user):
+            if p.limit_requests.filter(status__in=LIM_JARAYON).exists():
+                messages.error(request, "Limit o'zgartirish so'rovi zanjirda turibdi — "
+                                        "avval u yakunlansin, keyin Умумийni tahrirlaysiz.")
+                return redirect("limit_jadval", pk=pk)
+            for e in lim_edits:
+                k = str(e.get("key") or "")
+                v = _to_dec(str(e.get("vol") or ""))
+                pr = _to_dec(str(e.get("price") or ""))
+                if v is None or pr is None or v < 0 or pr < 0:
+                    continue
+                mos = [li for li in p.limit_items.all()
+                       if _lj_key(li.name, li.bolim) == k]
+                if len(mos) != 1:
+                    if len(mos) > 1:
+                        messages.warning(request, f"«{mos[0].name}»: bir xil nom+bo'lim bir "
+                                                  "nechta qatorda — «Umumiy limit ichi»da tahrirlang.")
+                    continue
+                li = mos[0]
+                if li.quantity != v or li.unit_price != pr:
+                    li.quantity, li.unit_price = v, pr
+                    li.save(update_fields=["quantity", "unit_price", "updated_at"])
+                    lim_ozgardi = True
+            valid_kind0 = set(KINDS)
+            for e in lim_new:
+                nm = " ".join(str(e.get("name") or "").split())[:300]
+                v = _to_dec(str(e.get("vol") or "0")) or Decimal("0")
+                pr = _to_dec(str(e.get("price") or "0")) or Decimal("0")
+                if not nm or v < 0 or pr < 0:
+                    continue
+                kind = str(e.get("kind") or "material")
+                LimitItem.objects.create(
+                    project=p, kind=kind if kind in valid_kind0 else "material",
+                    name=nm, unit=" ".join(str(e.get("unit") or "").split())[:50],
+                    quantity=v, unit_price=pr,
+                    bolim=" ".join(str(e.get("bolim") or "").split())[:200],
+                    masul=" ".join(str(e.get("masul") or "").split())[:200])
+                lim_ozgardi = True
+            if lim_ozgardi:
+                p.recompute_limits()
+                messages.success(request, "Умумий limit yangilandi.")
+
         # Qoldiq (tasdiqlanganlar bo'yicha) — server tomonda qayta tekshiramiz
         qoldiq = {}
         for li in p.limit_items.all():
@@ -4340,6 +4386,9 @@ def limit_jadval(request, pk):
                     f"{_qty(d['qty'])} {d['unit']} dan ORTIQ. Saqlanmadi.")
                 return redirect("limit_jadval", pk=pk)
         if not yangi_items:
+            if lim_ozgardi and payload.get("action") != "submit":
+                # Faqat Умумий tahrirlandi — haftalik qoralamaga tegilmaydi
+                return redirect("limit_jadval", pk=pk)
             messages.error(request, "Kamida bitta qatorga miqdor kiriting.")
             return redirect("limit_jadval", pk=pk)
 
@@ -4437,6 +4486,8 @@ def limit_jadval(request, pk):
 
     return render(request, "projects/limit_jadval.html", {
         "p": p, "guruhlar": guruhlar, "can_edit": can_edit,
+        "is_adm": is_admin(request.user),
+        "lim_pending": p.limit_requests.filter(status__in=LIM_JARAYON).exists(),
         "hafta_json": hafta_data,
         "draft_id": draft.id if draft else None,
         "taklif_ws": t_ws.isoformat(), "taklif_we": t_we.isoformat(),
