@@ -4719,8 +4719,15 @@ def _navbat_qadam(nav):
         if oluvchi is None or matn is None:
             nav.idx += 1          # yaroqsiz bosqich — tashlab keyingisiga
             continue
-        matn += (f"\n\n🔗 Ketma-ket zanjir: {nav.idx + 1}/{n}-bosqich. "
-                 "Siz «O'qidim» bosganingizdan keyin navbat keyingi mas'ulga o'tadi.")
+        keyingi = nav.items[nav.idx + 1] if nav.idx + 1 < n else None
+        matn += f"\n\n🔗 {nav.idx + 1}/{n}-bosqich."
+        if keyingi:
+            k_nom = keyingi.get("username", "—")
+            k_rol = keyingi.get("rol") or ""
+            matn += (f" Ko'rib chiqib TASDIQLANG («O'qidim» tugmasi) — "
+                     f"navbat {k_nom}" + (f" ({k_rol})" if k_rol else "") + " ga o'tadi.")
+        else:
+            matn += " Siz OXIRGI bosqichsiz — tasdiqlashingiz bilan zanjir yakunlanadi."
         x, tg = _lj_xabar_yubor(matn, oluvchi, nav.created_by)
         nav.xabar = x
         nav.save(update_fields=["idx", "xabar"])
@@ -4783,8 +4790,13 @@ def limit_jadval_yuborish(request, pk):
             messages.error(request, "Zanjir uchun xodim topilmadi — obyektga PTO/snab "
                                     "biriktirilganini tekshiring.")
             return redirect("limit_jadval", pk=pk)
-        juftlar = [{"bolim": "__toliq__", "user_id": u.pk, "username": u.username}
-                   for u in zanjir]
+        def _rol(u):
+            if u.is_superuser:
+                return "Admin"
+            pr = getattr(u, "profile", None)
+            return pr.get_role_display() if pr and pr.role else ""
+        juftlar = [{"bolim": "__toliq__", "user_id": u.pk, "username": u.username,
+                    "rol": _rol(u)} for u in zanjir]
         from .models import LimitNavbat as _LN
         nav = _LN.objects.create(project=p, created_by=request.user,
                                  izoh=izoh, items=juftlar, idx=0)

@@ -204,19 +204,15 @@
 {% if can_edit %}
 <div class="lj-modal-bg" id="yuborBg">
   <div class="lj-modal" style="max-width:560px; min-width:420px;">
-    <h3>📤 Лимитни масъулларга юбориш</h3>
-    <div class="info">Ҳар блок лимити (умумий · бажарилган · ҚОЛГАН) ўз масъулининг ойнасига ва Телеграм ботига боради. Масъул ёзувига мос аккаунт олдиндан танлаб қўйилди — текшириб «Ҳаммасини юбориш»ни босинг.</div>
+    <h3>📤 Лимитни юбориш</h3>
     <form method="post" action="{% url 'limit_jadval_yuborish' p.id %}">{% csrf_token %}
-      <label>Юбориш тартиби</label>
-      <div style="display:flex; flex-direction:column; gap:6px; font-size:12.5px; margin-top:2px;">
-        <label style="font-weight:400; margin:0; display:flex; gap:5px; align-items:flex-start;">
-          <input type="radio" name="mode" value="navbat" checked style="margin-top:2px;">
-          <span>🔗 <b>Кетма-кет — фақат кейинги одамга</b> (лимит ўтказиш тартибидек):<br>
-          {% for z in zanjir_ro %}{% if not forloop.first %} → {% endif %}<b>{{ z.username }}</b>{% if z.rol %} ({{ z.rol }}){% endif %}{% empty %}<span style="color:#c01c28;">занжир учун ходим топилмади</span>{% endfor %}<br>
-          <span style="color:#666;">Бутун лимит юборилади; ҳар бири «Ўқидим» босгач навбат кейингисига ўтади.</span></span>
+      <div style="display:flex; flex-direction:column; gap:8px; font-size:13px; margin-top:6px;">
+        <label style="font-weight:600; margin:0; display:flex; gap:6px; align-items:center;">
+          <input type="radio" name="mode" value="navbat" checked>
+          🔗 Кетма-кет: ПТО → Снабжения → ПТО → Директор → Админ
         </label>
-        <label style="font-weight:400; margin:0; display:flex; gap:5px; align-items:center;">
-          <input type="radio" name="mode" value="hammasi"> Ҳаммасига бирдан — қуйида ҳар блокка аккаунт танлайсиз
+        <label style="font-weight:600; margin:0; display:flex; gap:6px; align-items:center;">
+          <input type="radio" name="mode" value="hammasi"> Ҳаммасига бирдан
         </label>
       </div>
       <div id="hammaJadval" style="display:none; margin-top:8px;">
@@ -247,7 +243,7 @@
       <input name="izoh" placeholder="масалан: шу ҳафта тугатиш керак">
       <div class="row2">
         <button type="button" class="b-gray" style="padding:6px 14px; border:none; border-radius:4px; color:#fff; cursor:pointer;" id="yuborBekor">Бекор</button>
-        <button type="submit" class="b-green" style="padding:6px 14px; border:none; border-radius:4px; color:#fff; cursor:pointer;">📤 Ҳаммасини юбориш</button>
+        <button type="submit" class="b-green" style="padding:6px 14px; border:none; border-radius:4px; color:#fff; cursor:pointer;">📤 Юбориш</button>
       </div>
     </form>
   </div>
