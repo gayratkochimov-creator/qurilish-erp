@@ -4484,12 +4484,99 @@ def limit_jadval(request, pk):
         t_ws = datetime.date.today()
     t_we = t_ws + datetime.timedelta(days=6)
 
+    from django.contrib.auth import get_user_model as _gum
+    xodimlar = (_gum().objects.filter(is_active=True).exclude(pk=request.user.pk)
+                .select_related("profile").order_by("username"))
     return render(request, "projects/limit_jadval.html", {
         "p": p, "guruhlar": guruhlar, "can_edit": can_edit,
+        "xodimlar": xodimlar,
         "is_adm": is_admin(request.user),
         "lim_pending": p.limit_requests.filter(status__in=LIM_JARAYON).exists(),
         "hafta_json": hafta_data,
         "draft_id": draft.id if draft else None,
         "taklif_ws": t_ws.isoformat(), "taklif_we": t_we.isoformat(),
     })
+
+
+
+@login_required
+def limit_jadval_yuborish(request, pk):
+    """Bo'lim (blok) limitini tanlangan MAS'UL xodimga yuborish:
+    xabar oynasida banner + xodimning O'Z Telegram botiga. PTO yoki admin yuboradi."""
+    from django.contrib.auth import get_user_model
+    from .models import Xabar
+    p = get_object_or_404(Project, pk=pk)
+    _firma_yoki_403(request, p)
+    if not (is_pto(request.user) or is_admin(request.user)):
+        raise PermissionDenied("Limitni faqat PTO yoki admin yuboradi.")
+    if request.method != "POST":
+        return redirect("limit_jadval", pk=pk)
+
+    bolim = " ".join((request.POST.get("bolim") or "").split())
+    izoh = " ".join((request.POST.get("izoh") or "").split())[:300]
+    U = get_user_model()
+    oluvchi = U.objects.filter(pk=request.POST.get("user_id") or 0, is_active=True).first()
+    if oluvchi is None:
+        messages.error(request, "Yuboriladigan xodimni tanlang.")
+        return redirect("limit_jadval", pk=pk)
+
+    rows = [li for li in p.limit_items.all().order_by("id")
+            if (li.bolim or "").strip() == bolim]
+    if not rows:
+        messages.error(request, "Bu bo'limda qatorlar yo'q.")
+        return redirect("limit_jadval", pk=pk)
+
+    # Fakt (tasdiqlangan haftaliklar) — nom+bo'lim kesimida
+    fakt = {}
+    for wi in WeeklyRequestItem.objects.filter(request__project=p, request__status="approved"):
+        k = _lj_key(wi.name, wi.bolim)
+        d = fakt.setdefault(k, {"qty": Decimal("0"), "sum": Decimal("0")})
+        d["qty"] += wi.quantity
+        d["sum"] += wi.total
+
+    masul = next((li.masul for li in rows if (li.masul or "").strip()), "")
+    from django.utils import timezone as _tz
+    satrlar = [f"📋 {p.code} — {p.name}",
+               f"Bo'lim: {bolim or 'Bo`limsiz qatorlar'}" + (f" · Mas'ul: {masul}" if masul else ""),
+               f"Yubordi: {request.user.username} · {_tz.localtime():%d.%m.%Y %H:%M}"]
+    if izoh:
+        satrlar.append(f"Izoh: {izoh}")
+    satrlar.append("")
+    jt = jf = Decimal("0")
+    korilgan = set()
+    for i, li in enumerate(rows, start=1):
+        k = _lj_key(li.name, li.bolim)
+        f = fakt.get(k) if k not in korilgan else None
+        korilgan.add(k)
+        fq = f["qty"] if f else Decimal("0")
+        fs = f["sum"] if f else Decimal("0")
+        jt += li.total; jf += fs
+        satrlar.append(
+            f"{i}. {li.name} — umumiy {_qty(li.quantity)} {li.unit}, "
+            f"bajarilgan {_qty(fq)}, QOLGAN {_qty(li.quantity - fq)} {li.unit} "
+            f"({_money(li.total - fs)} so'm)")
+    satrlar.append("")
+    satrlar.append(f"JAMI: umumiy {_money(jt)} · bajarilgan {_money(jf)} · "
+                   f"QOLGAN {_money(jt - jf)} so'm")
+    matn = "\n".join(satrlar)
+    if len(matn) > 3500:
+        matn = matn[:3450] + "\n… (davomi tizimda)"
+
+    x = Xabar.objects.create(matn=matn, muhimlik="muhim",
+                             yubordi=request.user, hammaga=False)
+    x.kimga.add(oluvchi)
+    tg_ok = False
+    try:
+        from .auth2fa import tg_send
+        prof = getattr(oluvchi, "profile", None)
+        chat = (getattr(prof, "telegram_chat_id", "") or "").strip() if prof else ""
+        if chat:
+            tg_ok = tg_send(chat, "❗ " + matn + "\n\nTizimga kirib «O'qidim» tugmasini bosing.")
+    except Exception:
+        pass
+    messages.success(request,
+        f"«{bolim or 'Bo`limsiz'}» bo'limi limiti {oluvchi.username} ga yuborildi"
+        + (" (Telegram botiga ham ✓)" if tg_ok else " (bot bog'lanmagan — faqat saytda ko'radi)")
+        + ".")
+    return redirect("limit_jadval", pk=pk)
 

@@ -76,6 +76,7 @@
   <button class="b-green" id="btnYopish">▶ Ҳафтани ёпиш</button>
   <button class="b-blue" id="btnIsh">+ Иш</button>
   {% if is_adm %}<button class="b-blue" id="btnBlok">+ Блок (бўлим)</button>{% endif %}
+  <button class="b-blue" id="btnYubor" type="button">📤 Масъулга юбориш</button>
   <span id="sanaBox" style="display:flex; gap:6px; align-items:center;">
     <label>Ҳафта боши <input type="date" id="wkStart" value="{{ taklif_ws }}"></label>
     <label>охири <input type="date" id="wkEnd" value="{{ taklif_we }}"></label>
@@ -115,7 +116,8 @@
     </td></tr>
   {% endif %}
   {% for g in guruhlar %}
-    <tr class="block"><td></td><td colspan="14">{{ g.bolim|default:"Бўлимсиз қаторлар" }}{% if g.masul %} &nbsp;·&nbsp; Масъул: {{ g.masul }}{% endif %}</td><td></td></tr>
+    <tr class="block"><td></td><td colspan="14">{{ g.bolim|default:"Бўлимсиз қаторлар" }}{% if g.masul %} &nbsp;·&nbsp; Масъул: {{ g.masul }}{% endif %}</td>
+      <td class="ctr">{% if can_edit %}<button type="button" class="split-btn blk-send" data-bolim="{{ g.bolim }}" title="Шу блок лимитини масъулга юбориш">📤</button>{% endif %}</td></tr>
     {% for r in g.rows %}
     <tr class="ish" data-key="{{ r.key }}" data-name="{{ r.name }}" data-bolim="{{ r.bolim }}"
         data-unit="{{ r.unit }}" data-kind="{{ r.kind }}" data-n="{{ forloop.counter }}"
@@ -177,6 +179,31 @@
       <button class="b-gray" style="padding:6px 14px; border:none; border-radius:4px; color:#fff; cursor:pointer;" id="mBekor">Бекор</button>
       <button class="b-green" style="padding:6px 14px; border:none; border-radius:4px; color:#fff; cursor:pointer;" id="mBol">Бўлиш</button>
     </div>
+  </div>
+</div>
+{% endif %}
+
+{% if can_edit %}
+<div class="lj-modal-bg" id="yuborBg">
+  <div class="lj-modal">
+    <h3>📤 Лимитни масъулга юбориш</h3>
+    <div class="info">Танланган блок лимити (умумий · бажарилган · ҚОЛГАН) ходимнинг ойнасига ва Телеграм ботига боради.</div>
+    <form method="post" action="{% url 'limit_jadval_yuborish' p.id %}">{% csrf_token %}
+      <label>Блок (бўлим)</label>
+      <select name="bolim" id="yuborBolim" style="width:100%; padding:6px; border:1px solid #c8ccd0; border-radius:4px; font-size:13px;">
+        {% for g in guruhlar %}<option value="{{ g.bolim }}">{{ g.bolim|default:"Бўлимсиз қаторлар" }}{% if g.masul %} — {{ g.masul }}{% endif %}</option>{% endfor %}
+      </select>
+      <label>Кимга (хизматдаги аккаунт)</label>
+      <select name="user_id" style="width:100%; padding:6px; border:1px solid #c8ccd0; border-radius:4px; font-size:13px;">
+        {% for u in xodimlar %}<option value="{{ u.pk }}">{{ u.username }}{% if u.profile.role %} — {{ u.profile.get_role_display }}{% endif %}</option>{% endfor %}
+      </select>
+      <label>Изоҳ (ихтиёрий)</label>
+      <input name="izoh" placeholder="масалан: шу ҳафта тугатиш керак">
+      <div class="row2">
+        <button type="button" class="b-gray" style="padding:6px 14px; border:none; border-radius:4px; color:#fff; cursor:pointer;" id="yuborBekor">Бекор</button>
+        <button type="submit" class="b-green" style="padding:6px 14px; border:none; border-radius:4px; color:#fff; cursor:pointer;">Юбориш</button>
+      </div>
+    </form>
   </div>
 </div>
 {% endif %}
@@ -695,6 +722,21 @@
     document.getElementById('hisobotWrap').style.display='none';
     document.getElementById('jadvalWrap').style.display='';
   };
+
+  // -------- 📤 Масъулга юбориш --------
+  var yBg = document.getElementById('yuborBg');
+  if (yBg){
+    var bYu = document.getElementById('btnYubor');
+    if (bYu) bYu.onclick = function(){ yBg.classList.add('show'); };
+    document.getElementById('yuborBekor').onclick = function(){ yBg.classList.remove('show'); };
+    document.querySelectorAll('.blk-send').forEach(function(b){
+      b.onclick = function(){
+        var s = document.getElementById('yuborBolim');
+        if (s) s.value = b.dataset.bolim;
+        yBg.classList.add('show');
+      };
+    });
+  }
 
   renderAll();
 })();
