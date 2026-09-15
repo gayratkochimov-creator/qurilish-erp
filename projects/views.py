@@ -4528,9 +4528,15 @@ def limit_jadval(request, pk):
                     "joriy": nav.items[nav.idx].get("username", "—"),
                     "boshladi": nav.created_by.username if nav.created_by else "—",
                     "bekor_mumkin": request.user == nav.created_by or is_admin(request.user)}
+    # Avtomatik zanjir ko'rinishi (modal uchun): PTO -> Snab -> PTO -> Dir -> Admin
+    zanjir_ro = []
+    for u in _lj_zanjir_userlar(p, request.user):
+        prof = getattr(u, "profile", None)
+        rol = "Admin" if u.is_superuser else (prof.get_role_display() if prof and prof.role else "")
+        zanjir_ro.append({"username": u.username, "rol": rol})
     return render(request, "projects/limit_jadval.html", {
         "p": p, "guruhlar": guruhlar, "can_edit": can_edit,
-        "nav_info": nav_info,
+        "nav_info": nav_info, "zanjir_ro": zanjir_ro,
         "xodimlar": xodimlar,
         "is_adm": is_admin(request.user),
         "lim_pending": p.limit_requests.filter(status__in=LIM_JARAYON).exists(),
@@ -4550,6 +4556,81 @@ def _lj_ruxsatli_xodimlar(p):
                     | Q(profile__firma=p.firma, profile__role="director")
                     | Q(is_superuser=True))
             .select_related("profile").distinct())
+
+
+def _lj_zanjir_userlar(p, sender):
+    """AVTOMATIK zanjir — limit o'tkazish tartibidek:
+    obyekt PTOsi -> snabjeniyesi -> yana PTO -> firma direktori -> asosiy admin.
+    Yo'q bosqich tashlab ketiladi; yuboruvchining o'zi zanjirga kirmaydi."""
+    from django.conf import settings as _s
+    from django.contrib.auth import get_user_model
+    U = get_user_model()
+
+    def birinchi(rol):
+        return (U.objects.filter(is_active=True, profile__projects=p, profile__role=rol)
+                .order_by("username").first())
+
+    pto = birinchi("pto")
+    snab = birinchi("snab")
+    direktor = (U.objects.filter(is_active=True, profile__firma=p.firma,
+                                 profile__role="director").order_by("username").first())
+    admin = (U.objects.filter(is_active=True, is_superuser=True,
+                              username=getattr(_s, "ASOSIY_ADMIN_LOGIN", "admin")).first()
+             or U.objects.filter(is_active=True, is_superuser=True).order_by("username").first())
+    zanjir = []
+    for u in (pto, snab, pto, direktor, admin):
+        if u is None or u.pk == sender.pk:
+            continue
+        if zanjir and zanjir[-1].pk == u.pk:   # ketma-ket takror emas
+            continue
+        zanjir.append(u)
+    return zanjir
+
+
+def _lj_toliq_matn(p, izoh, sender):
+    """BUTUN limit xabari (barcha bloklar, blok jamilari bilan) — zanjir uchun."""
+    rows = list(p.limit_items.all().order_by("id"))
+    if not rows:
+        return None
+    fakt = {}
+    for wi in WeeklyRequestItem.objects.filter(request__project=p, request__status="approved"):
+        k = _lj_key(wi.name, wi.bolim)
+        d = fakt.setdefault(k, {"qty": Decimal("0"), "sum": Decimal("0")})
+        d["qty"] += wi.quantity
+        d["sum"] += wi.total
+    from django.utils import timezone as _tz
+    satrlar = [f"📋 {p.code} — {p.name} · UMUMIY LIMIT",
+               f"Yubordi: {sender} · {_tz.localtime():%d.%m.%Y %H:%M}"]
+    if izoh:
+        satrlar.append(f"Izoh: {izoh}")
+    guruh = {}
+    for li in rows:
+        guruh.setdefault((li.bolim or "").strip(), []).append(li)
+    jt = jf = Decimal("0")
+    korilgan = set()
+    for kal in ([k for k in guruh if k] + ([""] if "" in guruh else [])):
+        bt = bf = Decimal("0")
+        satrlar.append("")
+        satrlar.append(f"— {kal or 'Bo`limsiz qatorlar'} —")
+        for li in guruh[kal]:
+            k = _lj_key(li.name, li.bolim)
+            f = fakt.get(k) if k not in korilgan else None
+            korilgan.add(k)
+            fq = f["qty"] if f else Decimal("0")
+            fs = f["sum"] if f else Decimal("0")
+            bt += li.total; bf += fs
+            satrlar.append(f"• {li.name}: qoldi {_qty(li.quantity - fq)} {li.unit} "
+                           f"({_money(li.total - fs)} so'm)")
+        jt += bt; jf += bf
+        satrlar.append(f"  Blok yakuni: {_money(bt)} · bajarilgan {_money(bf)} · "
+                       f"qoldi {_money(bt - bf)}")
+    satrlar.append("")
+    satrlar.append(f"JAMI: umumiy {_money(jt)} · bajarilgan {_money(jf)} · "
+                   f"QOLGAN {_money(jt - jf)} so'm")
+    matn = "\n".join(satrlar)
+    if len(matn) > 1750:
+        matn = matn[:1700] + "\n… (davomi tizimda)"
+    return matn
 
 
 def _lj_rol_tartib(u):
@@ -4629,8 +4710,12 @@ def _navbat_qadam(nav):
     while nav.idx < n:
         it = nav.items[nav.idx]
         oluvchi = U.objects.filter(pk=it.get("user_id") or 0, is_active=True).first()
-        matn = _lj_bolim_matn(nav.project, (it.get("bolim") or "").strip(),
-                              nav.izoh, nav.created_by.username if nav.created_by else "—")
+        if (it.get("bolim") or "") == "__toliq__":
+            matn = _lj_toliq_matn(nav.project, nav.izoh,
+                                  nav.created_by.username if nav.created_by else "—")
+        else:
+            matn = _lj_bolim_matn(nav.project, (it.get("bolim") or "").strip(),
+                                  nav.izoh, nav.created_by.username if nav.created_by else "—")
         if oluvchi is None or matn is None:
             nav.idx += 1          # yaroqsiz bosqich — tashlab keyingisiga
             continue
@@ -4686,6 +4771,38 @@ def limit_jadval_yuborish(request, pk):
         return redirect("limit_jadval", pk=pk)
 
     izoh = " ".join((request.POST.get("izoh") or "").split())[:300]
+
+    # ---- KETMA-KET: zanjir AVTOMATIK (tanlash yo'q) — faqat KEYINGI odamga ----
+    if mode == "navbat":
+        if p.limit_navbatlar.filter(status="active").exists():
+            messages.error(request, "Faol ketma-ket zanjir bor — avval u yakunlansin "
+                                    "yoki «Zanjirni bekor qilish»ni bosing.")
+            return redirect("limit_jadval", pk=pk)
+        zanjir = _lj_zanjir_userlar(p, request.user)
+        if not zanjir:
+            messages.error(request, "Zanjir uchun xodim topilmadi — obyektga PTO/snab "
+                                    "biriktirilganini tekshiring.")
+            return redirect("limit_jadval", pk=pk)
+        juftlar = [{"bolim": "__toliq__", "user_id": u.pk, "username": u.username}
+                   for u in zanjir]
+        from .models import LimitNavbat as _LN
+        nav = _LN.objects.create(project=p, created_by=request.user,
+                                 izoh=izoh, items=juftlar, idx=0)
+        oluvchi, tg = _navbat_qadam(nav)
+        if oluvchi is None:
+            nav.status = "bekor"
+            nav.save(update_fields=["status"])
+            messages.error(request, "Yuborib bo'lmadi — limitda qatorlar yo'q.")
+        else:
+            messages.success(request,
+                f"Ketma-ket zanjir boshlandi. Tartib: "
+                + " → ".join(j["username"] for j in juftlar)
+                + f". Hozir: {oluvchi.username}"
+                + (" (Telegram ✓)" if tg else " (bot bog'lanmagan)")
+                + ". U «O'qidim» bosgach navbat FAQAT keyingi odamga o'tadi.")
+        return redirect("limit_jadval", pk=pk)
+
+    # ---- HAMMASIGA BIRDAN: blok -> tanlangan xodim ----
     bolimlar = request.POST.getlist("blok_bolim")
     userlar = request.POST.getlist("blok_user")
     # FAQAT shu obyektning PTO/prorab/snabi + firma direktori + adminlar
@@ -4723,26 +4840,6 @@ def limit_jadval_yuborish(request, pk):
                                       + ", ".join(sorted(set(bot_yoq))[:10]))
         return redirect("limit_jadval", pk=pk)
 
-    # ---- KETMA-KET (navbat) ----
-    if p.limit_navbatlar.filter(status="active").exists():
-        messages.error(request, "Faol ketma-ket zanjir bor — avval u yakunlansin "
-                                "yoki «Zanjirni bekor qilish»ni bosing.")
-        return redirect("limit_jadval", pk=pk)
-    # Zanjir TARTIBI limit o'tkazish tartibidek: PTO -> Snab -> Direktor -> Admin
-    tartib_pk = {u.pk: _lj_rol_tartib(u) for u in ruxsatli.select_related("profile")}
-    juftlar.sort(key=lambda j: tartib_pk.get(j["user_id"], 9))
-    nav = LimitNavbat.objects.create(project=p, created_by=request.user,
-                                     izoh=izoh, items=juftlar, idx=0)
-    oluvchi, tg = _navbat_qadam(nav)
-    if oluvchi is None:
-        nav.status = "bekor"
-        nav.save(update_fields=["status"])
-        messages.error(request, "Yuborib bo'lmadi — bloklarda qator yo'q.")
-    else:
-        messages.success(request,
-            f"Ketma-ket zanjir boshlandi ({len(juftlar)} bosqich). Tartib: "
-            + " → ".join(j["username"] for j in juftlar)
-            + f". 1-bosqich: {oluvchi.username}"
-            + (" (Telegram ✓)" if tg else " (bot bog'lanmagan)")
-            + ". U «O'qidim» bosgach navbat keyingisiga o'tadi.")
+    # bu nuqtaga faqat noma'lum mode kelsa tushadi
+    messages.error(request, "Noma'lum yuborish tartibi.")
     return redirect("limit_jadval", pk=pk)

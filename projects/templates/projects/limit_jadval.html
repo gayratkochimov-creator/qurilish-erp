@@ -207,6 +207,19 @@
     <h3>📤 Лимитни масъулларга юбориш</h3>
     <div class="info">Ҳар блок лимити (умумий · бажарилган · ҚОЛГАН) ўз масъулининг ойнасига ва Телеграм ботига боради. Масъул ёзувига мос аккаунт олдиндан танлаб қўйилди — текшириб «Ҳаммасини юбориш»ни босинг.</div>
     <form method="post" action="{% url 'limit_jadval_yuborish' p.id %}">{% csrf_token %}
+      <label>Юбориш тартиби</label>
+      <div style="display:flex; flex-direction:column; gap:6px; font-size:12.5px; margin-top:2px;">
+        <label style="font-weight:400; margin:0; display:flex; gap:5px; align-items:flex-start;">
+          <input type="radio" name="mode" value="navbat" checked style="margin-top:2px;">
+          <span>🔗 <b>Кетма-кет — фақат кейинги одамга</b> (лимит ўтказиш тартибидек):<br>
+          {% for z in zanjir_ro %}{% if not forloop.first %} → {% endif %}<b>{{ z.username }}</b>{% if z.rol %} ({{ z.rol }}){% endif %}{% empty %}<span style="color:#c01c28;">занжир учун ходим топилмади</span>{% endfor %}<br>
+          <span style="color:#666;">Бутун лимит юборилади; ҳар бири «Ўқидим» босгач навбат кейингисига ўтади.</span></span>
+        </label>
+        <label style="font-weight:400; margin:0; display:flex; gap:5px; align-items:center;">
+          <input type="radio" name="mode" value="hammasi"> Ҳаммасига бирдан — қуйида ҳар блокка аккаунт танлайсиз
+        </label>
+      </div>
+      <div id="hammaJadval" style="display:none; margin-top:8px;">
       <table style="width:100%; border-collapse:collapse; font-size:12.5px;">
         <thead><tr>
           <th style="text-align:left; padding:4px; border-bottom:1px solid #e2e8f0;">Блок</th>
@@ -229,16 +242,8 @@
         {% endfor %}
         </tbody>
       </table>
-      <label>Юбориш тартиби</label>
-      <div style="display:flex; gap:16px; font-size:12.5px; margin-top:2px;">
-        <label style="font-weight:400; margin:0; display:flex; gap:5px; align-items:center;">
-          <input type="radio" name="mode" value="navbat" checked> 🔗 Кетма-кет: <b>ПТО → Снабжения → Директор → Админ</b> тартибида, ҳар бири «Ўқидим» босгач кейингисига ўтади
-        </label>
-        <label style="font-weight:400; margin:0; display:flex; gap:5px; align-items:center;">
-          <input type="radio" name="mode" value="hammasi"> Ҳаммасига бирдан
-        </label>
       </div>
-      <label>Изоҳ (ҳаммасига, ихтиёрий)</label>
+      <label>Изоҳ (ихтиёрий)</label>
       <input name="izoh" placeholder="масалан: шу ҳафта тугатиш керак">
       <div class="row2">
         <button type="button" class="b-gray" style="padding:6px 14px; border:none; border-radius:4px; color:#fff; cursor:pointer;" id="yuborBekor">Бекор</button>
@@ -770,6 +775,13 @@
     var bYu = document.getElementById('btnYubor');
     if (bYu) bYu.onclick = function(){ yBg.classList.add('show'); };
     document.getElementById('yuborBekor').onclick = function(){ yBg.classList.remove('show'); };
+    // Tartib almashganda: hammasiga birdan -> blok jadvali ko'rinadi
+    yBg.querySelectorAll('input[name=mode]').forEach(function(rb){
+      rb.addEventListener('change', function(){
+        var hj = document.getElementById('hammaJadval');
+        if (hj) hj.style.display = (rb.value === 'hammasi' && rb.checked) ? '' : 'none';
+      });
+    });
     document.querySelectorAll('.blk-send').forEach(function(b){
       b.onclick = function(){
         yBg.classList.add('show');
