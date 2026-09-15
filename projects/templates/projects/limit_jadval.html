@@ -104,6 +104,18 @@
   {% endif %}
 </div>
 {% endif %}
+{% if nav_tarix %}
+<div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:6px 12px; margin-bottom:8px; font-size:12px;">
+  <b style="color:#475569;">Юбориш жараёни тарихи:</b>
+  {% for t in nav_tarix %}
+  <div style="padding:2px 0;">
+    <span style="color:#94a3b8;">{{ t.sana|date:"d.m.Y H:i" }}</span> · {{ t.boshladi }}:
+    {% for s in t.steps %}{% if not forloop.first %} → {% endif %}{% if s.holat == 'ok' %}<span style="color:#15803d;">{{ s.username }} ✅</span>{% else %}<span style="color:#c01c28;">{{ s.username }} ✕</span>{% endif %}{% endfor %}
+    {% if t.status == 'done' %}<b style="color:#15803d;">— якунланди</b>{% else %}<b style="color:#c01c28;">— бекор қилинган</b>{% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
 <div id="ljOk">✔ Хато йўқ</div>
 <div id="ljErr"><div class="hdr" id="ljErrHdr"></div><ul id="ljErrList"></ul></div>
 
@@ -134,8 +146,7 @@
     </td></tr>
   {% endif %}
   {% for g in guruhlar %}
-    <tr class="block"><td></td><td colspan="14">{{ g.bolim|default:"Бўлимсиз қаторлар" }}{% if g.masul %} &nbsp;·&nbsp; Масъул: {{ g.masul }}{% endif %}</td>
-      <td class="ctr">{% if can_edit %}<button type="button" class="split-btn blk-send" data-bolim="{{ g.bolim }}" title="Шу блок лимитини масъулга юбориш">📤</button>{% endif %}</td></tr>
+    <tr class="block"><td></td><td colspan="14">{{ g.bolim|default:"Бўлимсиз қаторлар" }}{% if g.masul %} &nbsp;·&nbsp; Масъул: {{ g.masul }}{% endif %}</td><td></td></tr>
     {% for r in g.rows %}
     <tr class="ish" data-key="{{ r.key }}" data-name="{{ r.name }}" data-bolim="{{ r.bolim }}"
         data-unit="{{ r.unit }}" data-kind="{{ r.kind }}" data-n="{{ forloop.counter }}"
@@ -205,40 +216,11 @@
 <div class="lj-modal-bg" id="yuborBg">
   <div class="lj-modal" style="max-width:560px; min-width:420px;">
     <h3>📤 Лимитни юбориш</h3>
+    <div style="font-size:13px; margin-top:8px;">
+      🔗 {% for z in zanjir_ro %}{% if not forloop.first %} → {% endif %}<b>{{ z.username }}</b>{% if z.rol %} ({{ z.rol }}){% endif %}{% empty %}<span style="color:#c01c28;">Занжир учун ходим топилмади — обектга ПТО/снаб бириктиринг</span>{% endfor %}
+    </div>
     <form method="post" action="{% url 'limit_jadval_yuborish' p.id %}">{% csrf_token %}
-      <div style="display:flex; flex-direction:column; gap:8px; font-size:13px; margin-top:6px;">
-        <label style="font-weight:600; margin:0; display:flex; gap:6px; align-items:center;">
-          <input type="radio" name="mode" value="navbat" checked>
-          🔗 Кетма-кет: ПТО → Снабжения → ПТО → Директор → Админ
-        </label>
-        <label style="font-weight:600; margin:0; display:flex; gap:6px; align-items:center;">
-          <input type="radio" name="mode" value="hammasi"> Ҳаммасига бирдан
-        </label>
-      </div>
-      <div id="hammaJadval" style="display:none; margin-top:8px;">
-      <table style="width:100%; border-collapse:collapse; font-size:12.5px;">
-        <thead><tr>
-          <th style="text-align:left; padding:4px; border-bottom:1px solid #e2e8f0;">Блок</th>
-          <th style="text-align:left; padding:4px; border-bottom:1px solid #e2e8f0;">Масъул (ёзилган)</th>
-          <th style="text-align:left; padding:4px; border-bottom:1px solid #e2e8f0;">Аккаунт</th>
-        </tr></thead>
-        <tbody>
-        {% for g in guruhlar %}
-        <tr>
-          <td style="padding:4px; border-bottom:1px dashed #eef2f7;"><b>{{ g.bolim|default:"Бўлимсиз" }}</b>
-            <input type="hidden" name="blok_bolim" value="{{ g.bolim }}"></td>
-          <td style="padding:4px; border-bottom:1px dashed #eef2f7; color:#666;">{{ g.masul|default:"—" }}</td>
-          <td style="padding:4px; border-bottom:1px dashed #eef2f7;">
-            <select name="blok_user" data-bolim="{{ g.bolim }}" style="width:100%; padding:4px; border:1px solid #c8ccd0; border-radius:4px; font-size:12px;">
-              <option value="">— юборилмасин —</option>
-              {% for u in xodimlar %}<option value="{{ u.pk }}" {% if g.taxmin_id == u.pk %}selected{% endif %}>{{ u.username }}{% if u.profile.role %} — {{ u.profile.get_role_display }}{% endif %}</option>{% endfor %}
-            </select>
-          </td>
-        </tr>
-        {% endfor %}
-        </tbody>
-      </table>
-      </div>
+      <input type="hidden" name="mode" value="navbat">
       <label>Изоҳ (ихтиёрий)</label>
       <input name="izoh" placeholder="масалан: шу ҳафта тугатиш керак">
       <div class="row2">
@@ -771,20 +753,6 @@
     var bYu = document.getElementById('btnYubor');
     if (bYu) bYu.onclick = function(){ yBg.classList.add('show'); };
     document.getElementById('yuborBekor').onclick = function(){ yBg.classList.remove('show'); };
-    // Tartib almashganda: hammasiga birdan -> blok jadvali ko'rinadi
-    yBg.querySelectorAll('input[name=mode]').forEach(function(rb){
-      rb.addEventListener('change', function(){
-        var hj = document.getElementById('hammaJadval');
-        if (hj) hj.style.display = (rb.value === 'hammasi' && rb.checked) ? '' : 'none';
-      });
-    });
-    document.querySelectorAll('.blk-send').forEach(function(b){
-      b.onclick = function(){
-        yBg.classList.add('show');
-        var s = document.querySelector('#yuborBg select[data-bolim="'+CSS.escape(b.dataset.bolim)+'"]');
-        if (s){ s.focus(); s.style.outline='2px solid #1a5fb4'; setTimeout(function(){ s.style.outline=''; }, 1500); }
-      };
-    });
   }
 
   renderAll();
