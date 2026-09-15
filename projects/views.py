@@ -4498,12 +4498,8 @@ def limit_jadval(request, pk):
     t_we = t_ws + datetime.timedelta(days=6)
 
     from django.contrib.auth import get_user_model as _gum
-    from django.db.models import Q as _Q
-    # FAQAT shu obyekt firmasining xodimlari + adminlar (boshqa firma ko'rinmasin)
-    xodimlar = (_gum().objects.filter(is_active=True)
-                .filter(_Q(profile__firma=p.firma) | _Q(is_superuser=True))
-                .exclude(pk=request.user.pk)
-                .select_related("profile").order_by("username"))
+    # FAQAT: shu OBYEKTGA biriktirilgan PTO/prorab/snab + firma DIREKTORI + adminlar
+    xodimlar = _lj_ruxsatli_xodimlar(p).exclude(pk=request.user.pk)
     # Ro'yxat zanjir tartibida: PTO -> Snabjeniye -> Direktor -> Admin -> qolganlar
     xodimlar = sorted(xodimlar, key=lambda u: (_lj_rol_tartib(u), u.username.lower()))
     # Mas'ul matnidan xodim akkauntini TAXMIN qilish (login yoki ism mos kelsa)
@@ -4520,11 +4516,15 @@ def limit_jadval(request, pk):
                 if any(n and (n in m or m in n) for n in nomzodlar):
                     g["taxmin_id"] = u.pk
                     break
-    # Faol ketma-ket yuborish zanjiri holati
+    # Faol ketma-ket yuborish zanjiri holati (har bosqich: tasdiqladi/kutilmoqda)
     nav = p.limit_navbatlar.filter(status="active").order_by("-id").first()
     nav_info = None
     if nav and nav.idx < len(nav.items):
-        nav_info = {"step": nav.idx + 1, "n": len(nav.items),
+        steps = []
+        for i, j in enumerate(nav.items):
+            steps.append({"username": j.get("username", "—"), "bolim": j.get("bolim", ""),
+                          "holat": "ok" if i < nav.idx else ("joriy" if i == nav.idx else "kutish")})
+        nav_info = {"step": nav.idx + 1, "n": len(nav.items), "steps": steps,
                     "joriy": nav.items[nav.idx].get("username", "—"),
                     "boshladi": nav.created_by.username if nav.created_by else "—",
                     "bekor_mumkin": request.user == nav.created_by or is_admin(request.user)}
@@ -4538,6 +4538,18 @@ def limit_jadval(request, pk):
         "draft_id": draft.id if draft else None,
         "taklif_ws": t_ws.isoformat(), "taklif_we": t_we.isoformat(),
     })
+
+
+def _lj_ruxsatli_xodimlar(p):
+    """Limit yuborish mumkin bo'lgan xodimlar: shu OBYEKTGA biriktirilgan
+    PTO/prorab/snabjeniye + shu FIRMA direktorlari + adminlar (superuser)."""
+    from django.contrib.auth import get_user_model
+    from django.db.models import Q
+    return (get_user_model().objects.filter(is_active=True)
+            .filter(Q(profile__projects=p, profile__role__in=["pto", "prorab", "snab"])
+                    | Q(profile__firma=p.firma, profile__role="director")
+                    | Q(is_superuser=True))
+            .select_related("profile").distinct())
 
 
 def _lj_rol_tartib(u):
@@ -4676,10 +4688,8 @@ def limit_jadval_yuborish(request, pk):
     izoh = " ".join((request.POST.get("izoh") or "").split())[:300]
     bolimlar = request.POST.getlist("blok_bolim")
     userlar = request.POST.getlist("blok_user")
-    # FAQAT shu firma xodimlari + adminlar — boshqa firmaga yuborib bo'lmaydi
-    from django.db.models import Q as _Q
-    ruxsatli = U.objects.filter(is_active=True).filter(
-        _Q(profile__firma=p.firma) | _Q(is_superuser=True))
+    # FAQAT shu obyektning PTO/prorab/snabi + firma direktori + adminlar
+    ruxsatli = _lj_ruxsatli_xodimlar(p)
     juftlar = []
     for i, b in enumerate(bolimlar):
         uid = userlar[i] if i < len(userlar) else ""

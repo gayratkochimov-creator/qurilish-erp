@@ -88,8 +88,14 @@
 </div>
 {% if nav_info %}
 <div style="background:#f3ecf8; border:1px solid #d3b8e0; border-radius:6px; padding:7px 12px; margin-bottom:8px; font-size:12.5px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-  <b>🔗 Кетма-кет юбориш кетмоқда:</b> {{ nav_info.step }}/{{ nav_info.n }}-босқич —
-  ҳозир <b>{{ nav_info.joriy }}</b> ўқиши кутилмоқда · бошлади: {{ nav_info.boshladi }}
+  <b>🔗 Кетма-кет юбориш кетмоқда</b> ({{ nav_info.step }}/{{ nav_info.n }}):
+  {% for s in nav_info.steps %}
+    {% if not forloop.first %}<span style="color:#9ca3af;">→</span>{% endif %}
+    {% if s.holat == 'ok' %}<span style="color:#15803d; font-weight:700;">{{ s.username }} ✅ тасдиқлади</span>
+    {% elif s.holat == 'joriy' %}<span style="background:#1a5fb4; color:#fff; border-radius:4px; padding:1px 8px; font-weight:700;">{{ s.username }} ⏳ кутилмоқда</span>
+    {% else %}<span style="color:#6b7280;">{{ s.username }}</span>{% endif %}
+  {% endfor %}
+  <span style="color:#6b7280;">· бошлади: {{ nav_info.boshladi }}</span>
   {% if nav_info.bekor_mumkin %}
   <form method="post" action="{% url 'limit_jadval_yuborish' p.id %}" style="margin:0;" onsubmit="return confirm('Занжир бекор қилинсинми?');">{% csrf_token %}
     <input type="hidden" name="mode" value="navbat_bekor">
