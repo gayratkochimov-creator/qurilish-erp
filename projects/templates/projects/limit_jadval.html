@@ -86,6 +86,18 @@
   <button class="b-gray" onclick="window.print()">Чоп этиш</button>
   <a href="{% url 'project_detail' p.id %}" class="b-gray" style="padding:6px 14px; border-radius:4px; color:#fff; font-size:12.5px; text-decoration:none;">⚙️ Обект саҳифаси</a>
 </div>
+{% if nav_info %}
+<div style="background:#f3ecf8; border:1px solid #d3b8e0; border-radius:6px; padding:7px 12px; margin-bottom:8px; font-size:12.5px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+  <b>🔗 Кетма-кет юбориш кетмоқда:</b> {{ nav_info.step }}/{{ nav_info.n }}-босқич —
+  ҳозир <b>{{ nav_info.joriy }}</b> ўқиши кутилмоқда · бошлади: {{ nav_info.boshladi }}
+  {% if nav_info.bekor_mumkin %}
+  <form method="post" action="{% url 'limit_jadval_yuborish' p.id %}" style="margin:0;" onsubmit="return confirm('Занжир бекор қилинсинми?');">{% csrf_token %}
+    <input type="hidden" name="mode" value="navbat_bekor">
+    <button type="submit" class="del-btn" style="padding:3px 10px;">Занжирни бекор қилиш</button>
+  </form>
+  {% endif %}
+</div>
+{% endif %}
 <div id="ljOk">✔ Хато йўқ</div>
 <div id="ljErr"><div class="hdr" id="ljErrHdr"></div><ul id="ljErrList"></ul></div>
 
@@ -189,7 +201,6 @@
     <h3>📤 Лимитни масъулларга юбориш</h3>
     <div class="info">Ҳар блок лимити (умумий · бажарилган · ҚОЛГАН) ўз масъулининг ойнасига ва Телеграм ботига боради. Масъул ёзувига мос аккаунт олдиндан танлаб қўйилди — текшириб «Ҳаммасини юбориш»ни босинг.</div>
     <form method="post" action="{% url 'limit_jadval_yuborish' p.id %}">{% csrf_token %}
-      <input type="hidden" name="mode" value="hammasi">
       <table style="width:100%; border-collapse:collapse; font-size:12.5px;">
         <thead><tr>
           <th style="text-align:left; padding:4px; border-bottom:1px solid #e2e8f0;">Блок</th>
@@ -212,6 +223,15 @@
         {% endfor %}
         </tbody>
       </table>
+      <label>Юбориш тартиби</label>
+      <div style="display:flex; gap:16px; font-size:12.5px; margin-top:2px;">
+        <label style="font-weight:400; margin:0; display:flex; gap:5px; align-items:center;">
+          <input type="radio" name="mode" value="navbat" checked> 🔗 Кетма-кет — биринчиси «Ўқидим» босгач кейингисига ўтади
+        </label>
+        <label style="font-weight:400; margin:0; display:flex; gap:5px; align-items:center;">
+          <input type="radio" name="mode" value="hammasi"> Ҳаммасига бирдан
+        </label>
+      </div>
       <label>Изоҳ (ҳаммасига, ихтиёрий)</label>
       <input name="izoh" placeholder="масалан: шу ҳафта тугатиш керак">
       <div class="row2">

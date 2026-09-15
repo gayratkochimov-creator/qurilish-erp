@@ -794,6 +794,29 @@ class XabarOqildi(models.Model):
         ]
 
 
+class LimitNavbat(models.Model):
+    """Limitni mas'ullarga KETMA-KET (userdan userga) yuborish zanjiri.
+
+    Birinchi mas'ulga xabar boradi; u «O'qidim» bosgach navbat avtomatik
+    keyingisiga o'tadi — xuddi limit tasdiqlash zanjiri kabi."""
+    project = models.ForeignKey(Project, on_delete=models.CASCADE,
+                                related_name="limit_navbatlar")
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True,
+                                   on_delete=models.SET_NULL, related_name="+")
+    izoh = models.CharField("Izoh", max_length=300, blank=True)
+    # [{"bolim": "...", "user_id": 5, "username": "nurbek"}, ...] — yuborish tartibida
+    items = models.JSONField(default=list)
+    idx = models.IntegerField("Joriy bosqich", default=0)
+    xabar = models.ForeignKey(Xabar, null=True, blank=True,
+                              on_delete=models.SET_NULL, related_name="+")
+    status = models.CharField(max_length=12, default="active")   # active | done | bekor
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Limit navbati (ketma-ket)"
+        verbose_name_plural = "Limit navbatlari"
+
+
 class MaterialRequest(models.Model):
     """Prorab -> PTO material so'rovi.
 

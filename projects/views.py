@@ -1,4 +1,4 @@
-﻿import datetime
+import datetime
 import io
 from decimal import Decimal, InvalidOperation
 
@@ -3816,12 +3816,25 @@ def xabar_yuborish(request):
 def xabar_oqidim(request, pk):
     """Xodim xabarni o'qiganini belgilaydi — banner yo'qoladi."""
     from django.db.models import Q
-    from .models import Xabar, XabarOqildi
+    from .models import LimitNavbat, Xabar, XabarOqildi
     if request.method == "POST":
         # Faqat O'ZIGA yuborilgan (yoki hammaga) xabarni belgilay oladi
         x = get_object_or_404(Xabar.objects.filter(Q(hammaga=True) | Q(kimga=request.user)),
                               pk=pk)
         XabarOqildi.objects.get_or_create(xabar=x, user=request.user)
+        # KETMA-KET limit zanjiri: joriy mas'ul o'qidi -> navbat keyingisiga o'tadi
+        try:
+            nav = LimitNavbat.objects.filter(status="active", xabar=x).first()
+            if nav and nav.items[nav.idx].get("user_id") == request.user.pk:
+                nav.idx += 1
+                oluvchi, _tg = _navbat_qadam(nav)
+                if oluvchi is None:
+                    _navbat_yakunla(nav)
+                    messages.success(request, "Siz oxirgi bosqich edingiz — zanjir yakunlandi ✓")
+                else:
+                    messages.info(request, f"O'qidingiz ✓ — navbat {oluvchi.username} ga o'tdi.")
+        except Exception:
+            pass
     return redirect(_xavfsiz_referer(request, "dashboard"))
 
 
@@ -4501,8 +4514,17 @@ def limit_jadval(request, pk):
                 if any(n and (n in m or m in n) for n in nomzodlar):
                     g["taxmin_id"] = u.pk
                     break
+    # Faol ketma-ket yuborish zanjiri holati
+    nav = p.limit_navbatlar.filter(status="active").order_by("-id").first()
+    nav_info = None
+    if nav and nav.idx < len(nav.items):
+        nav_info = {"step": nav.idx + 1, "n": len(nav.items),
+                    "joriy": nav.items[nav.idx].get("username", "—"),
+                    "boshladi": nav.created_by.username if nav.created_by else "—",
+                    "bekor_mumkin": request.user == nav.created_by or is_admin(request.user)}
     return render(request, "projects/limit_jadval.html", {
         "p": p, "guruhlar": guruhlar, "can_edit": can_edit,
+        "nav_info": nav_info,
         "xodimlar": xodimlar,
         "is_adm": is_admin(request.user),
         "lim_pending": p.limit_requests.filter(status__in=LIM_JARAYON).exists(),
@@ -4512,125 +4534,181 @@ def limit_jadval(request, pk):
     })
 
 
-
-@login_required
-def limit_jadval_yuborish(request, pk):
-    """Bo'lim (blok) limitini tanlangan MAS'UL xodimga yuborish:
-    xabar oynasida banner + xodimning O'Z Telegram botiga. PTO yoki admin yuboradi."""
-    from django.contrib.auth import get_user_model
-    from .models import Xabar
-    p = get_object_or_404(Project, pk=pk)
-    _firma_yoki_403(request, p)
-    if not (is_pto(request.user) or is_admin(request.user)):
-        raise PermissionDenied("Limitni faqat PTO yoki admin yuboradi.")
-    if request.method != "POST":
-        return redirect("limit_jadval", pk=pk)
-
-    izoh = " ".join((request.POST.get("izoh") or "").split())[:300]
-    U = get_user_model()
-
-    # Fakt (tasdiqlangan haftaliklar) — nom+bo'lim kesimida (bir marta)
+def _lj_bolim_matn(p, bolim, izoh, sender):
+    """Bitta bo'lim limitining xabar matni (umumiy/bajarilgan/QOLGAN + JAMI)."""
+    rows = [li for li in p.limit_items.all().order_by("id")
+            if (li.bolim or "").strip() == bolim]
+    if not rows:
+        return None
     fakt = {}
     for wi in WeeklyRequestItem.objects.filter(request__project=p, request__status="approved"):
         k = _lj_key(wi.name, wi.bolim)
         d = fakt.setdefault(k, {"qty": Decimal("0"), "sum": Decimal("0")})
         d["qty"] += wi.quantity
         d["sum"] += wi.total
+    masul = next((li.masul for li in rows if (li.masul or "").strip()), "")
+    from django.utils import timezone as _tz
+    satrlar = [f"📋 {p.code} — {p.name}",
+               f"Bo'lim: {bolim or 'Bo`limsiz qatorlar'}" + (f" · Mas'ul: {masul}" if masul else ""),
+               f"Yubordi: {sender} · {_tz.localtime():%d.%m.%Y %H:%M}"]
+    if izoh:
+        satrlar.append(f"Izoh: {izoh}")
+    satrlar.append("")
+    jt = jf = Decimal("0")
+    korilgan = set()
+    for i, li in enumerate(rows, start=1):
+        k = _lj_key(li.name, li.bolim)
+        f = fakt.get(k) if k not in korilgan else None
+        korilgan.add(k)
+        fq = f["qty"] if f else Decimal("0")
+        fs = f["sum"] if f else Decimal("0")
+        jt += li.total; jf += fs
+        satrlar.append(
+            f"{i}. {li.name} — umumiy {_qty(li.quantity)} {li.unit}, "
+            f"bajarilgan {_qty(fq)}, QOLGAN {_qty(li.quantity - fq)} {li.unit} "
+            f"({_money(li.total - fs)} so'm)")
+    satrlar.append("")
+    satrlar.append(f"JAMI: umumiy {_money(jt)} · bajarilgan {_money(jf)} · "
+                   f"QOLGAN {_money(jt - jf)} so'm")
+    matn = "\n".join(satrlar)
+    if len(matn) > 1750:
+        matn = matn[:1700] + "\n… (davomi tizimda)"
+    return matn
 
-    def bolim_matn(bolim):
-        rows = [li for li in p.limit_items.all().order_by("id")
-                if (li.bolim or "").strip() == bolim]
-        if not rows:
-            return None
-        masul = next((li.masul for li in rows if (li.masul or "").strip()), "")
-        from django.utils import timezone as _tz
-        satrlar = [f"📋 {p.code} — {p.name}",
-                   f"Bo'lim: {bolim or 'Bo`limsiz qatorlar'}" + (f" · Mas'ul: {masul}" if masul else ""),
-                   f"Yubordi: {request.user.username} · {_tz.localtime():%d.%m.%Y %H:%M}"]
-        if izoh:
-            satrlar.append(f"Izoh: {izoh}")
-        satrlar.append("")
-        jt = jf = Decimal("0")
-        korilgan = set()
-        for i, li in enumerate(rows, start=1):
-            k = _lj_key(li.name, li.bolim)
-            f = fakt.get(k) if k not in korilgan else None
-            korilgan.add(k)
-            fq = f["qty"] if f else Decimal("0")
-            fs = f["sum"] if f else Decimal("0")
-            jt += li.total; jf += fs
-            satrlar.append(
-                f"{i}. {li.name} — umumiy {_qty(li.quantity)} {li.unit}, "
-                f"bajarilgan {_qty(fq)}, QOLGAN {_qty(li.quantity - fq)} {li.unit} "
-                f"({_money(li.total - fs)} so'm)")
-        satrlar.append("")
-        satrlar.append(f"JAMI: umumiy {_money(jt)} · bajarilgan {_money(jf)} · "
-                       f"QOLGAN {_money(jt - jf)} so'm")
-        matn = "\n".join(satrlar)
-        if len(matn) > 3500:
-            matn = matn[:3450] + "\n… (davomi tizimda)"
-        return matn
 
-    def yubor(matn, oluvchi):
-        x = Xabar.objects.create(matn=matn, muhimlik="muhim",
-                                 yubordi=request.user, hammaga=False)
-        x.kimga.add(oluvchi)
-        try:
-            from .auth2fa import tg_send
-            prof = getattr(oluvchi, "profile", None)
-            chat = (getattr(prof, "telegram_chat_id", "") or "").strip() if prof else ""
-            if chat:
-                return bool(tg_send(chat, "❗ " + matn +
-                                    "\n\nTizimga kirib «O'qidim» tugmasini bosing."))
-        except Exception:
-            pass
-        return False
+def _lj_xabar_yubor(matn, oluvchi, yubordi):
+    """Xabar (banner) + xodimning O'Z Telegram botiga. TG ketdi-mi -> bool."""
+    from .models import Xabar
+    x = Xabar.objects.create(matn=matn, muhimlik="muhim", yubordi=yubordi, hammaga=False)
+    x.kimga.add(oluvchi)
+    tg = False
+    try:
+        from .auth2fa import tg_send
+        prof = getattr(oluvchi, "profile", None)
+        chat = (getattr(prof, "telegram_chat_id", "") or "").strip() if prof else ""
+        if chat:
+            tg = bool(tg_send(chat, "❗ " + matn +
+                              "\n\nTizimga kirib «O'qidim» tugmasini bosing."))
+    except Exception:
+        pass
+    return x, tg
 
-    if request.POST.get("mode") == "hammasi":
-        # HAR BIR blok — O'Z mas'uliga (blok_bolim[i] -> blok_user[i])
-        bolimlar = request.POST.getlist("blok_bolim")
-        userlar = request.POST.getlist("blok_user")
+
+def _navbat_qadam(nav):
+    """Navbatning JORIY bosqichini yuboradi (nav.idx). (oluvchi, tg) qaytaradi."""
+    from django.contrib.auth import get_user_model
+    U = get_user_model()
+    n = len(nav.items)
+    while nav.idx < n:
+        it = nav.items[nav.idx]
+        oluvchi = U.objects.filter(pk=it.get("user_id") or 0, is_active=True).first()
+        matn = _lj_bolim_matn(nav.project, (it.get("bolim") or "").strip(),
+                              nav.izoh, nav.created_by.username if nav.created_by else "—")
+        if oluvchi is None or matn is None:
+            nav.idx += 1          # yaroqsiz bosqich — tashlab keyingisiga
+            continue
+        matn += (f"\n\n🔗 Ketma-ket zanjir: {nav.idx + 1}/{n}-bosqich. "
+                 "Siz «O'qidim» bosganingizdan keyin navbat keyingi mas'ulga o'tadi.")
+        x, tg = _lj_xabar_yubor(matn, oluvchi, nav.created_by)
+        nav.xabar = x
+        nav.save(update_fields=["idx", "xabar"])
+        return oluvchi, tg
+    nav.status = "done"
+    nav.xabar = None
+    nav.save(update_fields=["status", "xabar", "idx"])
+    return None, False
+
+
+def _navbat_yakunla(nav):
+    """Zanjir tugadi — boshlagan odamga xabar."""
+    if nav.created_by is None:
+        return
+    matn = (f"✅ {nav.project.code} — limit ketma-ket yuborish zanjiri YAKUNLANDI: "
+            f"barcha {len(nav.items)} mas'ul o'qib chiqdi.")
+    try:
+        _lj_xabar_yubor(matn, nav.created_by, nav.created_by)
+    except Exception:
+        pass
+
+
+@login_required
+def limit_jadval_yuborish(request, pk):
+    """Bo'lim limitlarini mas'ullarga yuborish.
+
+    mode=navbat  — KETMA-KET (userdan userga): birinchisi o'qigach keyingisiga
+    mode=hammasi — hammasiga birdaniga
+    mode=navbat_bekor — faol zanjirni to'xtatish
+    Har xabar: xodim oynasida banner + o'z Telegram botiga."""
+    from django.contrib.auth import get_user_model
+    from .models import LimitNavbat
+    p = get_object_or_404(Project, pk=pk)
+    _firma_yoki_403(request, p)
+    if not (is_pto(request.user) or is_admin(request.user)):
+        raise PermissionDenied("Limitni faqat PTO yoki admin yuboradi.")
+    if request.method != "POST":
+        return redirect("limit_jadval", pk=pk)
+    U = get_user_model()
+    mode = request.POST.get("mode") or "navbat"
+
+    if mode == "navbat_bekor":
+        nav = p.limit_navbatlar.filter(status="active").order_by("-id").first()
+        if nav and (request.user == nav.created_by or is_admin(request.user)):
+            nav.status = "bekor"
+            nav.save(update_fields=["status"])
+            messages.info(request, "Ketma-ket yuborish zanjiri bekor qilindi.")
+        return redirect("limit_jadval", pk=pk)
+
+    izoh = " ".join((request.POST.get("izoh") or "").split())[:300]
+    bolimlar = request.POST.getlist("blok_bolim")
+    userlar = request.POST.getlist("blok_user")
+    juftlar = []
+    for i, b in enumerate(bolimlar):
+        uid = userlar[i] if i < len(userlar) else ""
+        if not uid:
+            continue
+        u = U.objects.filter(pk=uid, is_active=True).first()
+        if u is None:
+            continue
+        juftlar.append({"bolim": " ".join(b.split()), "user_id": u.pk, "username": u.username})
+    if not juftlar:
+        messages.error(request, "Hech bir blokka xodim tanlanmadi.")
+        return redirect("limit_jadval", pk=pk)
+
+    if mode == "hammasi":
         yuborildi, tg_soni, bot_yoq = 0, 0, []
-        for i, b in enumerate(bolimlar):
-            uid = userlar[i] if i < len(userlar) else ""
-            if not uid:
-                continue
-            oluvchi = U.objects.filter(pk=uid, is_active=True).first()
-            if oluvchi is None:
-                continue
-            matn = bolim_matn(" ".join(b.split()))
+        for j in juftlar:
+            oluvchi = U.objects.get(pk=j["user_id"])
+            matn = _lj_bolim_matn(p, j["bolim"], izoh, request.user.username)
             if matn is None:
                 continue
-            if yubor(matn, oluvchi):
+            _, tg = _lj_xabar_yubor(matn, oluvchi, request.user)
+            if tg:
                 tg_soni += 1
             else:
                 bot_yoq.append(oluvchi.username)
             yuborildi += 1
-        if not yuborildi:
-            messages.error(request, "Hech bir blokka xodim tanlanmadi.")
-        else:
-            messages.success(request,
-                f"{yuborildi} ta blok limiti o'z mas'uliga yuborildi"
-                + (f" (Telegram: {tg_soni})" if tg_soni else "") + ".")
-            if bot_yoq:
-                messages.warning(request, "Bot bog'lanmagan (faqat saytda ko'radi): "
-                                          + ", ".join(sorted(set(bot_yoq))[:10]))
+        messages.success(request, f"{yuborildi} ta blok limiti o'z mas'uliga yuborildi"
+                         + (f" (Telegram: {tg_soni})" if tg_soni else "") + ".")
+        if bot_yoq:
+            messages.warning(request, "Bot bog'lanmagan (faqat saytda ko'radi): "
+                                      + ", ".join(sorted(set(bot_yoq))[:10]))
         return redirect("limit_jadval", pk=pk)
 
-    # Bitta blok — bitta xodimga
-    bolim = " ".join((request.POST.get("bolim") or "").split())
-    oluvchi = U.objects.filter(pk=request.POST.get("user_id") or 0, is_active=True).first()
+    # ---- KETMA-KET (navbat) ----
+    if p.limit_navbatlar.filter(status="active").exists():
+        messages.error(request, "Faol ketma-ket zanjir bor — avval u yakunlansin "
+                                "yoki «Zanjirni bekor qilish»ni bosing.")
+        return redirect("limit_jadval", pk=pk)
+    nav = LimitNavbat.objects.create(project=p, created_by=request.user,
+                                     izoh=izoh, items=juftlar, idx=0)
+    oluvchi, tg = _navbat_qadam(nav)
     if oluvchi is None:
-        messages.error(request, "Yuboriladigan xodimni tanlang.")
-        return redirect("limit_jadval", pk=pk)
-    matn = bolim_matn(bolim)
-    if matn is None:
-        messages.error(request, "Bu bo'limda qatorlar yo'q.")
-        return redirect("limit_jadval", pk=pk)
-    tg_ok = yubor(matn, oluvchi)
-    messages.success(request,
-        f"«{bolim or 'Bo`limsiz'}» bo'limi limiti {oluvchi.username} ga yuborildi"
-        + (" (Telegram botiga ham ✓)" if tg_ok else " (bot bog'lanmagan — faqat saytda ko'radi)")
-        + ".")
+        nav.status = "bekor"
+        nav.save(update_fields=["status"])
+        messages.error(request, "Yuborib bo'lmadi — bloklarda qator yo'q.")
+    else:
+        messages.success(request,
+            f"Ketma-ket zanjir boshlandi ({len(juftlar)} bosqich). 1-bosqich: "
+            f"{oluvchi.username}" + (" (Telegram ✓)" if tg else " (bot bog'lanmagan)")
+            + ". U «O'qidim» bosgach navbat keyingisiga o'tadi.")
     return redirect("limit_jadval", pk=pk)
-
