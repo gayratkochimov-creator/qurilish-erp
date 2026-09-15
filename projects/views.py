@@ -4498,7 +4498,11 @@ def limit_jadval(request, pk):
     t_we = t_ws + datetime.timedelta(days=6)
 
     from django.contrib.auth import get_user_model as _gum
-    xodimlar = (_gum().objects.filter(is_active=True).exclude(pk=request.user.pk)
+    from django.db.models import Q as _Q
+    # FAQAT shu obyekt firmasining xodimlari + adminlar (boshqa firma ko'rinmasin)
+    xodimlar = (_gum().objects.filter(is_active=True)
+                .filter(_Q(profile__firma=p.firma) | _Q(is_superuser=True))
+                .exclude(pk=request.user.pk)
                 .select_related("profile").order_by("username"))
     # Mas'ul matnidan xodim akkauntini TAXMIN qilish (login yoki ism mos kelsa)
     for g in guruhlar:
@@ -4661,12 +4665,16 @@ def limit_jadval_yuborish(request, pk):
     izoh = " ".join((request.POST.get("izoh") or "").split())[:300]
     bolimlar = request.POST.getlist("blok_bolim")
     userlar = request.POST.getlist("blok_user")
+    # FAQAT shu firma xodimlari + adminlar — boshqa firmaga yuborib bo'lmaydi
+    from django.db.models import Q as _Q
+    ruxsatli = U.objects.filter(is_active=True).filter(
+        _Q(profile__firma=p.firma) | _Q(is_superuser=True))
     juftlar = []
     for i, b in enumerate(bolimlar):
         uid = userlar[i] if i < len(userlar) else ""
         if not uid:
             continue
-        u = U.objects.filter(pk=uid, is_active=True).first()
+        u = ruxsatli.filter(pk=uid).first()
         if u is None:
             continue
         juftlar.append({"bolim": " ".join(b.split()), "user_id": u.pk, "username": u.username})
