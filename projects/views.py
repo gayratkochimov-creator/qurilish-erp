@@ -4504,6 +4504,8 @@ def limit_jadval(request, pk):
                 .filter(_Q(profile__firma=p.firma) | _Q(is_superuser=True))
                 .exclude(pk=request.user.pk)
                 .select_related("profile").order_by("username"))
+    # Ro'yxat zanjir tartibida: PTO -> Snabjeniye -> Direktor -> Admin -> qolganlar
+    xodimlar = sorted(xodimlar, key=lambda u: (_lj_rol_tartib(u), u.username.lower()))
     # Mas'ul matnidan xodim akkauntini TAXMIN qilish (login yoki ism mos kelsa)
     for g in guruhlar:
         g["taxmin_id"] = ""
@@ -4536,6 +4538,15 @@ def limit_jadval(request, pk):
         "draft_id": draft.id if draft else None,
         "taklif_ws": t_ws.isoformat(), "taklif_we": t_we.isoformat(),
     })
+
+
+def _lj_rol_tartib(u):
+    """Limit o'tkazish zanjiri tartibi: PTO -> Snabjeniye -> Direktor -> Admin.
+    Qolganlar (prorab, buxgalter...) oxirida."""
+    if u.is_superuser:
+        return 4
+    rol = getattr(getattr(u, "profile", None), "role", "") or ""
+    return {"pto": 1, "snab": 2, "director": 3}.get(rol, 9)
 
 
 def _lj_bolim_matn(p, bolim, izoh, sender):
@@ -4707,6 +4718,9 @@ def limit_jadval_yuborish(request, pk):
         messages.error(request, "Faol ketma-ket zanjir bor — avval u yakunlansin "
                                 "yoki «Zanjirni bekor qilish»ni bosing.")
         return redirect("limit_jadval", pk=pk)
+    # Zanjir TARTIBI limit o'tkazish tartibidek: PTO -> Snab -> Direktor -> Admin
+    tartib_pk = {u.pk: _lj_rol_tartib(u) for u in ruxsatli.select_related("profile")}
+    juftlar.sort(key=lambda j: tartib_pk.get(j["user_id"], 9))
     nav = LimitNavbat.objects.create(project=p, created_by=request.user,
                                      izoh=izoh, items=juftlar, idx=0)
     oluvchi, tg = _navbat_qadam(nav)
@@ -4716,7 +4730,9 @@ def limit_jadval_yuborish(request, pk):
         messages.error(request, "Yuborib bo'lmadi — bloklarda qator yo'q.")
     else:
         messages.success(request,
-            f"Ketma-ket zanjir boshlandi ({len(juftlar)} bosqich). 1-bosqich: "
-            f"{oluvchi.username}" + (" (Telegram ✓)" if tg else " (bot bog'lanmagan)")
+            f"Ketma-ket zanjir boshlandi ({len(juftlar)} bosqich). Tartib: "
+            + " → ".join(j["username"] for j in juftlar)
+            + f". 1-bosqich: {oluvchi.username}"
+            + (" (Telegram ✓)" if tg else " (bot bog'lanmagan)")
             + ". U «O'qidim» bosgach navbat keyingisiga o'tadi.")
     return redirect("limit_jadval", pk=pk)
