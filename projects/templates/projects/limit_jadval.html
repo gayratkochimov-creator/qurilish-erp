@@ -185,23 +185,38 @@
 
 {% if can_edit %}
 <div class="lj-modal-bg" id="yuborBg">
-  <div class="lj-modal">
-    <h3>📤 Лимитни масъулга юбориш</h3>
-    <div class="info">Танланган блок лимити (умумий · бажарилган · ҚОЛГАН) ходимнинг ойнасига ва Телеграм ботига боради.</div>
+  <div class="lj-modal" style="max-width:560px; min-width:420px;">
+    <h3>📤 Лимитни масъулларга юбориш</h3>
+    <div class="info">Ҳар блок лимити (умумий · бажарилган · ҚОЛГАН) ўз масъулининг ойнасига ва Телеграм ботига боради. Масъул ёзувига мос аккаунт олдиндан танлаб қўйилди — текшириб «Ҳаммасини юбориш»ни босинг.</div>
     <form method="post" action="{% url 'limit_jadval_yuborish' p.id %}">{% csrf_token %}
-      <label>Блок (бўлим)</label>
-      <select name="bolim" id="yuborBolim" style="width:100%; padding:6px; border:1px solid #c8ccd0; border-radius:4px; font-size:13px;">
-        {% for g in guruhlar %}<option value="{{ g.bolim }}">{{ g.bolim|default:"Бўлимсиз қаторлар" }}{% if g.masul %} — {{ g.masul }}{% endif %}</option>{% endfor %}
-      </select>
-      <label>Кимга (хизматдаги аккаунт)</label>
-      <select name="user_id" style="width:100%; padding:6px; border:1px solid #c8ccd0; border-radius:4px; font-size:13px;">
-        {% for u in xodimlar %}<option value="{{ u.pk }}">{{ u.username }}{% if u.profile.role %} — {{ u.profile.get_role_display }}{% endif %}</option>{% endfor %}
-      </select>
-      <label>Изоҳ (ихтиёрий)</label>
+      <input type="hidden" name="mode" value="hammasi">
+      <table style="width:100%; border-collapse:collapse; font-size:12.5px;">
+        <thead><tr>
+          <th style="text-align:left; padding:4px; border-bottom:1px solid #e2e8f0;">Блок</th>
+          <th style="text-align:left; padding:4px; border-bottom:1px solid #e2e8f0;">Масъул (ёзилган)</th>
+          <th style="text-align:left; padding:4px; border-bottom:1px solid #e2e8f0;">Аккаунт</th>
+        </tr></thead>
+        <tbody>
+        {% for g in guruhlar %}
+        <tr>
+          <td style="padding:4px; border-bottom:1px dashed #eef2f7;"><b>{{ g.bolim|default:"Бўлимсиз" }}</b>
+            <input type="hidden" name="blok_bolim" value="{{ g.bolim }}"></td>
+          <td style="padding:4px; border-bottom:1px dashed #eef2f7; color:#666;">{{ g.masul|default:"—" }}</td>
+          <td style="padding:4px; border-bottom:1px dashed #eef2f7;">
+            <select name="blok_user" data-bolim="{{ g.bolim }}" style="width:100%; padding:4px; border:1px solid #c8ccd0; border-radius:4px; font-size:12px;">
+              <option value="">— юборилмасин —</option>
+              {% for u in xodimlar %}<option value="{{ u.pk }}" {% if g.taxmin_id == u.pk %}selected{% endif %}>{{ u.username }}{% if u.profile.role %} — {{ u.profile.get_role_display }}{% endif %}</option>{% endfor %}
+            </select>
+          </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      <label>Изоҳ (ҳаммасига, ихтиёрий)</label>
       <input name="izoh" placeholder="масалан: шу ҳафта тугатиш керак">
       <div class="row2">
         <button type="button" class="b-gray" style="padding:6px 14px; border:none; border-radius:4px; color:#fff; cursor:pointer;" id="yuborBekor">Бекор</button>
-        <button type="submit" class="b-green" style="padding:6px 14px; border:none; border-radius:4px; color:#fff; cursor:pointer;">Юбориш</button>
+        <button type="submit" class="b-green" style="padding:6px 14px; border:none; border-radius:4px; color:#fff; cursor:pointer;">📤 Ҳаммасини юбориш</button>
       </div>
     </form>
   </div>
@@ -731,9 +746,9 @@
     document.getElementById('yuborBekor').onclick = function(){ yBg.classList.remove('show'); };
     document.querySelectorAll('.blk-send').forEach(function(b){
       b.onclick = function(){
-        var s = document.getElementById('yuborBolim');
-        if (s) s.value = b.dataset.bolim;
         yBg.classList.add('show');
+        var s = document.querySelector('#yuborBg select[data-bolim="'+CSS.escape(b.dataset.bolim)+'"]');
+        if (s){ s.focus(); s.style.outline='2px solid #1a5fb4'; setTimeout(function(){ s.style.outline=''; }, 1500); }
       };
     });
   }
