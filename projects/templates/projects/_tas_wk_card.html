@@ -1,4 +1,4 @@
-{% comment %}Haftalik so'rov kartasi. Kirish: w (so'rov), stage ('dir'|'adm'){% endcomment %}
+﻿{% comment %}Haftalik so'rov kartasi. Kirish: w (so'rov), stage ('dir'|'adm'){% endcomment %}
 <div class="tcard">
   <div class="tmain">
     <div class="pname">{{ w.obj.project.code }} — {{ w.obj.project.name }}</div>
@@ -11,7 +11,7 @@
     {% endif %}
     {% if w.groups %}
     <div style="overflow-x:auto;">
-    <table class="pitems" style="min-width:1150px; border-collapse:separate; border-spacing:0;">
+    <table class="pitems tjad" style="min-width:1150px;">
       <thead>
         <tr>
           <th rowspan="2" style="background:#1a5fb4; color:#fff; width:26px;">№</th>
