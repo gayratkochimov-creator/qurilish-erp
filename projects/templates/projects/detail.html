@@ -428,12 +428,13 @@
       <div id="limitBody">
 
       {% if is_pto and not pending %}
+      <details class="eskilim" style="border-bottom:1px solid var(--line);">
+        <summary style="cursor:pointer; padding:10px 16px; font-weight:700; color:#334155; font-size:13px; list-style:none;">⚙️ Лимитни киритиш / тўлиқ таҳрир{% if not is_admin %} (занжир: снабжение → ПТО → директор → админ){% endif %} <span style="font-weight:400; color:#94a3b8;">— очиш учун босинг</span></summary>
       <form method="post" action="{% url 'limit_items_edit' p.id %}">
         {% csrf_token %}
         <div style="padding:12px 16px 0; font-size:12.5px; color:#64748b;">
           {% if is_admin %}Limitni to'liq kiriting/o'zgartiring — <b>to'g'ridan-to'g'ri</b> qo'llanadi (admin). Har kategoriya limiti = shu qatorlar yig'indisi.{% else %}Limitni to'liq kiriting — <b>tasdiqlash zanjiriga</b> yuboriladi: snabjeniye (narxlaydi) → PTO xulosasi → direktor → admin. Snabjeniye biriktirilmagan obyektda to'g'ridan-to'g'ri direktorga boradi. Har kategoriya limiti = shu qatorlar yig'indisi.{% endif %}
         </div>
-        {% include "projects/_limit_filter.html" %}
         <table class="addtable" style="padding:0 8px;">
           <thead><tr><th class="rowno" style="width:34px;">№</th><th style="width:130px;">Bo'lim</th><th style="width:100px;">Mas'ul</th><th style="width:130px;">Turi</th><th style="width:240px;">Nomi</th><th>Izoh (primechaniye)</th><th style="width:75px;">Birlik</th><th class="num" style="width:85px;">Miqdor</th><th class="num" style="width:105px;">Narxi</th><th class="num" style="width:115px;">Summa</th><th style="width:126px;">Sana (soat bilan)</th><th style="width:34px;"></th></tr></thead>
           <tbody id="lirows">
@@ -623,7 +624,9 @@
         });
       })();
       </script>
-      {% else %}
+      </details>
+      {% endif %}
+      {# YANGI KO'RINISH — hammaga (Sirdaryo qolipi) #}
       {% include "projects/_limit_filter.html" %}
       {# Sirdaryo qolipi: UMUMIY · BAJARILGAN · QOLGAN · N-HAFTALIK — har guruh 4 ustun, blok jamilari, JAMI #}
       <div class="sd-wrap">
@@ -717,7 +720,6 @@
       </div>
       {% endif %}
       {% if pending %}<div style="padding:10px 16px; font-size:12px; color:#b45309;">Tarkibni o'zgartirishga so'rov yuborilgan — {{ pending.get_status_display|lower }}.</div>{% endif %}
-      {% endif %}
       </div>{# /limitBody #}
     </div>
 
