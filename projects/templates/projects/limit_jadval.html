@@ -125,6 +125,7 @@
   {% endfor %}
 </div>
 {% endif %}
+<div id="wkStatus" style="display:none; border-radius:6px; padding:7px 12px; margin-bottom:8px; font-size:12.5px; align-items:center; gap:8px; flex-wrap:wrap;"></div>
 <div id="ljOk">✔ Хато йўқ</div>
 <div id="ljErr"><div class="hdr" id="ljErrHdr"></div><ul id="ljErrList"></ul></div>
 <div id="ljWarn"><div class="hdr" id="ljWarnHdr"></div><ul id="ljWarnList"></ul></div>
@@ -268,7 +269,9 @@
     var t = document.getElementById('ljTabs'); t.innerHTML='';
     HAFTA.forEach(function(h){
       var b = document.createElement('button');
-      b.textContent = h.raqam+'-ҳафта ('+h.sana+') ' + (h.locked ? '🔒' : '✏️');
+      var belgi = h.status==='draft' ? '✏️' : h.status==='dir' ? '⏳ дир.' :
+                  h.status==='submitted' ? '⏳ адм.' : '🔒';
+      b.textContent = h.raqam+'-ҳафта ('+h.sana+') ' + belgi;
       b.title = STATUS_NOMI[h.status] || h.status;
       b.className = (h.locked?'closed ':'') + ('w'+h.id===sel?'active':'');
       b.onclick = function(){ sel='w'+h.id; renderAll(); };
@@ -294,6 +297,46 @@
       var ws0 = document.getElementById('wkStart'), we0 = document.getElementById('wkEnd');
       if (ws0) ws0.value = h.ws;
       if (we0) we0.value = h.we;
+    }
+    // ---- ZANJIR HOLATI banneri: so'rov hozir KIMDA turibdi ----
+    var st = document.getElementById('wkStatus');
+    if (st){
+      if (!h){
+        st.style.display = 'none';
+      } else {
+        function qadam(nom, holat, kim, vaqt){
+          // holat: ok | joriy | keyin
+          var rang = holat==='ok' ? 'background:#dcfce7; color:#15803d; border:1px solid #86efac;'
+                   : holat==='joriy' ? 'background:#1a5fb4; color:#fff; border:1px solid #1a5fb4;'
+                   : 'background:#f1f5f9; color:#94a3b8; border:1px solid #e2e8f0;';
+          var belgi = holat==='ok' ? '✓ ' : (holat==='joriy' ? '⏳ ' : '');
+          var qoshimcha = (kim ? ' — '+kim : '') + (vaqt ? ' · '+vaqt : '');
+          return '<span style="border-radius:999px; padding:2px 11px; font-weight:700; '+rang+'">'+belgi+nom+
+                 (holat!=='keyin' ? '<span style="font-weight:400;">'+qoshimcha+(holat==='joriy'?' · кутилмоқда':'')+'</span>' : '')+'</span>';
+        }
+        var okra = '<span style="color:#9ca3af;">→</span>';
+        var html = '<b style="margin-right:4px;">Занжир ҳолати:</b>';
+        if (h.status === 'draft'){
+          html += qadam('ПТО (қоралама)', 'joriy', h.kiritdi, h.kiritdi_at) + okra +
+                  qadam('Директор', 'keyin') + okra + qadam('Админ', 'keyin');
+          st.style.cssText = 'display:flex; border-radius:6px; padding:7px 12px; margin-bottom:8px; font-size:12.5px; align-items:center; gap:8px; flex-wrap:wrap; background:#fffbeb; border:1px solid #fde68a;';
+        } else if (h.status === 'dir'){
+          html += qadam('ПТО юборди', 'ok', h.kiritdi, h.kiritdi_at) + okra +
+                  qadam('ДИРЕКТОР тасдиғида', 'joriy') + okra + qadam('Админ', 'keyin');
+          st.style.cssText = 'display:flex; border-radius:6px; padding:7px 12px; margin-bottom:8px; font-size:12.5px; align-items:center; gap:8px; flex-wrap:wrap; background:#eff6ff; border:1px solid #bfdbfe;';
+        } else if (h.status === 'submitted'){
+          html += qadam('ПТО юборди', 'ok', h.kiritdi, h.kiritdi_at) + okra +
+                  qadam('Директор', 'ok', h.dir_by, h.dir_at) + okra +
+                  qadam('АДМИН тасдиғида', 'joriy');
+          st.style.cssText = 'display:flex; border-radius:6px; padding:7px 12px; margin-bottom:8px; font-size:12.5px; align-items:center; gap:8px; flex-wrap:wrap; background:#eff6ff; border:1px solid #bfdbfe;';
+        } else {
+          html += qadam('ПТО юборди', 'ok', h.kiritdi, h.kiritdi_at) + okra +
+                  (h.dir_by ? (qadam('Директор', 'ok', h.dir_by, h.dir_at) + okra) : '') +
+                  qadam('ТАСДИҚЛАНДИ', 'ok', h.adm_by, h.adm_at);
+          st.style.cssText = 'display:flex; border-radius:6px; padding:7px 12px; margin-bottom:8px; font-size:12.5px; align-items:center; gap:8px; flex-wrap:wrap; background:#f0fdf4; border:1px solid #bbf7d0;';
+        }
+        st.innerHTML = html;
+      }
     }
     document.querySelectorAll('#ljBody tr.split').forEach(function(x){ x.remove(); });
 

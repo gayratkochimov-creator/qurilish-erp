@@ -4671,12 +4671,20 @@ def limit_jadval(request, pk):
                 items_map.setdefault(k, []).append(row)
             else:
                 boshqa.append(row)
+        from django.utils.timezone import localtime as _lt0
         hafta_data.append({
             "id": w.id, "raqam": i,
             "sana": f"{w.week_start:%d.%m}-{w.week_end:%d.%m.%Y}",
             "ws": w.week_start.isoformat(), "we": w.week_end.isoformat(),
             "status": w.status, "locked": w.status != "draft",
             "number": w.number or "", "items": items_map, "boshqa": boshqa,
+            # Zanjir holati banneri uchun imzolar
+            "kiritdi": w.created_by.username if w.created_by_id else "",
+            "kiritdi_at": f"{_lt0(w.created_at):%d.%m %H:%M}" if w.created_at else "",
+            "dir_by": w.director_by.username if w.director_by_id else "",
+            "dir_at": f"{_lt0(w.director_at):%d.%m %H:%M}" if w.director_at else "",
+            "adm_by": w.approved_by.username if w.approved_by_id else "",
+            "adm_at": f"{_lt0(w.approved_at):%d.%m %H:%M}" if w.approved_at else "",
         })
 
     # Yangi hafta uchun taklif sanalar
