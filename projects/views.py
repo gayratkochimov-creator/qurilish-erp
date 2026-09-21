@@ -4943,29 +4943,40 @@ def _navbat_qadam(nav, jadval_link=""):
     from django.contrib.auth import get_user_model
     U = get_user_model()
     n = len(nav.items)
+    p = nav.project
     while nav.idx < n:
         it = nav.items[nav.idx]
         oluvchi = U.objects.filter(pk=it.get("user_id") or 0, is_active=True).first()
-        if (it.get("bolim") or "") == "__toliq__":
-            matn = _lj_toliq_matn(nav.project, nav.izoh,
-                                  nav.created_by.username if nav.created_by else "—")
-        else:
-            matn = _lj_bolim_matn(nav.project, (it.get("bolim") or "").strip(),
-                                  nav.izoh, nav.created_by.username if nav.created_by else "—")
-        if oluvchi is None or matn is None:
+        if oluvchi is None or not p.limit_items.exists():
             nav.idx += 1          # yaroqsiz bosqich — tashlab keyingisiga
             continue
+        # QISQA xabar — to'liq ma'lumot RANGLI JADVALDA ko'riladi (havola bilan)
+        from django.utils import timezone as _tz
+        sarf = p.sarflangan()
+        satrlar = [f"📋 {p.code} — {p.name} · UMUMIY LIMIT ko'rib chiqishga yuborildi",
+                   f"Yubordi: {nav.created_by.username if nav.created_by else '—'} · "
+                   f"{_tz.localtime():%d.%m.%Y %H:%M}"]
+        if nav.izoh:
+            satrlar.append(f"Izoh: {nav.izoh}")
+        satrlar.append("")
+        satrlar.append(f"JAMI: umumiy {_money(p.budget_total)} · "
+                       f"bajarilgan {_money(sarf)} · "
+                       f"QOLGAN {_money(p.budget_total - sarf)} so'm")
         keyingi = nav.items[nav.idx + 1] if nav.idx + 1 < n else None
-        matn += f"\n\n🔗 {nav.idx + 1}/{n}-bosqich."
+        satrlar.append("")
+        qadam = f"🔗 {nav.idx + 1}/{n}-bosqich."
         if keyingi:
             k_nom = keyingi.get("username", "—")
             k_rol = keyingi.get("rol") or ""
-            matn += (f" Ko'rib chiqib TASDIQLANG («O'qidim» tugmasi) — "
-                     f"navbat {k_nom}" + (f" ({k_rol})" if k_rol else "") + " ga o'tadi.")
+            qadam += (f" Jadvalni ochib TASDIQLANG — navbat {k_nom}"
+                      + (f" ({k_rol})" if k_rol else "") + " ga o'tadi.")
         else:
-            matn += " Siz OXIRGI bosqichsiz — tasdiqlashingiz bilan zanjir yakunlanadi."
+            qadam += " Siz OXIRGI bosqichsiz — tasdiqlashingiz bilan zanjir yakunlanadi."
+        satrlar.append(qadam)
         if jadval_link:
-            matn += f"\n\n📊 To'liq jadval (ranglar bilan): {jadval_link}"
+            satrlar.append("")
+            satrlar.append(f"📊 JADVALNI OCHISH (tasdiqlash shu yerda): {jadval_link}")
+        matn = "\n".join(satrlar)
         x, tg = _lj_xabar_yubor(matn, oluvchi, nav.created_by)
         nav.xabar = x
         nav.save(update_fields=["idx", "xabar"])
