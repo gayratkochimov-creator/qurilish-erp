@@ -10,6 +10,7 @@ urlpatterns = [
     path("obyekt/<int:pk>/limit-jadval/", views.limit_jadval, name="limit_jadval"),
     path("obyekt/<int:pk>/limit-jadval/yuborish/", views.limit_jadval_yuborish, name="limit_jadval_yuborish"),
     path("obyekt/<int:pk>/limit-jadval/tasdiq/", views.limit_navbat_tasdiq, name="limit_navbat_tasdiq"),
+    path("obyekt/<int:pk>/limit-jadval/qaytar/", views.limit_navbat_qaytar, name="limit_navbat_qaytar"),
     path("obyekt/<int:pk>/limit/qaytarish/", views.limit_return_pto, name="limit_return_pto"),
     path("obyekt/<int:pk>/limit/narx-yangilash/", views.limit_narx_yangilash, name="limit_narx_yangilash"),
     path("haftalik/<int:pk>/qaytarish/", views.weekly_return_pto, name="weekly_return_pto"),

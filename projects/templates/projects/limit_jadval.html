@@ -127,6 +127,17 @@
     <button type="submit" style="background:#26a269; color:#fff; border:none; border-radius:5px; padding:5px 16px; font-weight:700; font-size:12.5px; cursor:pointer;">✓ ТАСДИҚЛАШ (кўриб чиқдим)</button>
   </form>
   {% endif %}
+  {% if nav_info.orqaga_bor %}{% if nav_info.menda or nav_info.bekor_mumkin %}
+  <form method="post" action="{% url 'limit_navbat_qaytar' p.id %}" style="margin:0; display:flex; gap:5px; align-items:center;"
+        onsubmit="var s=this.querySelector('[name=sabab]'); if(!s.value.trim()){ alert('Қайтариш сабабини ёзинг.'); s.focus(); return false; } return confirm('Навбат танланган масъулга ҚАЙТАРИЛСИНМИ?');">
+    {% csrf_token %}
+    <select name="qadam" style="padding:3px 6px; border:1px solid #c8ccd0; border-radius:4px; font-size:12px;">
+      {% for s in nav_info.steps %}{% if s.holat == 'ok' %}<option value="{{ forloop.counter0 }}">{{ s.username }}{% if s.rol %} ({{ s.rol }}){% endif %}</option>{% endif %}{% endfor %}
+    </select>
+    <input type="text" name="sabab" placeholder="хато/сабаб..." style="padding:3px 8px; border:1px solid #c8ccd0; border-radius:4px; font-size:12px; width:150px;">
+    <button type="submit" class="del-btn" style="padding:3px 10px; background:#b45309;">↩ Қайтариш</button>
+  </form>
+  {% endif %}{% endif %}
   {% if nav_info.bekor_mumkin %}
   <form method="post" action="{% url 'limit_jadval_yuborish' p.id %}" style="margin:0;" onsubmit="return confirm('Занжир бекор қилинсинми?');">{% csrf_token %}
     <input type="hidden" name="mode" value="navbat_bekor">

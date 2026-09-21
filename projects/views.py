@@ -4711,7 +4711,8 @@ def limit_jadval(request, pk):
                     "bekor_mumkin": request.user == nav.created_by or is_admin(request.user),
                     # Navbat AYNAN shu foydalanuvchida — jadvalning o'zida tasdiqlaydi
                     "menda": nav.items[nav.idx].get("user_id") == request.user.pk,
-                    "xabar_id": nav.xabar_id}
+                    "xabar_id": nav.xabar_id,
+                    "orqaga_bor": nav.idx > 0}
     # JARAYON TARIXI — obyektga tegishli barcha zanjirlar hammaga ko'rinib turadi
     nav_tarix = []
     for nv in p.limit_navbatlar.exclude(status="active").order_by("-id")[:5]:
@@ -4938,8 +4939,9 @@ def _lj_xabar_yubor(matn, oluvchi, yubordi):
     return x, tg
 
 
-def _navbat_qadam(nav, jadval_link=""):
-    """Navbatning JORIY bosqichini yuboradi (nav.idx). (oluvchi, tg) qaytaradi."""
+def _navbat_qadam(nav, jadval_link="", qaytarish=""):
+    """Navbatning JORIY bosqichini yuboradi (nav.idx). (oluvchi, tg) qaytaradi.
+    qaytarish — bo'sh bo'lmasa, xabarga «orqaga qaytarildi» sababi qo'shiladi."""
     from django.contrib.auth import get_user_model
     U = get_user_model()
     n = len(nav.items)
@@ -4958,6 +4960,9 @@ def _navbat_qadam(nav, jadval_link=""):
                    f"{_tz.localtime():%d.%m.%Y %H:%M}"]
         if nav.izoh:
             satrlar.append(f"Izoh: {nav.izoh}")
+        if qaytarish:
+            satrlar.append("")
+            satrlar.append(f"↩ SIZGA ORQAGA QAYTARILDI — {qaytarish}")
         satrlar.append("")
         satrlar.append(f"JAMI: umumiy {_money(p.budget_total)} · "
                        f"bajarilgan {_money(sarf)} · "
@@ -5107,4 +5112,46 @@ def limit_navbat_tasdiq(request, pk):
     else:
         messages.success(request, f"Tasdiqladingiz ✓ — navbat {oluvchi.username} ga o'tdi"
                          + (" (Telegram ✓)" if tg else " (bot bog'lanmagan — saytda ko'radi)") + ".")
+    return redirect("limit_jadval", pk=pk)
+
+
+@login_required
+def limit_navbat_qaytar(request, pk):
+    """Zanjir jarayonida XATO topilsa — tanlangan OLDINGI mas'ulga qaytarish.
+    Huquq: navbati kelgan mas'ul, zanjirni boshlagan yoki admin. Sabab majburiy."""
+    from .models import LimitNavbat
+    p = get_object_or_404(Project, pk=pk)
+    _firma_yoki_403(request, p)
+    if request.method != "POST":
+        return redirect("limit_jadval", pk=pk)
+    nav = p.limit_navbatlar.filter(status="active").order_by("-id").first()
+    if nav is None or nav.idx >= len(nav.items):
+        messages.error(request, "Faol zanjir topilmadi.")
+        return redirect("limit_jadval", pk=pk)
+    ruxsat = (nav.items[nav.idx].get("user_id") == request.user.pk
+              or request.user == nav.created_by or is_admin(request.user))
+    if not ruxsat:
+        raise PermissionDenied("Qaytarishga huquq yo'q.")
+    sabab = " ".join((request.POST.get("sabab") or "").split())[:300]
+    if not sabab:
+        messages.error(request, "Qaytarish sababini yozing.")
+        return redirect("limit_jadval", pk=pk)
+    try:
+        qadam = int(request.POST.get("qadam"))
+    except (TypeError, ValueError):
+        qadam = -1
+    if not (0 <= qadam < nav.idx):
+        messages.error(request, "Qaytariladigan bosqichni tanlang.")
+        return redirect("limit_jadval", pk=pk)
+    nav.idx = qadam
+    _link = request.build_absolute_uri(reverse("limit_jadval", args=[p.pk]))
+    oluvchi, tg = _navbat_qadam(
+        nav, _link,
+        qaytarish=f"sabab: {sabab} (qaytardi: {request.user.username})")
+    if oluvchi is None:
+        messages.error(request, "Qaytarib bo'lmadi.")
+    else:
+        messages.info(request,
+            f"↩ Navbat {oluvchi.username} ga QAYTARILDI (sabab: {sabab})"
+            + (" · Telegram ✓" if tg else " · bot bog'lanmagan") + ".")
     return redirect("limit_jadval", pk=pk)
