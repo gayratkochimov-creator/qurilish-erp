@@ -857,6 +857,71 @@ def virtual_ofis(request):
     })
 
 
+def _hafta_jadval_guruhlar(w, lim_cache, fakt_cache):
+    """Bitta haftalik so'rov uchun limit-jadval ko'rinishi:
+    UMUMIY | BAJARILGAN | QOLGAN | shu hafta — bo'limlab, blok yakunlari bilan.
+    lim_cache/fakt_cache — loyiha bo'yicha keshlangan xaritalar (ko'p so'rovda tez)."""
+    pid = w.project_id
+    if pid not in lim_cache:
+        lk = {}
+        for li in w.project.limit_items.all():
+            k = _lj_key(li.name, li.bolim)
+            d = lk.setdefault(k, {"qty": Decimal("0"), "sum": Decimal("0"),
+                                  "price": li.unit_price})
+            d["qty"] += li.quantity
+            d["sum"] += li.total
+        lim_cache[pid] = lk
+        fk_ = {}
+        for fi in WeeklyRequestItem.objects.filter(request__project_id=pid,
+                                                   request__status="approved"):
+            k = _lj_key(fi.name, fi.bolim)
+            d = fk_.setdefault(k, {"qty": Decimal("0"), "sum": Decimal("0")})
+            d["qty"] += fi.quantity
+            d["sum"] += fi.total
+        fakt_cache[pid] = fk_
+    lk, fkm = lim_cache[pid], fakt_cache[pid]
+    kor, gr, tartib = set(), {}, []
+    u_j = f_j = w_j = Decimal("0")
+    for it in w.items.all():
+        k = _lj_key(it.name, it.bolim)
+        l = lk.get(k)
+        f = fkm.get(k, {"qty": Decimal("0"), "sum": Decimal("0")})
+        split = k in kor
+        kor.add(k)
+        kal = (it.bolim or "").strip()
+        if kal not in gr:
+            gr[kal] = {"bolim": kal, "rows": [], "u": Decimal("0"),
+                       "f": Decimal("0"), "w": Decimal("0")}
+            tartib.append(kal)
+        g = gr[kal]
+        row = {
+            "name": it.name, "izoh": it.note, "unit": it.unit or "—",
+            "split": split, "lim_bor": l is not None,
+            "u_qty": _qty(l["qty"]) if l and not split else "",
+            "u_price": _money(l["price"]) if l and not split else "",
+            "u_sum": _money(l["sum"]) if l and not split else "",
+            "f_qty": _qty(f["qty"]) if l and not split else "",
+            "f_sum": _money(f["sum"]) if l and not split else "",
+            "q_qty": _qty(l["qty"] - f["qty"]) if l and not split else "",
+            "q_sum": _money(l["sum"] - f["sum"]) if l and not split else "",
+            "w_qty": _qty(it.quantity), "w_price": _money(it.unit_price),
+            "w_sum": _money(it.total),
+        }
+        g["rows"].append(row)
+        u0 = l["sum"] if l and not split else Decimal("0")
+        f0 = f["sum"] if l and not split else Decimal("0")
+        g["u"] += u0; g["f"] += f0; g["w"] += it.total
+        u_j += u0; f_j += f0; w_j += it.total
+    groups = []
+    for kal in tartib:
+        g = gr[kal]
+        groups.append({"bolim": kal, "rows": g["rows"],
+                       "u_str": _money(g["u"]), "f_str": _money(g["f"]),
+                       "q_str": _money(g["u"] - g["f"]), "w_str": _money(g["w"])})
+    return {"groups": groups, "u_jami_str": _money(u_j), "f_jami_str": _money(f_j),
+            "q_jami_str": _money(u_j - f_j), "w_jami_str": _money(w_j)}
+
+
 @login_required
 def haftalik_tarix(request):
     """Tasdiqdan o'tgan (eski) haftalik limitlar tarixi — filtr bilan ko'rish."""
@@ -887,7 +952,8 @@ def haftalik_tarix(request):
 
     rows = []
     t_jami = Decimal("0")
-    for w in qs:
+    lim_cache, fakt_cache = {}, {}
+    for w in qs[:200]:
         s = {k: Decimal("0") for k in KINDS}
         cnt = 0
         for it in w.items.all():
@@ -896,6 +962,7 @@ def haftalik_tarix(request):
         jami = s["material"] + s["labor"] + s["machinery"] + s["other"]
         t_jami += jami
         rows.append({
+            "detal": _hafta_jadval_guruhlar(w, lim_cache, fakt_cache),
             "id": w.id, "obj": w.project,
             "firma": w.project.firma.name if w.project.firma_id else "—",
             "week_start": w.week_start, "week_end": w.week_end, "number": w.number,

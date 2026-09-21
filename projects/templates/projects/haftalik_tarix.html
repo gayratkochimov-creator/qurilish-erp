@@ -45,6 +45,11 @@
   .badge { display:inline-block; color:#fff; padding:3px 10px; border-radius:999px; font-size:11px; font-weight:700; }
   .lnk { color:var(--brand); font-weight:700; font-size:12px; }
   .empty { padding:50px 20px; text-align:center; color:#94a3b8; font-size:14px; line-height:1.7; }
+  /* Ochiladigan "ichi" jadvali — limit jadvali ko'rinishida, to'liq chiziqli */
+  .hjad { border-collapse:collapse; }
+  .hjad th, .hjad td { border:1px solid #c8ccd0; padding:4px 7px; font-size:12px; white-space:nowrap; text-align:center; text-transform:none; letter-spacing:0; }
+  .hjad td.num { text-align:right; font-variant-numeric:tabular-nums; }
+  .hjad tbody tr:hover { background:inherit; }
   @media print { .toolbar, .sidebar, .navbar { display:none !important; } .main { margin:0 !important; } }
   @media (max-width:900px){ .kpis{grid-template-columns:1fr;} }
 </style>
@@ -120,13 +125,79 @@
           <td>{{ r.week_start|date:"d.m.Y" }} — {{ r.week_end|date:"d.m.Y" }}</td>
           <td>{{ r.number|default:"—" }}</td>
           <td class="nm">{{ r.obj.code }} — {{ r.obj.name }}{% if r.note %}<div style="font-size:11.5px; color:var(--mut); font-weight:400; white-space:normal; margin-top:2px;">Izoh: {{ r.note }}</div>{% endif %}</td>
+          <td>{{ r.firma }}</td>
           <td style="white-space:nowrap;">{{ r.kiritdi }}<div style="font-size:11px; color:var(--mut); margin-top:2px;">{{ r.kiritilgan|date:"d.m.Y H:i" }}</div>{% if r.tasdiqladi %}<div style="font-size:11px; color:#107e3e; margin-top:2px;">Tasdiq: {{ r.tasdiqladi }}</div>{% endif %}</td>
           <td class="num">{{ r.mat_str }}</td>
           <td class="num">{{ r.lab_str }}</td>
           <td class="num">{{ r.mach_str }}</td>
           <td class="num"><b>{{ r.jami_str }}</b></td>
           <td>{% if r.is_approved %}<span class="badge" style="background:#15803d;">Tasdiqlangan</span>{% else %}<span class="badge" style="background:#94a3b8;">Qoralama</span>{% endif %}</td>
-          <td><a class="lnk" href="{% url 'project_detail' r.obj.id %}">ichi</a></td>
+          <td><button type="button" class="lnk detbtn" data-id="{{ r.id }}" style="border:none; background:none; cursor:pointer;">ichi ▾</button></td>
+        </tr>
+        <tr class="detrow" id="det-{{ r.id }}" style="display:none;">
+          <td colspan="11" style="background:#f8fafc; padding:10px 14px;">
+            <div style="overflow-x:auto;">
+            <table class="hjad" style="min-width:1150px; width:100%;">
+              <thead>
+                <tr>
+                  <th rowspan="2" style="background:#1a5fb4; color:#fff; width:26px;">№</th>
+                  <th rowspan="2" style="background:#1a5fb4; color:#fff; min-width:160px; text-align:left;">Иш тури</th>
+                  <th rowspan="2" style="background:#1a5fb4; color:#fff; min-width:110px; text-align:left;">Изоҳ</th>
+                  <th rowspan="2" style="background:#1a5fb4; color:#fff; width:44px;">Бирл.</th>
+                  <th colspan="3" style="background:#1a5fb4; color:#fff;">Умумий</th>
+                  <th colspan="2" style="background:#26a269; color:#fff;">Бажарилган</th>
+                  <th colspan="2" style="background:#e66100; color:#fff;">Қолган</th>
+                  <th colspan="3" style="background:#813d9c; color:#fff;">Шу ҳафта</th>
+                </tr>
+                <tr>
+                  <th style="background:#3584e4; color:#fff;">Объём</th><th style="background:#3584e4; color:#fff;">Нархи</th><th style="background:#3584e4; color:#fff;">Сумма</th>
+                  <th style="background:#33b579; color:#fff;">Объём</th><th style="background:#33b579; color:#fff;">Сумма</th>
+                  <th style="background:#f57900; color:#fff;">Объём</th><th style="background:#f57900; color:#fff;">Сумма</th>
+                  <th style="background:#9450ab; color:#fff;">Объём</th><th style="background:#9450ab; color:#fff;">Нархи</th><th style="background:#9450ab; color:#fff;">Сумма</th>
+                </tr>
+              </thead>
+              <tbody>
+              {% for g in r.detal.groups %}
+                <tr><td colspan="14" style="background:#fde8b0; font-weight:700;">{{ g.bolim|default:"Бўлимсиз қаторлар" }}</td></tr>
+                {% for it in g.rows %}
+                <tr {% if it.split %}style="background:#f3ecf8;"{% endif %}>
+                  <td style="text-align:center;">{% if it.split %}↳{% else %}{{ forloop.counter }}{% endif %}</td>
+                  <td style="text-align:left; white-space:normal;">{{ it.name }}{% if it.split %} <i style="font-size:10.5px; color:#5c2a73;">(янги нарх)</i>{% endif %}</td>
+                  <td style="text-align:left; white-space:normal; font-size:11.5px; color:#8a5a00;">{{ it.izoh }}</td>
+                  <td style="text-align:center;">{{ it.unit }}</td>
+                  {% if it.lim_bor and not it.split %}
+                  <td class="num">{{ it.u_qty }}</td><td class="num">{{ it.u_price }}</td><td class="num">{{ it.u_sum }}</td>
+                  <td class="num">{{ it.f_qty }}</td><td class="num">{{ it.f_sum }}</td>
+                  <td class="num">{{ it.q_qty }}</td><td class="num">{{ it.q_sum }}</td>
+                  {% else %}
+                  <td colspan="3" style="text-align:center; color:#c2c7cc;">{% if it.split %}—{% else %}лимитда йўқ{% endif %}</td>
+                  <td colspan="2" style="text-align:center; color:#c2c7cc;">—</td>
+                  <td colspan="2" style="text-align:center; color:#c2c7cc;">—</td>
+                  {% endif %}
+                  <td class="num" style="background:#faf7fd;">{{ it.w_qty }}</td>
+                  <td class="num" style="background:#faf7fd;">{{ it.w_price }}</td>
+                  <td class="num" style="background:#faf7fd; font-weight:600;">{{ it.w_sum }}</td>
+                </tr>
+                {% endfor %}
+                <tr style="background:#e8f0fe; font-weight:700;">
+                  <td colspan="6" style="text-align:right;">Блок якуни:</td>
+                  <td class="num">{{ g.u_str }}</td>
+                  <td></td><td class="num">{{ g.f_str }}</td>
+                  <td></td><td class="num">{{ g.q_str }}</td>
+                  <td></td><td></td><td class="num">{{ g.w_str }}</td>
+                </tr>
+              {% endfor %}
+                <tr style="background:#d1e7dd; font-weight:700;">
+                  <td colspan="6" style="text-align:right;">ЖАМИ:</td>
+                  <td class="num">{{ r.detal.u_jami_str }}</td>
+                  <td></td><td class="num">{{ r.detal.f_jami_str }}</td>
+                  <td></td><td class="num">{{ r.detal.q_jami_str }}</td>
+                  <td></td><td></td><td class="num">{{ r.detal.w_jami_str }}</td>
+                </tr>
+              </tbody>
+            </table>
+            </div>
+          </td>
         </tr>
         {% empty %}
         <tr><td colspan="11" class="empty">Tanlangan filtr bo'yicha haftalik limit topilmadi.</td></tr>
@@ -141,4 +212,15 @@
     </div>
   </div>
 </div>
+<script>
+document.querySelectorAll('.detbtn').forEach(function(b){
+  b.addEventListener('click', function(){
+    var d = document.getElementById('det-' + b.dataset.id);
+    if (!d) return;
+    var ochiq = d.style.display !== 'none';
+    d.style.display = ochiq ? 'none' : '';
+    b.textContent = ochiq ? 'ichi ▾' : 'yopish ▴';
+  });
+});
+</script>
 {% endblock %}
