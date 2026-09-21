@@ -1719,7 +1719,47 @@ def _tasdiqlar_data(status="dir", user=None):
                 "bolim": it.bolim, "masul": it.masul,
                 "holat": holat, "eski_str": eski_str,
                 "sana": it.created_at or r.created_at,
+                "_qty": it.quantity, "_price": it.unit_price, "_sum": it.total,
             })
+        # Limit jadvali ko'rinishi: TAKLIF (umumiy) | BAJARILGAN | QOLGAN, bo'limlab
+        lfakt = {}
+        for fi in WeeklyRequestItem.objects.filter(request__project=r.project,
+                                                   request__status="approved"):
+            k = _lj_key(fi.name, fi.bolim)
+            d = lfakt.setdefault(k, {"qty": Decimal("0"), "sum": Decimal("0")})
+            d["qty"] += fi.quantity
+            d["sum"] += fi.total
+        lkor = set()
+        for it_ in items:
+            k = _lj_key(it_["name"], it_["bolim"])
+            fk = lfakt.get(k, {"qty": Decimal("0"), "sum": Decimal("0")})
+            birinchi = k not in lkor
+            lkor.add(k)
+            it_["f_qty"] = _qty(fk["qty"]) if birinchi else ""
+            it_["f_sum"] = _money(fk["sum"]) if birinchi else ""
+            it_["q_qty"] = _qty(it_["_qty"] - (fk["qty"] if birinchi else Decimal("0")))
+            it_["q_sum"] = _money(it_["_sum"] - (fk["sum"] if birinchi else Decimal("0")))
+            it_["_f"] = fk["sum"] if birinchi else Decimal("0")
+        lgr, lgr_tartib = {}, []
+        for it_ in items:
+            kal = (it_["bolim"] or "").strip()
+            if kal not in lgr:
+                lgr[kal] = {"bolim": kal, "masul": it_["masul"], "rows": [],
+                            "u": Decimal("0"), "f": Decimal("0")}
+                lgr_tartib.append(kal)
+            g_ = lgr[kal]
+            if not g_["masul"] and it_["masul"]:
+                g_["masul"] = it_["masul"]
+            g_["rows"].append(it_)
+            g_["u"] += it_["_sum"]; g_["f"] += it_["_f"]
+        lgroups = []
+        lu_j = lf_j = Decimal("0")
+        for kal in lgr_tartib:
+            g_ = lgr[kal]
+            lu_j += g_["u"]; lf_j += g_["f"]
+            lgroups.append({"bolim": kal, "masul": g_["masul"], "rows": g_["rows"],
+                            "u_str": _money(g_["u"]), "f_str": _money(g_["f"]),
+                            "q_str": _money(g_["u"] - g_["f"])})
         lim_list.append({
             "obj": r,
             "old_str": _money(r.old_total), "new_str": _money(r.new_total),
@@ -1729,7 +1769,9 @@ def _tasdiqlar_data(status="dir", user=None):
                 ("Mashina chasti", _money(r.old_machinery), _money(r.new_machinery)),
                 ("Ko'zda tutilmagan", _money(r.old_other), _money(r.new_other)),
             ],
-            "items": items,
+            "items": items, "groups": lgroups,
+            "u_jami_str": _money(lu_j), "f_jami_str": _money(lf_j),
+            "q_jami_str": _money(lu_j - lf_j),
         })
     wreqs = WeeklyRequest.objects.filter(status=wk_status)
     if _proj_qs is not None:

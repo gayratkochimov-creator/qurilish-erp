@@ -6,21 +6,63 @@
     <div class="cats">
       {% for nom, old, new in r.cats %}<span class="catline"><span class="n">{{ nom }}:</span> <span class="v">{{ old }}</span><span class="arr">→</span><span class="v new">{{ new }}</span></span>{% endfor %}
     </div>
-    {% if r.items %}
-    <table class="pitems">
-      <thead><tr><th>Turi</th><th>Nomi</th><th>Birlik</th><th class="num">Miqdor</th><th class="num">Narxi</th><th class="num">Summa</th><th>Holat</th><th>Sana</th><th></th></tr></thead>
-      <tbody>{% for it in r.items %}<tr {% if it.holat == 'yangi' %}class="pi-newrow"{% elif it.holat == 'ozgargan' %}class="pi-chgrow"{% endif %}>
-        <td>{{ it.kind_disp }}</td>
-        <td>{% if it.bolim %}<span style="display:block; font-size:10.5px; color:#64748b; font-weight:700;">📁 {{ it.bolim }}{% if it.masul %} · {{ it.masul }}{% endif %}</span>{% endif %}{{ it.name }}{% if it.izoh %}<span class="pnote">✎ {{ it.izoh }}</span>{% endif %}</td>
-        <td>{{ it.unit }}</td>
-        <td class="num">{{ it.qty_str }}</td>
-        <td class="num">{{ it.price_str }}</td>
-        <td class="num">{{ it.sum_str }}</td>
-        <td>{% if it.holat == 'yangi' %}<span class="pi-chip new">YANGI</span>{% elif it.holat == 'ozgargan' %}<span class="pi-chip chg" title="{{ it.eski_str }}">O'ZGARGAN</span>{% else %}<span class="pi-chip old">—</span>{% endif %}</td>
-        <td class="pi-sana">{{ it.sana|date:"d.m.Y H:i" }}</td>
-        <td><form method="post" action="{% url 'limit_request_action' r.obj.id %}" onsubmit="return confirm('«{{ it.name|escapejs }}» qatori so\'rovdan o\'chirilsinmi?');"><input type="hidden" name="action" value="delitem"><input type="hidden" name="item_id" value="{{ it.id }}">{% csrf_token %}<button class="pi-del" title="Qatorni o'chirish">×</button></form></td>
-      </tr>{% endfor %}</tbody>
+    {% if r.groups %}
+    <div style="overflow-x:auto;">
+    <table class="pitems" style="min-width:1000px; border-collapse:separate; border-spacing:0;">
+      <thead>
+        <tr>
+          <th rowspan="2" style="background:#1a5fb4; color:#fff; width:26px;">№</th>
+          <th rowspan="2" style="background:#1a5fb4; color:#fff; min-width:170px;">Иш тури</th>
+          <th rowspan="2" style="background:#1a5fb4; color:#fff; width:44px;">Бирл.</th>
+          <th colspan="3" style="background:#1a5fb4; color:#fff; text-align:center;">Умумий (таклиф)</th>
+          <th colspan="2" style="background:#26a269; color:#fff; text-align:center;">Бажарилган</th>
+          <th colspan="2" style="background:#e66100; color:#fff; text-align:center;">Қолган</th>
+          <th rowspan="2" style="background:#5e5c64; color:#fff;">Ҳолат</th>
+          <th rowspan="2" style="background:#5e5c64; color:#fff; width:26px;"></th>
+        </tr>
+        <tr>
+          <th class="num" style="background:#3584e4; color:#fff;">Объём</th><th class="num" style="background:#3584e4; color:#fff;">Нархи</th><th class="num" style="background:#3584e4; color:#fff;">Сумма</th>
+          <th class="num" style="background:#33b579; color:#fff;">Объём</th><th class="num" style="background:#33b579; color:#fff;">Сумма</th>
+          <th class="num" style="background:#f57900; color:#fff;">Объём</th><th class="num" style="background:#f57900; color:#fff;">Сумма</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for g in r.groups %}
+        <tr><td colspan="12" style="background:#fde8b0; font-weight:700; padding:4px 8px;">{{ g.bolim|default:"Бўлимсиз қаторлар" }}{% if g.masul %} &nbsp;·&nbsp; Масъул: {{ g.masul }}{% endif %}</td></tr>
+        {% for it in g.rows %}
+        <tr {% if it.holat == 'yangi' %}class="pi-newrow"{% elif it.holat == 'ozgargan' %}class="pi-chgrow"{% endif %}>
+          <td style="text-align:center;">{{ forloop.counter }}</td>
+          <td>{{ it.name }}{% if it.izoh %}<span class="pnote">✎ {{ it.izoh }}</span>{% endif %}</td>
+          <td style="text-align:center;">{{ it.unit }}</td>
+          <td class="num">{{ it.qty_str }}</td>
+          <td class="num">{{ it.price_str }}</td>
+          <td class="num">{{ it.sum_str }}</td>
+          <td class="num">{{ it.f_qty }}</td>
+          <td class="num">{{ it.f_sum }}</td>
+          <td class="num">{{ it.q_qty }}</td>
+          <td class="num">{{ it.q_sum }}</td>
+          <td>{% if it.holat == 'yangi' %}<span class="pi-chip new">YANGI</span>{% elif it.holat == 'ozgargan' %}<span class="pi-chip chg" title="{{ it.eski_str }}">O'ZGARGAN</span><span style="display:block; font-size:10px; color:#64748b; margin-top:2px;">{{ it.eski_str }}</span>{% else %}<span class="pi-chip old">—</span>{% endif %}</td>
+          <td><form method="post" action="{% url 'limit_request_action' r.obj.id %}" onsubmit="return confirm('«{{ it.name|escapejs }}» qatori so\'rovdan o\'chirilsinmi?');"><input type="hidden" name="action" value="delitem"><input type="hidden" name="item_id" value="{{ it.id }}">{% csrf_token %}<button class="pi-del" title="Qatorni o'chirish">×</button></form></td>
+        </tr>
+        {% endfor %}
+        <tr style="background:#e8f0fe; font-weight:700;">
+          <td colspan="5" style="text-align:right; padding:4px 8px;">Блок якуни:</td>
+          <td class="num">{{ g.u_str }}</td>
+          <td></td><td class="num">{{ g.f_str }}</td>
+          <td></td><td class="num">{{ g.q_str }}</td>
+          <td></td><td></td>
+        </tr>
+      {% endfor %}
+        <tr style="background:#d1e7dd; font-weight:700; font-size:13px;">
+          <td colspan="5" style="text-align:right; padding:5px 8px;">ЖАМИ:</td>
+          <td class="num">{{ r.u_jami_str }}</td>
+          <td></td><td class="num">{{ r.f_jami_str }}</td>
+          <td></td><td class="num">{{ r.q_jami_str }}</td>
+          <td></td><td></td>
+        </tr>
+      </tbody>
     </table>
+    </div>
     {% endif %}
   </div>
   <div class="totbox">
