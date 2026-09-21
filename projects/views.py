@@ -4726,8 +4726,48 @@ def limit_jadval(request, pk):
         prof = getattr(u, "profile", None)
         rol = "Admin" if u.is_superuser else (prof.get_role_display() if prof and prof.role else "")
         zanjir_ro.append({"username": u.username, "rol": rol})
+    # UMUMIY LIMIT zanjir holati — sahifa tepasida doim ko'rinadi
+    from django.utils.timezone import localtime as _lt1
+
+    def _v(dt):
+        return f"{_lt1(dt):%d.%m %H:%M}" if dt else ""
+
+    lim_holat = None
+    lim_pend_obj = p.limit_requests.filter(status__in=LIM_JARAYON).order_by("-id").first()
+    if lim_pend_obj:
+        r0 = lim_pend_obj
+        steps = [{"nom": "ПТО киритди", "holat": "ok",
+                  "kim": r0.requested_by.username if r0.requested_by_id else "",
+                  "vaqt": _v(r0.created_at)}]
+        if r0.snab_by_id or r0.status == "snab":
+            steps.append({"nom": "Снабжение нархлади" if r0.snab_by_id else "СНАБЖЕНИЕ нархлашида",
+                          "holat": "ok" if r0.snab_by_id else "joriy",
+                          "kim": r0.snab_by.username if r0.snab_by_id else "",
+                          "vaqt": _v(r0.snab_at)})
+        if r0.pto2_by_id or r0.status == "pto2":
+            steps.append({"nom": "ПТО хулосаси" if r0.pto2_by_id else "ПТО хулосасида",
+                          "holat": "ok" if r0.pto2_by_id else "joriy",
+                          "kim": r0.pto2_by.username if r0.pto2_by_id else "",
+                          "vaqt": _v(r0.pto2_at)})
+        if r0.director_by_id or r0.status == "dir":
+            steps.append({"nom": "Директор" if r0.director_by_id else "ДИРЕКТОР тасдиғида",
+                          "holat": "ok" if r0.director_by_id else "joriy",
+                          "kim": r0.director_by.username if r0.director_by_id else "",
+                          "vaqt": _v(r0.director_at)})
+        steps.append({"nom": "АДМИН тасдиғида" if r0.status == "adm" else "Админ",
+                      "holat": "joriy" if r0.status == "adm" else "keyin",
+                      "kim": "", "vaqt": ""})
+        lim_holat = {"mode": "pending", "steps": steps}
+    else:
+        oxt = (p.limit_requests.filter(status="approved")
+               .order_by("-decided_at", "-id").first())
+        if oxt:
+            lim_holat = {"mode": "ok",
+                         "kim": oxt.decided_by.username if oxt.decided_by_id else "admin",
+                         "vaqt": _v(oxt.decided_at)}
     return render(request, "projects/limit_jadval.html", {
         "p": p, "guruhlar": guruhlar, "can_edit": can_edit,
+        "lim_holat": lim_holat,
         "nav_info": nav_info, "nav_tarix": nav_tarix, "zanjir_ro": zanjir_ro,
         "is_adm": is_admin(request.user),
         "lim_pending": p.limit_requests.filter(status__in=LIM_JARAYON).exists(),

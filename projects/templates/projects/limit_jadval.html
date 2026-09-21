@@ -78,6 +78,21 @@
 <div class="lj-sub">{% if can_edit %}Ҳафта ичида нарх ўзгарса: қатордаги <b>х</b> тугмасини босасиз → эски нархда сўралган объёмни ёзасиз → қолгани янги нархда алоҳида қатор бўлади. Ҳамма сумма автоматик. «Ҳафтани ёпиш» — сўров директор тасдиғига юборилади.{% if is_adm %} Админ сифатида Умумий объём/нархни ҳам шу ерда тўғрилайсиз.{% endif %}{% else %}Кўриш режими — ҳафталик устунини ПТО/админ тўлдиради.{% endif %}
 {% if is_adm and lim_pending %}<br><b style="color:#b45309;">⏳ Лимит ўзгартириш сўрови занжирда — у якунлангунча Умумий устуни тахрирланмайди.</b>{% endif %}</div>
 
+{% if lim_holat %}
+<div style="display:flex; border-radius:6px; padding:7px 12px; margin-bottom:8px; font-size:12.5px; align-items:center; gap:8px; flex-wrap:wrap; {% if lim_holat.mode == 'pending' %}background:#f5f3ff; border:1px solid #ddd6fe;{% else %}background:#f0fdf4; border:1px solid #bbf7d0;{% endif %}">
+  <b style="margin-right:4px;">УМУМИЙ ЛИМИТ ҳолати:</b>
+  {% if lim_holat.mode == 'pending' %}
+    {% for s in lim_holat.steps %}
+      {% if not forloop.first %}<span style="color:#9ca3af;">→</span>{% endif %}
+      {% if s.holat == 'ok' %}<span style="border-radius:999px; padding:2px 11px; font-weight:700; background:#dcfce7; color:#15803d; border:1px solid #86efac;">✓ {{ s.nom }}<span style="font-weight:400;">{% if s.kim %} — {{ s.kim }}{% endif %}{% if s.vaqt %} · {{ s.vaqt }}{% endif %}</span></span>
+      {% elif s.holat == 'joriy' %}<span style="border-radius:999px; padding:2px 11px; font-weight:700; background:#7c3aed; color:#fff; border:1px solid #7c3aed;">⏳ {{ s.nom }}<span style="font-weight:400;"> · кутилмоқда</span></span>
+      {% else %}<span style="border-radius:999px; padding:2px 11px; font-weight:700; background:#f1f5f9; color:#94a3b8; border:1px solid #e2e8f0;">{{ s.nom }}</span>{% endif %}
+    {% endfor %}
+  {% else %}
+    <span style="border-radius:999px; padding:2px 11px; font-weight:700; background:#dcfce7; color:#15803d; border:1px solid #86efac;">✓ Тасдиқланган<span style="font-weight:400;"> — {{ lim_holat.kim }}{% if lim_holat.vaqt %} · {{ lim_holat.vaqt }}{% endif %}</span></span>
+  {% endif %}
+</div>
+{% endif %}
 <div class="lj-tabs" id="ljTabs"></div>
 <div class="lj-bar">
   {% if can_edit %}
@@ -304,7 +319,11 @@
     var st = document.getElementById('wkStatus');
     if (st){
       if (!h){
-        st.style.display = 'none';
+        // + Янги ҳафта tabi — jarayon boshlanmagan
+        st.innerHTML = '<b style="margin-right:4px;">Ҳафталик ҳолати:</b>'+
+          '<span style="border-radius:999px; padding:2px 11px; font-weight:700; background:#fde68a; color:#92400e; border:1px solid #fbbf24;">✏️ Янги ҳафта — ҳали САҚЛАНМАГАН</span>'+
+          '<span style="color:#6b7280;">«Сақлаш» → қоралама бўлади · «Ҳафтани ёпиш» → Директор → Админ занжирига кетади</span>';
+        st.style.cssText = 'display:flex; border-radius:6px; padding:7px 12px; margin-bottom:8px; font-size:12.5px; align-items:center; gap:8px; flex-wrap:wrap; background:#fffbeb; border:1px solid #fde68a;';
       } else {
         function qadam(nom, holat, kim, vaqt){
           // holat: ok | joriy | keyin
@@ -317,7 +336,7 @@
                  (holat!=='keyin' ? '<span style="font-weight:400;">'+qoshimcha+(holat==='joriy'?' · кутилмоқда':'')+'</span>' : '')+'</span>';
         }
         var okra = '<span style="color:#9ca3af;">→</span>';
-        var html = '<b style="margin-right:4px;">Занжир ҳолати:</b>';
+        var html = '<b style="margin-right:4px;">Ҳафталик ҳолати:</b>';
         if (h.status === 'draft'){
           html += qadam('ПТО (қоралама)', 'joriy', h.kiritdi, h.kiritdi_at) + okra +
                   qadam('Директор', 'keyin') + okra + qadam('Админ', 'keyin');
