@@ -1744,7 +1744,23 @@ def _tasdiqlar_data(status="dir", user=None):
         limit_map = {}
         for li in w.project.limit_items.all():
             limit_map.setdefault((li.kind, (li.name or "").strip().lower()), li)
+        # Limit jadvali ustunlari uchun: (nom|bo'lim) -> umumiy / bajarilgan / qolgan
+        lim_key = {}
+        for li in w.project.limit_items.all():
+            k = _lj_key(li.name, li.bolim)
+            d = lim_key.setdefault(k, {"qty": Decimal("0"), "sum": Decimal("0"),
+                                       "price": li.unit_price})
+            d["qty"] += li.quantity
+            d["sum"] += li.total
+        fakt_key = {}
+        for fi in WeeklyRequestItem.objects.filter(request__project=w.project,
+                                                   request__status="approved"):
+            k = _lj_key(fi.name, fi.bolim)
+            d = fakt_key.setdefault(k, {"qty": Decimal("0"), "sum": Decimal("0")})
+            d["qty"] += fi.quantity
+            d["sum"] += fi.total
         witems = []
+        kor_key = set()
         narx_farq, narx_soni = Decimal("0"), 0   # so'rov bo'yicha narx farqi jami
         for it in w.items.all():
             li = limit_map.get((it.kind, (it.name or "").strip().lower()))
@@ -1763,6 +1779,11 @@ def _tasdiqlar_data(status="dir", user=None):
                             + (f" ({foiz_str})" if li.unit_price else ""))
             else:
                 holat, eski_str = "", ""
+            k = _lj_key(it.name, it.bolim)
+            lk = lim_key.get(k)
+            fk = fakt_key.get(k, {"qty": Decimal("0"), "sum": Decimal("0")})
+            split = k in kor_key            # bir xil nom+bo'lim 2-marta (narx bo'lingan)
+            kor_key.add(k)
             witems.append({
                 "id": it.id,
                 "kind_disp": it.get_kind_display(), "cls": LI_CLS.get(it.kind, "mat"),
@@ -1774,12 +1795,45 @@ def _tasdiqlar_data(status="dir", user=None):
                 "farq_str": farq_str, "foiz_str": foiz_str,
                 "limit_narx_str": _money(li.unit_price) if li is not None else "",
                 "sana": it.created_at or w.created_at,
+                # Limit jadvali ustunlari (split qatorda takrorlanmaydi)
+                "split": split, "lim_bor": lk is not None,
+                "u_qty": _qty(lk["qty"]) if lk and not split else "",
+                "u_price": _money(lk["price"]) if lk and not split else "",
+                "u_sum": _money(lk["sum"]) if lk and not split else "",
+                "f_qty": _qty(fk["qty"]) if lk and not split else "",
+                "f_sum": _money(fk["sum"]) if lk and not split else "",
+                "q_qty": _qty(lk["qty"] - fk["qty"]) if lk and not split else "",
+                "q_sum": _money(lk["sum"] - fk["sum"]) if lk and not split else "",
+                "_u": lk["sum"] if lk and not split else Decimal("0"),
+                "_f": fk["sum"] if lk and not split else Decimal("0"),
+                "_w": it.total,
             })
+        # Bo'limlarga guruhlash (birinchi uchragan tartibda) + blok yakunlari
+        wgr, wgr_tartib = {}, []
+        for r_ in witems:
+            kal = (r_["bolim"] or "").strip()
+            if kal not in wgr:
+                wgr[kal] = {"bolim": kal, "rows": [], "u": Decimal("0"),
+                            "f": Decimal("0"), "w": Decimal("0")}
+                wgr_tartib.append(kal)
+            g_ = wgr[kal]
+            g_["rows"].append(r_)
+            g_["u"] += r_["_u"]; g_["f"] += r_["_f"]; g_["w"] += r_["_w"]
+        wgroups = []
+        u_j = f_j = w_j = Decimal("0")
+        for kal in wgr_tartib:
+            g_ = wgr[kal]
+            u_j += g_["u"]; f_j += g_["f"]; w_j += g_["w"]
+            wgroups.append({"bolim": kal, "rows": g_["rows"],
+                            "u_str": _money(g_["u"]), "f_str": _money(g_["f"]),
+                            "q_str": _money(g_["u"] - g_["f"]), "w_str": _money(g_["w"])})
         wk_list.append({
             "obj": w,
             "jami_str": _money(sum((it.total for it in w.items.all()), Decimal("0.00"))),
             "soni": len(w.items.all()),
-            "items": witems,
+            "items": witems, "groups": wgroups,
+            "u_jami_str": _money(u_j), "f_jami_str": _money(f_j),
+            "q_jami_str": _money(u_j - f_j),
             # Direktor/admin tasdiqlashdan oldin narx farqini ko'rsin
             "narx_farq_str": _farq_str(narx_farq), "narx_farq_pos": narx_farq > 0,
             "narx_soni": narx_soni,
@@ -2396,8 +2450,15 @@ def weekly_action(request, pk):
                 req.status = "draft"
                 req.approved_by = None
                 req.approved_at = None
-                req.save(update_fields=["status", "approved_by", "approved_at"])
-                messages.info(request, "So'rov qoralamaga qaytarildi — limitga qaytdi.")
+                sabab = (request.POST.get("reject_note") or "").strip()
+                if sabab:
+                    req.reject_note = (f"ADMIN QAYTARDI (to'g'irlash uchun): {sabab}")[:500]
+                    req.pto_notified = True
+                    req.save(update_fields=["status", "approved_by", "approved_at",
+                                            "reject_note", "pto_notified"])
+                else:
+                    req.save(update_fields=["status", "approved_by", "approved_at"])
+                messages.info(request, "So'rov PTOga (qoralamaga) qaytarildi — to'g'irlab qayta yuboradi.")
         elif action == "delete":
             if not is_pto(request.user):
                 raise PermissionDenied("Faqat PTO.")
