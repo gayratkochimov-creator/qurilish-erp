@@ -46,7 +46,10 @@
   .lj input.tx { text-align:left; width:100%; min-width:90px; }
   .lj input.kichik { width:56px; text-align:center; }
   .lj select.ksel { font-size:11px; padding:2px; border:1px solid #c8ccd0; border-radius:4px; margin-top:2px; }
-  .split-btn { border:none; background:#813d9c; color:#fff; border-radius:4px; padding:1px 7px; cursor:pointer; font-size:11px; }
+  /* ✂ faqat qator ustiga kelganda ko'rinadi — jadval toza turadi */
+  .split-btn { border:1px solid #d3b8e0; background:#fff; color:#813d9c; border-radius:4px; padding:1px 7px; cursor:pointer; font-size:11px; opacity:0; transition:opacity .12s, background .12s; }
+  .lj tr:hover .split-btn { opacity:1; }
+  .split-btn:hover { background:#813d9c; color:#fff; }
   .del-btn { border:none; background:#c01c28; color:#fff; border-radius:4px; padding:1px 7px; cursor:pointer; font-size:11px; }
   .dim { color:#bbb; }
   .lj-modal-bg { display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:60; }
