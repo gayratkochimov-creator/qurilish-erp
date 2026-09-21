@@ -38,6 +38,12 @@
   .lj tr.subtotal td { background:#e8f0fe !important; font-weight:700; }
   .lj tr.grand td { background:#d1e7dd !important; font-weight:700; font-size:14px; position:sticky; bottom:0; z-index:2; }
   .lj tr.row-err td { background:#fbe4e6 !important; }
+  .lj tr.row-warn td { background:#fff7e0 !important; }
+  #ljWarn { margin-bottom:8px; display:none; border-radius:6px; overflow:hidden; }
+  #ljWarn.show { display:block; }
+  #ljWarn .hdr { background:#b45309; color:#fff; padding:5px 12px; font-weight:700; font-size:12.5px; }
+  #ljWarn ul { background:#fff; padding:6px 12px 6px 28px; font-size:12px; border:1px solid #f5d9a8; }
+  #ljWarn li { color:#b45309; }
   .lj tr.split td { background:#f3ecf8; }
   .lj tr.split td:nth-child(2) { padding-left:22px; font-style:italic; color:#5c2a73; }
   .lj tr.extra td { background:#fbfdf7; }
@@ -121,6 +127,7 @@
 {% endif %}
 <div id="ljOk">✔ Хато йўқ</div>
 <div id="ljErr"><div class="hdr" id="ljErrHdr"></div><ul id="ljErrList"></ul></div>
+<div id="ljWarn"><div class="hdr" id="ljWarnHdr"></div><ul id="ljWarnList"></ul></div>
 
 <datalist id="ljBolimList">{% for g in guruhlar %}{% if g.bolim %}<option value="{{ g.bolim }}"></option>{% endif %}{% endfor %}</datalist>
 
@@ -529,6 +536,7 @@
 
   function hisobla(){
     var errs = [];
+    var warns = [];
     var edit = tahrirmi();
     var gT=0,gF=0,gL=0,gW=0;
     var sT=0,sF=0,sL=0,sW=0;
@@ -544,17 +552,20 @@
         tr.querySelector('.c-lsum').textContent = fmt(vol*price-fs);
         sT+=vol*price; sF+=fs; sL+=vol*price-fs; sW+=w.s;
         gT+=vol*price; gF+=fs; gL+=vol*price-fs; gW+=w.s;
-        tr.classList.remove('row-err');
+        tr.classList.remove('row-err'); tr.classList.remove('row-warn');
         var rn = tr.querySelector('.rn'); rn.textContent = tr.dataset.n;
-        if (edit && IS_ADM && vol < fq - 0.001){
-          errs.push('"'+tr.dataset.name+'": умумий объём ('+fmt(vol)+') бажарилгандан ('+fmt(fq)+') кам бўлолмайди');
-          tr.classList.add('row-err'); rn.textContent = tr.dataset.n+' ⛔';
+        // Бажарилган умумийдан ортиқ (лимитдан ошиб бўлган) — ОГОҲЛАНТИРИШ,
+        // сақлашни бломайди: бу ЭСКИ тасдиқлар оқибати, янги сўров айби эмас
+        if (vol < fq - 0.001){
+          warns.push('"'+tr.dataset.name+'"'+(tr.dataset.bolim?(' ('+tr.dataset.bolim+')'):'')+': бажарилган ('+fmt(fq)+') умумийдан ('+fmt(vol)+') ортиқ — лимитдан '+fmt(fq-vol)+' '+tr.dataset.unit+' ошиб бўлган. Умумий объёмни тўғриланг ёки бажарилганни текширинг.');
+          tr.classList.add('row-warn');
+          rn.textContent = tr.dataset.n+' ⚠';
         }
         if (edit){
           var lq = vol-fq;
           var xatoBor = false;
-          if (w.q > lq + 0.001){
-            errs.push('"'+tr.dataset.name+'"'+(tr.dataset.bolim?(' ('+tr.dataset.bolim+')'):'')+': ҳафталик жами (бўлаклар билан) қолгандан ортиқ: '+fmt(w.q)+' > '+fmt(lq)+' '+tr.dataset.unit);
+          if (w.q > 0.0001 && w.q > lq + 0.001){
+            errs.push('"'+tr.dataset.name+'"'+(tr.dataset.bolim?(' ('+tr.dataset.bolim+')'):'')+': сўралган '+fmt(w.q)+' '+tr.dataset.unit+' — қолган '+fmt(lq)+' дан ортиқ');
             xatoBor = true;
           }
           var iq=tr.querySelector('.in-q'), ip=tr.querySelector('.in-p');
@@ -604,7 +615,17 @@
       document.getElementById('ljErrHdr').textContent = '⛔ '+errs.length+' та хато';
       errs.forEach(function(e){ var li=document.createElement('li'); li.textContent=e; list.appendChild(li); });
       panel.classList.add('show'); ok.classList.remove('show');
-    } else { panel.classList.remove('show'); if (edit) ok.classList.add('show'); else ok.classList.remove('show'); }
+    } else { panel.classList.remove('show'); if (edit && !warns.length) ok.classList.add('show'); else ok.classList.remove('show'); }
+    // Огоҳлантиришлар (сариқ) — сақлашни БЛОКЛАМАЙДИ
+    var wp = document.getElementById('ljWarn'), wl = document.getElementById('ljWarnList');
+    if (wp){
+      wl.innerHTML='';
+      if (warns.length){
+        document.getElementById('ljWarnHdr').textContent = '⚠ '+warns.length+' та огоҳлантириш (лимитдан ошиб бўлган)';
+        warns.forEach(function(e){ var li=document.createElement('li'); li.textContent=e; wl.appendChild(li); });
+        wp.classList.add('show');
+      } else wp.classList.remove('show');
+    }
     var sb = document.getElementById('sanaBox');
     if (sb) sb.style.display = edit ? 'flex' : 'none';
     ['btnSaqla','btnYopish','btnIsh'].forEach(function(id){

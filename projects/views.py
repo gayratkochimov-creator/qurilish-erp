@@ -4608,8 +4608,16 @@ def limit_jadval(request, pk):
             d["qty"] += it.quantity
             d["sum"] += it.total
 
-    # Limit qatorlari bo'lim guruhlari bilan
-    korilgan_fakt = set()
+    # Limit qatorlari bo'lim guruhlari bilan.
+    # Bir xil nom+bo'lim BIR NECHTA qatorda bo'lsa, fakt TAQSIMLANADI:
+    # har qator o'z limitigacha to'ladi, ortig'i keyingisiga; eng oxirgisiga
+    # qolgan hammasi (haqiqiy oshish ham shu yerda ko'rinadi).
+    dublikat_soni = {}
+    for li in p.limit_items.all():
+        k0 = _lj_key(li.name, li.bolim)
+        dublikat_soni[k0] = dublikat_soni.get(k0, 0) + 1
+    fakt_kalgan = {k0: {"qty": v["qty"], "sum": v["sum"]} for k0, v in fakt.items()}
+    korilgan_dubl = {}
     _g = {}
     for li in p.limit_items.all().order_by("id"):
         kal = (li.bolim or "").strip()
@@ -4619,14 +4627,26 @@ def limit_jadval(request, pk):
         if not g["masul"] and (li.masul or "").strip():
             g["masul"] = li.masul.strip()
         k = _lj_key(li.name, li.bolim)
-        f = fakt.get(k) if k not in korilgan_fakt else None
-        korilgan_fakt.add(k)
+        rem = fakt_kalgan.get(k)
+        korilgan_dubl[k] = korilgan_dubl.get(k, 0) + 1
+        oxirgi_dubl = korilgan_dubl[k] == dublikat_soni.get(k, 1)
+        f_qty = Decimal("0")
+        f_sum = Decimal("0")
+        if rem is not None and (rem["qty"] > 0 or rem["sum"] > 0):
+            if oxirgi_dubl:
+                f_qty, f_sum = rem["qty"], rem["sum"]          # qolgan hammasi
+            else:
+                f_qty = min(li.quantity, rem["qty"])
+                # summa — miqdorga proporsional (o'rtacha narxda)
+                f_sum = (rem["sum"] * f_qty / rem["qty"]).quantize(Decimal("0.01")) \
+                    if rem["qty"] else Decimal("0")
+            rem["qty"] -= f_qty
+            rem["sum"] -= f_sum
         g["rows"].append({
             "key": k, "name": li.name, "izoh": li.note or "", "unit": li.unit or "",
             "kind": li.kind, "bolim": kal,
             "vol": float(li.quantity), "price": float(li.unit_price),
-            "fakt_qty": float(f["qty"]) if f else 0.0,
-            "fakt_sum": float(f["sum"]) if f else 0.0,
+            "fakt_qty": float(f_qty), "fakt_sum": float(f_sum),
         })
     guruhlar = [g for kk, g in _g.items() if kk] + [g for kk, g in _g.items() if not kk]
     nr = 0
