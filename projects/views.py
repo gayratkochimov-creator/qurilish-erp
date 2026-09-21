@@ -3997,7 +3997,9 @@ def xabar_oqidim(request, pk):
             nav = LimitNavbat.objects.filter(status="active", xabar=x).first()
             if nav and nav.items[nav.idx].get("user_id") == request.user.pk:
                 nav.idx += 1
-                oluvchi, _tg = _navbat_qadam(nav)
+                _link = request.build_absolute_uri(
+                    reverse("limit_jadval", args=[nav.project_id]))
+                oluvchi, _tg = _navbat_qadam(nav, _link)
                 if oluvchi is None:
                     _navbat_yakunla(nav)
                     messages.success(request, "Siz oxirgi bosqich edingiz — zanjir yakunlandi ✓")
@@ -4706,7 +4708,10 @@ def limit_jadval(request, pk):
         nav_info = {"step": nav.idx + 1, "n": len(nav.items), "steps": steps,
                     "joriy": nav.items[nav.idx].get("username", "—"),
                     "boshladi": nav.created_by.username if nav.created_by else "—",
-                    "bekor_mumkin": request.user == nav.created_by or is_admin(request.user)}
+                    "bekor_mumkin": request.user == nav.created_by or is_admin(request.user),
+                    # Navbat AYNAN shu foydalanuvchida — jadvalning o'zida tasdiqlaydi
+                    "menda": nav.items[nav.idx].get("user_id") == request.user.pk,
+                    "xabar_id": nav.xabar_id}
     # JARAYON TARIXI — obyektga tegishli barcha zanjirlar hammaga ko'rinib turadi
     nav_tarix = []
     for nv in p.limit_navbatlar.exclude(status="active").order_by("-id")[:5]:
@@ -4933,7 +4938,7 @@ def _lj_xabar_yubor(matn, oluvchi, yubordi):
     return x, tg
 
 
-def _navbat_qadam(nav):
+def _navbat_qadam(nav, jadval_link=""):
     """Navbatning JORIY bosqichini yuboradi (nav.idx). (oluvchi, tg) qaytaradi."""
     from django.contrib.auth import get_user_model
     U = get_user_model()
@@ -4959,6 +4964,8 @@ def _navbat_qadam(nav):
                      f"navbat {k_nom}" + (f" ({k_rol})" if k_rol else "") + " ga o'tadi.")
         else:
             matn += " Siz OXIRGI bosqichsiz — tasdiqlashingiz bilan zanjir yakunlanadi."
+        if jadval_link:
+            matn += f"\n\n📊 To'liq jadval (ranglar bilan): {jadval_link}"
         x, tg = _lj_xabar_yubor(matn, oluvchi, nav.created_by)
         nav.xabar = x
         nav.save(update_fields=["idx", "xabar"])
@@ -5031,7 +5038,8 @@ def limit_jadval_yuborish(request, pk):
         from .models import LimitNavbat as _LN
         nav = _LN.objects.create(project=p, created_by=request.user,
                                  izoh=izoh, items=juftlar, idx=0)
-        oluvchi, tg = _navbat_qadam(nav)
+        _link = request.build_absolute_uri(reverse("limit_jadval", args=[p.pk]))
+        oluvchi, tg = _navbat_qadam(nav, _link)
         if oluvchi is None:
             nav.status = "bekor"
             nav.save(update_fields=["status"])

@@ -168,7 +168,7 @@
         <span style="font-size:18px; line-height:1;">{% if x.muhimlik == 'shoshilinch' %}🚨{% elif x.muhimlik == 'muhim' %}❗{% else %}📩{% endif %}</span>
         <div style="flex:1;">
           <div style="font-size:11.5px; opacity:.75; margin-bottom:2px;"><b>Admin xabari</b> — {{ x.yubordi.username|default:"admin" }} · {{ x.created_at|date:"d.m.Y H:i" }}</div>
-          <div style="white-space:pre-wrap; word-break:break-word;">{{ x.matn }}</div>
+          <div style="white-space:pre-wrap; word-break:break-word;">{{ x.matn|urlize }}</div>
         </div>
         <form method="post" action="{% url 'xabar_oqidim' x.id %}" style="margin:0;">{% csrf_token %}
           <button type="submit" style="background:#fff; border:1px solid currentColor; color:inherit; border-radius:8px; padding:6px 12px; font-size:12px; font-weight:700; cursor:pointer; white-space:nowrap;">✓ O'qidim</button>
