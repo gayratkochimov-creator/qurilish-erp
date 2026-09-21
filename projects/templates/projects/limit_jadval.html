@@ -1,4 +1,4 @@
-{% extends "base_site.html" %}
+﻿{% extends "base_site.html" %}
 {% load l10n %}
 {% block title %}Лимит жадвали — {{ p.code }}{% endblock %}
 {% block content %}
@@ -69,7 +69,7 @@
 {% if messages %}{% for m in messages %}<div class="msg {{ m.tags }}">{{ m }}</div>{% endfor %}{% endif %}
 
 <div class="lj-top"><h2>{{ p.name }} — ҳафталик лимит</h2></div>
-<div class="lj-sub">{% if can_edit %}Ҳафта ичида нарх ўзгарса: қатордаги ✂ тугмасини босасиз → эски нархда сўралган объёмни ёзасиз → қолгани янги нархда алоҳида қатор бўлади. Ҳамма сумма автоматик. «Ҳафтани ёпиш» — сўров директор тасдиғига юборилади.{% if is_adm %} Админ сифатида Умумий объём/нархни ҳам шу ерда тўғрилайсиз.{% endif %}{% else %}Кўриш режими — ҳафталик устунини ПТО/админ тўлдиради.{% endif %}
+<div class="lj-sub">{% if can_edit %}Ҳафта ичида нарх ўзгарса: қатордаги <b>х</b> тугмасини босасиз → эски нархда сўралган объёмни ёзасиз → қолгани янги нархда алоҳида қатор бўлади. Ҳамма сумма автоматик. «Ҳафтани ёпиш» — сўров директор тасдиғига юборилади.{% if is_adm %} Админ сифатида Умумий объём/нархни ҳам шу ерда тўғрилайсиз.{% endif %}{% else %}Кўриш режими — ҳафталик устунини ПТО/админ тўлдиради.{% endif %}
 {% if is_adm and lim_pending %}<br><b style="color:#b45309;">⏳ Лимит ўзгартириш сўрови занжирда — у якунлангунча Умумий устуни тахрирланмайди.</b>{% endif %}</div>
 
 <div class="lj-tabs" id="ljTabs"></div>
@@ -318,7 +318,7 @@
         wq.innerHTML = '<input class="wkin in-q" type="number" min="0" step="0.001" value="'+(q0||'')+'" placeholder="0">';
         wp.innerHTML = '<input class="wkin in-p" type="number" min="0" value="'+(p0||'')+'">';
         ws.textContent = fmt(q0*p0);
-        am.innerHTML = '<button type="button" class="split-btn" title="Нарх ўзгарди — қаторни бўлиш">✂</button>';
+        am.innerHTML = '<button type="button" class="split-btn" title="Нарх ўзгарди — қаторни бўлиш">х</button>';
         am.querySelector('.split-btn').onclick = function(){ ochModal(key); };
         iz.innerHTML = '<input class="wkin tx in-i" value="'+esc(m?m.izoh:'')+'" placeholder="'+esc(tr.dataset.izoh||'изоҳ')+'">';
         bolaklar[key] = items.slice(1).map(function(x){ return { qty:x.qty, price:x.price, izoh:x.izoh }; });
