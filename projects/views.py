@@ -4975,10 +4975,19 @@ def _navbat_qadam(nav, jadval_link=""):
         satrlar.append(qadam)
         if jadval_link:
             satrlar.append("")
-            satrlar.append(f"📊 JADVALNI OCHISH (tasdiqlash shu yerda): {jadval_link}")
+            satrlar.append(f"📊 JADVALNI OCHISH (tasdiqlash tugmasi shu yerda): {jadval_link}")
         matn = "\n".join(satrlar)
-        x, tg = _lj_xabar_yubor(matn, oluvchi, nav.created_by)
-        nav.xabar = x
+        # BANNER YO'Q — faqat Telegramga qisqa xabar; tasdiqlash JADVALDAGI tugmada
+        tg = False
+        try:
+            from .auth2fa import tg_send
+            prof = getattr(oluvchi, "profile", None)
+            chat = (getattr(prof, "telegram_chat_id", "") or "").strip() if prof else ""
+            if chat:
+                tg = bool(tg_send(chat, "❗ " + matn))
+        except Exception:
+            pass
+        nav.xabar = None
         nav.save(update_fields=["idx", "xabar"])
         return oluvchi, tg
     nav.status = "done"
@@ -4988,13 +4997,17 @@ def _navbat_qadam(nav, jadval_link=""):
 
 
 def _navbat_yakunla(nav):
-    """Zanjir tugadi — boshlagan odamga xabar."""
+    """Zanjir tugadi — boshlagan odamga faqat Telegram (banner yo'q)."""
     if nav.created_by is None:
         return
     matn = (f"✅ {nav.project.code} — limit ketma-ket yuborish zanjiri YAKUNLANDI: "
-            f"barcha {len(nav.items)} mas'ul o'qib chiqdi.")
+            f"barcha {len(nav.items)} mas'ul tasdiqladi.")
     try:
-        _lj_xabar_yubor(matn, nav.created_by, nav.created_by)
+        from .auth2fa import tg_send
+        prof = getattr(nav.created_by, "profile", None)
+        chat = (getattr(prof, "telegram_chat_id", "") or "").strip() if prof else ""
+        if chat:
+            tg_send(chat, matn)
     except Exception:
         pass
 
@@ -5066,4 +5079,32 @@ def limit_jadval_yuborish(request, pk):
 
     # Boshqa rejim yo'q — faqat ketma-ket zanjir
     messages.error(request, "Noma'lum yuborish tartibi.")
+    return redirect("limit_jadval", pk=pk)
+
+
+@login_required
+def limit_navbat_tasdiq(request, pk):
+    """KETMA-KET zanjirda navbati kelgan mas'ul JADVALDAN tasdiqlaydi —
+    navbat keyingi mas'ulga o'tadi (banner/xabar ishlatilmaydi)."""
+    from .models import LimitNavbat
+    p = get_object_or_404(Project, pk=pk)
+    _firma_yoki_403(request, p)
+    if request.method != "POST":
+        return redirect("limit_jadval", pk=pk)
+    nav = p.limit_navbatlar.filter(status="active").order_by("-id").first()
+    if nav is None or nav.idx >= len(nav.items):
+        messages.error(request, "Faol zanjir topilmadi.")
+        return redirect("limit_jadval", pk=pk)
+    if nav.items[nav.idx].get("user_id") != request.user.pk:
+        messages.error(request, "Hozir navbat sizda emas.")
+        return redirect("limit_jadval", pk=pk)
+    nav.idx += 1
+    _link = request.build_absolute_uri(reverse("limit_jadval", args=[p.pk]))
+    oluvchi, tg = _navbat_qadam(nav, _link)
+    if oluvchi is None:
+        _navbat_yakunla(nav)
+        messages.success(request, "Siz oxirgi bosqich edingiz — zanjir YAKUNLANDI ✓")
+    else:
+        messages.success(request, f"Tasdiqladingiz ✓ — navbat {oluvchi.username} ga o'tdi"
+                         + (" (Telegram ✓)" if tg else " (bot bog'lanmagan — saytda ko'radi)") + ".")
     return redirect("limit_jadval", pk=pk)

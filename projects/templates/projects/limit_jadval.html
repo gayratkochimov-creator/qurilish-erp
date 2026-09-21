@@ -120,8 +120,8 @@
     {% else %}<span style="color:#6b7280;">{{ s.username }}</span>{% endif %}
   {% endfor %}
   <span style="color:#6b7280;">· бошлади: {{ nav_info.boshladi }}</span>
-  {% if nav_info.menda and nav_info.xabar_id %}
-  <form method="post" action="{% url 'xabar_oqidim' nav_info.xabar_id %}" style="margin:0; margin-left:auto;"
+  {% if nav_info.menda %}
+  <form method="post" action="{% url 'limit_navbat_tasdiq' p.id %}" style="margin:0; margin-left:auto;"
         onsubmit="return confirm('Лимитни кўриб чиқдингизми? Тасдиқлагач навбат кейинги масъулга ўтади.');">
     {% csrf_token %}
     <button type="submit" style="background:#26a269; color:#fff; border:none; border-radius:5px; padding:5px 16px; font-weight:700; font-size:12.5px; cursor:pointer;">✓ ТАСДИҚЛАШ (кўриб чиқдим)</button>
