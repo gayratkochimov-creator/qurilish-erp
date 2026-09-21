@@ -248,7 +248,9 @@
 (function(){
   var HAFTA = JSON.parse(document.getElementById('haftaJson').textContent);
   var CAN_EDIT = {{ can_edit|yesno:"true,false" }};
-  var IS_ADM = {{ is_adm|yesno:"true,false" }} && !{{ lim_pending|yesno:"true,false" }};
+  var ADMIN_RAW = {{ is_adm|yesno:"true,false" }};
+  var IS_ADM = ADMIN_RAW && !{{ lim_pending|yesno:"true,false" }};
+  var QAYTAR_TMPL = "{% url 'weekly_return_pto' 123456789 %}";
   var DRAFT_ID = {{ draft_id|default:"null" }};
   var yangiBloklar = [];   // admin qo'shgan yangi limit bloklari (saqlanmagan)
   var STATUS_NOMI = { dir:"Директор тасдиғида", submitted:"Админ тасдиғида", approved:"Тасдиқланган", draft:"Қоралама" };
@@ -333,6 +335,14 @@
           html += qadam('ПТО юборди', 'ok', h.kiritdi, h.kiritdi_at) + okra +
                   (h.dir_by ? (qadam('Директор', 'ok', h.dir_by, h.dir_at) + okra) : '') +
                   qadam('ТАСДИҚЛАНДИ', 'ok', h.adm_by, h.adm_at);
+          if (ADMIN_RAW){
+            // Тасдиқдан кейин яна таҳрир керак бўлса — ПТОга қайтариш (Телеграм код билан)
+            html += '<a href="'+QAYTAR_TMPL.replace('123456789', h.id)+'" '+
+                    'style="margin-left:auto; background:#b45309; color:#fff; border-radius:5px; '+
+                    'padding:4px 12px; font-weight:700; text-decoration:none; font-size:12px;" '+
+                    'title="Сўров ПТО қораламасига қайтади — таҳрирлаб қайта юборади. Телеграм код сўралади.">'+
+                    '↩ ПТОга қайтариш</a>';
+          }
           st.style.cssText = 'display:flex; border-radius:6px; padding:7px 12px; margin-bottom:8px; font-size:12.5px; align-items:center; gap:8px; flex-wrap:wrap; background:#f0fdf4; border:1px solid #bbf7d0;';
         }
         st.innerHTML = html;
