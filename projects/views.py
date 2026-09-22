@@ -2044,6 +2044,38 @@ def limit_request_action(request, pk):
                 req.save(update_fields=["status", "pto2_by", "pto2_at"])
                 messages.success(request, f"«{req.project.name}» — PTO xulosasi bilan direktor tasdig'iga yuborildi.")
             return redirect(reverse("dashboard") + "?tab=tasdiqlar")
+        # ORQAGA YUBORISH: har bosqich egasi so'rovni OLDINGI (yuborgan) bosqichga
+        # tahrir/to'g'irlash uchun qaytaradi — sabab majburiy. Zanjir buzilmaydi,
+        # qaytarilgach o'sha user tahrirlab yana oldinga yuboradi.
+        if a == "orqaga":
+            sabab = " ".join((request.POST.get("sabab") or "").split())[:300]
+            target = request.POST.get("target") or ""
+            RUXSAT = {
+                # joriy status: (kim qaytara oladi, ruxsat etilgan targetlar)
+                S.PTO2: (lambda u: is_pto(u) or is_admin(u), {S.SNAB}),
+                S.DIR: (lambda u: (is_director(u) and not u.is_superuser)
+                        or is_asosiy_admin(u), {S.PTO2}),
+                S.ADM: (lambda u: is_admin(u), {S.DIR, S.PTO2}),
+            }
+            NOMI = {S.SNAB: "Snabjeniyega", S.PTO2: "PTOga", S.DIR: "Direktorga"}
+            if req.status not in RUXSAT:
+                messages.error(request, "Bu bosqichdan orqaga qaytarib bo'lmaydi.")
+            elif not RUXSAT[req.status][0](request.user):
+                raise PermissionDenied("Bu bosqichda qaytarish huquqi yo'q.")
+            elif target not in RUXSAT[req.status][1]:
+                messages.error(request, "Qaytariladigan bosqich noto'g'ri.")
+            elif not sabab:
+                messages.error(request, "Qaytarish sababini yozing.")
+            else:
+                req.status = target
+                req.decision_note = (f"↩ ORQAGA QAYTARILDI ({request.user.username}): "
+                                     f"{sabab}")[:500]
+                req.edited_by = request.user
+                req.edited_at = timezone.now()
+                req.save(update_fields=["status", "decision_note", "edited_by", "edited_at"])
+                messages.info(request, f"↩ So'rov {NOMI.get(target, target)} qaytarildi "
+                                       f"(sabab: {sabab}). U tahrirlab qayta yuboradi.")
+            return redirect(reverse("dashboard") + "?tab=tasdiqlar")
         # DIREKTOR bosqichi: dir → adm (yoki rad)
         if a == "dir_approve":
             # Haqiqiy direktor YOKI ASOSIY admin tasdiqlaydi (admin1/2 emas)
