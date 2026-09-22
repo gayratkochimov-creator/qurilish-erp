@@ -2201,12 +2201,21 @@ def limit_request_edit(request, pk):
         )
         return redirect(reverse("dashboard") + "?tab=tasdiqlar")
 
-    # GET — forma (taklif qatorlari bilan)
+    # GET — forma (taklif qatorlari bilan, bo'lim bo'yicha guruhlangan tartibda)
     items = [{
         "kind": it.kind, "name": it.name, "unit": it.unit,
         "quantity": it.quantity, "unit_price": it.unit_price, "note": it.note,
         "bolim": it.bolim, "masul": it.masul,
-    } for it in req.proposed_items.all()]
+    } for it in req.proposed_items.all().order_by("bolim", "id")]
+
+    # BAJARILGAN (tasdiqlangan haftaliklar) nom+bo'lim kesimida — jadvaldagi kabi
+    fakt = {}
+    for wi in WeeklyRequestItem.objects.filter(request__project=p,
+                                               request__status="approved"):
+        k = _lj_key(wi.name, wi.bolim)
+        d = fakt.setdefault(k, [0.0, 0.0])
+        d[0] += float(wi.quantity)
+        d[1] += float(wi.total)
 
     from ombor.models import Material
     unit_map = {}
@@ -2218,7 +2227,7 @@ def limit_request_edit(request, pk):
 
     return render(request, "projects/limit_request_edit.html", {
         "req": req, "p": p, "items": items,
-        "unit_map": unit_map, "mat_names": mat_names,
+        "unit_map": unit_map, "mat_names": mat_names, "fakt_map": fakt,
     })
 
 

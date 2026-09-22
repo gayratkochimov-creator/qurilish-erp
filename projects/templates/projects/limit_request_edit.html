@@ -12,23 +12,35 @@
   .card { background:var(--card); border:1px solid var(--line); border-radius:var(--r-card); padding:20px 22px; }
   .hd { font-size:16px; font-weight:800; margin-bottom:4px; }
   .sub { font-size:13px; color:var(--mut); margin-bottom:18px; }
-  /* YANGI LIMIT QOLIPI ko'rinishi — rangli sarlavha, to'liq chiziqli kataklar */
+  /* LIMIT JADVALI ko'rinishi: Umumiy | Bajarilgan | Qolgan guruh ustunlari */
   .twrap { overflow-x:auto; margin-bottom:12px; }
-  table { width:100%; border-collapse:separate; border-spacing:0; min-width:1150px; }
-  thead th { color:#fff; text-align:center; font-weight:600; font-size:12px; padding:6px 8px; border:1px solid #c8ccd0; position:sticky; z-index:3; }
-  thead tr:first-child th { top:0; background:#1a5fb4; }
-  thead tr.sub th { top:31px; background:#3584e4; font-size:11.5px; font-weight:500; }
+  table { width:100%; border-collapse:separate; border-spacing:0; min-width:1500px; }
+  thead th { color:#fff; text-align:center; font-weight:600; font-size:12px; padding:6px 8px; border:1px solid #c8ccd0; position:sticky; z-index:3; top:0; background:#1a5fb4; }
+  thead tr.sub th { top:31px; font-size:11.5px; font-weight:500; background:#3584e4; }
+  thead th.gg { background:#26a269; }
+  thead tr.sub th.sg { background:#33b579; }
+  thead th.go { background:#e66100; }
+  thead tr.sub th.so { background:#f57900; }
   thead th.g-amal { background:#5e5c64; }
   td { padding:4px 5px; border:1px solid #dbe1e8; background:#fff; }
   td.num { text-align:right; }
   tbody tr:hover td { background:#fafbff; }
+  td.ro { font-variant-numeric:tabular-nums; font-size:12.5px; color:#334155; }
+  td.fcell { background:#f6fef9; }
+  td.qcell { background:#fffaf5; }
+  tr.row-warn td { background:#fff7e0 !important; }
+  tr.row-warn .rowno::after { content:" ⚠"; color:#b45309; }
+  tr.grp td { background:#fde8b0 !important; font-weight:700; padding:4px 8px; font-size:12.5px; }
+  tr.grpsum td { background:#e8f0fe !important; font-weight:700; font-size:12.5px; }
   .addtable input, .addtable select, .addtable textarea { width:100%; padding:7px 9px; border:1px solid var(--line); border-radius:7px; font-size:13px; font-family:inherit; }
   .addtable textarea.growa { resize:none; overflow:hidden; line-height:1.35; min-height:33px; display:block; }
   .addtable input:focus, .addtable select:focus { outline:none; border-color:var(--brand); box-shadow:0 0 0 3px rgba(37,99,235,.14); }
   .addtable input[type=number] { text-align:right; }
   .rsum { font-weight:700; color:#334155; font-variant-numeric:tabular-nums; padding-right:8px; }
-  tfoot tr:first-child td { background:#e8f0fe; font-weight:700; font-size:12.5px; }
-  tfoot tr:last-child td { background:#d1e7dd; font-weight:800; }
+  tfoot td { font-variant-numeric:tabular-nums; }
+  tfoot tr.jami td { background:#d1e7dd; font-weight:800; font-size:13px; }
+  tfoot tr.toifa td { background:#e8f0fe; font-weight:700; font-size:12.5px; }
+  tfoot tr.grand td { background:#d1e7dd; font-weight:800; }
   tfoot #wg { font-size:15px; color:var(--ink); font-weight:800; }
   .delrow { background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; border-radius:7px; width:28px; height:28px; cursor:pointer; font-weight:700; }
   .delrow:hover { background:#fee2e2; }
@@ -50,7 +62,7 @@
 
   <div class="card">
     <div class="hd">Limit so'rovini tahrirlash — {{ p.code }} · {{ p.name }}</div>
-    <div class="sub">So'rovchi: {{ req.requested_by.username|default:"—" }} · {{ req.created_at|date:"d.m.Y H:i" }}{% if req.reason %} · «{{ req.reason }}»{% endif %}. Saqlangach Tasdiqlar sahifasida tasdiqlaysiz yoki rad etasiz.</div>
+    <div class="sub">So'rovchi: {{ req.requested_by.username|default:"—" }} · {{ req.created_at|date:"d.m.Y H:i" }}{% if req.reason %} · «{{ req.reason }}»{% endif %}. Bajarilgan/Qolgan ustunlari tasdiqlangan haftaliklardan avtomatik hisoblanadi. Saqlangach Tasdiqlar sahifasida tasdiqlaysiz yoki rad etasiz.</div>
 
     <form method="post" action="{% url 'limit_request_edit' req.id %}">
       {% csrf_token %}
@@ -59,19 +71,25 @@
         <thead>
           <tr>
             <th rowspan="2" style="width:32px;">№</th>
-            <th rowspan="2" style="width:120px;">Bo'lim</th>
-            <th rowspan="2" style="width:95px;">Mas'ul</th>
-            <th rowspan="2" style="width:130px;">Turi</th>
-            <th rowspan="2" style="width:230px;">Nomi</th>
+            <th rowspan="2" style="width:110px;">Bo'lim</th>
+            <th rowspan="2" style="width:90px;">Mas'ul</th>
+            <th rowspan="2" style="width:120px;">Turi</th>
+            <th rowspan="2" style="width:210px;">Nomi (ish turi)</th>
             <th rowspan="2">Izoh (primechaniye)</th>
             <th colspan="4">UMUMIY (taklif)</th>
+            <th colspan="2" class="gg">BAJARILGAN</th>
+            <th colspan="2" class="go">QOLGAN</th>
             <th rowspan="2" class="g-amal" style="width:36px;">Amal</th>
           </tr>
           <tr class="sub">
-            <th style="width:75px;">Birlik</th>
-            <th style="width:85px;">Miqdor</th>
-            <th style="width:105px;">Narxi</th>
-            <th style="width:115px;">Summa</th>
+            <th style="width:70px;">Birlik</th>
+            <th style="width:85px;">Obyom</th>
+            <th style="width:100px;">Narxi</th>
+            <th style="width:110px;">Summa</th>
+            <th class="sg" style="width:80px;">Obyom</th>
+            <th class="sg" style="width:105px;">Summa</th>
+            <th class="so" style="width:80px;">Obyom</th>
+            <th class="so" style="width:105px;">Summa</th>
           </tr>
         </thead>
         <tbody id="rows">
@@ -92,13 +110,24 @@
             <td class="num"><input type="number" name="quantity" class="numgrow" step="0.001" value="{{ it.quantity|unlocalize }}"></td>
             <td class="num"><input type="number" name="unit_price" class="numgrow" step="0.01" value="{{ it.unit_price|unlocalize }}"></td>
             <td class="num rsum">0</td>
+            <td class="num ro fcell fq">0</td>
+            <td class="num ro fcell fs">0</td>
+            <td class="num ro qcell qq">0</td>
+            <td class="num ro qcell qs">0</td>
             <td><button type="button" class="delrow" title="O'chirish">×</button></td>
           </tr>
           {% endfor %}
         </tbody>
         <tfoot>
-          <tr><td colspan="9" class="num">Toifa bo'yicha:</td><td colspan="2" id="wc" style="font-size:12px;">—</td></tr>
-          <tr><td colspan="9" class="num"><b>YANGI UMUMIY LIMIT:</b></td><td colspan="2"><b id="wg">0</b></td></tr>
+          <tr class="jami">
+            <td colspan="9" class="num">JAMI:</td>
+            <td class="num" id="jU">0</td>
+            <td></td><td class="num" id="jF">0</td>
+            <td></td><td class="num" id="jQ">0</td>
+            <td></td>
+          </tr>
+          <tr class="toifa"><td colspan="13" class="num">Toifa bo'yicha:</td><td colspan="2" id="wc" style="font-size:12px;">—</td></tr>
+          <tr class="grand"><td colspan="13" class="num"><b>YANGI UMUMIY LIMIT:</b></td><td colspan="2"><b id="wg">0</b></td></tr>
         </tfoot>
       </table>
       </div>
@@ -122,6 +151,10 @@
         <td class="num"><input type="number" name="quantity" class="numgrow" step="0.001" placeholder="0"></td>
         <td class="num"><input type="number" name="unit_price" class="numgrow" step="0.01" placeholder="0"></td>
         <td class="num rsum">0</td>
+        <td class="num ro fcell fq">0</td>
+        <td class="num ro fcell fs">0</td>
+        <td class="num ro qcell qq">0</td>
+        <td class="num ro qcell qs">0</td>
         <td><button type="button" class="delrow" title="O'chirish">×</button></td>
       </tr>
     </template>
@@ -129,13 +162,31 @@
 </div>
 
 {{ unit_map|json_script:"unitMap" }}
+{{ fakt_map|json_script:"faktMap" }}
 <datalist id="matnames">{% for n in mat_names %}<option value="{{ n }}"></option>{% endfor %}</datalist>
 <script>
 (function(){
   var tbody=document.getElementById('rows'), tpl=document.getElementById('rowtpl');
   var el=document.getElementById('unitMap'); var unitMap=el?JSON.parse(el.textContent):{};
+  var fe=document.getElementById('faktMap'); var FAKT=fe?JSON.parse(fe.textContent):{};
   var KIND_UNIT={labor:'kishi', machinery:'soat'}, STANDART=['kishi','soat'];
-  function fmt(n){ return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,' '); }
+  function fmt(n){ var m=n<0?'-':''; return m+Math.round(Math.abs(n)).toString().replace(/\B(?=(\d{3})+(?!\d))/g,' '); }
+  function fmtQ(n){
+    var v=Math.round(n*1000)/1000, m=v<0?'-':''; v=Math.abs(v);
+    var b=Math.floor(v), k=v-b, s=m+b.toString().replace(/\B(?=(\d{3})+(?!\d))/g,' ');
+    if(k>0.0004) s+=(''+Math.round(k*1000)/1000).slice(1);
+    return s;
+  }
+  function dataRows(){
+    return Array.prototype.filter.call(tbody.querySelectorAll('tr'), function(tr){
+      return !tr.classList.contains('grp') && !tr.classList.contains('grpsum');
+    });
+  }
+  function rowKey(tr){
+    var nm=(tr.querySelector('[name=name]').value||'').trim().toLowerCase();
+    var bl=(tr.querySelector('[name=item_bolim]').value||'').trim().toLowerCase();
+    return nm+'|'+bl;
+  }
   function autoUnit(tr){
     var k=tr.querySelector('[name=kind]'), u=tr.querySelector('[name=unit]'), nm=tr.querySelector('[name=name]');
     if(!k||!u||!nm) return;
@@ -150,30 +201,84 @@
     }
   }
   function recompute(){
+    var rows=dataRows();
+    // FAKT taqsimoti: bir xil nom+bo'lim bir necha qatorda bo'lsa, har qator
+    // o'z limitigacha to'ladi, qolgani (oshish ham) ENG OXIRGI qatorga tushadi.
+    var cnt={}, seen={}, rem={};
+    rows.forEach(function(tr){ var k=rowKey(tr); cnt[k]=(cnt[k]||0)+1; });
+    for(var k in cnt){ var f=FAKT[k]; rem[k]=f?{q:f[0], s:f[1]}:{q:0, s:0}; }
     var grand=0, cat={material:0,labor:0,machinery:0,other:0};
-    tbody.querySelectorAll('tr').forEach(function(tr){
+    var jU=0, jF=0, jQ=0;
+    rows.forEach(function(tr){
       var q=parseFloat(tr.querySelector('[name=quantity]').value)||0;
       var pr=parseFloat(tr.querySelector('[name=unit_price]').value)||0;
-      var s=q*pr; tr.querySelector('.rsum').textContent=fmt(s);
-      var k=tr.querySelector('[name=kind]').value; cat[k]=(cat[k]||0)+s; grand+=s;
+      var s=q*pr;
+      var k=rowKey(tr); seen[k]=(seen[k]||0)+1;
+      var oxirgi=seen[k]===cnt[k], R=rem[k], fq=0, fs=0;
+      if(R && (R.q>0.0000001 || R.s>0.001)){
+        if(oxirgi){ fq=R.q; fs=R.s; }
+        else { fq=Math.min(q, R.q); fs=R.q>0 ? R.s*fq/R.q : 0; }
+        R.q-=fq; R.s-=fs;
+      }
+      var qq=q-fq, qs=s-fs;
+      tr.querySelector('.rsum').textContent=fmt(s);
+      tr.querySelector('.fq').textContent=fmtQ(fq);
+      tr.querySelector('.fs').textContent=fmt(fs);
+      tr.querySelector('.qq').textContent=fmtQ(qq);
+      tr.querySelector('.qs').textContent=fmt(qs);
+      tr.classList.toggle('row-warn', qq<-0.0004);
+      tr._v={s:s, fs:fs, qs:qs};
+      var kd=tr.querySelector('[name=kind]').value; cat[kd]=(cat[kd]||0)+s; grand+=s;
+      jU+=s; jF+=fs; jQ+=qs;
     });
+    grpRebuild(rows);
+    document.getElementById('jU').textContent=fmt(jU);
+    document.getElementById('jF').textContent=fmt(jF);
+    document.getElementById('jQ').textContent=fmt(jQ);
     document.getElementById('wc').textContent='Material '+fmt(cat.material)+'  ·  Ish haqi '+fmt(cat.labor)+'  ·  Mashina '+fmt(cat.machinery)+'  ·  Ko\'zda tutilmagan '+fmt(cat.other);
     document.getElementById('wg').textContent=fmt(grand);
   }
+  // Bo'lim guruh sarlavhalari + "Blok yakuni" qatorlari (jadvaldagi kabi)
+  function grpRebuild(rows){
+    tbody.querySelectorAll('tr.grp, tr.grpsum').forEach(function(t){ t.remove(); });
+    if(!rows.length) return;
+    var groups=[], cur=null;
+    rows.forEach(function(tr){
+      var bl=(tr.querySelector('[name=item_bolim]').value||'').trim();
+      if(!cur || cur.bolim!==bl){ cur={bolim:bl, masul:'', rows:[], u:0, f:0, q:0}; groups.push(cur); }
+      if(!cur.masul){ var ms=(tr.querySelector('[name=item_masul]').value||'').trim(); if(ms) cur.masul=ms; }
+      var v=tr._v||{s:0,fs:0,qs:0};
+      cur.rows.push(tr); cur.u+=v.s; cur.f+=v.fs; cur.q+=v.qs;
+    });
+    groups.forEach(function(g){
+      var h=document.createElement('tr'); h.className='grp';
+      var td=document.createElement('td'); td.colSpan=15;
+      td.textContent=(g.bolim||"Bo'limsiz qatorlar")+(g.masul?'  ·  Mas\'ul: '+g.masul:'');
+      h.appendChild(td);
+      tbody.insertBefore(h, g.rows[0]);
+      var s=document.createElement('tr'); s.className='grpsum';
+      s.innerHTML='<td colspan="9" class="num">Blok yakuni:</td>'+
+        '<td class="num">'+fmt(g.u)+'</td><td></td>'+
+        '<td class="num">'+fmt(g.f)+'</td><td></td>'+
+        '<td class="num">'+fmt(g.q)+'</td><td></td>';
+      var oxirgi=g.rows[g.rows.length-1];
+      if(oxirgi.nextSibling) tbody.insertBefore(s, oxirgi.nextSibling); else tbody.appendChild(s);
+    });
+  }
   function addRow(){
     tbody.appendChild(tpl.content.cloneNode(true));
-    var rows=tbody.querySelectorAll('tr');
+    var yangi=tbody.lastElementChild, rows=dataRows();
     if(rows.length>1){
-      var oldi=rows[rows.length-2], yangi=rows[rows.length-1];
+      var oldi=rows[rows.length-2];
       ['item_bolim','item_masul'].forEach(function(n){
         var a=oldi.querySelector('[name='+n+']'), b=yangi.querySelector('[name='+n+']');
         if(a&&b&&a.value) b.value=a.value;
       });
     }
-    autoUnit(tbody.lastElementChild); recompute();
+    autoUnit(yangi); recompute();
   }
   document.getElementById('addrow').addEventListener('click', addRow);
-  tbody.addEventListener('click', function(e){ if(e.target.classList.contains('delrow')){ if(tbody.children.length>1) e.target.closest('tr').remove(); recompute(); } });
+  tbody.addEventListener('click', function(e){ if(e.target.classList.contains('delrow')){ if(dataRows().length>1) e.target.closest('tr').remove(); recompute(); } });
   function kengay(el){
     if(!el.offsetParent) return;
     if(el.name !== 'item_note'){
@@ -192,7 +297,7 @@
     tbody.querySelectorAll('input.txtgrow').forEach(function(el){ enKengay(el, 16, 44); });
     tbody.querySelectorAll('input.numgrow').forEach(function(el){ enKengay(el, 9, 20); });
     var i=1;
-    tbody.querySelectorAll('tr').forEach(function(tr){
+    dataRows().forEach(function(tr){
       var c=tr.querySelector('.rowno'); if(c) c.textContent=i++;
     });
   }
@@ -207,8 +312,8 @@
     if(e.target.matches('textarea.growa') && e.key==='Enter') e.preventDefault();
   });
   tbody.addEventListener('change', function(e){ if(e.target.matches('[name=kind],[name=name]')) autoUnit(e.target.closest('tr')); recompute(); });
-  tbody.querySelectorAll('tr').forEach(autoUnit);
-  if(tbody.children.length===0) addRow();
+  dataRows().forEach(autoUnit);
+  if(dataRows().length===0) addRow();
   recompute();
   hammaKengay();
   new MutationObserver(hammaKengay).observe(tbody, {childList:true});
