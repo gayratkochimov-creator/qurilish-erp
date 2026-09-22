@@ -4796,6 +4796,14 @@ def limit_jadval(request, pk):
                       "holat": "joriy" if r0.status == "adm" else "keyin",
                       "kim": "", "vaqt": ""})
         lim_holat = {"mode": "pending", "steps": steps}
+        # Zanjir davomida so'rovni KIM tahrirlay oladi (limit_request_edit bilan bir xil):
+        # admin — istalgan bosqichda, snab — o'z bosqichida, pto — pto2 bosqichida
+        from .roles import is_snab as _is_snab0
+        lim_holat["edit_id"] = r0.id if (
+            is_admin(request.user)
+            or (r0.status == "snab" and _is_snab0(request.user))
+            or (r0.status == "pto2" and is_pto(request.user))
+        ) else None
     else:
         oxt = (p.limit_requests.filter(status="approved")
                .order_by("-decided_at", "-id").first())

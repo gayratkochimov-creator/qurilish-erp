@@ -76,7 +76,7 @@
 
 <div class="lj-top"><h2>{{ p.name }} — ҳафталик лимит</h2></div>
 <div class="lj-sub">{% if can_edit %}Ҳафта ичида нарх ўзгарса: қатордаги <b>х</b> тугмасини босасиз → эски нархда сўралган объёмни ёзасиз → қолгани янги нархда алоҳида қатор бўлади. Ҳамма сумма автоматик. «Ҳафтани ёпиш» — сўров директор тасдиғига юборилади.{% if is_adm %} Админ сифатида Умумий объём/нархни ҳам шу ерда тўғрилайсиз.{% endif %}{% else %}Кўриш режими — ҳафталик устунини ПТО/админ тўлдиради.{% endif %}
-{% if is_adm and lim_pending %}<br><b style="color:#b45309;">⏳ Лимит ўзгартириш сўрови занжирда — у якунлангунча Умумий устуни тахрирланмайди.</b>{% endif %}</div>
+{% if lim_pending %}<br><b style="color:#b45309;">⏳ Лимит ўзгартириш сўрови занжирда — у якунлангунча Умумий устуни шу жадвалда қулфланади.{% if lim_holat.edit_id %} Тўғрилаш учун пастдаги «✎ Лимитни таҳрирлаш» тугмасидан фойдаланинг{% if is_adm %} ёки Тасдиқлар бўлимида орқага қайтаринг{% endif %}.{% endif %}</b>{% endif %}</div>
 
 {% if lim_holat %}
 <div style="display:flex; border-radius:6px; padding:7px 12px; margin-bottom:8px; font-size:12.5px; align-items:center; gap:8px; flex-wrap:wrap; {% if lim_holat.mode == 'pending' %}background:#f5f3ff; border:1px solid #ddd6fe;{% else %}background:#f0fdf4; border:1px solid #bbf7d0;{% endif %}">
@@ -88,6 +88,7 @@
       {% elif s.holat == 'joriy' %}<span style="border-radius:999px; padding:2px 11px; font-weight:700; background:#7c3aed; color:#fff; border:1px solid #7c3aed;">⏳ {{ s.nom }}<span style="font-weight:400;"> · кутилмоқда</span></span>
       {% else %}<span style="border-radius:999px; padding:2px 11px; font-weight:700; background:#f1f5f9; color:#94a3b8; border:1px solid #e2e8f0;">{{ s.nom }}</span>{% endif %}
     {% endfor %}
+    {% if lim_holat.edit_id %}<a href="{% url 'limit_request_edit' lim_holat.edit_id %}" style="margin-left:auto; border-radius:7px; padding:4px 14px; font-weight:700; background:#1a5fb4; color:#fff; text-decoration:none; white-space:nowrap;">✎ Лимитни таҳрирлаш</a>{% endif %}
   {% else %}
     <span style="border-radius:999px; padding:2px 11px; font-weight:700; background:#dcfce7; color:#15803d; border:1px solid #86efac;">✓ Тасдиқланган<span style="font-weight:400;"> — {{ lim_holat.kim }}{% if lim_holat.vaqt %} · {{ lim_holat.vaqt }}{% endif %}</span></span>
   {% endif %}
