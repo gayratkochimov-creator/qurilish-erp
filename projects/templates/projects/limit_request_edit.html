@@ -21,6 +21,8 @@
   thead tr.sub th.sg { background:#33b579; }
   thead th.go { background:#e66100; }
   thead tr.sub th.so { background:#f57900; }
+  thead th.gv { background:#813d9c; }
+  thead tr.sub th.sv { background:#a347ba; }
   thead th.g-amal { background:#5e5c64; }
   td { padding:4px 5px; border:1px solid #dbe1e8; background:#fff; }
   td.num { text-align:right; }
@@ -28,6 +30,7 @@
   td.ro { font-variant-numeric:tabular-nums; font-size:12.5px; color:#334155; }
   td.fcell { background:#f6fef9; }
   td.qcell { background:#fffaf5; }
+  td.wcell { background:#faf5ff; }
   tr.row-warn td { background:#fff7e0 !important; }
   tr.row-warn .rowno::after { content:" ⚠"; color:#b45309; }
   tr.grp td { background:#fde8b0 !important; font-weight:700; padding:4px 8px; font-size:12.5px; }
@@ -79,6 +82,7 @@
             <th colspan="4">UMUMIY (taklif)</th>
             <th colspan="2" class="gg">BAJARILGAN</th>
             <th colspan="2" class="go">QOLGAN</th>
+            {% if hafta_label %}<th colspan="2" class="gv">OXIRGI HAFTA ({{ hafta_label }})</th>{% endif %}
             <th rowspan="2" class="g-amal" style="width:36px;">Amal</th>
           </tr>
           <tr class="sub">
@@ -90,6 +94,8 @@
             <th class="sg" style="width:105px;">Summa</th>
             <th class="so" style="width:80px;">Obyom</th>
             <th class="so" style="width:105px;">Summa</th>
+            {% if hafta_label %}<th class="sv" style="width:80px;">Obyom</th>
+            <th class="sv" style="width:105px;">Summa</th>{% endif %}
           </tr>
         </thead>
         <tbody id="rows">
@@ -114,6 +120,8 @@
             <td class="num ro fcell fs">0</td>
             <td class="num ro qcell qq">0</td>
             <td class="num ro qcell qs">0</td>
+            {% if hafta_label %}<td class="num ro wcell wq"></td>
+            <td class="num ro wcell ws"></td>{% endif %}
             <td><button type="button" class="delrow" title="O'chirish">×</button></td>
           </tr>
           {% endfor %}
@@ -124,10 +132,11 @@
             <td class="num" id="jU">0</td>
             <td></td><td class="num" id="jF">0</td>
             <td></td><td class="num" id="jQ">0</td>
+            {% if hafta_label %}<td></td><td class="num" id="jW">0</td>{% endif %}
             <td></td>
           </tr>
-          <tr class="toifa"><td colspan="13" class="num">Toifa bo'yicha:</td><td colspan="2" id="wc" style="font-size:12px;">—</td></tr>
-          <tr class="grand"><td colspan="13" class="num"><b>YANGI UMUMIY LIMIT:</b></td><td colspan="2"><b id="wg">0</b></td></tr>
+          <tr class="toifa"><td colspan="{% if hafta_label %}15{% else %}13{% endif %}" class="num">Toifa bo'yicha:</td><td colspan="2" id="wc" style="font-size:12px;">—</td></tr>
+          <tr class="grand"><td colspan="{% if hafta_label %}15{% else %}13{% endif %}" class="num"><b>YANGI UMUMIY LIMIT:</b></td><td colspan="2"><b id="wg">0</b></td></tr>
         </tfoot>
       </table>
       </div>
@@ -155,6 +164,8 @@
         <td class="num ro fcell fs">0</td>
         <td class="num ro qcell qq">0</td>
         <td class="num ro qcell qs">0</td>
+        {% if hafta_label %}<td class="num ro wcell wq"></td>
+        <td class="num ro wcell ws"></td>{% endif %}
         <td><button type="button" class="delrow" title="O'chirish">×</button></td>
       </tr>
     </template>
@@ -163,12 +174,15 @@
 
 {{ unit_map|json_script:"unitMap" }}
 {{ fakt_map|json_script:"faktMap" }}
+{{ hafta_map|json_script:"haftaMap" }}
 <datalist id="matnames">{% for n in mat_names %}<option value="{{ n }}"></option>{% endfor %}</datalist>
 <script>
 (function(){
   var tbody=document.getElementById('rows'), tpl=document.getElementById('rowtpl');
   var el=document.getElementById('unitMap'); var unitMap=el?JSON.parse(el.textContent):{};
   var fe=document.getElementById('faktMap'); var FAKT=fe?JSON.parse(fe.textContent):{};
+  var HAFTA={{ hafta_label|yesno:"true,false" }} ? JSON.parse(document.getElementById('haftaMap').textContent) : null;
+  var COLS=HAFTA?17:15;
   var KIND_UNIT={labor:'kishi', machinery:'soat'}, STANDART=['kishi','soat'];
   function fmt(n){ var m=n<0?'-':''; return m+Math.round(Math.abs(n)).toString().replace(/\B(?=(\d{3})+(?!\d))/g,' '); }
   function fmtQ(n){
@@ -208,7 +222,7 @@
     rows.forEach(function(tr){ var k=rowKey(tr); cnt[k]=(cnt[k]||0)+1; });
     for(var k in cnt){ var f=FAKT[k]; rem[k]=f?{q:f[0], s:f[1]}:{q:0, s:0}; }
     var grand=0, cat={material:0,labor:0,machinery:0,other:0};
-    var jU=0, jF=0, jQ=0;
+    var jU=0, jF=0, jQ=0, jW=0;
     rows.forEach(function(tr){
       var q=parseFloat(tr.querySelector('[name=quantity]').value)||0;
       var pr=parseFloat(tr.querySelector('[name=unit_price]').value)||0;
@@ -227,14 +241,23 @@
       tr.querySelector('.qq').textContent=fmtQ(qq);
       tr.querySelector('.qs').textContent=fmt(qs);
       tr.classList.toggle('row-warn', qq<-0.0004);
-      tr._v={s:s, fs:fs, qs:qs};
+      var wq=0, ws=0;
+      if(HAFTA){
+        // hafta qiymati kalitning BIRINCHI qatorida ko'rsatiladi
+        var W=(seen[k]===1) ? HAFTA[k] : null;
+        if(W){ wq=W[0]; ws=W[1]; }
+        tr.querySelector('.wq').textContent=W?fmtQ(wq):'';
+        tr.querySelector('.ws').textContent=W?fmt(ws):'';
+      }
+      tr._v={s:s, fs:fs, qs:qs, ws:ws};
       var kd=tr.querySelector('[name=kind]').value; cat[kd]=(cat[kd]||0)+s; grand+=s;
-      jU+=s; jF+=fs; jQ+=qs;
+      jU+=s; jF+=fs; jQ+=qs; jW+=ws;
     });
     grpRebuild(rows);
     document.getElementById('jU').textContent=fmt(jU);
     document.getElementById('jF').textContent=fmt(jF);
     document.getElementById('jQ').textContent=fmt(jQ);
+    if(HAFTA) document.getElementById('jW').textContent=fmt(jW);
     document.getElementById('wc').textContent='Material '+fmt(cat.material)+'  ·  Ish haqi '+fmt(cat.labor)+'  ·  Mashina '+fmt(cat.machinery)+'  ·  Ko\'zda tutilmagan '+fmt(cat.other);
     document.getElementById('wg').textContent=fmt(grand);
   }
@@ -245,14 +268,14 @@
     var groups=[], cur=null;
     rows.forEach(function(tr){
       var bl=(tr.querySelector('[name=item_bolim]').value||'').trim();
-      if(!cur || cur.bolim!==bl){ cur={bolim:bl, masul:'', rows:[], u:0, f:0, q:0}; groups.push(cur); }
+      if(!cur || cur.bolim!==bl){ cur={bolim:bl, masul:'', rows:[], u:0, f:0, q:0, w:0}; groups.push(cur); }
       if(!cur.masul){ var ms=(tr.querySelector('[name=item_masul]').value||'').trim(); if(ms) cur.masul=ms; }
-      var v=tr._v||{s:0,fs:0,qs:0};
-      cur.rows.push(tr); cur.u+=v.s; cur.f+=v.fs; cur.q+=v.qs;
+      var v=tr._v||{s:0,fs:0,qs:0,ws:0};
+      cur.rows.push(tr); cur.u+=v.s; cur.f+=v.fs; cur.q+=v.qs; cur.w+=(v.ws||0);
     });
     groups.forEach(function(g){
       var h=document.createElement('tr'); h.className='grp';
-      var td=document.createElement('td'); td.colSpan=15;
+      var td=document.createElement('td'); td.colSpan=COLS;
       td.textContent=(g.bolim||"Bo'limsiz qatorlar")+(g.masul?'  ·  Mas\'ul: '+g.masul:'');
       h.appendChild(td);
       tbody.insertBefore(h, g.rows[0]);
@@ -260,7 +283,9 @@
       s.innerHTML='<td colspan="9" class="num">Blok yakuni:</td>'+
         '<td class="num">'+fmt(g.u)+'</td><td></td>'+
         '<td class="num">'+fmt(g.f)+'</td><td></td>'+
-        '<td class="num">'+fmt(g.q)+'</td><td></td>';
+        '<td class="num">'+fmt(g.q)+'</td>'+
+        (HAFTA?'<td></td><td class="num">'+fmt(g.w)+'</td>':'')+
+        '<td></td>';
       var oxirgi=g.rows[g.rows.length-1];
       if(oxirgi.nextSibling) tbody.insertBefore(s, oxirgi.nextSibling); else tbody.appendChild(s);
     });

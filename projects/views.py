@@ -2217,6 +2217,21 @@ def limit_request_edit(request, pk):
         d[0] += float(wi.quantity)
         d[1] += float(wi.total)
 
+    # OXIRGI HAFTA ustuni (o'qish uchun) — eng so'nggi haftalik so'rov
+    oxw = (WeeklyRequest.objects.filter(project=p)
+           .order_by("-week_start", "-id").first())
+    hafta_map, hafta_label = {}, ""
+    if oxw:
+        for wi in oxw.items.all():
+            k = _lj_key(wi.name, wi.bolim)
+            d = hafta_map.setdefault(k, [0.0, 0.0])
+            d[0] += float(wi.quantity)
+            d[1] += float(wi.total)
+        HOLAT = {"draft": "qoralama", "dir": "direktorda",
+                 "submitted": "adminda", "approved": "tasdiqlangan"}
+        hafta_label = (f"{oxw.week_start:%d.%m}-{oxw.week_end:%d.%m}"
+                       f" · {HOLAT.get(oxw.status, oxw.status)}")
+
     from ombor.models import Material
     unit_map = {}
     for m in Material.objects.all():
@@ -2228,6 +2243,7 @@ def limit_request_edit(request, pk):
     return render(request, "projects/limit_request_edit.html", {
         "req": req, "p": p, "items": items,
         "unit_map": unit_map, "mat_names": mat_names, "fakt_map": fakt,
+        "hafta_map": hafta_map, "hafta_label": hafta_label,
     })
 
 
