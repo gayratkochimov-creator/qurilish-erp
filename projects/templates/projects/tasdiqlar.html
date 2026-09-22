@@ -91,6 +91,9 @@
       <div class="totbox">
         <div class="l">So'rov summasi</div>
         <div class="new">{{ w.jami_str }}</div>
+        {% if w.narx_soni %}
+        <div style="margin-top:6px; font-size:12px; font-weight:700; color:{% if w.narx_farq_pos %}#b91c1c{% else %}#15803d{% endif %};" title="Limit narxiga nisbatan: (so'ralgan narx − limit narxi) × miqdor">Narx farqi: {{ w.narx_farq_str }}<span style="display:block; font-weight:500; color:#64748b;">{{ w.narx_soni }} qator narxi o'zgargan</span></div>
+        {% endif %}
       </div>
       <div class="acts">
         <form method="post" action="{% url 'weekly_action' w.obj.id %}"><input type="hidden" name="action" value="approve"><input type="hidden" name="next" value="tasdiqlar">{% csrf_token %}<button class="btn-ok">Tasdiqlash</button></form>
