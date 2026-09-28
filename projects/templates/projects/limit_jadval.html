@@ -50,6 +50,8 @@
   .lj input.wkin { width:88px; padding:3px 5px; border:1px solid #c8ccd0; border-radius:4px; text-align:right; font-size:12.5px; background:#fffde7; }
   .lj input.wkin:focus { outline:2px solid #1a5fb4; background:#fff; }
   .lj input.tx { text-align:left; width:100%; min-width:90px; }
+  .lj textarea.wkin { display:block; width:100%; min-width:90px; padding:3px 5px; border:1px solid #c8ccd0; border-radius:4px; text-align:left; font-size:12.5px; background:#fffde7; font-family:inherit; line-height:1.35; min-height:25px; resize:none; overflow:hidden; }
+  .lj textarea.wkin:focus { outline:2px solid #1a5fb4; background:#fff; }
   .lj input.kichik { width:56px; text-align:center; }
   .lj select.ksel { font-size:11px; padding:2px; border:1px solid #c8ccd0; border-radius:4px; margin-top:2px; }
   /* ✂ faqat qator ustiga kelganda ko'rinadi — jadval toza turadi */
@@ -324,6 +326,7 @@
   function fmt(n){ n = Math.round(n*100)/100; return n.toLocaleString('ru-RU'); }
   function pf(v){ var x = parseFloat(String(v).replace(/\s/g,'').replace(',','.')); return isNaN(x)?0:x; }
   function esc(s){ var d=document.createElement('div'); d.textContent=s==null?'':String(s); return d.innerHTML; }
+  function izohKengay(el){ if (!el || el.tagName!=='TEXTAREA') return; el.style.height='auto'; el.style.height=(el.scrollHeight+2)+'px'; }
   function haftaTop(id){ for(var i=0;i<HAFTA.length;i++) if('w'+HAFTA[i].id===id) return HAFTA[i]; return null; }
   function tahrirmi(){ var h=haftaTop(sel); return CAN_EDIT && (sel==='yangi' || (h && !h.locked)); }
   function ishRows(){ return Array.prototype.slice.call(document.querySelectorAll('#ljBody tr.ish')); }
@@ -446,7 +449,8 @@
         ws.textContent = fmt(q0*p0);
         am.innerHTML = '<button type="button" class="split-btn" title="Нарх ўзгарди — қаторни бўлиш">х</button>';
         am.querySelector('.split-btn').onclick = function(){ ochModal(key); };
-        iz.innerHTML = '<input class="wkin tx in-i" value="'+esc(m?m.izoh:'')+'" placeholder="'+esc(tr.dataset.izoh||'изоҳ')+'">';
+        iz.innerHTML = '<textarea class="wkin tx in-i" rows="1" placeholder="'+esc(tr.dataset.izoh||'изоҳ')+'">'+esc(m?m.izoh:'')+'</textarea>';
+        izohKengay(iz.querySelector('.in-i'));
         bolaklar[key] = items.slice(1).map(function(x){ return { qty:x.qty, price:x.price, izoh:x.izoh }; });
         chizBolaklar(tr, key, true);
       } else {
@@ -598,7 +602,7 @@
           '<td><input class="wkin tx ex-n" value="'+esc(x.name||'')+'" placeholder="иш номи...">'+
           '<input class="wkin tx ex-b" list="ljBolimList" value="'+esc(x.bolim||'')+'" placeholder="бўлим (ихтиёрий)" style="margin-top:2px;">'+
           '<select class="ksel ex-k"><option value="material">Материал</option><option value="labor">Иш ҳақи</option><option value="machinery">Машина части</option><option value="other">Кўзда тутилмаган</option></select></td>'+
-          '<td><input class="wkin tx ex-i" value="'+esc(x.izoh||'')+'" placeholder="изоҳ"></td>'+
+          '<td><textarea class="wkin tx ex-i" rows="1" placeholder="изоҳ">'+esc(x.izoh||'')+'</textarea></td>'+
           '<td class="ctr dim">—</td><td class="num dim">—</td><td class="num dim">—</td><td class="num dim">—</td>'+
           '<td class="num dim">—</td><td class="num dim">—</td><td class="num dim">—</td><td class="num dim">—</td>'+
           '<td class="ctr"><input class="wkin kichik ex-u" value="'+esc(x.unit||'')+'" placeholder="бирл."></td>'+
@@ -611,6 +615,7 @@
         [['ex-n','name'],['ex-b','bolim'],['ex-i','izoh'],['ex-u','unit'],['ex-q','qty'],['ex-p','price'],['ex-k','kind']].forEach(function(pr){
           var inp = r.querySelector('.'+pr[0]);
           inp.addEventListener('input', function(){
+            izohKengay(inp);
             var xx = extralar[+r.dataset.ei];
             xx[pr[1]] = (pr[1]==='qty'||pr[1]==='price') ? pf(inp.value) : inp.value;
             r.querySelector('.ex-s').textContent = fmt((xx.qty||0)*(xx.price||0));
@@ -637,14 +642,14 @@
           if (t && t.classList.contains('subtotal')) joy = t;
         }
       }
-      if (joy) joy.parentNode.insertBefore(r, joy);
+      if (joy){ joy.parentNode.insertBefore(r, joy); izohKengay(r.querySelector('.ex-i')); }
       else boshqalar.push(r);
     });
     if (boshqalar.length){
       var hr = document.createElement('tr'); hr.className='exhdr block';
       hr.innerHTML = '<td></td><td colspan="14">Лимитда йўқ ишлар (тасдиқлангач умумий лимит рўйхатига қўшилади)</td><td></td>';
       tb.appendChild(hr);
-      boshqalar.forEach(function(rr){ tb.appendChild(rr); });
+      boshqalar.forEach(function(rr){ tb.appendChild(rr); izohKengay(rr.querySelector('.ex-i')); });
     }
   }
   function ishQosh(bolim){
@@ -786,6 +791,7 @@
   }
 
   document.getElementById('ljBody').addEventListener('input', function(e){
+    if (e.target.classList.contains('in-i') || e.target.classList.contains('ex-i')) izohKengay(e.target);
     if (e.target.classList.contains('in-q') || e.target.classList.contains('in-p') ||
         e.target.classList.contains('lim-q') || e.target.classList.contains('lim-p')) hisobla();
   });
@@ -991,7 +997,7 @@
       var v=s.rows[k], iq=tr.querySelector('.in-q'), ip=tr.querySelector('.in-p'), ii=tr.querySelector('.in-i');
       if (iq && v.q!=='') iq.value=v.q;
       if (ip && v.p!=='') ip.value=v.p;
-      if (ii && v.i) ii.value=v.i;
+      if (ii && v.i){ ii.value=v.i; izohKengay(ii); }
     });
     Object.keys(s.lim||{}).forEach(function(k){
       var tr=document.querySelector('#ljBody tr.ish[data-key="'+CSS.escape(k)+'"]'); if(!tr) return;
