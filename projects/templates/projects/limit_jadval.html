@@ -109,6 +109,7 @@
   {% endif %}
   <button class="b-gray" id="btnHisobot">📊 Нарх тарихи ҳисоботи</button>
   <button class="b-gray" onclick="window.print()">Чоп этиш</button>
+  <button class="b-gray" id="btnExcel" title="Тўлиқ жадвални формулали Excel қилиб юклаб олиш">⬇ Эксел</button>
   <a href="{% url 'project_detail' p.id %}" class="b-gray" style="padding:6px 14px; border-radius:4px; color:#fff; font-size:12.5px; text-decoration:none;">⚙️ Обект саҳифаси</a>
 </div>
 {% if nav_info %}
@@ -285,6 +286,7 @@
   var ADMIN_RAW = {{ is_adm|yesno:"true,false" }};
   var IS_ADM = ADMIN_RAW && !{{ lim_pending|yesno:"true,false" }};
   var QAYTAR_TMPL = "{% url 'weekly_return_pto' 123456789 %}";
+  var EXPORT_URL = "{% url 'limit_jadval_export' p.pk %}";
   var DRAFT_ID = {{ draft_id|default:"null" }};
   var yangiBloklar = [];   // admin qo'shgan yangi limit bloklari (saqlanmagan)
   var STATUS_NOMI = { dir:"Директор тасдиғида", submitted:"Админ тасдиғида", approved:"Тасдиқланган", draft:"Қоралама" };
@@ -827,6 +829,13 @@
   if (bY) bY.onclick = function(){ yuborish('submit'); };
 
   // -------- 📊 НАРХ ТАРИХИ --------
+  document.getElementById('btnExcel').onclick = function(){
+    // Tanlangan hafta bilan birga yuklab olish ('yangi' — hali saqlanmagan, haftasiz)
+    var hid = '';
+    if (sel !== 'yangi') hid = sel.slice(1);
+    else if (DRAFT_ID !== null) hid = DRAFT_ID;
+    location.href = EXPORT_URL + (hid ? ('?hafta=' + hid) : '');
+  };
   document.getElementById('btnHisobot').onclick = function(){
     var rows = [];
     HAFTA.forEach(function(h){
