@@ -68,7 +68,27 @@
   .lj-modal .preview { margin-top:10px; font-size:12.5px; background:#eef6ee; border-radius:6px; padding:8px 10px; }
   .lj-modal .row2 { display:flex; gap:10px; margin-top:14px; justify-content:flex-end; }
   #hisobotWrap h3 { font-size:15px; margin:0 0 8px; }
-  @media print { .lj-tabs,.lj-bar,#ljOk,#ljErr,.split-btn,.del-btn { display:none !important; } .lj-wrap { max-height:none; box-shadow:none; } }
+  /* ЧОП ЭТИШ — Exceldagidek: фақат сарлавҳа + тоза жадвал, альбом, ранглар билан */
+  @media print {
+    @page { size: A4 landscape; margin: 7mm; }
+    .sidebar, header.navbar, .lj-sub, .lj-tabs, .lj-bar, .noprint,
+    #wkStatus, #ljOk, #ljErr, #ljWarn, #ljAuto, #hisobotWrap, .modal-bg, #ljModalBg,
+    .main > div[style*="fef3c7"] { display:none !important; }
+    body, .main, main.content { margin:0 !important; padding:0 !important; background:#fff !important; }
+    * { -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
+    .lj-wrap { max-height:none !important; overflow:visible !important; box-shadow:none !important; border-radius:0 !important; }
+    .lj-top h2 { font-size:15px; margin:0 0 6px; }
+    table.lj { min-width:0 !important; width:100% !important; font-size:8.5px !important; }
+    table.lj th, table.lj td { padding:2px 3px !important; font-size:8.5px !important; }
+    table.lj thead th { position:static !important; }
+    .lj input.wkin, .lj select.ksel, .lj textarea {
+      border:none !important; background:transparent !important; box-shadow:none !important;
+      padding:0 !important; font-size:8.5px !important; width:60px !important; appearance:none;
+    }
+    .split-btn, .del-btn { display:none !important; }
+    thead { display:table-header-group; }
+    tr { page-break-inside:avoid; }
+  }
 </style>
 
 <a class="hint" href="{% url 'project_detail' p.id %}" style="color:var(--brand); font-weight:600; display:inline-block; margin-bottom:10px;">&larr; {{ p.code }} — {{ p.name }}</a>
@@ -79,7 +99,7 @@
 {% if lim_pending %}<br><b style="color:#b45309;">⏳ Лимит ўзгартириш сўрови занжирда — у якунлангунча Умумий устуни шу жадвалда қулфланади.{% if lim_holat.edit_id %} Тўғрилаш учун пастдаги «✎ Лимитни таҳрирлаш» тугмасидан фойдаланинг{% if is_adm %} ёки Тасдиқлар бўлимида орқага қайтаринг{% endif %}.{% endif %}</b>{% endif %}</div>
 
 {% if lim_holat %}
-<div style="display:flex; border-radius:6px; padding:7px 12px; margin-bottom:8px; font-size:12.5px; align-items:center; gap:8px; flex-wrap:wrap; {% if lim_holat.mode == 'pending' %}background:#f5f3ff; border:1px solid #ddd6fe;{% else %}background:#f0fdf4; border:1px solid #bbf7d0;{% endif %}">
+<div class="noprint" style="display:flex; border-radius:6px; padding:7px 12px; margin-bottom:8px; font-size:12.5px; align-items:center; gap:8px; flex-wrap:wrap; {% if lim_holat.mode == 'pending' %}background:#f5f3ff; border:1px solid #ddd6fe;{% else %}background:#f0fdf4; border:1px solid #bbf7d0;{% endif %}">
   <b style="margin-right:4px;">УМУМИЙ ЛИМИТ ҳолати:</b>
   {% if lim_holat.mode == 'pending' %}
     {% for s in lim_holat.steps %}
@@ -117,7 +137,7 @@
   <button type="button" id="ljAutoClear" style="margin-left:8px; border:1px solid #fca5a5; background:#fef2f2; color:#b91c1c; border-radius:5px; padding:2px 10px; cursor:pointer; font-size:12px;">Тикланганни бекор қилиш</button>
 </div>
 {% if nav_info %}
-<div style="background:#f3ecf8; border:1px solid #d3b8e0; border-radius:6px; padding:7px 12px; margin-bottom:8px; font-size:12.5px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+<div class="noprint" style="background:#f3ecf8; border:1px solid #d3b8e0; border-radius:6px; padding:7px 12px; margin-bottom:8px; font-size:12.5px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
   <b>🔗 Кетма-кет юбориш кетмоқда</b> ({{ nav_info.step }}/{{ nav_info.n }}):
   {% for s in nav_info.steps %}
     {% if not forloop.first %}<span style="color:#9ca3af;">→</span>{% endif %}
@@ -153,7 +173,7 @@
 </div>
 {% endif %}
 {% if nav_tarix %}
-<div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:6px 12px; margin-bottom:8px; font-size:12px;">
+<div class="noprint" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:6px 12px; margin-bottom:8px; font-size:12px;">
   <b style="color:#475569;">Юбориш жараёни тарихи:</b>
   {% for t in nav_tarix %}
   <div style="padding:2px 0;">
