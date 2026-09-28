@@ -5246,6 +5246,10 @@ def limit_jadval_export(request, pk):
             vis_id = haftalar[-1].pk    # tanlanmagan bo'lsa — eng oxirgi hafta ochiq
     HOLAT = {"draft": "қоралама", "dir": "директорда",
              "submitted": "админда", "approved": "тасдиқланган"}
+    # Ustun tartibi: ҚОЛГАН ... [eski haftalar — YASHIRIN] ... [tanlangan hafta]
+    raqam = {w.pk: i + 1 for i, w in enumerate(haftalar)}   # xronologik raqam
+    haftalar = ([w for w in haftalar if w.pk != vis_id]
+                + [w for w in haftalar if w.pk == vis_id])
     hmaps = []
     for w in haftalar:
         m = {}
@@ -5347,7 +5351,7 @@ def limit_jadval_export(request, pk):
     ws.cell(h1, 10, "Қолган")
     for wi_, w in enumerate(haftalar):
         c0 = 12 + 4 * wi_
-        ws.cell(h1, c0, (f"{wi_+1}-ҳафта {w.week_start:%d.%m}-{w.week_end:%d.%m}"
+        ws.cell(h1, c0, (f"{raqam[w.pk]}-ҳафта {w.week_start:%d.%m}-{w.week_end:%d.%m}"
                          f" · {HOLAT.get(w.status, w.status)}"))
         for j, t in enumerate(("Бирл.", "Объём", "Нархи", "Сумма")):
             ws.cell(h2, c0 + j, t)
