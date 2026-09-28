@@ -5469,6 +5469,18 @@ def limit_jadval_export(request, pk):
         buf.getvalue(),
         content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
-    fn = f"limit_jadval_{p.code}.xlsx".replace(" ", "_")
-    resp["Content-Disposition"] = f'attachment; filename="{fn}"'
+    # Fayl nomi: Лимит_<obyekt nomi>_<hafta sanasi>.xlsx (kirillcha nom RFC 5987)
+    import re as _re
+    from urllib.parse import quote as _q
+    sana = ""
+    ox = hafta or (WeeklyRequest.objects.filter(project=p)
+                   .order_by("-week_start", "-id").first())
+    if ox:
+        sana = f"_{ox.week_start:%d.%m}-{ox.week_end:%d.%m.%Y}"
+    toza = _re.sub(r'[\\/:*?"<>|]+', " ", p.name)
+    toza = "_".join(toza.split())
+    fn = f"Лимит_{toza}{sana}.xlsx"
+    zaxira = f"limit_{p.code}{sana}.xlsx".replace(" ", "_")
+    resp["Content-Disposition"] = (
+        f'attachment; filename="{zaxira}"; ' + f"filename*=UTF-8''{_q(fn)}")
     return resp
