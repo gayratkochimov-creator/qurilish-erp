@@ -112,6 +112,10 @@
   <button class="b-gray" id="btnExcel" title="Тўлиқ жадвални формулали Excel қилиб юклаб олиш">⬇ Эксел</button>
   <a href="{% url 'project_detail' p.id %}" class="b-gray" style="padding:6px 14px; border-radius:4px; color:#fff; font-size:12.5px; text-decoration:none;">⚙️ Обект саҳифаси</a>
 </div>
+<div id="ljAuto" style="display:none; background:#ecfdf5; border:1px solid #6ee7b7; border-radius:6px; padding:7px 12px; margin-bottom:8px; font-size:12.5px;">
+  💾 Саҳифа ёпилиши (свет ўчиши)дан олдин ёзилган — <b class="t"></b> даги — САҚЛАНМАГАН ўзгаришлар қайта тикланди. Ишончли сақлаш учун «Сақлаш»ни босинг.
+  <button type="button" id="ljAutoClear" style="margin-left:8px; border:1px solid #fca5a5; background:#fef2f2; color:#b91c1c; border-radius:5px; padding:2px 10px; cursor:pointer; font-size:12px;">Тикланганни бекор қилиш</button>
+</div>
 {% if nav_info %}
 <div style="background:#f3ecf8; border:1px solid #d3b8e0; border-radius:6px; padding:7px 12px; margin-bottom:8px; font-size:12.5px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
   <b>🔗 Кетма-кет юбориш кетмоқда</b> ({{ nav_info.step }}/{{ nav_info.n }}):
@@ -312,14 +316,14 @@
       b.textContent = h.raqam+'-ҳафта ('+h.sana+') ' + belgi;
       b.title = STATUS_NOMI[h.status] || h.status;
       b.className = (h.locked?'closed ':'') + ('w'+h.id===sel?'active':'');
-      b.onclick = function(){ sel='w'+h.id; renderAll(); };
+      b.onclick = function(){ sel='w'+h.id; renderAll(); autoTikla(); };
       t.appendChild(b);
     });
     if (CAN_EDIT && DRAFT_ID===null){
       var b = document.createElement('button');
       b.textContent = '+ Янги ҳафта ✏️';
       b.className = (sel==='yangi'?'active':'');
-      b.onclick = function(){ sel='yangi'; renderAll(); };
+      b.onclick = function(){ sel='yangi'; renderAll(); autoTikla(); };
       t.appendChild(b);
     }
   }
@@ -724,6 +728,7 @@
     ['btnSaqla','btnYopish','btnIsh'].forEach(function(id){
       var b = document.getElementById(id); if (b) b.style.display = edit ? '' : 'none';
     });
+    autoSaqla();
   }
 
   document.getElementById('ljBody').addEventListener('input', function(e){
@@ -821,6 +826,7 @@
       week_start: document.getElementById('wkStart').value || (h?h.ws:''),
       week_end: document.getElementById('wkEnd').value || (h?h.we:'') };
     if (action==='submit' && !confirm('Ҳафта ёпилади — сўров директор тасдиғига юборилади. Давом этамизми?')) return;
+    try { localStorage.removeItem(autoKey()); } catch(e){}
     document.getElementById('ljPayload').value = JSON.stringify(payload);
     document.getElementById('ljForm').submit();
   }
@@ -871,6 +877,94 @@
     document.getElementById('jadvalWrap').style.display='';
   };
 
+  // -------- 💾 АВТОСАҚЛАШ: свет ўчса ҳам ёзилганлар йўқолмайди --------
+  var AUTO_PREF = 'ljauto_{{ p.pk }}_';
+  function autoKey(){ return AUTO_PREF + sel; }
+  function snapshotOl(){
+    var rows = {}, lim = {};
+    ishRows().forEach(function(tr){
+      var iq=tr.querySelector('.in-q'), ip=tr.querySelector('.in-p'), ii=tr.querySelector('.in-i');
+      if (iq && ((iq.value||'')!=='' || (ip&&(ip.value||'')!=='') || (ii&&ii.value)))
+        rows[tr.dataset.key] = { q:iq.value, p:ip?ip.value:'', i:ii?ii.value:'' };
+      var lq=tr.querySelector('.lim-q'), lp=tr.querySelector('.lim-p');
+      if (lq && (Math.abs(pf(lq.value)-pf(tr.dataset.vol))>0.0001 ||
+                 Math.abs(pf(lp.value)-pf(tr.dataset.price))>0.0001))
+        lim[tr.dataset.key] = { q:lq.value, p:lp.value };
+    });
+    return { t:Date.now(),
+      ws:(document.getElementById('wkStart')||{}).value||'',
+      we:(document.getElementById('wkEnd')||{}).value||'',
+      rows:rows, lim:lim, bolaklar:bolaklar, extralar:extralar, yangiBloklar:yangiBloklar };
+  }
+  var autoT = null;
+  function autoSaqla(){
+    if (!tahrirmi()) return;
+    clearTimeout(autoT);
+    autoT = setTimeout(function(){
+      try {
+        var s = snapshotOl();
+        var bolakBor = Object.keys(bolaklar).some(function(k){ return (bolaklar[k]||[]).length; });
+        var bosh = !Object.keys(s.rows).length && !Object.keys(s.lim).length &&
+                   !bolakBor && !extralar.length && !yangiBloklar.length;
+        if (bosh) localStorage.removeItem(autoKey());
+        else localStorage.setItem(autoKey(), JSON.stringify(s));
+      } catch(e){}
+    }, 600);
+  }
+  function autoTikla(){
+    if (!tahrirmi()) return;
+    var s = null;
+    try { s = JSON.parse(localStorage.getItem(autoKey())||'null'); } catch(e){}
+    if (!s || !s.rows) return;
+    bolaklar = s.bolaklar || {};
+    extralar = s.extralar || [];
+    yangiBloklar = s.yangiBloklar || [];
+    renderAll();
+    chizExtralar();
+    var wsI=document.getElementById('wkStart'), weI=document.getElementById('wkEnd');
+    if (wsI && s.ws) wsI.value=s.ws;
+    if (weI && s.we) weI.value=s.we;
+    Object.keys(s.rows).forEach(function(k){
+      var tr=document.querySelector('#ljBody tr.ish[data-key="'+CSS.escape(k)+'"]'); if(!tr) return;
+      var v=s.rows[k], iq=tr.querySelector('.in-q'), ip=tr.querySelector('.in-p'), ii=tr.querySelector('.in-i');
+      if (iq && v.q!=='') iq.value=v.q;
+      if (ip && v.p!=='') ip.value=v.p;
+      if (ii && v.i) ii.value=v.i;
+    });
+    Object.keys(s.lim||{}).forEach(function(k){
+      var tr=document.querySelector('#ljBody tr.ish[data-key="'+CSS.escape(k)+'"]'); if(!tr) return;
+      var lq=tr.querySelector('.lim-q'), lp=tr.querySelector('.lim-p');
+      if (lq) lq.value=s.lim[k].q;
+      if (lp) lp.value=s.lim[k].p;
+    });
+    hisobla();
+    var el = document.getElementById('ljAuto');
+    if (el){
+      el.style.display='block';
+      el.querySelector('.t').textContent = new Date(s.t).toLocaleString('ru-RU');
+    }
+  }
+  var acBtn = document.getElementById('ljAutoClear');
+  if (acBtn) acBtn.onclick = function(){
+    if (!confirm('Тикланган (сақланмаган) ўзгаришлар ўчирилади. Давом этамизми?')) return;
+    try { localStorage.removeItem(autoKey()); } catch(e){}
+    location.reload();
+  };
+  ['wkStart','wkEnd'].forEach(function(id){
+    var el = document.getElementById(id);
+    if (el) el.addEventListener('change', autoSaqla);
+  });
+  // Eski (14 kundan o'tgan) avtosaqlashlarni tozalash
+  try {
+    for (var ai = localStorage.length - 1; ai >= 0; ai--){
+      var kk = localStorage.key(ai);
+      if (kk && kk.indexOf('ljauto_') === 0){
+        var vv = JSON.parse(localStorage.getItem(kk)||'null');
+        if (!vv || !vv.t || (Date.now()-vv.t) > 14*24*3600*1000) localStorage.removeItem(kk);
+      }
+    }
+  } catch(e){}
+
   // -------- 📤 Масъулга юбориш --------
   var yBg = document.getElementById('yuborBg');
   if (yBg){
@@ -880,6 +974,7 @@
   }
 
   renderAll();
+  autoTikla();
 })();
 </script>
 {% endblock %}

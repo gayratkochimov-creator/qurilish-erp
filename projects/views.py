@@ -5236,18 +5236,26 @@ def limit_jadval_export(request, pk):
     from openpyxl.formatting.rule import FormulaRule
     from django.utils.timezone import localtime as _lt
 
-    # --- tanlangan hafta (ixtiyoriy, ?hafta=<id>) ---
-    hafta = None
+    # --- BARCHA haftalar (saytdagidek); tanlangani ochiq, qolganlari YASHIRIN ---
+    haftalar = list(WeeklyRequest.objects.filter(project=p)
+                    .order_by("week_start", "id"))
     hid = request.GET.get("hafta") or ""
-    if hid.isdigit():
-        hafta = WeeklyRequest.objects.filter(project=p, pk=int(hid)).first()
-    hmap = {}
-    if hafta:
-        for wi in hafta.items.all():
+    vis_id = int(hid) if hid.isdigit() else None
+    if haftalar:
+        if vis_id not in {w.pk for w in haftalar}:
+            vis_id = haftalar[-1].pk    # tanlanmagan bo'lsa — eng oxirgi hafta ochiq
+    HOLAT = {"draft": "қоралама", "dir": "директорда",
+             "submitted": "админда", "approved": "тасдиқланган"}
+    hmaps = []
+    for w in haftalar:
+        m = {}
+        for wi in w.items.all():
             k = _lj_key(wi.name, wi.bolim)
-            d = hmap.setdefault(k, [Decimal("0"), Decimal("0")])
+            d = m.setdefault(k, [Decimal("0"), Decimal("0")])
             d[0] += wi.quantity
             d[1] += wi.total
+        hmaps.append(m)
+    hafta = next((w for w in haftalar if w.pk == vis_id), None)
 
     # --- fakt (tasdiqlangan haftalar) + dublikatlarga taqsimot (sahifadagidek) ---
     fakt = {}
@@ -5318,13 +5326,14 @@ def limit_jadval_export(request, pk):
     blok_font = Font(name=AR, bold=True, size=11)
     tot_font = Font(name=AR, bold=True, size=10)
 
-    NCOL = 15 if hafta else 11
+    NCOL = 11 + 4 * len(haftalar)
 
     ws["A1"] = f"{p.code} — {p.name}"
     ws["A1"].font = Font(name=AR, bold=True, size=14)
     sub = "Ҳафталик лимит: УМУМИЙ · БАЖАРИЛГАН · ҚОЛГАН"
-    if hafta:
-        sub += f" · ҲАФТА {hafta.week_start:%d.%m}-{hafta.week_end:%d.%m}"
+    if haftalar:
+        sub += (f" · {len(haftalar)} ҳафта (эскилари яширин устунларда,"
+                " «+» билан очилади)")
     sub += f" · юкланди: {_lt().strftime('%d.%m.%Y %H:%M')}"
     ws["A2"] = sub
     ws["A2"].font = Font(name=AR, size=10, color="64748B")
@@ -5336,26 +5345,26 @@ def limit_jadval_export(request, pk):
     ws.cell(h1, 4, "Умумий")
     ws.cell(h1, 8, "Бажарилган")
     ws.cell(h1, 10, "Қолган")
-    if hafta:
-        ws.cell(h1, 12, f"Ҳафта ({hafta.week_start:%d.%m}-{hafta.week_end:%d.%m})")
+    for wi_, w in enumerate(haftalar):
+        c0 = 12 + 4 * wi_
+        ws.cell(h1, c0, (f"{wi_+1}-ҳафта {w.week_start:%d.%m}-{w.week_end:%d.%m}"
+                         f" · {HOLAT.get(w.status, w.status)}"))
+        for j, t in enumerate(("Бирл.", "Объём", "Нархи", "Сумма")):
+            ws.cell(h2, c0 + j, t)
+        ws.merge_cells(start_row=h1, start_column=c0, end_row=h1, end_column=c0 + 3)
     for j, t in enumerate(("Бирл.", "Объём", "Нархи", "Сумма")):
         ws.cell(h2, 4 + j, t)
     ws.cell(h2, 8, "Объём"); ws.cell(h2, 9, "Сумма")
     ws.cell(h2, 10, "Объём"); ws.cell(h2, 11, "Сумма")
-    if hafta:
-        for j, t in enumerate(("Бирл.", "Объём", "Нархи", "Сумма")):
-            ws.cell(h2, 12 + j, t)
     for cc in ("A", "B", "C"):
         ws.merge_cells(f"{cc}{h1}:{cc}{h2}")
     ws.merge_cells(f"D{h1}:G{h1}")
     ws.merge_cells(f"H{h1}:I{h1}")
     ws.merge_cells(f"J{h1}:K{h1}")
-    if hafta:
-        ws.merge_cells(f"L{h1}:O{h1}")
     GF = {**{c: (F_MAIN, F_MAIN2) for c in range(1, 8)},
           **{c: (F_DONE, F_DONE2) for c in (8, 9)},
           **{c: (F_LEFT, F_LEFT2) for c in (10, 11)},
-          **{c: (F_HAF, F_HAF2) for c in range(12, 16)}}
+          **{c: (F_HAF, F_HAF2) for c in range(12, NCOL + 1)}}
     for c in range(1, NCOL + 1):
         f1, f2 = GF[c]
         x = ws.cell(h1, c); x.fill = f1; x.font = hdr_font
@@ -5365,7 +5374,7 @@ def limit_jadval_export(request, pk):
 
     r = h2
     yakun_qatorlar = []
-    hafta_korildi = set()
+    hafta_korildi = [set() for _ in haftalar]
     for g in guruhlar.values():
         r += 1
         nom = g["bolim"] or "Бўлимсиз қаторлар"
@@ -5391,31 +5400,35 @@ def limit_jadval_export(request, pk):
             ws.cell(r, 9, float(it["f_sum"]))
             ws.cell(r, 10).value = f"=E{r}-H{r}"
             ws.cell(r, 11).value = f"=G{r}-I{r}"
-            if hafta:
-                ws.cell(r, 12).value = f"=D{r}"
-                hd = hmap.get(it["key"]) if it["key"] not in hafta_korildi else None
-                hafta_korildi.add(it["key"])
+            for wi_ in range(len(haftalar)):
+                c0 = 12 + 4 * wi_
+                ws.cell(r, c0).value = f"=D{r}"
+                hd = (hmaps[wi_].get(it["key"])
+                      if it["key"] not in hafta_korildi[wi_] else None)
+                hafta_korildi[wi_].add(it["key"])
                 if hd:
                     hq, hs = hd
-                    ws.cell(r, 13, float(hq))
+                    ws.cell(r, c0 + 1, float(hq))
                     narx = (hs / hq) if hq else Decimal("0")
-                    ws.cell(r, 14, float(narx))
-                ws.cell(r, 15).value = f"=M{r}*N{r}"
+                    ws.cell(r, c0 + 2, float(narx))
+                ws.cell(r, c0 + 3).value = f"={_L(c0+1)}{r}*{_L(c0+2)}{r}"
             for c in range(1, NCOL + 1):
                 cell = ws.cell(r, c)
                 cell.border = border
                 cell.font = Font(name=AR, size=10)
-                if c in (5, 8, 10, 13):
+                qism = (c - 12) % 4 if c >= 12 else None
+                if c in (5, 8, 10) or qism == 1:
                     cell.number_format = qtyf; cell.alignment = right
-                if c in (6, 7, 9, 11, 14, 15):
+                if c in (6, 7, 9, 11) or qism in (2, 3):
                     cell.number_format = money; cell.alignment = right
-                if c in (1, 4, 12):
+                if c in (1, 4) or qism == 0:
                     cell.alignment = Alignment(horizontal="center")
         # Blok yakuni
         r += 1
         ws.cell(r, 2, "Блок якуни:").font = tot_font
         ws.cell(r, 2).alignment = right
-        yak_cols = [(7, "G"), (9, "I"), (11, "K")] + ([(15, "O")] if hafta else [])
+        yak_cols = [(7, "G"), (9, "I"), (11, "K")] + \
+            [(15 + 4 * i, _L(15 + 4 * i)) for i in range(len(haftalar))]
         for c, harf in yak_cols:
             cell = ws.cell(r, c)
             cell.value = f"=SUM({harf}{boshi}:{harf}{r-1})"
@@ -5431,7 +5444,8 @@ def limit_jadval_export(request, pk):
     r += 1
     ws.cell(r, 2, "ЖАМИ:").font = Font(name=AR, bold=True, size=12)
     ws.cell(r, 2).alignment = right
-    jami_cols = [(7, "G"), (9, "I"), (11, "K")] + ([(15, "O")] if hafta else [])
+    jami_cols = [(7, "G"), (9, "I"), (11, "K")] + \
+        [(15 + 4 * i, _L(15 + 4 * i)) for i in range(len(haftalar))]
     for c, harf in jami_cols:
         cell = ws.cell(r, c)
         cell.value = ("=" + "+".join(f"{harf}{j}" for j in yakun_qatorlar)) \
@@ -5457,9 +5471,14 @@ def limit_jadval_export(request, pk):
                         fill=PatternFill("solid", bgColor="FBE4E6")))
 
     kengliklar = [5, 34, 22, 8, 10, 11, 14, 10, 14, 10, 14] + \
-        ([8, 10, 11, 14] if hafta else [])
+        [8, 10, 11, 14] * len(haftalar)
     for i, w_ in enumerate(kengliklar, start=1):
         ws.column_dimensions[_L(i)].width = w_
+    # Tanlangan haftadan boshqa haftalar YASHIRIN guruh (Excelda «+» bilan ochiladi)
+    for wi_, w in enumerate(haftalar):
+        if w.pk != vis_id:
+            c0 = 12 + 4 * wi_
+            ws.column_dimensions.group(_L(c0), _L(c0 + 3), hidden=True)
     ws.freeze_panes = f"D{h2+1}"
 
     import io as _io
