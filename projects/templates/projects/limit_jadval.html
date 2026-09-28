@@ -57,6 +57,8 @@
   .lj tr:hover .split-btn { opacity:1; }
   .split-btn:hover { background:#813d9c; color:#fff; }
   .del-btn { border:none; background:#c01c28; color:#fff; border-radius:4px; padding:1px 7px; cursor:pointer; font-size:11px; }
+  .blk-add { border:1px solid #86efac; background:#dcfce7; color:#15803d; border-radius:4px; padding:1px 9px; margin-left:8px; cursor:pointer; font-weight:700; font-size:11.5px; }
+  .blk-add:hover { background:#15803d; color:#fff; }
   .dim { color:#bbb; }
   .lj-modal-bg { display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:60; }
   .lj-modal-bg.show { display:flex; align-items:center; justify-content:center; }
@@ -216,7 +218,7 @@
     </td></tr>
   {% endif %}
   {% for g in guruhlar %}
-    <tr class="block"><td></td><td colspan="14">{{ g.bolim|default:"Бўлимсиз қаторлар" }}{% if g.masul %} &nbsp;·&nbsp; Масъул: {{ g.masul }}{% endif %}</td><td></td></tr>
+    <tr class="block" data-bolim="{{ g.bolim }}"><td></td><td colspan="14">{{ g.bolim|default:"Бўлимсиз қаторлар" }}{% if g.masul %} &nbsp;·&nbsp; Масъул: {{ g.masul }}{% endif %}{% if can_edit %} <button type="button" class="blk-add noprint" title="Шу бўлимга янги иш қўшиш (лимитда йўқ иш — тасдиқлангач рўйхатга қўшилади)">+ Иш</button>{% endif %}</td><td></td></tr>
     {% for r in g.rows %}
     <tr class="ish" data-key="{{ r.key }}" data-name="{{ r.name }}" data-bolim="{{ r.bolim }}"
         data-unit="{{ r.unit }}" data-kind="{{ r.kind }}" data-n="{{ forloop.counter }}"
@@ -336,14 +338,14 @@
       b.textContent = h.raqam+'-ҳафта ('+h.sana+') ' + belgi;
       b.title = STATUS_NOMI[h.status] || h.status;
       b.className = (h.locked?'closed ':'') + ('w'+h.id===sel?'active':'');
-      b.onclick = function(){ sel='w'+h.id; renderAll(); autoTikla(); };
+      b.onclick = function(){ sel='w'+h.id; renderAll(); chizExtralar(); autoTikla(); };
       t.appendChild(b);
     });
     if (CAN_EDIT && DRAFT_ID===null){
       var b = document.createElement('button');
       b.textContent = '+ Янги ҳафта ✏️';
       b.className = (sel==='yangi'?'active':'');
-      b.onclick = function(){ sel='yangi'; renderAll(); autoTikla(); };
+      b.onclick = function(){ sel='yangi'; renderAll(); chizExtralar(); autoTikla(); };
       t.appendChild(b);
     }
   }
@@ -581,13 +583,14 @@
   }
 
   // -------- Лимитда йўқ ишлар (+ Иш) --------
+  // Бўлими мавжуд блокка мос келса — қатор ШУ БЛОК ИЧИДА (якунидан олдин)
+  // кўринади, акс ҳолда пастдаги «Лимитда йўқ ишлар» бўлимида туради.
   function chizExtralar(){
-    var tb = document.getElementById('boshqaBody'); tb.innerHTML='';
+    document.querySelectorAll('#ljTbl tr.extra, #ljTbl tr.exhdr').forEach(function(x){ x.remove(); });
+    var tb = document.getElementById('boshqaBody');
     var edit = tahrirmi();
-    if (!extralar.length) return;
-    var hr = document.createElement('tr'); hr.className='block';
-    hr.innerHTML = '<td></td><td colspan="14">Лимитда йўқ ишлар (тасдиқлангач умумий лимит рўйхатига қўшилади)</td><td></td>';
-    tb.appendChild(hr);
+    if (!extralar.length){ hisobla(); return; }
+    var boshqalar = [];
     extralar.forEach(function(x, i){
       var r = document.createElement('tr'); r.className='extra'; r.dataset.ei = i;
       if (edit){
@@ -623,17 +626,41 @@
           '<td class="ctr">'+esc(x.unit)+'</td>'+
           '<td class="num">'+fmt(x.qty)+'</td><td class="num">'+fmt(x.price)+'</td><td class="num">'+fmt((x.qty||0)*(x.price||0))+'</td><td></td>';
       }
-      tb.appendChild(r);
+      // Mos blok ichiga (yakunidan oldin) joylashtirish
+      var joy = null;
+      var bnom = (x.bolim||'').trim();
+      if (bnom){
+        var blk = document.querySelector('#ljBody tr.block[data-bolim="'+CSS.escape(bnom)+'"]');
+        if (blk){
+          var t = blk.nextElementSibling;
+          while (t && !t.classList.contains('subtotal') && !t.classList.contains('block')) t = t.nextElementSibling;
+          if (t && t.classList.contains('subtotal')) joy = t;
+        }
+      }
+      if (joy) joy.parentNode.insertBefore(r, joy);
+      else boshqalar.push(r);
     });
+    if (boshqalar.length){
+      var hr = document.createElement('tr'); hr.className='exhdr block';
+      hr.innerHTML = '<td></td><td colspan="14">Лимитда йўқ ишлар (тасдиқлангач умумий лимит рўйхатига қўшилади)</td><td></td>';
+      tb.appendChild(hr);
+      boshqalar.forEach(function(rr){ tb.appendChild(rr); });
+    }
+  }
+  function ishQosh(bolim){
+    if (!tahrirmi()){ alert('🔒 Ёпилган ҳафтага иш қўшилмайди'); return; }
+    extralar.push({ name:'', bolim:bolim||'', unit:'', kind:'material', qty:0, price:0, izoh:'' });
+    chizExtralar();
+    var oxirgi = document.querySelector('tr.extra[data-ei="'+(extralar.length-1)+'"] .ex-n');
+    if (oxirgi) oxirgi.focus();
   }
   var bIsh = document.getElementById('btnIsh');
-  if (bIsh) bIsh.onclick = function(){
-    if (!tahrirmi()){ alert('🔒 Ёпилган ҳафтага иш қўшилмайди'); return; }
-    extralar.push({ name:'', bolim:'', unit:'', kind:'material', qty:0, price:0, izoh:'' });
-    chizExtralar();
-    var oxirgi = document.querySelector('#boshqaBody tr.extra:last-child .ex-n');
-    if (oxirgi) oxirgi.focus();
-  };
+  if (bIsh) bIsh.onclick = function(){ ishQosh(''); };
+  // Блок сарлавҳасидаги «+ Иш» — иш ШУ бўлимга қўшилади
+  document.getElementById('ljBody').addEventListener('click', function(e){
+    if (e.target.classList.contains('blk-add'))
+      ishQosh(e.target.closest('tr.block').dataset.bolim || '');
+  });
 
   // -------- ҲИСОБ + ХАТО --------
   function rowWeek(tr){
@@ -694,6 +721,12 @@
         }
         return;
       }
+      if (tr.classList.contains('extra')){
+        // blok ichiga qo'shilgan yangi ish — blok yakunining hafta summasiga kiradi
+        var xx = extralar[+tr.dataset.ei];
+        if (xx) sW += (xx.qty||0)*(xx.price||0);
+        return;
+      }
       if (tr.classList.contains('subtotal')){
         tr.querySelector('.s-total').textContent = fmt(sT);
         tr.querySelector('.s-fsum').textContent = fmt(sF);
@@ -713,7 +746,7 @@
     extralar.forEach(function(x, i){
       gW += (x.qty||0)*(x.price||0);
       if (edit){
-        var r = document.querySelector('#boshqaBody tr.extra[data-ei="'+i+'"]');
+        var r = document.querySelector('tr.extra[data-ei="'+i+'"]');
         if (r) r.classList.remove('row-err');
         var xb = false;
         if ((x.qty||0)>0 && !(x.name||'').trim()){ errs.push('Лимитда йўқ иш: номи ёзилмаган'); xb=true; }
@@ -748,6 +781,7 @@
     ['btnSaqla','btnYopish','btnIsh'].forEach(function(id){
       var b = document.getElementById(id); if (b) b.style.display = edit ? '' : 'none';
     });
+    document.querySelectorAll('.blk-add').forEach(function(b){ b.style.display = edit ? '' : 'none'; });
     autoSaqla();
   }
 
@@ -936,11 +970,19 @@
     var s = null;
     try { s = JSON.parse(localStorage.getItem(autoKey())||'null'); } catch(e){}
     if (!s || !s.rows) return;
-    bolaklar = s.bolaklar || {};
+    // MUHIM: renderAll o'zi extralar/bolaklarni joriy haftadan qayta o'rnatadi,
+    // shuning uchun snapshot AVVAL render, KEYIN ustiga qo'yiladi
+    renderAll();
     extralar = s.extralar || [];
     yangiBloklar = s.yangiBloklar || [];
-    renderAll();
+    Object.keys(s.bolaklar||{}).forEach(function(k){
+      if ((s.bolaklar[k]||[]).length) bolaklar[k] = s.bolaklar[k];
+    });
     chizExtralar();
+    chizYangiBloklar();
+    Object.keys(s.bolaklar||{}).forEach(function(k){
+      if ((s.bolaklar[k]||[]).length) redrawKey(k);
+    });
     var wsI=document.getElementById('wkStart'), weI=document.getElementById('wkEnd');
     if (wsI && s.ws) wsI.value=s.ws;
     if (weI && s.we) weI.value=s.we;
