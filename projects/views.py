@@ -4534,15 +4534,84 @@ def limit_jadval(request, pk):
             messages.error(request, xato)
             return redirect("limit_jadval", pk=pk)
 
-        # ---- ADMIN: Умумий ustunini shu jadvaldan tahrirlash + yangi blok/qator ----
+        # ---- Умумий ustunini SHU jadvaldan tahrirlash + yangi blok/qator ----
+        # Admin — to'g'ridan-to'g'ri qo'llanadi; PTO — snab→PTO→dir→admin
+        # zanjiriga LimitChangeRequest bo'lib ketadi (eski forma bilan bir xil).
         lim_edits = payload.get("limit_edits") or []
         lim_new = payload.get("limit_new") or []
         lim_ozgardi = False
-        if (lim_edits or lim_new) and is_admin(request.user):
+        if (lim_edits or lim_new) and (is_admin(request.user) or is_pto(request.user)):
             if p.limit_requests.filter(status__in=LIM_JARAYON).exists():
                 messages.error(request, "Limit o'zgartirish so'rovi zanjirda turibdi — "
                                         "avval u yakunlansin, keyin Умумийni tahrirlaysiz.")
                 return redirect("limit_jadval", pk=pk)
+        if (lim_edits or lim_new) and not is_admin(request.user) and is_pto(request.user):
+            # PTO: joriy tarkib + o'zgarishlar = TAKLIF -> tasdiqlash zanjiri
+            edits = {}
+            for e in lim_edits:
+                k = str(e.get("key") or "")
+                v = _to_dec(str(e.get("vol") or ""))
+                pr = _to_dec(str(e.get("price") or ""))
+                if v is not None and pr is not None and v >= 0 and pr >= 0:
+                    edits[k] = (v, pr)
+            dubl_soni = {}
+            for li in p.limit_items.all():
+                k0 = _lj_key(li.name, li.bolim)
+                dubl_soni[k0] = dubl_soni.get(k0, 0) + 1
+            t_items, t_sums = [], {k: Decimal("0") for k in KINDS}
+            ozgardi_soni = 0
+            for li in p.limit_items.all().order_by("id"):
+                k = _lj_key(li.name, li.bolim)
+                q, pr = li.quantity, li.unit_price
+                if k in edits:
+                    if dubl_soni.get(k, 1) == 1:
+                        if edits[k] != (q, pr):
+                            ozgardi_soni += 1
+                        q, pr = edits[k]
+                    else:
+                        messages.warning(request, f"«{li.name}»: bir xil nom+bo'lim bir "
+                                                  "nechta qatorda — bu qator o'zgartirilmadi.")
+                t_items.append({"kind": li.kind, "name": li.name, "unit": li.unit,
+                                "quantity": q, "unit_price": pr, "note": li.note,
+                                "bolim": li.bolim, "masul": li.masul})
+                t_sums[li.kind if li.kind in t_sums else "material"] += \
+                    (q * pr).quantize(Decimal("0.01"))
+            valid_kind1 = set(KINDS)
+            for e in lim_new:
+                nm = " ".join(str(e.get("name") or "").split())[:300]
+                v = _to_dec(str(e.get("vol") or "0")) or Decimal("0")
+                pr = _to_dec(str(e.get("price") or "0")) or Decimal("0")
+                if not nm or v < 0 or pr < 0:
+                    continue
+                kind = str(e.get("kind") or "material")
+                kind = kind if kind in valid_kind1 else "material"
+                t_items.append({"kind": kind, "name": nm,
+                                "unit": " ".join(str(e.get("unit") or "").split())[:50],
+                                "quantity": v, "unit_price": pr, "note": "",
+                                "bolim": " ".join(str(e.get("bolim") or "").split())[:200],
+                                "masul": " ".join(str(e.get("masul") or "").split())[:120]})
+                t_sums[kind] += (v * pr).quantize(Decimal("0.01"))
+                ozgardi_soni += 1
+            if not t_items:
+                messages.error(request, "Kamida bitta limit qatori bo'lishi kerak.")
+            elif not ozgardi_soni:
+                messages.info(request, "Умумий limitda o'zgarish yo'q — so'rov yuborilmadi.")
+            else:
+                _st = _limit_boshlangich(p)
+                with transaction.atomic():
+                    req0 = LimitChangeRequest.objects.create(
+                        project=p,
+                        old_material=p.limit_material, old_labor=p.limit_labor,
+                        old_machinery=p.limit_machinery, old_other=p.limit_other,
+                        new_material=t_sums["material"], new_labor=t_sums["labor"],
+                        new_machinery=t_sums["machinery"], new_other=t_sums["other"],
+                        reason="Limit jadvalidan tahrir",
+                        requested_by=request.user, status=_st,
+                    )
+                    LimitChangeItem.objects.bulk_create(
+                        [LimitChangeItem(request=req0, **it) for it in t_items])
+                messages.success(request, _limit_yubor_xabar(_st))
+        elif (lim_edits or lim_new) and is_admin(request.user):
             for e in lim_edits:
                 k = str(e.get("key") or "")
                 v = _to_dec(str(e.get("vol") or ""))

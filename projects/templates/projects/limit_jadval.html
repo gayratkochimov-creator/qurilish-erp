@@ -99,7 +99,7 @@
 {% if messages %}{% for m in messages %}<div class="msg {{ m.tags }}">{{ m }}</div>{% endfor %}{% endif %}
 
 <div class="lj-top"><h2>{{ p.name }} — ҳафталик лимит</h2></div>
-<div class="lj-sub">{% if can_edit %}Ҳафта ичида нарх ўзгарса: қатордаги <b>х</b> тугмасини босасиз → эски нархда сўралган объёмни ёзасиз → қолгани янги нархда алоҳида қатор бўлади. Ҳамма сумма автоматик. «Ҳафтани ёпиш» — сўров директор тасдиғига юборилади.{% if is_adm %} Админ сифатида Умумий объём/нархни ҳам шу ерда тўғрилайсиз.{% endif %}{% else %}Кўриш режими — ҳафталик устунини ПТО/админ тўлдиради.{% endif %}
+<div class="lj-sub">{% if can_edit %}Ҳафта ичида нарх ўзгарса: қатордаги <b>х</b> тугмасини босасиз → эски нархда сўралган объёмни ёзасиз → қолгани янги нархда алоҳида қатор бўлади. Ҳамма сумма автоматик. «Ҳафтани ёпиш» — сўров директор тасдиғига юборилади.{% if is_adm %} Админ сифатида Умумий объём/нархни ҳам шу ерда тўғрилайсиз (тўғридан-тўғри қўлланади).{% else %} Умумий объём/нархни ўзгартирсангиз ёки блок/иш қўшсангиз — сақлашда <b>снабжение → ПТО → директор → админ</b> занжирига сўров кетади.{% endif %}{% else %}Кўриш режими — ҳафталик устунини ПТО/админ тўлдиради.{% endif %}
 {% if lim_pending %}<br><b style="color:#b45309;">⏳ Лимит ўзгартириш сўрови занжирда — у якунлангунча Умумий устуни шу жадвалда қулфланади.{% if lim_holat.edit_id %} Тўғрилаш учун пастдаги «✎ Лимитни таҳрирлаш» тугмасидан фойдаланинг{% if is_adm %} ёки Тасдиқлар бўлимида орқага қайтаринг{% endif %}.{% endif %}</b>{% endif %}</div>
 
 {% if lim_holat %}
@@ -124,7 +124,7 @@
   <button class="b-green" id="btnSaqla">💾 Сақлаш</button>
   <button class="b-green" id="btnYopish">▶ Ҳафтани ёпиш</button>
   <button class="b-blue" id="btnIsh">+ Иш</button>
-  {% if is_adm %}<button class="b-blue" id="btnBlok">+ Блок (бўлим)</button>{% endif %}
+  <button class="b-blue" id="btnBlok">+ Блок (бўлим)</button>
   <button class="b-blue" id="btnYubor" type="button">📤 Масъулга юбориш</button>
   <span id="sanaBox" style="display:flex; gap:6px; align-items:center;">
     <label>Ҳафта боши <input type="date" id="wkStart" value="{{ taklif_ws }}"></label>
@@ -216,7 +216,7 @@
   {% if not guruhlar %}
     <tr><td colspan="16" style="text-align:center; color:#94a3b8; padding:26px;">
       Умумий лимит ҳали киритилмаган.
-      {% if is_adm %}Юқоридаги <b>«+ Блок (бўлим)»</b> тугмаси билан шу ерда киритинг.{% else %}ПТО «Обект саҳифаси → Умумий лимит ичи» орқали киритади (занжир билан).{% endif %}
+      Юқоридаги <b>«+ Блок (бўлим)»</b> тугмаси билан шу ерда киритинг{% if not is_adm %} — сақлашда снабжение → ПТО → директор → админ занжирига сўров кетади{% endif %}.
     </td></tr>
   {% endif %}
   {% for g in guruhlar %}
@@ -313,6 +313,8 @@
   var CAN_EDIT = {{ can_edit|yesno:"true,false" }};
   var ADMIN_RAW = {{ is_adm|yesno:"true,false" }};
   var IS_ADM = ADMIN_RAW && !{{ lim_pending|yesno:"true,false" }};
+  // PTO ham Умумийni SHU jadvalda tahrirlaydi — saqlashda zanjirga so'rov ketadi
+  var LIM_EDIT = {{ can_edit|yesno:"true,false" }} && !{{ lim_pending|yesno:"true,false" }};
   var QAYTAR_TMPL = "{% url 'weekly_return_pto' 123456789 %}";
   var EXPORT_URL = "{% url 'limit_jadval_export' p.pk %}";
   var DRAFT_ID = {{ draft_id|default:"null" }};
@@ -423,7 +425,7 @@
       var key = tr.dataset.key;
       var vol = pf(tr.dataset.vol), price = pf(tr.dataset.price);
       var fq = pf(tr.dataset.fqty), fs = pf(tr.dataset.fsum);
-      if (edit && IS_ADM){
+      if (edit && LIM_EDIT){
         // Админ Умумийни шу ерда тўғрилайди — сариқ катаклар
         tr.querySelector('.c-vol').innerHTML = '<input class="wkin lim-q" type="number" min="0" step="0.001" value="'+(vol||'')+'">';
         tr.querySelector('.c-price').innerHTML = '<input class="wkin lim-p" type="number" min="0" value="'+(price||'')+'">';
@@ -526,7 +528,7 @@
   }
   var bBlok = document.getElementById('btnBlok');
   if (bBlok) bBlok.onclick = function(){
-    if (!IS_ADM){ alert('⏳ Лимит сўрови занжирда — ҳозир блок қўшилмайди.'); return; }
+    if (!LIM_EDIT){ alert('⏳ Лимит сўрови занжирда ёки сизда ҳуқуқ йўқ — ҳозир блок қўшилмайди.'); return; }
     var nomi = prompt('Янги блок (бўлим) номи:', '');
     if (!nomi || !nomi.trim()) return;
     var masul = prompt('Масъул (ихтиёрий):', '') || '';
@@ -864,7 +866,7 @@
     });
     // Админ Умумий тахрирлари: қиймати ўзгарган қаторлар
     var limEdits = [], limNew = [];
-    if (IS_ADM){
+    if (LIM_EDIT){
       ishRows().forEach(function(tr){
         var lq = tr.querySelector('.lim-q'), lp = tr.querySelector('.lim-p');
         if (!lq) return;
@@ -880,6 +882,8 @@
       });
     }
     if (!items.length && !limEdits.length && !limNew.length){ alert('Камида битта қаторга объём киритинг.'); return; }
+    if (!ADMIN_RAW && (limEdits.length || limNew.length) &&
+        !confirm('Умумий лимит ўзгаришлари СНАБЖЕНИЕ → ПТО → ДИРЕКТОР → АДМИН занжирига сўров бўлиб кетади. Давом этамизми?')) return;
     if (!items.length && action==='submit'){ alert('Ҳафтани ёпиш учун ҳафталик устунига объём киритинг.'); return; }
     var h = haftaTop(sel);
     var payload = { action:action, items:items, limit_edits:limEdits, limit_new:limNew,
