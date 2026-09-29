@@ -498,9 +498,14 @@
     if (!yangiBloklar.length) return;
     yangiBloklar.forEach(function(blk, bi){
       var hr = document.createElement('tr'); hr.className='block';
-      hr.innerHTML = '<td></td><td colspan="13">'+esc(blk.bolim)+(blk.masul?(' &nbsp;·&nbsp; Масъул: '+esc(blk.masul)):'')+' <span style="font-weight:400; font-size:11px; color:#8a5a00;">(янги — сақланмаган)</span></td>'+
+      hr.innerHTML = '<td></td><td colspan="13"><span style="display:inline-flex; gap:8px; align-items:center; flex-wrap:wrap;">'+
+        '<input class="wkin tx yb-bolim" value="'+esc(blk.bolim||'')+'" placeholder="бўлим номи (масалан: 1-этаж иш хаклари)" style="width:280px; font-weight:700;">'+
+        '<input class="wkin tx yb-masul" value="'+esc(blk.masul||'')+'" placeholder="масъул (ихтиёрий)" style="width:190px;">'+
+        '<span style="font-weight:400; font-size:11px; color:#8a5a00;">(янги блок — «Лимитни юбориш» билан занжирга кетади)</span></span></td>'+
         '<td class="ctr"><button type="button" class="b-blue" style="border:none; border-radius:4px; color:#fff; cursor:pointer; padding:1px 8px; font-size:11px;" title="Қатор қўшиш">+</button></td>'+
         '<td class="ctr"><button type="button" class="del-btn" title="Блокни ўчириш">✕</button></td>';
+      hr.querySelector('.yb-bolim').addEventListener('input', function(){ blk.bolim = this.value; autoSaqla(); });
+      hr.querySelector('.yb-masul').addEventListener('input', function(){ blk.masul = this.value; autoSaqla(); });
       hr.querySelector('.b-blue').onclick = function(){ blk.rows.push({name:'',unit:'',kind:'material',vol:0,price:0}); chizYangiBloklar(); hisobla(); };
       hr.querySelector('.del-btn').onclick = function(){
         var bor = blk.rows.some(function(x){ return (x.name||'').trim() || x.vol>0; });
@@ -541,15 +546,14 @@
   var bBlok = document.getElementById('btnBlok');
   if (bBlok) bBlok.onclick = function(){
     if (!LIM_EDIT){ alert('⏳ Лимит сўрови занжирда ёки сизда ҳуқуқ йўқ — ҳозир блок қўшилмайди.'); return; }
-    var nomi = prompt('Янги блок (бўлим) номи:', '');
-    if (!nomi || !nomi.trim()) return;
-    var masul = prompt('Масъул (ихтиёрий):', '') || '';
-    yangiBloklar.push({ bolim:nomi.trim(), masul:masul.trim(),
+    // Bo'lim nomi/masul JADVALNING O'ZIDA yoziladi (prompt oynachasiz)
+    yangiBloklar.push({ bolim:'', masul:'',
       rows:[{name:'',unit:'',kind:'material',vol:0,price:0},
             {name:'',unit:'',kind:'material',vol:0,price:0},
             {name:'',unit:'',kind:'material',vol:0,price:0}] });
     chizYangiBloklar(); hisobla();
-    var f = document.querySelector('#yangiBody tr.extra .yb-n'); if (f) f.focus();
+    var bls = document.querySelectorAll('#yangiBody .yb-bolim');
+    if (bls.length) bls[bls.length-1].focus();
   };
 
   function chizBolaklar(tr, key, edit){
@@ -755,12 +759,17 @@
     });
     // Yangi (saqlanmagan) limit bloklari — Умумий ва Қолганга qo'shiladi
     yangiBloklar.forEach(function(blk){
+      var blkNomi = (blk.bolim||'').trim() || 'Янги блок';
+      var toldirilgan = false;
       blk.rows.forEach(function(x){
         var s0 = (x.vol||0)*(x.price||0);
         gT += s0; gL += s0;
-        if ((x.vol||0)>0 && !(x.name||'').trim()) errs.push('"'+blk.bolim+'" блоки: иш номи ёзилмаган');
-        if ((x.vol||0)>0 && (x.price||0)<=0) errs.push('"'+(x.name||blk.bolim)+'": нарх киритилмаган');
+        if ((x.vol||0)>0 || (x.name||'').trim()) toldirilgan = true;
+        if ((x.vol||0)>0 && !(x.name||'').trim()) errs.push('«'+blkNomi+'» блоки: иш номи ёзилмаган');
+        if ((x.vol||0)>0 && (x.price||0)<=0) errs.push('«'+(x.name||blkNomi)+'»: нарх киритилмаган');
       });
+      if (toldirilgan && !(blk.bolim||'').trim())
+        errs.push('Янги блокнинг БЎЛИМ НОМИ ёзилмаган (сариқ қатордаги биринчи катак)');
     });
     extralar.forEach(function(x, i){
       gW += (x.qty||0)*(x.price||0);
