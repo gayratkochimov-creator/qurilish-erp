@@ -63,8 +63,10 @@
   .blk-add:hover { background:#15803d; color:#fff; }
   .wi-tgl { border:1px solid #d3b8e0; background:#fff; color:#813d9c; border-radius:4px; padding:1px 6px; cursor:pointer; font-size:11px; flex:none; align-self:center; }
   .wi-tgl:hover { background:#813d9c; color:#fff; }
-  /* Tur chipi — tanlangach select o'rnida ixcham ko'rinadi, bosilsa qayta ochiladi */
-  .k-chip { display:inline-block; font-size:10.5px; font-weight:700; border-radius:999px; padding:1px 9px; margin-top:2px; cursor:pointer; border:1px solid transparent; }
+  /* Tur chipi — yozib bo'lingach jadvalda KO'RINMAYDI; qator ustiga borilganda
+     chiqadi, bosilsa select qayta ochiladi */
+  .k-chip { display:inline-block; font-size:10.5px; font-weight:700; border-radius:999px; padding:1px 9px; margin-top:2px; cursor:pointer; border:1px solid transparent; opacity:0; transition:opacity .12s; }
+  tr:hover .k-chip { opacity:1; }
   .k-chip.material { background:#eff6ff; color:#1d4ed8; border-color:#bfdbfe; }
   .k-chip.labor { background:#f0fdf4; color:#15803d; border-color:#bbf7d0; }
   .k-chip.machinery { background:#f5f3ff; color:#7c3aed; border-color:#ddd6fe; }
