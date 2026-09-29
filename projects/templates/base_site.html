@@ -78,6 +78,11 @@
     .navbar .search svg { width:16px; height:16px; stroke:#9aa1ac; stroke-width:2; flex:none; }
     .navbar .search input { border:0; background:transparent; outline:none; font-size:13px; color:var(--ink); width:100%; }
     .navbar .right { margin-left:auto; display:flex; align-items:center; gap:12px; }
+    .navbar .bell { position:relative; width:36px; height:36px; border-radius:9px; display:grid; place-items:center; color:#475569; background:#f6f7f9; border:1px solid var(--line); }
+    .navbar .bell:hover { background:#eef2f7; color:var(--brand); }
+    .navbar .bell.dim { color:#9aa1ac; cursor:default; }
+    .navbar .bell svg { width:17px; height:17px; }
+    .navbar .bell .bdot { position:absolute; top:7px; right:8px; width:8px; height:8px; border-radius:50%; background:var(--bad); border:1.5px solid #fff; }
     .navbar .logout { background:#fff; border:1px solid var(--line); color:#374151; border-radius:9px; padding:9px 16px; font-size:13px; font-weight:600; cursor:pointer; transition:.14s; }
     .navbar .logout:hover { background:#f9fafb; border-color:#cbd5e1; }
     /* Til almashtirgich: Lotin / Кирилл */
@@ -168,6 +173,16 @@
       </div>
       <label class="search"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input type="text" placeholder="Qidirish..."></label>
       <div class="right">
+        {% if mening_xabarlarim %}
+        <a href="#xabarlar" class="bell" title="O'qilmagan xabarlar: {{ mening_xabarlarim|length }}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <span class="bdot"></span>
+        </a>
+        {% else %}
+        <span class="bell dim" title="Yangi xabar yo'q">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        </span>
+        {% endif %}
         <div class="lang-sw" title="Interfeys tili / Интерфейс тили">
           <button type="button" data-til="lat">Lotin</button>
           <button type="button" data-til="kir">Кирилл</button>
@@ -176,7 +191,7 @@
       </div>
     </header>
     {% if mening_xabarlarim %}
-    <div style="padding:12px 24px 0; display:flex; flex-direction:column; gap:8px;">
+    <div id="xabarlar" style="padding:12px 24px 0; display:flex; flex-direction:column; gap:8px;">
       {% for x in mening_xabarlarim %}
       <div style="display:flex; align-items:flex-start; gap:12px; border-radius:12px; padding:11px 15px; font-size:13.5px; line-height:1.45;
                   {% if x.muhimlik == 'shoshilinch' %}background:#fef2f2; border:1px solid #fca5a5; color:#7f1d1d;
