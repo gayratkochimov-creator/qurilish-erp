@@ -61,6 +61,9 @@
   .del-btn { border:none; background:#c01c28; color:#fff; border-radius:4px; padding:1px 7px; cursor:pointer; font-size:11px; }
   .blk-add { border:1px solid #86efac; background:#dcfce7; color:#15803d; border-radius:4px; padding:1px 9px; margin-left:8px; cursor:pointer; font-weight:700; font-size:11.5px; }
   .blk-add:hover { background:#15803d; color:#fff; }
+  .wi-tgl { border:1px solid #d3b8e0; background:#fff; color:#813d9c; border-radius:4px; padding:1px 6px; cursor:pointer; font-size:11px; margin-top:3px; display:block; width:100%; }
+  .wi-tgl:hover { background:#813d9c; color:#fff; }
+  .lj td textarea.yb-wi { min-width:70px; font-size:11.5px; }
   .dim { color:#bbb; }
   .lj-modal-bg { display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:60; }
   .lj-modal-bg.show { display:flex; align-items:center; justify-content:center; }
@@ -519,7 +522,7 @@
         r.innerHTML = '<td class="ctr">'+(ri+1)+'</td>'+
           '<td><input class="wkin tx yb-n" value="'+esc(x.name||'')+'" placeholder="иш номи...">'+
           '<select class="ksel yb-k"><option value="material">Материал</option><option value="labor">Иш ҳақи</option><option value="machinery">Машина части</option><option value="other">Кўзда тутилмаган</option></select></td>'+
-          '<td><input class="wkin tx yb-i" value="'+esc(x.izoh||'')+'" placeholder="изоҳ..."></td>'+
+          '<td><textarea class="wkin tx yb-i" rows="1" placeholder="изоҳ...">'+esc(x.izoh||'')+'</textarea></td>'+
           '<td class="ctr"><input class="wkin kichik yb-u" value="'+esc(x.unit||'')+'" placeholder="бирл."></td>'+
           '<td class="num"><input class="wkin yb-q" type="number" min="0" step="0.001" value="'+(x.vol||'')+'"></td>'+
           '<td class="num"><input class="wkin yb-p" type="number" min="0" value="'+(x.price||'')+'"></td>'+
@@ -528,18 +531,28 @@
           '<td class="num yb-lq">'+fmt(x.vol||0)+'</td><td class="num yb-ls">'+fmt((x.vol||0)*(x.price||0))+'</td>'+
           (wEdit
             ? ('<td class="ctr yb-wu">'+esc(x.unit||'')+'</td>'+
-               '<td class="num"><input class="wkin yb-wq" type="number" min="0" step="0.001" value="'+(x.wq||'')+'" placeholder="0"></td>'+
+               '<td class="num"><input class="wkin yb-wq" type="number" min="0" step="0.001" value="'+(x.wq||'')+'" placeholder="0">'+
+               '<button type="button" class="wi-tgl yb-wi-tgl" title="Ҳафталикка изоҳ ёзиш/яшириш">✎</button>'+
+               '<textarea class="wkin tx yb-wi" rows="1" placeholder="ҳафталик изоҳ..." style="'+((x.wi||'').trim()?'':'display:none; ')+'margin-top:3px;">'+esc(x.wi||'')+'</textarea></td>'+
                '<td class="num"><input class="wkin yb-wp" type="number" min="0" value="'+(x.wp||'')+'"></td>'+
                '<td class="num yb-ws">'+fmt((x.wq||0)*(x.wp||0))+'</td>')
             : '<td class="ctr dim">—</td><td class="num dim">—</td><td class="num dim">—</td><td class="num dim">—</td>')+
           '<td class="ctr"><button type="button" class="del-btn" title="Қаторни ўчириш">✕</button></td>';
         r.querySelector('.yb-k').value = x.kind||'material';
         r.querySelector('.del-btn').onclick = function(){ blk.rows.splice(ri,1); chizYangiBloklar(); hisobla(); };
+        var wiT = r.querySelector('.yb-wi-tgl');
+        if (wiT) wiT.onclick = function(){
+          var t = r.querySelector('.yb-wi');
+          var ochiq = t.style.display === 'none';
+          t.style.display = ochiq ? '' : 'none';
+          if (ochiq){ t.focus(); izohKengay(t); }
+        };
         [['yb-n','name'],['yb-u','unit'],['yb-k','kind'],['yb-q','vol'],['yb-p','price'],
-         ['yb-i','izoh'],['yb-wq','wq'],['yb-wp','wp']].forEach(function(pr){
+         ['yb-i','izoh'],['yb-wq','wq'],['yb-wp','wp'],['yb-wi','wi']].forEach(function(pr){
           var inp = r.querySelector('.'+pr[0]);
           if (!inp) return;
           inp.addEventListener('input', function(){
+            izohKengay(inp);
             var raqam = (pr[1]==='vol'||pr[1]==='price'||pr[1]==='wq'||pr[1]==='wp');
             x[pr[1]] = raqam ? pf(inp.value) : inp.value;
             if (pr[1]==='price' && !(x.wp||0)){ var wpI=r.querySelector('.yb-wp'); if (wpI && !wpI.value) wpI.placeholder = inp.value; }
@@ -552,6 +565,8 @@
           });
         });
         tb.appendChild(r);
+        izohKengay(r.querySelector('.yb-i'));
+        izohKengay(r.querySelector('.yb-wi'));
       });
     });
   }
@@ -915,7 +930,8 @@
         if ((x.wq||0)>0 && (x.name||'').trim())
           items.push({ name:x.name, bolim:(blk.bolim||'').trim(), unit:x.unit||'',
                        kind:x.kind||'material', qty:x.wq,
-                       price:(x.wp||0) || (x.price||0), izoh:x.izoh||'' });
+                       price:(x.wp||0) || (x.price||0),
+                       izoh:(x.wi||'').trim() || x.izoh || '' });
       });
     });
     // Админ Умумий тахрирлари: қиймати ўзгарган қаторлар
