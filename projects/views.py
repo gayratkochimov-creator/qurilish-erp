@@ -4607,7 +4607,8 @@ def limit_jadval(request, pk):
                 kind = kind if kind in valid_kind1 else "material"
                 t_items.append({"kind": kind, "name": nm,
                                 "unit": " ".join(str(e.get("unit") or "").split())[:50],
-                                "quantity": v, "unit_price": pr, "note": "",
+                                "quantity": v, "unit_price": pr,
+                                "note": " ".join(str(e.get("note") or "").split())[:500],
                                 "bolim": " ".join(str(e.get("bolim") or "").split())[:200],
                                 "masul": " ".join(str(e.get("masul") or "").split())[:120]})
                 t_sums[kind] += (v * pr).quantize(Decimal("0.01"))
@@ -4666,6 +4667,7 @@ def limit_jadval(request, pk):
                     project=p, kind=kind if kind in valid_kind0 else "material",
                     name=nm, unit=" ".join(str(e.get("unit") or "").split())[:50],
                     quantity=v, unit_price=pr,
+                    note=" ".join(str(e.get("note") or "").split())[:500],
                     bolim=" ".join(str(e.get("bolim") or "").split())[:200],
                     masul=" ".join(str(e.get("masul") or "").split())[:200])
                 lim_ozgardi = True

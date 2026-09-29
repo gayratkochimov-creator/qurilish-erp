@@ -515,27 +515,39 @@
       tb.appendChild(hr);
       blk.rows.forEach(function(x, ri){
         var r = document.createElement('tr'); r.className='extra';
+        var wEdit = tahrirmi();   // hafta ustuni faqat PTO/admin tahriridagi ochiq haftada
         r.innerHTML = '<td class="ctr">'+(ri+1)+'</td>'+
           '<td><input class="wkin tx yb-n" value="'+esc(x.name||'')+'" placeholder="иш номи...">'+
           '<select class="ksel yb-k"><option value="material">Материал</option><option value="labor">Иш ҳақи</option><option value="machinery">Машина части</option><option value="other">Кўзда тутилмаган</option></select></td>'+
-          '<td></td>'+
+          '<td><input class="wkin tx yb-i" value="'+esc(x.izoh||'')+'" placeholder="изоҳ..."></td>'+
           '<td class="ctr"><input class="wkin kichik yb-u" value="'+esc(x.unit||'')+'" placeholder="бирл."></td>'+
           '<td class="num"><input class="wkin yb-q" type="number" min="0" step="0.001" value="'+(x.vol||'')+'"></td>'+
           '<td class="num"><input class="wkin yb-p" type="number" min="0" value="'+(x.price||'')+'"></td>'+
           '<td class="num yb-s">'+fmt((x.vol||0)*(x.price||0))+'</td>'+
           '<td class="num">0</td><td class="num">0</td>'+
           '<td class="num yb-lq">'+fmt(x.vol||0)+'</td><td class="num yb-ls">'+fmt((x.vol||0)*(x.price||0))+'</td>'+
-          '<td class="ctr dim">—</td><td class="num dim">—</td><td class="num dim">—</td><td class="num dim">—</td>'+
+          (wEdit
+            ? ('<td class="ctr yb-wu">'+esc(x.unit||'')+'</td>'+
+               '<td class="num"><input class="wkin yb-wq" type="number" min="0" step="0.001" value="'+(x.wq||'')+'" placeholder="0"></td>'+
+               '<td class="num"><input class="wkin yb-wp" type="number" min="0" value="'+(x.wp||'')+'"></td>'+
+               '<td class="num yb-ws">'+fmt((x.wq||0)*(x.wp||0))+'</td>')
+            : '<td class="ctr dim">—</td><td class="num dim">—</td><td class="num dim">—</td><td class="num dim">—</td>')+
           '<td class="ctr"><button type="button" class="del-btn" title="Қаторни ўчириш">✕</button></td>';
         r.querySelector('.yb-k').value = x.kind||'material';
         r.querySelector('.del-btn').onclick = function(){ blk.rows.splice(ri,1); chizYangiBloklar(); hisobla(); };
-        [['yb-n','name'],['yb-u','unit'],['yb-k','kind'],['yb-q','vol'],['yb-p','price']].forEach(function(pr){
+        [['yb-n','name'],['yb-u','unit'],['yb-k','kind'],['yb-q','vol'],['yb-p','price'],
+         ['yb-i','izoh'],['yb-wq','wq'],['yb-wp','wp']].forEach(function(pr){
           var inp = r.querySelector('.'+pr[0]);
+          if (!inp) return;
           inp.addEventListener('input', function(){
-            x[pr[1]] = (pr[1]==='vol'||pr[1]==='price') ? pf(inp.value) : inp.value;
+            var raqam = (pr[1]==='vol'||pr[1]==='price'||pr[1]==='wq'||pr[1]==='wp');
+            x[pr[1]] = raqam ? pf(inp.value) : inp.value;
+            if (pr[1]==='price' && !(x.wp||0)){ var wpI=r.querySelector('.yb-wp'); if (wpI && !wpI.value) wpI.placeholder = inp.value; }
             r.querySelector('.yb-s').textContent = fmt((x.vol||0)*(x.price||0));
             r.querySelector('.yb-lq').textContent = fmt(x.vol||0);
             r.querySelector('.yb-ls').textContent = fmt((x.vol||0)*(x.price||0));
+            var wu=r.querySelector('.yb-wu'); if (wu) wu.textContent = x.unit||'';
+            var ws2=r.querySelector('.yb-ws'); if (ws2) ws2.textContent = fmt((x.wq||0)*((x.wp||x.price)||0));
             hisobla();
           });
         });
@@ -764,9 +776,15 @@
       blk.rows.forEach(function(x){
         var s0 = (x.vol||0)*(x.price||0);
         gT += s0; gL += s0;
-        if ((x.vol||0)>0 || (x.name||'').trim()) toldirilgan = true;
-        if ((x.vol||0)>0 && !(x.name||'').trim()) errs.push('«'+blkNomi+'» блоки: иш номи ёзилмаган');
+        var wnarx = (x.wp||0) || (x.price||0);
+        gW += (x.wq||0) * wnarx;
+        if ((x.vol||0)>0 || (x.wq||0)>0 || (x.name||'').trim()) toldirilgan = true;
+        if (((x.vol||0)>0 || (x.wq||0)>0) && !(x.name||'').trim())
+          errs.push('«'+blkNomi+'» блоки: иш номи ёзилмаган');
         if ((x.vol||0)>0 && (x.price||0)<=0) errs.push('«'+(x.name||blkNomi)+'»: нарх киритилмаган');
+        if ((x.wq||0)>0 && wnarx<=0) errs.push('«'+(x.name||blkNomi)+'» (ҳафталик): нарх киритилмаган');
+        if ((x.wq||0)>0 && (x.vol||0)>0 && (x.wq||0) > (x.vol||0)+0.001)
+          errs.push('«'+(x.name||blkNomi)+'»: ҳафталик '+fmt(x.wq)+' — умумий '+fmt(x.vol)+' дан ортиқ');
       });
       if (toldirilgan && !(blk.bolim||'').trim())
         errs.push('Янги блокнинг БЎЛИМ НОМИ ёзилмаган (сариқ қатордаги биринчи катак)');
@@ -891,6 +909,15 @@
         items.push({ name:x.name, bolim:x.bolim, unit:x.unit, kind:x.kind||'material',
                      qty:x.qty, price:x.price, izoh:x.izoh||'' });
     });
+    // Yangi blok qatorlarining HAFTALIK ustuni ham haftalik so'rovga kiradi
+    yangiBloklar.forEach(function(blk){
+      blk.rows.forEach(function(x){
+        if ((x.wq||0)>0 && (x.name||'').trim())
+          items.push({ name:x.name, bolim:(blk.bolim||'').trim(), unit:x.unit||'',
+                       kind:x.kind||'material', qty:x.wq,
+                       price:(x.wp||0) || (x.price||0), izoh:x.izoh||'' });
+      });
+    });
     // Админ Умумий тахрирлари: қиймати ўзгарган қаторлар
     var limEdits = [], limNew = [];
     if (LIM_EDIT){
@@ -904,7 +931,8 @@
         blk.rows.forEach(function(x){
           if ((x.name||'').trim() && (x.vol||0)>0)
             limNew.push({ bolim:blk.bolim, masul:blk.masul, name:x.name, unit:x.unit,
-                          kind:x.kind||'material', vol:x.vol, price:x.price });
+                          kind:x.kind||'material', vol:x.vol, price:x.price,
+                          note:x.izoh||'' });
         });
       });
     }
