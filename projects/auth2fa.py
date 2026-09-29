@@ -365,6 +365,13 @@ def telegram_hook(request, secret):
         if message_id:
             tg_delete(chat_id, message_id)
         user = authenticate(username=state.login_tmp, password=text)
+        if user is None:
+            # Katta-kichik harf farqi tez-tez xato beradi (Пардайев/пардайев) —
+            # loginni harflarga e'tibor bermay ham izlab ko'ramiz
+            U0 = get_user_model()
+            real = U0.objects.filter(username__iexact=state.login_tmp).first()
+            if real is not None and real.username != state.login_tmp:
+                user = authenticate(username=real.username, password=text)
         state.step, state.login_tmp = "", ""
         if user is None:
             state.fails += 1
