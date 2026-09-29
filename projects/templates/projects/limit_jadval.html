@@ -125,6 +125,7 @@
   <button class="b-green" id="btnYopish">▶ Ҳафтани ёпиш</button>
   <button class="b-blue" id="btnIsh">+ Иш</button>
   <button class="b-blue" id="btnBlok">+ Блок (бўлим)</button>
+  <button class="b-green" id="btnLimYubor" title="{% if is_adm %}Умумий устундаги ўзгаришлар тўғридан-тўғри қўлланади{% else %}Умумий лимит ўзгаришлари кейинги юсерга (снабжение → ПТО → директор → админ) сўров бўлиб кетади{% endif %}">▶ {% if is_adm %}Лимитни қўллаш{% else %}Лимитни юбориш{% endif %}</button>
   <button class="b-blue" id="btnYubor" type="button">📤 Масъулга юбориш</button>
   <span id="sanaBox" style="display:flex; gap:6px; align-items:center;">
     <label>Ҳафта боши <input type="date" id="wkStart" value="{{ taklif_ws }}"></label>
@@ -789,6 +790,10 @@
       var b = document.getElementById(id); if (b) b.style.display = edit ? '' : 'none';
     });
     document.querySelectorAll('.blk-add').forEach(function(b){ b.style.display = edit ? '' : 'none'; });
+    var bLim0 = document.getElementById('btnLimYubor');
+    if (bLim0) bLim0.style.display = (edit && LIM_EDIT) ? '' : 'none';
+    var bBlok0 = document.getElementById('btnBlok');
+    if (bBlok0) bBlok0.style.display = (edit && LIM_EDIT) ? '' : 'none';
     autoSaqla();
   }
 
@@ -897,6 +902,24 @@
   var bS = document.getElementById('btnSaqla'), bY = document.getElementById('btnYopish');
   if (bS) bS.onclick = function(){ yuborish('save'); };
   if (bY) bY.onclick = function(){ yuborish('submit'); };
+  // ▶ Лимитни юбориш — Умумий ўзгаришларини кейинги юсерга (занжирга) жўнатиш
+  var bLim = document.getElementById('btnLimYubor');
+  if (bLim) bLim.onclick = function(){
+    var bor = false;
+    ishRows().forEach(function(tr){
+      var lq = tr.querySelector('.lim-q'), lp = tr.querySelector('.lim-p');
+      if (lq && (Math.abs(pf(lq.value)-pf(tr.dataset.vol))>0.0001 ||
+                 Math.abs(pf(lp.value)-pf(tr.dataset.price))>0.0001)) bor = true;
+    });
+    yangiBloklar.forEach(function(blk){
+      blk.rows.forEach(function(x){ if ((x.name||'').trim() && (x.vol||0)>0) bor = true; });
+    });
+    if (!bor){
+      alert('Умумий устунда ўзгариш йўқ.\nАввал Умумий объём/нархни ўзгартиринг ёки «+ Блок (бўлим)» билан янги блок киритинг — кейин шу тугма билан юборасиз.');
+      return;
+    }
+    yuborish('save');
+  };
 
   // -------- 📊 НАРХ ТАРИХИ --------
   document.getElementById('btnExcel').onclick = function(){
