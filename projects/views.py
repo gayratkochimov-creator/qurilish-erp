@@ -393,11 +393,11 @@ def dashboard(request):
     kategoriyalar = [
         {"nom": "Material", "rang": "#2563eb", "limit_str": _money(lim_mat), "sarf_str": _money(jami_mat),
          "pct": _pct(jami_mat, lim_mat), "bar": min(_pct(jami_mat, lim_mat), 100)},
-        {"nom": "Ish haqi", "rang": "#60a5fa", "limit_str": _money(lim_lab), "sarf_str": _money(jami_lab),
+        {"nom": "Ish haqi", "rang": "#3b82f6", "limit_str": _money(lim_lab), "sarf_str": _money(jami_lab),
          "pct": _pct(jami_lab, lim_lab), "bar": min(_pct(jami_lab, lim_lab), 100)},
-        {"nom": "Mashina chasti", "rang": "#bfdbfe", "limit_str": _money(lim_mach), "sarf_str": _money(jami_mach),
+        {"nom": "Mashina chasti", "rang": "#8b5cf6", "limit_str": _money(lim_mach), "sarf_str": _money(jami_mach),
          "pct": _pct(jami_mach, lim_mach), "bar": min(_pct(jami_mach, lim_mach), 100)},
-        {"nom": "Ko'zda tutilmagan", "rang": "#c7d9ee", "limit_str": _money(lim_oth), "sarf_str": _money(jami_oth),
+        {"nom": "Ko'zda tutilmagan", "rang": "#f59e0b", "limit_str": _money(lim_oth), "sarf_str": _money(jami_oth),
          "pct": _pct(jami_oth, lim_oth), "bar": min(_pct(jami_oth, lim_oth), 100)},
     ]
 

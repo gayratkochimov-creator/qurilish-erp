@@ -14,7 +14,7 @@
       --ease-out:cubic-bezier(.22,1,.36,1); --ease-in-out:cubic-bezier(.77,0,.175,1);
       --shadow:0 10px 15px -3px rgba(0,0,0,.08), 0 4px 6px -4px rgba(0,0,0,.05);
       --shadow-sm:0 1px 3px rgba(0,0,0,.05), 0 1px 2px rgba(0,0,0,.03);
-      --side:#111827; --side-line:rgba(255,255,255,.08); --surface-navy:#213145;
+      --side:#0d1b30; --side-line:rgba(255,255,255,.08); --surface-navy:#213145;
       --ok:#15803d; --warn:#b45309; --bad:#ba1a1a;
     }
     body { font-family:"Inter",system-ui,"Segoe UI",Roboto,sans-serif; color:var(--ink);
@@ -50,10 +50,13 @@
     .snav a .i { display:grid; place-items:center; color:currentColor; }
     .snav a .i svg { width:18px; height:18px; stroke-width:1.8; }
     .snav a:hover { background:rgba(255,255,255,.06); color:#fff; }
-    .snav a.active { background:#1e293b; color:#fff; font-weight:600; }
-    .snav a.active .i { color:var(--brand-dim); }
-    .snav a.active::before { content:""; position:absolute; left:-12px; top:50%; transform:translateY(-50%); width:3px; height:100%; border-radius:0 3px 3px 0; background:var(--brand); }
+    .snav a.active { background:var(--brand); color:#fff; font-weight:600; box-shadow:0 6px 14px -6px rgba(37,99,235,.55); }
+    .snav a.active .i { color:#fff; }
+    .snav a.active .sbadge { background:#fff; color:var(--brand); }
     .snav a .sbadge { margin-left:auto; background:var(--bad); color:#fff; font-size:10.5px; font-weight:700; min-width:19px; height:19px; border-radius:999px; display:grid; place-items:center; padding:0 6px; }
+    /* Yon panel pastida — qurilish silueti (bezak) */
+    .sidebar .siluet { pointer-events:none; opacity:.5; margin-top:auto; }
+    .sidebar .siluet svg { width:100%; height:86px; display:block; }
     .userbox { margin:12px; padding:11px 12px; border-radius:10px; background:rgba(255,255,255,.04); display:flex; align-items:center; gap:11px; border:1px solid var(--side-line); }
     .userbox .av { width:38px; height:38px; border-radius:999px; background:var(--brand); display:grid; place-items:center; font-weight:700; color:#fff; font-size:14px; }
     .userbox .u { line-height:1.25; min-width:0; }
@@ -65,6 +68,8 @@
     .navbar { position:sticky; top:0; z-index:20; background:rgba(255,255,255,.92); backdrop-filter:saturate(1.2) blur(8px);
       border-bottom:1px solid var(--line); display:flex; align-items:center; gap:18px; padding:13px 28px; }
     .navbar > div:first-child { min-width:0; }
+    .navbar .tchip { width:38px; height:38px; border-radius:10px; background:var(--brand-soft); color:var(--brand); display:grid; place-items:center; flex:none; }
+    .navbar .tchip svg { width:19px; height:19px; stroke-width:1.8; }
     .navbar .ptitle { font-size:15px; font-weight:700; letter-spacing:-.01em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .navbar .date { white-space:nowrap; }
     .navbar .date { font-size:12px; color:#4b5563; letter-spacing:.01em; margin-top:3px; }
@@ -94,7 +99,7 @@
       .sidebar .logo { justify-content:center; padding:18px 0; }
       .snav a { justify-content:center; padding:10px; }
       .userbox { justify-content:center; } .main { margin-left:64px; }
-      .navbar .search { display:none; }
+      .navbar .search, .sidebar .siluet, .navbar .tchip { display:none; }
     }
   </style>
   {% block extra_head %}{% endblock %}
@@ -126,6 +131,17 @@
       {% endif %}
       <a href="/admin/"><span class="i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span><span class="t">Admin panel</span></a>
     </nav>
+    <div class="siluet" aria-hidden="true">
+      <svg viewBox="0 0 260 86" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="#2c4368" stroke-width="1.6">
+        <path d="M18 86V46h26v40"/><path d="M24 52h14M24 60h14M24 68h14"/>
+        <path d="M56 86V58h20v28"/><path d="M60 64h12M60 72h12"/>
+        <path d="M96 86V16"/><path d="M96 16h72"/><path d="M96 28l40-12"/><path d="M162 16v12"/><path d="M156 28h12v9h-12z"/>
+        <path d="M88 86h18"/>
+        <path d="M190 86V40h30v46"/><path d="M196 48h18M196 58h18M196 68h18"/>
+        <path d="M230 86V56h22v30"/><path d="M236 62h10M236 72h10"/>
+        <path d="M0 86h260"/>
+      </svg>
+    </div>
     <div class="userbox">
       <div class="av">{{ request.user.username|first|upper }}</div>
       <div class="u">
@@ -145,6 +161,7 @@
     </div>
     {% endif %}
     <header class="navbar">
+      <span class="tchip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/></svg></span>
       <div>
         <div class="ptitle">{% block page_title %}{% endblock %}</div>
         <div class="date">{% now "l, d-F Y" %}</div>
