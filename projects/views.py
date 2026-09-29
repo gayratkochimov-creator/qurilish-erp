@@ -4504,9 +4504,14 @@ def limit_jadval(request, pk):
     Qoralama ustuni shu yerdan to'ldiriladi -> oddiy haftalik so'rov bo'lib
     direktor-admin zanjiridan o'tadi. Narx o'zgarsa qator bo'linadi (bo'lak)."""
     import json as _json
+    from .roles import is_snab as _is_snab
     p = get_object_or_404(Project, pk=pk)
     _firma_yoki_403(request, p)
     can_edit = is_pto(request.user) or is_admin(request.user)
+    # УМУМИЙ ustunini tahrirlash huquqi — zanjirning HAR BIR ishtirokchisi:
+    # PTO/snab/direktor taklifi zanjirga so'rov bo'lib ketadi, admin to'g'ridan qo'llaydi
+    lim_edit_huquq = (can_edit or _is_snab(request.user)
+                      or is_director(request.user))
 
     haftalar = list(WeeklyRequest.objects.filter(project=p)
                     .exclude(status="rejected")
@@ -4516,23 +4521,30 @@ def limit_jadval(request, pk):
 
     # ---------- POST: qoralamani saqlash / tasdiqqa yuborish ----------
     if request.method == "POST":
-        if not can_edit:
-            raise PermissionDenied("Haftalik ustunini faqat PTO yoki admin to'ldiradi.")
+        if not (can_edit or lim_edit_huquq):
+            raise PermissionDenied("Bu jadvalni tahrirlash huquqi yo'q.")
         try:
             payload = _json.loads(request.POST.get("payload") or "{}")
         except ValueError:
             messages.error(request, "Ma'lumot o'qilmadi — qayta urinib ko'ring.")
             return redirect("limit_jadval", pk=pk)
-        try:
-            ws_ = datetime.date.fromisoformat(str(payload.get("week_start") or ""))
-            we_ = datetime.date.fromisoformat(str(payload.get("week_end") or ""))
-        except ValueError:
-            messages.error(request, "Hafta boshi va oxiri sanasini kiriting.")
-            return redirect("limit_jadval", pk=pk)
-        xato = _hafta_sana_xatosi(p, ws_, we_, exclude_id=draft.id if draft else None)
-        if xato:
-            messages.error(request, xato)
-            return redirect("limit_jadval", pk=pk)
+        # Haftalik qatorlar/yopish — faqat PTO yoki admin
+        if (payload.get("items") or payload.get("action") == "submit") and not can_edit:
+            raise PermissionDenied("Haftalik ustunini faqat PTO yoki admin to'ldiradi.")
+        # Faqat Умумий tahrirlanayotgan bo'lsa (snab/direktor) — hafta sanasi shart emas
+        faqat_limit = not payload.get("items") and payload.get("action") != "submit"
+        ws_ = we_ = None
+        if not faqat_limit:
+            try:
+                ws_ = datetime.date.fromisoformat(str(payload.get("week_start") or ""))
+                we_ = datetime.date.fromisoformat(str(payload.get("week_end") or ""))
+            except ValueError:
+                messages.error(request, "Hafta boshi va oxiri sanasini kiriting.")
+                return redirect("limit_jadval", pk=pk)
+            xato = _hafta_sana_xatosi(p, ws_, we_, exclude_id=draft.id if draft else None)
+            if xato:
+                messages.error(request, xato)
+                return redirect("limit_jadval", pk=pk)
 
         # ---- Умумий ustunini SHU jadvaldan tahrirlash + yangi blok/qator ----
         # Admin — to'g'ridan-to'g'ri qo'llanadi; PTO — snab→PTO→dir→admin
@@ -4540,12 +4552,12 @@ def limit_jadval(request, pk):
         lim_edits = payload.get("limit_edits") or []
         lim_new = payload.get("limit_new") or []
         lim_ozgardi = False
-        if (lim_edits or lim_new) and (is_admin(request.user) or is_pto(request.user)):
+        if (lim_edits or lim_new) and lim_edit_huquq:
             if p.limit_requests.filter(status__in=LIM_JARAYON).exists():
                 messages.error(request, "Limit o'zgartirish so'rovi zanjirda turibdi — "
                                         "avval u yakunlansin, keyin Умумийni tahrirlaysiz.")
                 return redirect("limit_jadval", pk=pk)
-        if (lim_edits or lim_new) and not is_admin(request.user) and is_pto(request.user):
+        if (lim_edits or lim_new) and not is_admin(request.user) and lim_edit_huquq:
             # PTO: joriy tarkib + o'zgarishlar = TAKLIF -> tasdiqlash zanjiri
             edits = {}
             for e in lim_edits:
@@ -4697,8 +4709,8 @@ def limit_jadval(request, pk):
                     f"{_qty(d['qty'])} {d['unit']} dan ORTIQ. Saqlanmadi.")
                 return redirect("limit_jadval", pk=pk)
         if not yangi_items:
-            if lim_ozgardi and payload.get("action") != "submit":
-                # Faqat Умумий tahrirlandi — haftalik qoralamaga tegilmaydi
+            if (lim_ozgardi or lim_edits or lim_new) and payload.get("action") != "submit":
+                # Faqat Умумий tahrirlandi (natija xabari yuqorida) — haftalikka tegilmaydi
                 return redirect("limit_jadval", pk=pk)
             messages.error(request, "Kamida bitta qatorga miqdor kiriting.")
             return redirect("limit_jadval", pk=pk)
@@ -4907,6 +4919,7 @@ def limit_jadval(request, pk):
                          "vaqt": _v(oxt.decided_at)}
     return render(request, "projects/limit_jadval.html", {
         "p": p, "guruhlar": guruhlar, "can_edit": can_edit,
+        "lim_edit_huquq": lim_edit_huquq,
         "lim_holat": lim_holat,
         "nav_info": nav_info, "nav_tarix": nav_tarix, "zanjir_ro": zanjir_ro,
         "is_adm": is_admin(request.user),

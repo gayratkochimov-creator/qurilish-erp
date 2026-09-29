@@ -99,7 +99,7 @@
 {% if messages %}{% for m in messages %}<div class="msg {{ m.tags }}">{{ m }}</div>{% endfor %}{% endif %}
 
 <div class="lj-top"><h2>{{ p.name }} — ҳафталик лимит</h2></div>
-<div class="lj-sub">{% if can_edit %}Ҳафта ичида нарх ўзгарса: қатордаги <b>х</b> тугмасини босасиз → эски нархда сўралган объёмни ёзасиз → қолгани янги нархда алоҳида қатор бўлади. Ҳамма сумма автоматик. «Ҳафтани ёпиш» — сўров директор тасдиғига юборилади.{% if is_adm %} Админ сифатида Умумий объём/нархни ҳам шу ерда тўғрилайсиз (тўғридан-тўғри қўлланади).{% else %} Умумий объём/нархни ўзгартирсангиз ёки блок/иш қўшсангиз — сақлашда <b>снабжение → ПТО → директор → админ</b> занжирига сўров кетади.{% endif %}{% else %}Кўриш режими — ҳафталик устунини ПТО/админ тўлдиради.{% endif %}
+<div class="lj-sub">{% if can_edit %}Ҳафта ичида нарх ўзгарса: қатордаги <b>х</b> тугмасини босасиз → эски нархда сўралган объёмни ёзасиз → қолгани янги нархда алоҳида қатор бўлади. Ҳамма сумма автоматик. «Ҳафтани ёпиш» — сўров директор тасдиғига юборилади.{% if is_adm %} Админ сифатида Умумий объём/нархни ҳам шу ерда тўғрилайсиз (тўғридан-тўғри қўлланади).{% else %} Умумий объём/нархни ўзгартирсангиз ёки блок/иш қўшсангиз — сақлашда <b>снабжение → ПТО → директор → админ</b> занжирига сўров кетади.{% endif %}{% elif lim_edit_huquq %}<b>Умумий</b> устундаги объём/нархни таҳрирлаб ёки «+ Блок (бўлим)» билан янги бўлим қўшиб, яшил «▶ Лимитни юбориш» тугмаси орқали занжирга жўнатишингиз мумкин. Ҳафталик устунни ПТО/админ тўлдиради.{% else %}Кўриш режими — ҳафталик устунини ПТО/админ тўлдиради.{% endif %}
 {% if lim_pending %}<br><b style="color:#b45309;">⏳ Лимит ўзгартириш сўрови занжирда — у якунлангунча Умумий устуни шу жадвалда қулфланади.{% if lim_holat.edit_id %} Тўғрилаш учун пастдаги «✎ Лимитни таҳрирлаш» тугмасидан фойдаланинг{% if is_adm %} ёки Тасдиқлар бўлимида орқага қайтаринг{% endif %}.{% endif %}</b>{% endif %}</div>
 
 {% if lim_holat %}
@@ -124,13 +124,15 @@
   <button class="b-green" id="btnSaqla">💾 Сақлаш</button>
   <button class="b-green" id="btnYopish">▶ Ҳафтани ёпиш</button>
   <button class="b-blue" id="btnIsh">+ Иш</button>
-  <button class="b-blue" id="btnBlok">+ Блок (бўлим)</button>
-  <button class="b-green" id="btnLimYubor" title="{% if is_adm %}Умумий устундаги ўзгаришлар тўғридан-тўғри қўлланади{% else %}Умумий лимит ўзгаришлари кейинги юсерга (снабжение → ПТО → директор → админ) сўров бўлиб кетади{% endif %}">▶ {% if is_adm %}Лимитни қўллаш{% else %}Лимитни юбориш{% endif %}</button>
   <button class="b-blue" id="btnYubor" type="button">📤 Масъулга юбориш</button>
   <span id="sanaBox" style="display:flex; gap:6px; align-items:center;">
     <label>Ҳафта боши <input type="date" id="wkStart" value="{{ taklif_ws }}"></label>
     <label>охири <input type="date" id="wkEnd" value="{{ taklif_we }}"></label>
   </span>
+  {% endif %}
+  {% if lim_edit_huquq %}
+  <button class="b-blue" id="btnBlok">+ Блок (бўлим)</button>
+  <button class="b-green" id="btnLimYubor" title="{% if is_adm %}Умумий устундаги ўзгаришлар тўғридан-тўғри қўлланади{% else %}Умумий лимит ўзгаришлари кейинги юсерга (снабжение → ПТО → директор → админ) сўров бўлиб кетади{% endif %}">▶ {% if is_adm %}Лимитни қўллаш{% else %}Лимитни юбориш{% endif %}</button>
   {% endif %}
   <button class="b-gray" id="btnHisobot">📊 Нарх тарихи ҳисоботи</button>
   <button class="b-gray" onclick="window.print()">Чоп этиш</button>
@@ -314,8 +316,9 @@
   var CAN_EDIT = {{ can_edit|yesno:"true,false" }};
   var ADMIN_RAW = {{ is_adm|yesno:"true,false" }};
   var IS_ADM = ADMIN_RAW && !{{ lim_pending|yesno:"true,false" }};
-  // PTO ham Умумийni SHU jadvalda tahrirlaydi — saqlashda zanjirga so'rov ketadi
-  var LIM_EDIT = {{ can_edit|yesno:"true,false" }} && !{{ lim_pending|yesno:"true,false" }};
+  // Умумийni ZANJIRNING HAR BIR ishtirokchisi (PTO/snab/direktor/admin) shu
+  // jadvalda tahrirlaydi — admin to'g'ridan, qolganlarda zanjirga so'rov ketadi
+  var LIM_EDIT = {{ lim_edit_huquq|yesno:"true,false" }} && !{{ lim_pending|yesno:"true,false" }};
   var QAYTAR_TMPL = "{% url 'weekly_return_pto' 123456789 %}";
   var EXPORT_URL = "{% url 'limit_jadval_export' p.pk %}";
   var DRAFT_ID = {{ draft_id|default:"null" }};
@@ -426,7 +429,7 @@
       var key = tr.dataset.key;
       var vol = pf(tr.dataset.vol), price = pf(tr.dataset.price);
       var fq = pf(tr.dataset.fqty), fs = pf(tr.dataset.fsum);
-      if (edit && LIM_EDIT){
+      if (LIM_EDIT){
         // Админ Умумийни шу ерда тўғрилайди — сариқ катаклар
         tr.querySelector('.c-vol').innerHTML = '<input class="wkin lim-q" type="number" min="0" step="0.001" value="'+(vol||'')+'">';
         tr.querySelector('.c-price').innerHTML = '<input class="wkin lim-p" type="number" min="0" value="'+(price||'')+'">';
@@ -791,9 +794,9 @@
     });
     document.querySelectorAll('.blk-add').forEach(function(b){ b.style.display = edit ? '' : 'none'; });
     var bLim0 = document.getElementById('btnLimYubor');
-    if (bLim0) bLim0.style.display = (edit && LIM_EDIT) ? '' : 'none';
+    if (bLim0) bLim0.style.display = LIM_EDIT ? '' : 'none';
     var bBlok0 = document.getElementById('btnBlok');
-    if (bBlok0) bBlok0.style.display = (edit && LIM_EDIT) ? '' : 'none';
+    if (bBlok0) bBlok0.style.display = LIM_EDIT ? '' : 'none';
     autoSaqla();
   }
 
@@ -891,9 +894,10 @@
         !confirm('Умумий лимит ўзгаришлари СНАБЖЕНИЕ → ПТО → ДИРЕКТОР → АДМИН занжирига сўров бўлиб кетади. Давом этамизми?')) return;
     if (!items.length && action==='submit'){ alert('Ҳафтани ёпиш учун ҳафталик устунига объём киритинг.'); return; }
     var h = haftaTop(sel);
+    var wsEl = document.getElementById('wkStart'), weEl = document.getElementById('wkEnd');
     var payload = { action:action, items:items, limit_edits:limEdits, limit_new:limNew,
-      week_start: document.getElementById('wkStart').value || (h?h.ws:''),
-      week_end: document.getElementById('wkEnd').value || (h?h.we:'') };
+      week_start: (wsEl ? wsEl.value : '') || (h?h.ws:''),
+      week_end: (weEl ? weEl.value : '') || (h?h.we:'') };
     if (action==='submit' && !confirm('Ҳафта ёпилади — сўров директор тасдиғига юборилади. Давом этамизми?')) return;
     try { localStorage.removeItem(autoKey()); } catch(e){}
     document.getElementById('ljPayload').value = JSON.stringify(payload);
