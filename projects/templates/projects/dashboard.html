@@ -111,6 +111,9 @@
   .leg .sw { width:10px; height:10px; border-radius:3px; background:var(--brand); display:inline-block; }
   .leg .ln { width:16px; height:0; border-top:2.5px solid #f97316; border-radius:2px; display:inline-block; }
   .pctpill { font-size:11.5px; font-weight:700; padding:2px 9px; border-radius:999px; font-variant-numeric:tabular-nums; }
+  .seg { display:inline-flex; background:#f1f5f9; border:1px solid var(--line); border-radius:9px; padding:2px; gap:2px; margin-left:6px; }
+  .seg button { border:0; background:transparent; color:#64748b; font-size:11.5px; font-weight:700; padding:4px 11px; border-radius:7px; cursor:pointer; transition:.14s; }
+  .seg button.on { background:#fff; color:var(--brand); box-shadow:0 1px 3px rgba(0,0,0,.08); }
   .cat { padding:14px 0; border-top:1px solid var(--line-2); }
   .cat:first-of-type { border-top:0; padding-top:0; }
   .crow { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:9px; }
@@ -312,26 +315,46 @@
       <svg viewBox="0 0 210 112" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
         <defs>
           <linearGradient id="hsky" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stop-color="#fdba74"/><stop offset=".45" stop-color="#f97316"/>
-            <stop offset=".75" stop-color="#7c2d12"/><stop offset="1" stop-color="#1e2a4a"/>
+            <stop offset="0" stop-color="#ffd9a3"/><stop offset=".38" stop-color="#fb923c"/>
+            <stop offset=".68" stop-color="#c2410c"/><stop offset=".9" stop-color="#5b2a3a"/>
+            <stop offset="1" stop-color="#1f2c4d"/>
           </linearGradient>
+          <radialGradient id="hsun" cx=".5" cy=".5" r=".5">
+            <stop offset="0" stop-color="#fffbeb"/><stop offset=".55" stop-color="#fde68a" stop-opacity=".85"/>
+            <stop offset="1" stop-color="#fde68a" stop-opacity="0"/>
+          </radialGradient>
         </defs>
         <rect width="210" height="112" fill="url(#hsky)"/>
-        <circle cx="150" cy="34" r="14" fill="#fff7ed" opacity=".9"/>
-        <g fill="#141d33">
-          <rect x="8" y="52" width="26" height="60"/><rect x="40" y="64" width="20" height="48"/>
-          <rect x="146" y="58" width="24" height="54"/><rect x="176" y="46" width="26" height="66"/>
-          <rect x="98" y="70" width="30" height="42"/>
+        <circle cx="148" cy="38" r="26" fill="url(#hsun)"/>
+        <circle cx="148" cy="38" r="10" fill="#fff7ed"/>
+        <g fill="#3a4a70" opacity=".55">
+          <rect x="0" y="66" width="16" height="46"/><rect x="30" y="72" width="14" height="40"/>
+          <rect x="120" y="70" width="16" height="42"/><rect x="160" y="64" width="12" height="48"/>
         </g>
-        <g stroke="#141d33" stroke-width="3" fill="none">
-          <path d="M74 112V22"/><path d="M74 22h74"/><path d="M74 34l40-12"/><path d="M140 22v14"/>
-          <path d="M66 112h16"/>
+        <g fill="#10192e">
+          <rect x="6" y="48" width="28" height="64"/><rect x="40" y="62" width="22" height="50"/>
+          <rect x="142" y="56" width="26" height="56"/><rect x="174" y="42" width="30" height="70"/>
+          <rect x="96" y="72" width="32" height="40"/>
         </g>
-        <rect x="136" y="36" width="9" height="7" fill="#141d33"/>
-        <g fill="#141d33" opacity=".85">
-          <rect x="12" y="58" width="4" height="4" fill="#fbbf24"/><rect x="22" y="58" width="4" height="4" fill="#fbbf24"/>
-          <rect x="12" y="70" width="4" height="4" fill="#fbbf24"/><rect x="182" y="54" width="4" height="4" fill="#fbbf24"/>
-          <rect x="192" y="66" width="4" height="4" fill="#fbbf24"/>
+        <g stroke="#10192e" fill="none">
+          <path d="M76 112V20" stroke-width="4"/>
+          <path d="M74 104l6-8m-6 0l6 8m-6-18l6-8m-6 0l6 8m-6-18l6-8m-6 0l6 8m-6-18l6-8m-6 0l6 8" stroke-width="1.4"/>
+          <path d="M60 20h96" stroke-width="3.4"/>
+          <path d="M76 30l44-10M76 30l-14-10" stroke-width="1.6"/>
+          <path d="M150 20v16" stroke-width="1.6"/>
+          <path d="M66 112h20" stroke-width="4"/>
+        </g>
+        <rect x="56" y="16" width="10" height="8" fill="#10192e"/>
+        <rect x="145" y="36" width="10" height="7" fill="#10192e"/>
+        <path d="M145 43l5 4 5-4" stroke="#10192e" stroke-width="1.6" fill="none"/>
+        <g fill="#fbbf24">
+          <rect x="11" y="54" width="4" height="4"/><rect x="21" y="54" width="4" height="4"/>
+          <rect x="11" y="66" width="4" height="4"/><rect x="21" y="78" width="4" height="4"/>
+          <rect x="46" y="68" width="3.6" height="3.6"/><rect x="54" y="80" width="3.6" height="3.6"/>
+          <rect x="148" y="62" width="4" height="4"/><rect x="158" y="74" width="4" height="4"/>
+          <rect x="180" y="50" width="4" height="4"/><rect x="190" y="62" width="4" height="4"/>
+          <rect x="180" y="86" width="4" height="4"/><rect x="104" y="78" width="3.6" height="3.6"/>
+          <rect x="114" y="90" width="3.6" height="3.6"/>
         </g>
       </svg>
     </div>
@@ -375,7 +398,7 @@
       {% endfor %}
     </div>
     <div class="card reveal chartcard" style="animation-delay:.28s">
-      <div class="phrow"><h3 class="ph"><span class="pic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span>Haftalik sarf dinamikasi</h3><div class="leg"><span class="li"><span class="sw"></span>Sarflangan</span><span class="li"><span class="ln"></span>Tendensiya</span></div></div>
+      <div class="phrow"><h3 class="ph"><span class="pic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span>Haftalik sarf dinamikasi</h3><div class="leg"><span class="li"><span class="sw"></span>Sarflangan</span><span class="li"><span class="ln"></span>Tendensiya</span><span class="seg" id="wkSeg"><button type="button" class="on" data-m="w">Haftalik</button><button type="button" data-m="m">Oylik</button></span></div></div>
       {% if wk_values %}<div class="chwrap"><canvas id="wkLine"></canvas></div>
       {% else %}<div class="noch">Hozircha tasdiqlangan haftalik so'rov yo'q.</div>{% endif %}
     </div>
@@ -433,10 +456,14 @@
           var label = String(mln(data[i]));
           // O'tgan haftaga nisbatan % o'zgarish (2-qator, yashil/qizil)
           var sub = null, subUp = true;
-          if (i > 0 && data[i-1] > 0){
+          // % faqat MA'NOLI bo'lganda: o'tgan hafta sezilarli va o'zgarish ±300% ichida
+          var mx0 = Math.max.apply(null, data);
+          if (i > 0 && data[i-1] > mx0 * 0.03){
             var pch = Math.round((data[i] - data[i-1]) / data[i-1] * 100);
-            subUp = pch >= 0;
-            sub = (subUp ? '↑ +' : '↓ ') + pch + '%';
+            if (Math.abs(pch) <= 300 && pch !== 0){
+              subUp = pch >= 0;
+              sub = (subUp ? '↑ +' : '↓ ') + pch + '%';
+            }
           }
           c.font = "700 11px Inter, system-ui, sans-serif";
           var w = c.measureText(label).width + 16;
@@ -462,16 +489,19 @@
         });
         c.restore();
       }};
-      /* O'rtacha sarf tendensiyasi (punktir chiziq) — shu haftagacha o'rtacha */
-      var orta = [], jam = 0;
-      for (var oi = 0; oi < wv.length; oi++) { jam += wv[oi]; orta.push(jam / (oi + 1)); }
       var barG = ctx.createLinearGradient(0,0,0,320);
       barG.addColorStop(0,'#2f6fe4'); barG.addColorStop(1,'#8fb6f7');
-      new Chart(lEl, { type:'bar',
+      var wkChart = null;
+      function chiz(lab, val){
+        /* O'rtacha sarf tendensiyasi — shu davrgacha o'rtacha */
+        var orta = [], jam = 0;
+        for (var oi = 0; oi < val.length; oi++) { jam += val[oi]; orta.push(jam / (oi + 1)); }
+        if (wkChart) wkChart.destroy();
+        wkChart = new Chart(lEl, { type:'bar',
         plugins:[badgePlugin],
-        data:{ labels:wl, datasets:[
-          { /* USTUNLAR — haftalik sarf */
-            data:wv, backgroundColor:barG, hoverBackgroundColor:'#1d4ed8',
+        data:{ labels:lab, datasets:[
+          { /* USTUNLAR — sarf */
+            data:val, backgroundColor:barG, hoverBackgroundColor:'#1d4ed8',
             borderRadius:5, maxBarThickness:52, order:2,
             label:"Haftalik sarf"
           },
@@ -492,18 +522,40 @@
               padding:12, cornerRadius:8, displayColors:false,
               titleFont:{size:12, weight:'600'}, bodyFont:{size:14, weight:'700'},
               callbacks:{
-                title:function(items){ return 'Hafta: ' + items[0].label; },
+                title:function(items){ return items[0].label; },
                 label:function(c){ return c.dataset.label + ': ' + nf(c.raw) + " so'm"; }
               }
             }
           },
           scales:{
             y:{ beginAtZero:true, grace:'8%',
+                title:{ display:true, text:"Summa (mln so'm)", font:{size:11}, color:'#94a3b8' },
                 ticks:{ maxTicksLimit:5, callback:mln, font:{size:11}, color:'#64748b', padding:6 },
                 grid:{ color:'#eef2f7' }, border:{ display:false, dash:[4,4] } },
             x:{ grid:{ display:false }, border:{ display:false },
+                title:{ display:true, text:'Sana', font:{size:11}, color:'#94a3b8' },
                 ticks:{ font:{size:11}, color:'#64748b', padding:4, autoSkip:true, maxRotation:0, maxTicksLimit:16 } }
           } } });
+      }
+      chiz(wl, wv);
+      // Ҳафталик / Ойлик almashtirgich
+      var seg = document.getElementById('wkSeg');
+      if (seg) seg.querySelectorAll('button').forEach(function(b){
+        b.addEventListener('click', function(){
+          seg.querySelectorAll('button').forEach(function(x){ x.classList.toggle('on', x===b); });
+          if (b.dataset.m === 'w'){ chiz(wl, wv); return; }
+          var OY = {'01':'Yanvar','02':'Fevral','03':'Mart','04':'Aprel','05':'May','06':'Iyun',
+                    '07':'Iyul','08':'Avgust','09':'Sentabr','10':'Oktabr','11':'Noyabr','12':'Dekabr'};
+          var mp = {}, tartib = [];
+          wl.forEach(function(lb, i){
+            var mm = (lb.split('.')[1] || lb);
+            if (!(mm in mp)){ mp[mm] = 0; tartib.push(mm); }
+            mp[mm] += wv[i];
+          });
+          chiz(tartib.map(function(m){ return OY[m] || m; }),
+               tartib.map(function(m){ return mp[m]; }));
+        });
+      });
     }
   })();
   </script>
