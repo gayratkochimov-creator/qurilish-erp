@@ -636,9 +636,9 @@
       raqamla();
       // Blok YAKUNIDA qo'shish tugmalari: shu blokka qator / yana yangi blok
       var addr = document.createElement('tr'); addr.className = 'yb-addrow';
-      addr.innerHTML = '<td></td><td colspan="16" style="background:#f3f7fc; padding:5px 8px;">'+
-        '<button type="button" class="blk-add yb-addqator" style="margin-left:0;">+ Қатор қўшиш</button>'+
-        '<button type="button" class="blk-add yb-addblok" style="margin-left:8px;">+ Янги блок (бўлим)</button></td>';
+      addr.innerHTML = '<td style="padding:0;"></td><td colspan="16" style="background:#f6f9fd; padding:1px 8px;">'+
+        '<button type="button" class="blk-add yb-addqator" style="margin-left:0; padding:0 8px; font-size:11px; line-height:17px;">+ Қатор</button>'+
+        '<button type="button" class="blk-add yb-addblok" style="margin-left:6px; padding:0 8px; font-size:11px; line-height:17px;">+ Янги блок</button></td>';
       addr.querySelector('.yb-addqator').onclick = function(){
         blk.rows.push({name:'',unit:'',kind:'material',vol:0,price:0});
         chizYangiBloklar(); hisobla();
