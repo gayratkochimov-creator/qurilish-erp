@@ -344,6 +344,22 @@
   function pf(v){ var x = parseFloat(String(v).replace(/\s/g,'').replace(',','.')); return isNaN(x)?0:x; }
   function esc(s){ var d=document.createElement('div'); d.textContent=s==null?'':String(s); return d.innerHTML; }
   function izohKengay(el){ if (!el || el.tagName!=='TEXTAREA') return; el.style.height='auto'; el.style.height=(el.scrollHeight+2)+'px'; }
+  // Katta summa yozilsa raqam katagi YONGA kengayadi (qiymat ko'rinib turadi)
+  function raqamKengay(el){
+    if (!el || el.type !== 'number') return;
+    if (el.dataset.w0 === undefined){
+      el.dataset.w0 = el.style.width || '';
+      el.dataset.w0px = el.offsetWidth || 88;
+    }
+    var n = String(el.value || '').length;
+    var kerak = (n + 3) * 8;   // ~1 raqam ≈ 8px (zaxira bilan)
+    if (kerak > (+el.dataset.w0px)) el.style.width = Math.min(kerak, 170) + 'px';
+    else el.style.width = el.dataset.w0;
+  }
+  function hammaRaqamKengay(){
+    var t = document.getElementById('ljTbl');
+    if (t) t.querySelectorAll('input[type=number].wkin').forEach(raqamKengay);
+  }
   function haftaTop(id){ for(var i=0;i<HAFTA.length;i++) if('w'+HAFTA[i].id===id) return HAFTA[i]; return null; }
   function tahrirmi(){ var h=haftaTop(sel); return CAN_EDIT && (sel==='yangi' || (h && !h.locked)); }
   function ishRows(){ return Array.prototype.slice.call(document.querySelectorAll('#ljBody tr.ish')); }
@@ -889,6 +905,7 @@
     if (bLim0) bLim0.style.display = LIM_EDIT ? '' : 'none';
     var bLimZ0 = document.getElementById('btnLimZanjir');
     if (bLimZ0) bLimZ0.style.display = LIM_EDIT ? '' : 'none';
+    hammaRaqamKengay();
     var bBlok0 = document.getElementById('btnBlok');
     if (bBlok0) bBlok0.style.display = LIM_EDIT ? '' : 'none';
     autoSaqla();
