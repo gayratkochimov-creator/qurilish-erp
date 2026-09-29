@@ -70,6 +70,13 @@
   .k-chip.machinery { background:#f5f3ff; color:#7c3aed; border-color:#ddd6fe; }
   .k-chip.other { background:#fff7ed; color:#c2410c; border-color:#fed7aa; }
   .k-chip:hover { filter:brightness(.95); }
+  /* Тури бўйича filtr chiplar (jadval tepasida) */
+  .turbar { display:flex; gap:8px; align-items:center; margin:2px 0 8px; flex-wrap:wrap; font-size:12.5px; }
+  .turbar .tchipf { border:1px solid #d8dee7; background:#fff; color:#334155; border-radius:999px; padding:5px 14px; font-weight:700; font-size:12px; cursor:pointer; display:inline-flex; gap:7px; align-items:center; transition:.14s; }
+  .turbar .tchipf:hover { border-color:#94a3b8; }
+  .turbar .tchipf.on { background:#2563eb; color:#fff; border-color:#2563eb; }
+  .turbar .dotk { width:8px; height:8px; border-radius:50%; display:inline-block; }
+  .turbar .tchipf.on .dotk { background:#fff !important; }
   .lj td textarea.yb-wi { min-width:70px; font-size:11.5px; }
   .dim { color:#bbb; }
   .lj-modal-bg { display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:60; }
@@ -217,6 +224,14 @@
 
 <datalist id="ljBolimList">{% for g in guruhlar %}{% if g.bolim %}<option value="{{ g.bolim }}"></option>{% endif %}{% endfor %}</datalist>
 
+<div class="turbar noprint" id="ljTurbar">
+  <span style="font-weight:700; color:#475569;">Тури бўйича:</span>
+  <button type="button" class="tchipf on" data-k="all">Барчаси</button>
+  <button type="button" class="tchipf" data-k="material"><span class="dotk" style="background:#1d4ed8;"></span>Материал</button>
+  <button type="button" class="tchipf" data-k="labor"><span class="dotk" style="background:#15803d;"></span>Иш ҳақи</button>
+  <button type="button" class="tchipf" data-k="machinery"><span class="dotk" style="background:#7c3aed;"></span>Машина части</button>
+  <button type="button" class="tchipf" data-k="other"><span class="dotk" style="background:#c2410c;"></span>Кўзда тутилмаган</button>
+</div>
 <div class="lj-wrap" id="jadvalWrap">
 <table class="lj" id="ljTbl">
   <thead><tr>
@@ -721,7 +736,8 @@
     korinish();
   }
 
-  // -------- 🔍 Бўлим бўйича излаш (bloklarni filtrga solish) --------
+  // -------- 🔍 Излаш + Тури бўйича filtr (birga ishlaydi) --------
+  var LJ_KF = 'all';   // tanlangan tur (Барчаси / material / labor / ...)
   function ljQidirla(){
     var qi = document.getElementById('ljQidir');
     var q = (qi && qi.value || '').trim().toLowerCase();
@@ -736,8 +752,26 @@
                                                function(i){ return i.value || ''; }).join(' ');
           return (t.textContent || '') + ' ' + ichki;
         }).join(' ').toLowerCase();
-        var ok = !q || matn.indexOf(q) > -1;
-        grp.forEach(function(t){ t.style.display = ok ? '' : 'none'; });
+        var okQ = !q || matn.indexOf(q) > -1;
+        // Har qator turi: ish qatorlarida data-kind, yb/ex qatorlarda select;
+        // split (bo'lak) qatorlar oldingi ish turini oladi
+        var lastKind = null, bironBor = false, dataBor = false;
+        var vis = grp.map(function(t){
+          var chetki = t.classList.contains('block') || t.classList.contains('exhdr') ||
+                       t.classList.contains('subtotal') || t.classList.contains('yb-addrow');
+          if (chetki) return null;
+          dataBor = true;
+          var k = t.dataset.kind || null;
+          if (!k){ var s = t.querySelector('.yb-k, .ex-k'); if (s) k = s.value; }
+          if (!k) k = lastKind; else lastKind = k;
+          var ok = okQ && (LJ_KF === 'all' || !k || k === LJ_KF);
+          if (ok) bironBor = true;
+          return ok;
+        });
+        if (!dataBor) bironBor = okQ;   // bo'sh blok — faqat izlashga qaraydi
+        grp.forEach(function(t, i){
+          t.style.display = (vis[i] === null ? (okQ && bironBor) : vis[i]) ? '' : 'none';
+        });
         grp = [];
       }
       Array.prototype.forEach.call(tb.rows, function(tr){
@@ -750,6 +784,14 @@
   (function(){
     var qi = document.getElementById('ljQidir');
     if (qi) qi.addEventListener('input', ljQidirla);
+    var tbar = document.getElementById('ljTurbar');
+    if (tbar) tbar.addEventListener('click', function(e){
+      var b = e.target.closest('.tchipf');
+      if (!b) return;
+      LJ_KF = b.dataset.k || 'all';
+      tbar.querySelectorAll('.tchipf').forEach(function(x){ x.classList.toggle('on', x === b); });
+      ljQidirla();
+    });
   })();
 
   // -------- Лимитда йўқ ишлар (+ Иш) --------
