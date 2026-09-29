@@ -150,7 +150,6 @@
   {% if can_edit %}
   <button class="b-green" id="btnSaqla">💾 Сақлаш</button>
   <button class="b-green" id="btnYopish">▶ Ҳафтани ёпиш</button>
-  <button class="b-blue" id="btnIsh">+ Иш</button>
   <button class="b-blue" id="btnYubor" type="button">📤 Масъулга юбориш</button>
   <span id="sanaBox" style="display:flex; gap:6px; align-items:center;">
     <label>Ҳафта боши <input type="date" id="wkStart" value="{{ taklif_ws }}"></label>
@@ -158,7 +157,6 @@
   </span>
   {% endif %}
   {% if lim_edit_huquq %}
-  <button class="b-blue" id="btnBlok">+ Блок (бўлим)</button>
   <button class="b-green" id="btnLimYubor" title="{% if is_adm %}Умумий устундаги ўзгаришлар тўғридан-тўғри қўлланади{% else %}Умумий лимит ўзгаришлари кейинги юсерга (снабжение → ПТО → директор → админ) сўров бўлиб кетади{% endif %}">▶ {% if is_adm %}Лимитни қўллаш{% else %}Лимитни юбориш{% endif %}</button>
   {% if is_adm %}<button class="b-blue" id="btnLimZanjir" title="Ўзгаришлар тўғридан қўлланмайди — снабжение → ПТО → директор → админ занжирига СЎРОВ бўлиб кетади ва Тасдиқлар бўлимида кўринади">📨 Занжирга юбориш</button>{% endif %}
   {% endif %}
@@ -256,7 +254,7 @@
   {% if not guruhlar %}
     <tr><td colspan="16" style="text-align:center; color:#94a3b8; padding:26px;">
       Умумий лимит ҳали киритилмаган.
-      Юқоридаги <b>«+ Блок (бўлим)»</b> тугмаси билан шу ерда киритинг{% if not is_adm %} — сақлашда снабжение → ПТО → директор → админ занжирига сўров кетади{% endif %}.
+      Пастдаги <b>«+ Янги блок (бўлим)»</b> тугмаси билан шу ерда киритинг{% if not is_adm %} — сақлашда снабжение → ПТО → директор → админ занжирига сўров кетади{% endif %}.
     </td></tr>
   {% endif %}
   {% for g in guruhlar %}
@@ -540,7 +538,17 @@
   // -------- + Блок (бўлим) — админ янги лимит блоки қўшади --------
   function chizYangiBloklar(){
     var tb = document.getElementById('yangiBody'); tb.innerHTML='';
-    if (!yangiBloklar.length) return;
+    if (!yangiBloklar.length){
+      // Blok yo'q bo'lsa ham jadval ICHIDA qo'shish tugmasi turadi
+      if (LIM_EDIT){
+        var addr0 = document.createElement('tr'); addr0.className = 'yb-addrow';
+        addr0.innerHTML = '<td style="padding:0;"></td><td colspan="16" style="background:#f6f9fd; padding:1px 8px;">'+
+          '<button type="button" class="blk-add yb-addblok0" style="margin-left:0; padding:0 8px; font-size:11px; line-height:17px;">+ Янги блок (бўлим)</button></td>';
+        addr0.querySelector('.yb-addblok0').onclick = yangiBlokQosh;
+        tb.appendChild(addr0);
+      }
+      return;
+    }
     yangiBloklar.forEach(function(blk, bi){
       var hr = document.createElement('tr'); hr.className='block';
       hr.innerHTML = '<td></td><td colspan="13"><span style="display:inline-flex; gap:8px; align-items:center; flex-wrap:wrap;">'+
@@ -648,26 +656,18 @@
         yangiBloklar.forEach(function(b2, b2i){ if (b2 === blk) idx = jami + b2.rows.length - 1; jami += b2.rows.length; });
         if (qs[idx]) qs[idx].focus();
       };
-      addr.querySelector('.yb-addblok').onclick = function(){
-        yangiBloklar.push({ bolim:'', masul:'',
-          rows:[{name:'',unit:'',kind:'material',vol:0,price:0}] });
-        chizYangiBloklar(); hisobla();
-        var bls = document.querySelectorAll('#yangiBody .yb-bolim');
-        if (bls.length) bls[bls.length-1].focus();
-      };
+      addr.querySelector('.yb-addblok').onclick = yangiBlokQosh;
       tb.appendChild(addr);
     });
   }
-  var bBlok = document.getElementById('btnBlok');
-  if (bBlok) bBlok.onclick = function(){
+  function yangiBlokQosh(){
     if (!LIM_EDIT){ alert('⏳ Лимит сўрови занжирда ёки сизда ҳуқуқ йўқ — ҳозир блок қўшилмайди.'); return; }
-    // Bo'lim nomi/masul JADVALNING O'ZIDA yoziladi (prompt oynachasiz)
     yangiBloklar.push({ bolim:'', masul:'',
       rows:[{name:'',unit:'',kind:'material',vol:0,price:0}] });
     chizYangiBloklar(); hisobla();
     var bls = document.querySelectorAll('#yangiBody .yb-bolim');
     if (bls.length) bls[bls.length-1].focus();
-  };
+  }
 
   function chizBolaklar(tr, key, edit){
     var lst = bolaklar[key] || [];
@@ -872,8 +872,6 @@
     var oxirgi = document.querySelector('tr.extra[data-ei="'+(extralar.length-1)+'"] .ex-n');
     if (oxirgi) oxirgi.focus();
   }
-  var bIsh = document.getElementById('btnIsh');
-  if (bIsh) bIsh.onclick = function(){ ishQosh(''); };
   // Блок сарлавҳасидаги «+ Иш» — иш ШУ бўлимга қўшилади
   document.getElementById('ljBody').addEventListener('click', function(e){
     if (e.target.classList.contains('blk-add'))
@@ -1007,7 +1005,7 @@
     }
     var sb = document.getElementById('sanaBox');
     if (sb) sb.style.display = edit ? 'flex' : 'none';
-    ['btnSaqla','btnYopish','btnIsh'].forEach(function(id){
+    ['btnSaqla','btnYopish'].forEach(function(id){
       var b = document.getElementById(id); if (b) b.style.display = edit ? '' : 'none';
     });
     document.querySelectorAll('.blk-add').forEach(function(b){ b.style.display = edit ? '' : 'none'; });
@@ -1017,8 +1015,6 @@
     if (bLimZ0) bLimZ0.style.display = LIM_EDIT ? '' : 'none';
     hammaRaqamKengay();
     ljQidirla();
-    var bBlok0 = document.getElementById('btnBlok');
-    if (bBlok0) bBlok0.style.display = LIM_EDIT ? '' : 'none';
     autoSaqla();
   }
 
