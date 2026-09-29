@@ -61,7 +61,7 @@
   .del-btn { border:none; background:#c01c28; color:#fff; border-radius:4px; padding:1px 7px; cursor:pointer; font-size:11px; }
   .blk-add { border:1px solid #86efac; background:#dcfce7; color:#15803d; border-radius:4px; padding:1px 9px; margin-left:8px; cursor:pointer; font-weight:700; font-size:11.5px; }
   .blk-add:hover { background:#15803d; color:#fff; }
-  .wi-tgl { border:1px solid #d3b8e0; background:#fff; color:#813d9c; border-radius:4px; padding:1px 6px; cursor:pointer; font-size:11px; margin-top:3px; display:block; width:100%; }
+  .wi-tgl { border:1px solid #d3b8e0; background:#fff; color:#813d9c; border-radius:4px; padding:1px 6px; cursor:pointer; font-size:11px; flex:none; align-self:center; }
   .wi-tgl:hover { background:#813d9c; color:#fff; }
   .lj td textarea.yb-wi { min-width:70px; font-size:11.5px; }
   .dim { color:#bbb; }
@@ -531,9 +531,10 @@
           '<td class="num yb-lq">'+fmt(x.vol||0)+'</td><td class="num yb-ls">'+fmt((x.vol||0)*(x.price||0))+'</td>'+
           (wEdit
             ? ('<td class="ctr yb-wu">'+esc(x.unit||'')+'</td>'+
-               '<td class="num"><input class="wkin yb-wq" type="number" min="0" step="0.001" value="'+(x.wq||'')+'" placeholder="0">'+
+               '<td class="num"><span style="display:flex; gap:3px; align-items:flex-start;">'+
+               '<input class="wkin yb-wq" type="number" min="0" step="0.001" value="'+(x.wq||'')+'" placeholder="0" style="width:72px; flex:none;">'+
                '<button type="button" class="wi-tgl yb-wi-tgl" title="Ҳафталикка изоҳ ёзиш/яшириш">✎</button>'+
-               '<textarea class="wkin tx yb-wi" rows="1" placeholder="ҳафталик изоҳ..." style="'+((x.wi||'').trim()?'':'display:none; ')+'margin-top:3px;">'+esc(x.wi||'')+'</textarea></td>'+
+               '<textarea class="wkin tx yb-wi" rows="1" placeholder="ҳафталик изоҳ..." style="'+((x.wi||'').trim()?'':'display:none; ')+'flex:1; min-width:110px;">'+esc(x.wi||'')+'</textarea></span></td>'+
                '<td class="num"><input class="wkin yb-wp" type="number" min="0" value="'+(x.wp||'')+'"></td>'+
                '<td class="num yb-ws">'+fmt((x.wq||0)*(x.wp||0))+'</td>')
             : '<td class="ctr dim">—</td><td class="num dim">—</td><td class="num dim">—</td><td class="num dim">—</td>')+
@@ -568,6 +569,30 @@
         izohKengay(r.querySelector('.yb-i'));
         izohKengay(r.querySelector('.yb-wi'));
       });
+      // Blok YAKUNIDA qo'shish tugmalari: shu blokka qator / yana yangi blok
+      var addr = document.createElement('tr'); addr.className = 'yb-addrow';
+      addr.innerHTML = '<td></td><td colspan="16" style="background:#f3f7fc; padding:5px 8px;">'+
+        '<button type="button" class="blk-add yb-addqator" style="margin-left:0;">+ Қатор қўшиш</button>'+
+        '<button type="button" class="blk-add yb-addblok" style="margin-left:8px;">+ Янги блок (бўлим)</button></td>';
+      addr.querySelector('.yb-addqator').onclick = function(){
+        blk.rows.push({name:'',unit:'',kind:'material',vol:0,price:0});
+        chizYangiBloklar(); hisobla();
+        var qs = document.querySelectorAll('#yangiBody tr.extra .yb-n');
+        // shu blokning oxirgi qatoriga fokus
+        var idx = 0, jami = 0;
+        yangiBloklar.forEach(function(b2, b2i){ if (b2 === blk) idx = jami + b2.rows.length - 1; jami += b2.rows.length; });
+        if (qs[idx]) qs[idx].focus();
+      };
+      addr.querySelector('.yb-addblok').onclick = function(){
+        yangiBloklar.push({ bolim:'', masul:'',
+          rows:[{name:'',unit:'',kind:'material',vol:0,price:0},
+                {name:'',unit:'',kind:'material',vol:0,price:0},
+                {name:'',unit:'',kind:'material',vol:0,price:0}] });
+        chizYangiBloklar(); hisobla();
+        var bls = document.querySelectorAll('#yangiBody .yb-bolim');
+        if (bls.length) bls[bls.length-1].focus();
+      };
+      tb.appendChild(addr);
     });
   }
   var bBlok = document.getElementById('btnBlok');
