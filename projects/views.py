@@ -4562,7 +4562,10 @@ def limit_jadval(request, pk):
                 messages.error(request, "Limit o'zgartirish so'rovi zanjirda turibdi — "
                                         "avval u yakunlansin, keyin Умумийni tahrirlaysiz.")
                 return redirect("limit_jadval", pk=pk)
-        if (lim_edits or lim_new) and not is_admin(request.user) and lim_edit_huquq:
+        # Admin ham «Занжирга юбориш»ни tanlasa — to'g'ridan emas, so'rov bo'lib ketadi
+        admin_zanjir = bool(payload.get("lim_zanjir")) and is_admin(request.user)
+        if (lim_edits or lim_new) and lim_edit_huquq and (
+                not is_admin(request.user) or admin_zanjir):
             # PTO: joriy tarkib + o'zgarishlar = TAKLIF -> tasdiqlash zanjiri
             edits = {}
             for e in lim_edits:

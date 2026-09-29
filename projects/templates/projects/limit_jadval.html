@@ -140,6 +140,7 @@
   {% if lim_edit_huquq %}
   <button class="b-blue" id="btnBlok">+ Блок (бўлим)</button>
   <button class="b-green" id="btnLimYubor" title="{% if is_adm %}Умумий устундаги ўзгаришлар тўғридан-тўғри қўлланади{% else %}Умумий лимит ўзгаришлари кейинги юсерга (снабжение → ПТО → директор → админ) сўров бўлиб кетади{% endif %}">▶ {% if is_adm %}Лимитни қўллаш{% else %}Лимитни юбориш{% endif %}</button>
+  {% if is_adm %}<button class="b-blue" id="btnLimZanjir" title="Ўзгаришлар тўғридан қўлланмайди — снабжение → ПТО → директор → админ занжирига СЎРОВ бўлиб кетади ва Тасдиқлар бўлимида кўринади">📨 Занжирга юбориш</button>{% endif %}
   {% endif %}
   <button class="b-gray" id="btnHisobot">📊 Нарх тарихи ҳисоботи</button>
   <button class="b-gray" onclick="window.print()">Чоп этиш</button>
@@ -802,6 +803,8 @@
     document.querySelectorAll('.blk-add').forEach(function(b){ b.style.display = edit ? '' : 'none'; });
     var bLim0 = document.getElementById('btnLimYubor');
     if (bLim0) bLim0.style.display = LIM_EDIT ? '' : 'none';
+    var bLimZ0 = document.getElementById('btnLimZanjir');
+    if (bLimZ0) bLimZ0.style.display = LIM_EDIT ? '' : 'none';
     var bBlok0 = document.getElementById('btnBlok');
     if (bBlok0) bBlok0.style.display = LIM_EDIT ? '' : 'none';
     autoSaqla();
@@ -896,15 +899,17 @@
         });
       });
     }
-    if (!items.length && !limEdits.length && !limNew.length){ alert('Камида битта қаторга объём киритинг.'); return; }
-    if (!ADMIN_RAW && (limEdits.length || limNew.length) &&
-        !confirm('Умумий лимит ўзгаришлари СНАБЖЕНИЕ → ПТО → ДИРЕКТОР → АДМИН занжирига сўров бўлиб кетади. Давом этамизми?')) return;
+    if (!items.length && !limEdits.length && !limNew.length){ limZanjir=false; alert('Камида битта қаторга объём киритинг.'); return; }
+    if ((!ADMIN_RAW || limZanjir) && (limEdits.length || limNew.length) &&
+        !confirm('Умумий лимит ўзгаришлари СНАБЖЕНИЕ → ПТО → ДИРЕКТОР → АДМИН занжирига сўров бўлиб кетади ва Тасдиқлар бўлимида кўринади. Давом этамизми?')){ limZanjir=false; return; }
     if (!items.length && action==='submit'){ alert('Ҳафтани ёпиш учун ҳафталик устунига объём киритинг.'); return; }
     var h = haftaTop(sel);
     var wsEl = document.getElementById('wkStart'), weEl = document.getElementById('wkEnd');
     var payload = { action:action, items:items, limit_edits:limEdits, limit_new:limNew,
+      lim_zanjir: limZanjir,
       week_start: (wsEl ? wsEl.value : '') || (h?h.ws:''),
       week_end: (weEl ? weEl.value : '') || (h?h.we:'') };
+    limZanjir = false;
     if (action==='submit' && !confirm('Ҳафта ёпилади — сўров директор тасдиғига юборилади. Давом этамизми?')) return;
     try { localStorage.removeItem(autoKey()); } catch(e){}
     document.getElementById('ljPayload').value = JSON.stringify(payload);
@@ -914,6 +919,28 @@
   if (bS) bS.onclick = function(){ yuborish('save'); };
   if (bY) bY.onclick = function(){ yuborish('submit'); };
   // ▶ Лимитни юбориш — Умумий ўзгаришларини кейинги юсерга (занжирга) жўнатиш
+  var limZanjir = false;   // admin «Занжирга юбориш»ни танласа true bo'ladi
+  function limOzgarishBor(){
+    var bor = false;
+    ishRows().forEach(function(tr){
+      var lq = tr.querySelector('.lim-q'), lp = tr.querySelector('.lim-p');
+      if (lq && (Math.abs(pf(lq.value)-pf(tr.dataset.vol))>0.0001 ||
+                 Math.abs(pf(lp.value)-pf(tr.dataset.price))>0.0001)) bor = true;
+    });
+    yangiBloklar.forEach(function(blk){
+      blk.rows.forEach(function(x){ if ((x.name||'').trim() && (x.vol||0)>0) bor = true; });
+    });
+    return bor;
+  }
+  var bLimZ = document.getElementById('btnLimZanjir');
+  if (bLimZ) bLimZ.onclick = function(){
+    if (!limOzgarishBor()){
+      alert('Умумий устунда ўзгариш йўқ.\nАввал Умумий объём/нархни ўзгартиринг ёки «+ Блок (бўлим)» билан янги блок киритинг — кейин занжирга юборасиз.');
+      return;
+    }
+    limZanjir = true;
+    yuborish('save');
+  };
   var bLim = document.getElementById('btnLimYubor');
   if (bLim) bLim.onclick = function(){
     var bor = false;
