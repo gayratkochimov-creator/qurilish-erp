@@ -962,7 +962,7 @@
         if ((x.vol||0)>0 || (x.wq||0)>0 || (x.name||'').trim()) toldirilgan = true;
         if (((x.vol||0)>0 || (x.wq||0)>0) && !(x.name||'').trim())
           errs.push('«'+blkNomi+'» блоки: иш номи ёзилмаган');
-        if ((x.vol||0)>0 && (x.price||0)<=0) errs.push('«'+(x.name||blkNomi)+'»: нарх киритилмаган');
+        // Умумий НАРХ мажбурий ЭМАС — занжирда СНАБЖЕНИЕ нархлайди
         if ((x.wq||0)>0 && wnarx<=0) errs.push('«'+(x.name||blkNomi)+'» (ҳафталик): нарх киритилмаган');
         if ((x.wq||0)>0 && (x.vol||0)>0 && (x.wq||0) > (x.vol||0)+0.001)
           errs.push('«'+(x.name||blkNomi)+'»: ҳафталик '+fmt(x.wq)+' — умумий '+fmt(x.vol)+' дан ортиқ');
