@@ -4508,10 +4508,15 @@ def limit_jadval(request, pk):
     p = get_object_or_404(Project, pk=pk)
     _firma_yoki_403(request, p)
     can_edit = is_pto(request.user) or is_admin(request.user)
-    # УМУМИЙ ustunini tahrirlash huquqi — zanjirning HAR BIR ishtirokchisi:
-    # PTO/snab/direktor taklifi zanjirga so'rov bo'lib ketadi, admin to'g'ridan qo'llaydi
-    lim_edit_huquq = (can_edit or _is_snab(request.user)
-                      or is_director(request.user))
+    # УМУМИЙ ustunini tahrirlash huquqi — zanjirning HAR BIR ishtirokchisi
+    # (PTO/snab/direktor). LEKIN limit ADMIN TOMONIDAN TASDIQLANGACH qulflanadi:
+    # faqat admin `limit_tahrir_ruxsat` bergandagina qайта тahrirlanadi
+    # (ruxsat bir martalik — so'rov yuborilgach o'zi o'chadi). Admin doim erkin.
+    zanjir_ishtirokchi = (is_pto(request.user) or _is_snab(request.user)
+                          or is_director(request.user))
+    limit_bor = (p.budget_total or Decimal("0")) > 0
+    lim_edit_huquq = is_admin(request.user) or (
+        zanjir_ishtirokchi and (not limit_bor or p.limit_tahrir_ruxsat))
 
     haftalar = list(WeeklyRequest.objects.filter(project=p)
                     .exclude(status="rejected")
@@ -4622,6 +4627,10 @@ def limit_jadval(request, pk):
                     )
                     LimitChangeItem.objects.bulk_create(
                         [LimitChangeItem(request=req0, **it) for it in t_items])
+                    if p.limit_tahrir_ruxsat:
+                        # Admin ruxsati BIR MARTALIK — so'rov yuborilgach yopiladi
+                        p.limit_tahrir_ruxsat = False
+                        p.save(update_fields=["limit_tahrir_ruxsat"])
                 messages.success(request, _limit_yubor_xabar(_st))
         elif (lim_edits or lim_new) and is_admin(request.user):
             for e in lim_edits:
@@ -4920,6 +4929,9 @@ def limit_jadval(request, pk):
     return render(request, "projects/limit_jadval.html", {
         "p": p, "guruhlar": guruhlar, "can_edit": can_edit,
         "lim_edit_huquq": lim_edit_huquq,
+        "lim_ruxsat": p.limit_tahrir_ruxsat,
+        "lim_qulf": (zanjir_ishtirokchi and not is_admin(request.user)
+                     and limit_bor and not p.limit_tahrir_ruxsat),
         "lim_holat": lim_holat,
         "nav_info": nav_info, "nav_tarix": nav_tarix, "zanjir_ro": zanjir_ro,
         "is_adm": is_admin(request.user),
@@ -5589,3 +5601,23 @@ def limit_jadval_export(request, pk):
     resp["Content-Disposition"] = (
         f'attachment; filename="{zaxira}"; ' + f"filename*=UTF-8''{_q(fn)}")
     return resp
+
+
+@login_required
+def limit_tahrir_ruxsat_toggle(request, pk):
+    """ADMIN: tasdiqlangan limitni tahrirlashga BIR MARTALIK ruxsat berish/olish.
+    Ruxsat berilganda zanjir ishtirokchilari jadvalda Умумийni tahrirlab
+    «Лимитни юбориш» bilan zanjirga so'rov yuboradi; so'rov yaratilgach
+    ruxsat avtomatik yopiladi."""
+    p = _firma_yoki_403(request, get_object_or_404(Project, pk=pk))
+    if not is_admin(request.user):
+        raise PermissionDenied("Ruxsatni faqat admin beradi.")
+    if request.method == "POST":
+        p.limit_tahrir_ruxsat = not p.limit_tahrir_ruxsat
+        p.save(update_fields=["limit_tahrir_ruxsat"])
+        if p.limit_tahrir_ruxsat:
+            messages.success(request, "🔓 Limit tahririga ruxsat berildi — zanjir "
+                                      "ishtirokchilari Умумийni tahrirlab yuborishi mumkin.")
+        else:
+            messages.info(request, "🔒 Limit tahriri yana yopildi.")
+    return redirect("limit_jadval", pk=pk)

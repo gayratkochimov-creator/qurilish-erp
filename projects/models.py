@@ -60,6 +60,9 @@ class Project(models.Model):
     limit_labor = models.DecimalField("Ish haqi limiti", max_digits=18, decimal_places=2, default=0)
     limit_machinery = models.DecimalField("Mashina chasti limiti", max_digits=18, decimal_places=2, default=0)
     limit_other = models.DecimalField("Ko'zda tutilmagan xarajatlar limiti", max_digits=18, decimal_places=2, default=0)
+    # Limit TASDIQLANGACH zanjir ishtirokchilari uni tahrirlay olmaydi;
+    # admin shu bayroq bilan BIR MARTALIK ruxsat beradi (so'rov yuborilgach o'chadi)
+    limit_tahrir_ruxsat = models.BooleanField("Limit tahririga admin ruxsati", default=False)
     grafik_start = models.DateField("Grafik boshlanish sanasi", null=True, blank=True)
     grafik_end = models.DateField("Grafik tugash sanasi", null=True, blank=True)
     created_at = models.DateTimeField("Yaratilgan", auto_now_add=True)
