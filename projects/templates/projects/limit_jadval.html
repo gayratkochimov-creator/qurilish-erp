@@ -63,6 +63,13 @@
   .blk-add:hover { background:#15803d; color:#fff; }
   .wi-tgl { border:1px solid #d3b8e0; background:#fff; color:#813d9c; border-radius:4px; padding:1px 6px; cursor:pointer; font-size:11px; flex:none; align-self:center; }
   .wi-tgl:hover { background:#813d9c; color:#fff; }
+  /* Tur chipi — tanlangach select o'rnida ixcham ko'rinadi, bosilsa qayta ochiladi */
+  .k-chip { display:inline-block; font-size:10.5px; font-weight:700; border-radius:999px; padding:1px 9px; margin-top:2px; cursor:pointer; border:1px solid transparent; }
+  .k-chip.material { background:#eff6ff; color:#1d4ed8; border-color:#bfdbfe; }
+  .k-chip.labor { background:#f0fdf4; color:#15803d; border-color:#bbf7d0; }
+  .k-chip.machinery { background:#f5f3ff; color:#7c3aed; border-color:#ddd6fe; }
+  .k-chip.other { background:#fff7ed; color:#c2410c; border-color:#fed7aa; }
+  .k-chip:hover { filter:brightness(.95); }
   .lj td textarea.yb-wi { min-width:70px; font-size:11.5px; }
   .dim { color:#bbb; }
   .lj-modal-bg { display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:60; }
@@ -145,6 +152,7 @@
   <button class="b-green" id="btnLimYubor" title="{% if is_adm %}Умумий устундаги ўзгаришлар тўғридан-тўғри қўлланади{% else %}Умумий лимит ўзгаришлари кейинги юсерга (снабжение → ПТО → директор → админ) сўров бўлиб кетади{% endif %}">▶ {% if is_adm %}Лимитни қўллаш{% else %}Лимитни юбориш{% endif %}</button>
   {% if is_adm %}<button class="b-blue" id="btnLimZanjir" title="Ўзгаришлар тўғридан қўлланмайди — снабжение → ПТО → директор → админ занжирига СЎРОВ бўлиб кетади ва Тасдиқлар бўлимида кўринади">📨 Занжирга юбориш</button>{% endif %}
   {% endif %}
+  <input type="text" id="ljQidir" placeholder="🔍 Бўлим бўйича излаш..." style="padding:6px 10px; border:1px solid #c8ccd0; border-radius:4px; font-size:12.5px; min-width:190px;">
   <button class="b-gray" id="btnHisobot">📊 Нарх тарихи ҳисоботи</button>
   <button class="b-gray" onclick="window.print()">Чоп этиш</button>
   <button class="b-gray" id="btnExcel" title="Тўлиқ жадвални формулали Excel қилиб юклаб олиш">⬇ Эксел</button>
@@ -560,6 +568,7 @@
             : '<td class="ctr dim">—</td><td class="num dim">—</td><td class="num dim">—</td><td class="num dim">—</td>')+
           '<td class="ctr"><button type="button" class="del-btn" title="Қаторни ўчириш">✕</button></td>';
         r.querySelector('.yb-k').value = x.kind||'material';
+        turChipUla(r, r.querySelector('.yb-k'), x);
         r.querySelector('.del-btn').onclick = function(){
           var i0 = blk.rows.indexOf(x);
           if (i0 > -1) blk.rows.splice(i0, 1);
@@ -588,6 +597,7 @@
             var ws2=r.querySelector('.yb-ws'); if (ws2) ws2.textContent = fmt((x.wq||0)*((x.wp||x.price)||0));
             // KETMA-KET kiritish: oxirgi qatorga nom yozilishi bilan YANGI qator
             // o'zi qo'shiladi — tanlangan TUR keyingi qatorga meros bo'ladi
+            if (pr[1]==='name' && r._turKorinish) r._turKorinish();
             if (pr[1]==='name' && (x.name||'').trim() &&
                 blk.rows[blk.rows.length-1] === x){
               var yx = { name:'', unit:'', kind:x.kind||'material', vol:0, price:0 };
@@ -689,6 +699,59 @@
     hisobla();
   }
 
+  // Tur tanlangach select IXCHAM CHIPGA aylanadi; chip bosilsa qayta ochiladi
+  var KIND_NOMLARI = { material:'Материал', labor:'Иш ҳақи', machinery:'Машина ч.', other:'Кўзда т.' };
+  function turChipUla(r, sel, x){
+    if (!sel) return;
+    var chip = document.createElement('span');
+    chip.className = 'k-chip';
+    chip.title = 'Турни ўзгартириш учун босинг';
+    sel.after(chip);
+    function korinish(){
+      var yashir = (x.name||'').trim() && !r._turOchiq;
+      sel.style.display = yashir ? 'none' : '';
+      chip.style.display = yashir ? '' : 'none';
+      chip.textContent = KIND_NOMLARI[x.kind||'material'] || (x.kind||'');
+      chip.className = 'k-chip ' + (x.kind||'material');
+    }
+    chip.onclick = function(){ r._turOchiq = true; korinish(); sel.focus(); };
+    sel.addEventListener('change', function(){ x.kind = sel.value; r._turOchiq = false; korinish(); });
+    sel.addEventListener('blur', function(){ r._turOchiq = false; korinish(); });
+    r._turKorinish = korinish;
+    korinish();
+  }
+
+  // -------- 🔍 Бўлим бўйича излаш (bloklarni filtrga solish) --------
+  function ljQidirla(){
+    var qi = document.getElementById('ljQidir');
+    var q = (qi && qi.value || '').trim().toLowerCase();
+    ['ljBody', 'yangiBody', 'boshqaBody'].forEach(function(id){
+      var tb = document.getElementById(id);
+      if (!tb) return;
+      var grp = [];
+      function flush(){
+        if (!grp.length) return;
+        var matn = grp.map(function(t){
+          var ichki = Array.prototype.map.call(t.querySelectorAll('input, textarea'),
+                                               function(i){ return i.value || ''; }).join(' ');
+          return (t.textContent || '') + ' ' + ichki;
+        }).join(' ').toLowerCase();
+        var ok = !q || matn.indexOf(q) > -1;
+        grp.forEach(function(t){ t.style.display = ok ? '' : 'none'; });
+        grp = [];
+      }
+      Array.prototype.forEach.call(tb.rows, function(tr){
+        if (tr.classList.contains('block') || tr.classList.contains('exhdr')) flush();
+        grp.push(tr);
+      });
+      flush();
+    });
+  }
+  (function(){
+    var qi = document.getElementById('ljQidir');
+    if (qi) qi.addEventListener('input', ljQidirla);
+  })();
+
   // -------- Лимитда йўқ ишлар (+ Иш) --------
   // Бўлими мавжуд блокка мос келса — қатор ШУ БЛОК ИЧИДА (якунидан олдин)
   // кўринади, акс ҳолда пастдаги «Лимитда йўқ ишлар» бўлимида туради.
@@ -714,6 +777,7 @@
           '<td class="num ex-s">'+fmt((x.qty||0)*(x.price||0))+'</td>'+
           '<td class="ctr"><button type="button" class="del-btn" title="Ўчириш">✕</button></td>';
         r.querySelector('.ex-k').value = x.kind || 'material';
+        turChipUla(r, r.querySelector('.ex-k'), x);
         r.querySelector('.del-btn').onclick = function(){ extralar.splice(+r.dataset.ei,1); chizExtralar(); hisobla(); };
         [['ex-n','name'],['ex-b','bolim'],['ex-i','izoh'],['ex-u','unit'],['ex-q','qty'],['ex-p','price'],['ex-k','kind']].forEach(function(pr){
           var inp = r.querySelector('.'+pr[0]);
@@ -721,6 +785,7 @@
             izohKengay(inp);
             var xx = extralar[+r.dataset.ei];
             xx[pr[1]] = (pr[1]==='qty'||pr[1]==='price') ? pf(inp.value) : inp.value;
+            if (pr[1]==='name' && r._turKorinish) r._turKorinish();
             r.querySelector('.ex-s').textContent = fmt((xx.qty||0)*(xx.price||0));
             hisobla();
           });
@@ -906,6 +971,7 @@
     var bLimZ0 = document.getElementById('btnLimZanjir');
     if (bLimZ0) bLimZ0.style.display = LIM_EDIT ? '' : 'none';
     hammaRaqamKengay();
+    ljQidirla();
     var bBlok0 = document.getElementById('btnBlok');
     if (bBlok0) bBlok0.style.display = LIM_EDIT ? '' : 'none';
     autoSaqla();
