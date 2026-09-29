@@ -516,10 +516,14 @@
         yangiBloklar.splice(bi,1); chizYangiBloklar(); hisobla();
       };
       tb.appendChild(hr);
-      blk.rows.forEach(function(x, ri){
+      var blokTrs = [];   // shu blok qatorlarining tr'lari (raqamlash uchun)
+      function raqamla(){
+        blokTrs.forEach(function(t, i){ t.cells[0].textContent = i + 1; });
+      }
+      function qatorYasa(x){
         var r = document.createElement('tr'); r.className='extra';
         var wEdit = tahrirmi();   // hafta ustuni faqat PTO/admin tahriridagi ochiq haftada
-        r.innerHTML = '<td class="ctr">'+(ri+1)+'</td>'+
+        r.innerHTML = '<td class="ctr"></td>'+
           '<td><input class="wkin tx yb-n" value="'+esc(x.name||'')+'" placeholder="иш номи...">'+
           '<select class="ksel yb-k"><option value="material">Материал</option><option value="labor">Иш ҳақи</option><option value="machinery">Машина части</option><option value="other">Кўзда тутилмаган</option></select></td>'+
           '<td><textarea class="wkin tx yb-i" rows="1" placeholder="изоҳ...">'+esc(x.izoh||'')+'</textarea></td>'+
@@ -540,7 +544,11 @@
             : '<td class="ctr dim">—</td><td class="num dim">—</td><td class="num dim">—</td><td class="num dim">—</td>')+
           '<td class="ctr"><button type="button" class="del-btn" title="Қаторни ўчириш">✕</button></td>';
         r.querySelector('.yb-k').value = x.kind||'material';
-        r.querySelector('.del-btn').onclick = function(){ blk.rows.splice(ri,1); chizYangiBloklar(); hisobla(); };
+        r.querySelector('.del-btn').onclick = function(){
+          var i0 = blk.rows.indexOf(x);
+          if (i0 > -1) blk.rows.splice(i0, 1);
+          chizYangiBloklar(); hisobla();
+        };
         var wiT = r.querySelector('.yb-wi-tgl');
         if (wiT) wiT.onclick = function(){
           var t = r.querySelector('.yb-wi');
@@ -562,13 +570,26 @@
             r.querySelector('.yb-ls').textContent = fmt((x.vol||0)*(x.price||0));
             var wu=r.querySelector('.yb-wu'); if (wu) wu.textContent = x.unit||'';
             var ws2=r.querySelector('.yb-ws'); if (ws2) ws2.textContent = fmt((x.wq||0)*((x.wp||x.price)||0));
+            // KETMA-KET kiritish: oxirgi qatorga nom yozilishi bilan YANGI qator
+            // o'zi qo'shiladi — tanlangan TUR keyingi qatorga meros bo'ladi
+            if (pr[1]==='name' && (x.name||'').trim() &&
+                blk.rows[blk.rows.length-1] === x){
+              var yx = { name:'', unit:'', kind:x.kind||'material', vol:0, price:0 };
+              blk.rows.push(yx);
+              var nr = qatorYasa(yx);
+              r.after(nr);
+              raqamla();
+            }
             hisobla();
           });
         });
-        tb.appendChild(r);
+        blokTrs.push(r);
         izohKengay(r.querySelector('.yb-i'));
         izohKengay(r.querySelector('.yb-wi'));
-      });
+        return r;
+      }
+      blk.rows.forEach(function(x){ tb.appendChild(qatorYasa(x)); });
+      raqamla();
       // Blok YAKUNIDA qo'shish tugmalari: shu blokka qator / yana yangi blok
       var addr = document.createElement('tr'); addr.className = 'yb-addrow';
       addr.innerHTML = '<td></td><td colspan="16" style="background:#f3f7fc; padding:5px 8px;">'+
@@ -585,9 +606,7 @@
       };
       addr.querySelector('.yb-addblok').onclick = function(){
         yangiBloklar.push({ bolim:'', masul:'',
-          rows:[{name:'',unit:'',kind:'material',vol:0,price:0},
-                {name:'',unit:'',kind:'material',vol:0,price:0},
-                {name:'',unit:'',kind:'material',vol:0,price:0}] });
+          rows:[{name:'',unit:'',kind:'material',vol:0,price:0}] });
         chizYangiBloklar(); hisobla();
         var bls = document.querySelectorAll('#yangiBody .yb-bolim');
         if (bls.length) bls[bls.length-1].focus();
@@ -600,9 +619,7 @@
     if (!LIM_EDIT){ alert('⏳ Лимит сўрови занжирда ёки сизда ҳуқуқ йўқ — ҳозир блок қўшилмайди.'); return; }
     // Bo'lim nomi/masul JADVALNING O'ZIDA yoziladi (prompt oynachasiz)
     yangiBloklar.push({ bolim:'', masul:'',
-      rows:[{name:'',unit:'',kind:'material',vol:0,price:0},
-            {name:'',unit:'',kind:'material',vol:0,price:0},
-            {name:'',unit:'',kind:'material',vol:0,price:0}] });
+      rows:[{name:'',unit:'',kind:'material',vol:0,price:0}] });
     chizYangiBloklar(); hisobla();
     var bls = document.querySelectorAll('#yangiBody .yb-bolim');
     if (bls.length) bls[bls.length-1].focus();
