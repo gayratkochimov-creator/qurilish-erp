@@ -25,6 +25,7 @@
   .lj-wrap { overflow:auto; background:#fff; border-radius:6px; box-shadow:0 1px 3px rgba(0,0,0,.15); max-height:calc(100vh - 220px); }
   table.lj { border-collapse:separate; border-spacing:0; width:100%; min-width:1450px; }
   .lj th, .lj td { border:1px solid #c8ccd0; padding:4px 6px; background:#fff; font-size:12.5px; }
+  .lj td { padding:2px 3px; }   /* kataklar chiziqqa yaqin — inputlar deyarli chetma-chet */
   .lj thead th { color:#fff; text-align:center; font-weight:600; position:sticky; z-index:3; }
   .lj thead tr:first-child th { top:0; }
   .lj thead tr.sub th { top:27px; font-size:12px; font-weight:500; }
@@ -47,7 +48,7 @@
   .lj tr.split td { background:#f3ecf8; }
   .lj tr.split td:nth-child(2) { padding-left:22px; font-style:italic; color:#5c2a73; }
   .lj tr.extra td { background:#fbfdf7; }
-  .lj input.wkin { width:88px; padding:3px 5px; border:1px solid #c8ccd0; border-radius:4px; text-align:right; font-size:12.5px; background:#fffde7; }
+  .lj input.wkin { width:100%; min-width:72px; box-sizing:border-box; padding:3px 5px; border:1px solid #c8ccd0; border-radius:3px; text-align:right; font-size:12.5px; background:#fffde7; }
   .lj input.wkin:focus { outline:2px solid #1a5fb4; background:#fff; }
   .lj input.tx { text-align:left; width:100%; min-width:90px; }
   .lj textarea.wkin { display:block; width:100%; min-width:90px; padding:3px 5px; border:1px solid #c8ccd0; border-radius:4px; text-align:left; font-size:12.5px; background:#fffde7; font-family:inherit; line-height:1.35; min-height:25px; resize:none; overflow:hidden; }
