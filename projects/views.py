@@ -1963,7 +1963,7 @@ def tasdiqlar(request):
 
 
 @login_required
-def limit_request_action(request, pk):
+def _limit_request_action_asl(request, pk):
     """Limit o'zgartirish so'rovini tasdiqlash / rad etish (admin)."""
     req = get_object_or_404(LimitChangeRequest, pk=pk)
     _firma_yoki_403(request, req.project)
@@ -2445,7 +2445,7 @@ def weekly_add(request, pk):
 
 
 @login_required
-def weekly_action(request, pk):
+def _weekly_action_asl(request, pk):
     """Haftalik so'rov oqimi: PTO yuboradi → Direktor tasdiqlaydi → Admin tasdiqlaydi."""
     from .roles import is_admin, is_director
     req = get_object_or_404(WeeklyRequest, pk=pk)
@@ -4504,7 +4504,7 @@ def limit_jadval(request, pk):
     Qoralama ustuni shu yerdan to'ldiriladi -> oddiy haftalik so'rov bo'lib
     direktor-admin zanjiridan o'tadi. Narx o'zgarsa qator bo'linadi (bo'lak)."""
     import json as _json
-    from .roles import is_snab as _is_snab
+    from .roles import is_snab as _is_snab, is_asosiy_admin as _asosiy_adm
     p = get_object_or_404(Project, pk=pk)
     _firma_yoki_403(request, p)
     can_edit = is_pto(request.user) or is_admin(request.user)
@@ -4515,8 +4515,10 @@ def limit_jadval(request, pk):
     zanjir_ishtirokchi = (is_pto(request.user) or _is_snab(request.user)
                           or is_director(request.user))
     limit_bor = (p.budget_total or Decimal("0")) > 0
-    lim_edit_huquq = is_admin(request.user) or (
-        zanjir_ishtirokchi and (not limit_bor or p.limit_tahrir_ruxsat))
+    # Tasdiqlangan limit HAMMA uchun (admin ham) qulf — faqat admin bergan
+    # «Таҳрирга рухсат» bilan ochiladi
+    lim_edit_huquq = (is_admin(request.user) or zanjir_ishtirokchi) and (
+        not limit_bor or p.limit_tahrir_ruxsat)
 
     haftalar = list(WeeklyRequest.objects.filter(project=p)
                     .exclude(status="rejected")
@@ -4581,6 +4583,9 @@ def limit_jadval(request, pk):
                                         "avval u yakunlansin, keyin Умумийni tahrirlaysiz.")
                 return redirect("limit_jadval", pk=pk)
         # Admin ham «Занжирга юбориш»ни tanlasa — to'g'ridan emas, so'rov bo'lib ketadi
+        if (lim_edits or lim_new) and not lim_edit_huquq:
+            messages.error(request, "Умумий limit tasdiqlangan (qulf) — tahrirlash uchun "
+                                    "admin «Таҳрирга рухсат бериш»ni bosishi kerak.")
         admin_zanjir = bool(payload.get("lim_zanjir")) and is_admin(request.user)
         if (lim_edits or lim_new) and lim_edit_huquq and (
                 not is_admin(request.user) or admin_zanjir):
@@ -4654,7 +4659,7 @@ def limit_jadval(request, pk):
                         p.limit_tahrir_ruxsat = False
                         p.save(update_fields=["limit_tahrir_ruxsat"])
                 messages.success(request, _limit_yubor_xabar(_st))
-        elif (lim_edits or lim_new) and is_admin(request.user):
+        elif (lim_edits or lim_new) and is_admin(request.user) and lim_edit_huquq:
             for e in lim_edits:
                 k = str(e.get("key") or "")
                 v = _to_dec(str(e.get("vol") or ""))
@@ -4691,6 +4696,9 @@ def limit_jadval(request, pk):
                 lim_ozgardi = True
             if lim_ozgardi:
                 p.recompute_limits()
+                if p.limit_tahrir_ruxsat:
+                    p.limit_tahrir_ruxsat = False   # ruxsat bir martalik
+                    p.save(update_fields=["limit_tahrir_ruxsat"])
                 messages.success(request, "Умумий limit yangilandi.")
 
         # Qoldiq (tasdiqlanganlar bo'yicha) — server tomonda qayta tekshiramiz
@@ -4942,6 +4950,24 @@ def limit_jadval(request, pk):
             or (r0.status == "snab" and _is_snab0(request.user))
             or (r0.status == "pto2" and is_pto(request.user))
         ) else None
+        # Shu bosqich egasi jadvalning O'ZIDA oldinga o'tkazadi yoki ORQAGA qaytaradi
+        _u, _st = request.user, r0.status
+        _dir_actor = (is_director(_u) and not _u.is_superuser) or _asosiy_adm(_u)
+        _amal = None
+        if _st == "snab" and (_is_snab0(_u) or is_admin(_u)):
+            _amal = {"oldinga": ("snab_return", "✓ Нархланди — ПТОга юбориш"), "orqaga": []}
+        elif _st == "pto2" and (is_pto(_u) or is_admin(_u)):
+            _amal = {"oldinga": ("pto_send_dir", "▶ Директорга юбориш"),
+                     "orqaga": [("snab", "Снабжениега")] if r0.snab_by_id else []}
+        elif _st == "dir" and _dir_actor:
+            _amal = {"oldinga": ("dir_approve", "✓ Тасдиқлаш (директор)"),
+                     "orqaga": [("pto2", "ПТОга")]}
+        elif _st == "adm" and is_admin(_u):
+            _amal = {"oldinga": ("approve", "✓ Тасдиқлаш (админ)"),
+                     "orqaga": [("pto2", "ПТОга"), ("dir", "Директорга")]}
+        if _amal:
+            _amal["id"] = r0.id
+        lim_holat["amal"] = _amal
     else:
         oxt = (p.limit_requests.filter(status="approved")
                .order_by("-decided_at", "-id").first())
@@ -4949,14 +4975,18 @@ def limit_jadval(request, pk):
             lim_holat = {"mode": "ok",
                          "kim": oxt.decided_by.username if oxt.decided_by_id else "admin",
                          "vaqt": _v(oxt.decided_at)}
+        elif limit_bor:
+            lim_holat = {"mode": "ok", "kim": "тўғридан киритилган", "vaqt": ""}
     return render(request, "projects/limit_jadval.html", {
         "p": p, "guruhlar": guruhlar, "can_edit": can_edit,
         "lim_edit_huquq": lim_edit_huquq,
         "lim_ruxsat": p.limit_tahrir_ruxsat,
         "lim_start": p.limit_start.isoformat() if p.limit_start else "",
         "lim_end": p.limit_end.isoformat() if p.limit_end else "",
-        "lim_qulf": (zanjir_ishtirokchi and not is_admin(request.user)
+        "lim_qulf": ((zanjir_ishtirokchi or is_admin(request.user))
                      and limit_bor and not p.limit_tahrir_ruxsat),
+        "wk_dir_actor": ((is_director(request.user) and not request.user.is_superuser)
+                         or _asosiy_adm(request.user)),
         "lim_holat": lim_holat,
         "nav_info": nav_info, "nav_tarix": nav_tarix, "zanjir_ro": zanjir_ro,
         "is_adm": is_admin(request.user),
@@ -5650,3 +5680,26 @@ def limit_tahrir_ruxsat_toggle(request, pk):
         else:
             messages.info(request, "🔒 Limit tahriri yana yopildi.")
     return redirect("limit_jadval", pk=pk)
+
+
+@login_required
+def limit_request_action(request, pk):
+    """Asl amal + «next=jadval» bo'lsa limit jadvaliga qaytarish."""
+    resp = _limit_request_action_asl(request, pk)
+    if request.POST.get("next") == "jadval" and getattr(resp, "status_code", 0) in (301, 302):
+        r0 = LimitChangeRequest.objects.filter(pk=pk).first()
+        if r0 is not None:
+            return redirect("limit_jadval", pk=r0.project_id)
+    return resp
+
+
+@login_required
+def weekly_action(request, pk):
+    """Asl amal + «next=jadval» bo'lsa limit jadvaliga qaytarish."""
+    w0 = WeeklyRequest.objects.filter(pk=pk).first()
+    pid = w0.project_id if w0 else None
+    resp = _weekly_action_asl(request, pk)
+    if (request.POST.get("next") == "jadval" and pid
+            and getattr(resp, "status_code", 0) in (301, 302)):
+        return redirect("limit_jadval", pk=pid)
+    return resp

@@ -147,7 +147,19 @@
       {% elif s.holat == 'joriy' %}<span style="border-radius:999px; padding:2px 11px; font-weight:700; background:#7c3aed; color:#fff; border:1px solid #7c3aed;">⏳ {{ s.nom }}<span style="font-weight:400;"> · кутилмоқда</span></span>
       {% else %}<span style="border-radius:999px; padding:2px 11px; font-weight:700; background:#f1f5f9; color:#94a3b8; border:1px solid #e2e8f0;">{{ s.nom }}</span>{% endif %}
     {% endfor %}
-    {% if lim_holat.edit_id %}<a href="{% url 'limit_request_edit' lim_holat.edit_id %}" style="margin-left:auto; border-radius:7px; padding:4px 14px; font-weight:700; background:#1a5fb4; color:#fff; text-decoration:none; white-space:nowrap;">✎ Лимитни таҳрирлаш</a>{% endif %}
+    {% if lim_holat.amal %}
+    <span style="margin-left:auto; display:inline-flex; gap:8px; align-items:center; flex-wrap:wrap;">
+      <form method="post" action="{% url 'limit_request_action' lim_holat.amal.id %}" style="margin:0;">{% csrf_token %}<input type="hidden" name="next" value="jadval"><input type="hidden" name="action" value="{{ lim_holat.amal.oldinga.0 }}"><button type="submit" style="border:none; border-radius:5px; background:#26a269; color:#fff; padding:4px 13px; font-weight:700; font-size:12px; cursor:pointer;">{{ lim_holat.amal.oldinga.1 }}</button></form>
+      {% if lim_holat.amal.orqaga %}
+      <form method="post" action="{% url 'limit_request_action' lim_holat.amal.id %}" style="margin:0; display:inline-flex; gap:5px; align-items:center;" onsubmit="var s=this.querySelector('[name=sabab]'); if(!s.value.trim()){ alert('Қайтариш сабабини ёзинг.'); s.focus(); return false; }">{% csrf_token %}<input type="hidden" name="next" value="jadval"><input type="hidden" name="action" value="orqaga">
+        <select name="target" style="padding:3px 6px; border:1px solid #c8ccd0; border-radius:4px; font-size:12px;">{% for tg in lim_holat.amal.orqaga %}<option value="{{ tg.0 }}">{{ tg.1 }}</option>{% endfor %}</select>
+        <input type="text" name="sabab" placeholder="сабаб..." style="padding:3px 6px; border:1px solid #c8ccd0; border-radius:4px; font-size:12px; width:140px;">
+        <button type="submit" style="border:none; border-radius:5px; background:#c2410c; color:#fff; padding:4px 13px; font-weight:700; font-size:12px; cursor:pointer;">↩ Орқага қайтариш</button>
+      </form>
+      {% endif %}
+    </span>
+    {% endif %}
+    {% if lim_holat.edit_id %}<a href="{% url 'limit_request_edit' lim_holat.edit_id %}" style="{% if not lim_holat.amal %}margin-left:auto;{% endif %} border-radius:7px; padding:4px 14px; font-weight:700; background:#1a5fb4; color:#fff; text-decoration:none; white-space:nowrap;">✎ Лимитни таҳрирлаш</a>{% endif %}
   {% else %}
     <span style="border-radius:999px; padding:2px 11px; font-weight:700; background:#dcfce7; color:#15803d; border:1px solid #86efac;">✓ Тасдиқланган<span style="font-weight:400;"> — {{ lim_holat.kim }}{% if lim_holat.vaqt %} · {{ lim_holat.vaqt }}{% endif %}</span></span>
     {% if lim_ruxsat %}<span style="border-radius:999px; padding:2px 11px; font-weight:700; background:#fef3c7; color:#92400e; border:1px solid #fcd34d;">🔓 Админ таҳрирга рухсат берган — Умумийни ўзгартириб «▶ Лимитни юбориш»ни босинг</span>
@@ -371,6 +383,25 @@
   var LIM_EDIT = {{ lim_edit_huquq|yesno:"true,false" }} && !{{ lim_pending|yesno:"true,false" }};
   var QAYTAR_TMPL = "{% url 'weekly_return_pto' 123456789 %}";
   var EXPORT_URL = "{% url 'limit_jadval_export' p.pk %}";
+  var WK_ACT_TMPL = "{% url 'weekly_action' 123456789 %}";
+  var CSRF_T = "{{ csrf_token }}";
+  var WK_DIR_ACTOR = {{ wk_dir_actor|yesno:"true,false" }};
+  // Haftalik bosqich egasi uchun jadvalning o'zida amal formasi (oldinga / orqaga)
+  function wkForma(id, action, label, rang, sababKerak){
+    var f = '<form method="post" action="'+WK_ACT_TMPL.replace('123456789', id)+'" class="'+(sababKerak?'wk-sabab-f':'')+'" style="margin:0; display:inline-flex; gap:5px; align-items:center;">'+
+      '<input type="hidden" name="csrfmiddlewaretoken" value="'+CSRF_T+'"><input type="hidden" name="next" value="jadval"><input type="hidden" name="action" value="'+action+'">'+
+      (sababKerak ? '<input type="text" name="reject_note" placeholder="сабаб..." style="padding:3px 6px; border:1px solid #c8ccd0; border-radius:4px; font-size:12px; width:140px;">' : '')+
+      '<button type="submit" style="border:none; border-radius:5px; background:'+rang+'; color:#fff; padding:4px 13px; font-weight:700; font-size:12px; cursor:pointer;">'+label+'</button></form>';
+    return f;
+  }
+  // Sabab majburiy (orqaga qaytarish formalari)
+  document.addEventListener('submit', function(e){
+    var f = e.target;
+    if (f.classList && f.classList.contains('wk-sabab-f')){
+      var s2 = f.querySelector('[name=reject_note]');
+      if (s2 && !s2.value.trim()){ e.preventDefault(); alert('Қайтариш сабабини ёзинг.'); s2.focus(); }
+    }
+  });
   var DRAFT_ID = {{ draft_id|default:"null" }};
   var yangiBloklar = [];   // admin qo'shgan yangi limit bloklari (saqlanmagan)
   var STATUS_NOMI = { dir:"Директор тасдиғида", submitted:"Админ тасдиғида", approved:"Тасдиқланган", draft:"Қоралама" };
@@ -466,11 +497,17 @@
         } else if (h.status === 'dir'){
           html += qadam('ПТО юборди', 'ok', h.kiritdi, h.kiritdi_at) + okra +
                   qadam('ДИРЕКТОР тасдиғида', 'joriy') + okra + qadam('Админ', 'keyin');
+          if (WK_DIR_ACTOR) html += '<span style="margin-left:auto; display:inline-flex; gap:8px; align-items:center; flex-wrap:wrap;">'+
+            wkForma(h.id, 'dir_approve', '✓ Тасдиқлаш (директор)', '#26a269', false)+
+            wkForma(h.id, 'dir_reject', '↩ Орқага қайтариш', '#c2410c', true)+'</span>';
           st.style.cssText = 'display:flex; border-radius:6px; padding:7px 12px; margin-bottom:8px; font-size:12.5px; align-items:center; gap:8px; flex-wrap:wrap; background:#eff6ff; border:1px solid #bfdbfe;';
         } else if (h.status === 'submitted'){
           html += qadam('ПТО юборди', 'ok', h.kiritdi, h.kiritdi_at) + okra +
                   qadam('Директор', 'ok', h.dir_by, h.dir_at) + okra +
                   qadam('АДМИН тасдиғида', 'joriy');
+          if (ADMIN_RAW) html += '<span style="margin-left:auto; display:inline-flex; gap:8px; align-items:center; flex-wrap:wrap;">'+
+            wkForma(h.id, 'approve', '✓ Тасдиқлаш (админ)', '#26a269', false)+
+            wkForma(h.id, 'draft', '↩ Орқага қайтариш', '#c2410c', true)+'</span>';
           st.style.cssText = 'display:flex; border-radius:6px; padding:7px 12px; margin-bottom:8px; font-size:12.5px; align-items:center; gap:8px; flex-wrap:wrap; background:#eff6ff; border:1px solid #bfdbfe;';
         } else {
           html += qadam('ПТО юборди', 'ok', h.kiritdi, h.kiritdi_at) + okra +
