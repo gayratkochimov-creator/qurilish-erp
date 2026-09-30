@@ -51,7 +51,7 @@
   .lj input.wkin { width:100%; min-width:72px; box-sizing:border-box; padding:3px 5px; border:1px solid #c8ccd0; border-radius:3px; text-align:right; font-size:12.5px; background:#fffde7; }
   .lj input.wkin:focus { outline:2px solid #1a5fb4; background:#fff; }
   .lj input.tx { text-align:left; width:100%; min-width:90px; }
-  .lj textarea.wkin { display:block; width:100%; min-width:90px; padding:3px 5px; border:1px solid #c8ccd0; border-radius:4px; text-align:left; font-size:12.5px; background:#fffde7; font-family:inherit; line-height:1.35; min-height:25px; resize:none; overflow:hidden; }
+  .lj textarea.wkin { display:block; width:100%; min-width:60px; box-sizing:border-box; padding:2px 5px; border:1px solid #c8ccd0; border-radius:3px; text-align:left; font-size:12px; background:#fffde7; font-family:inherit; line-height:1.25; min-height:21px; resize:none; overflow:hidden; }
   .lj textarea.wkin:focus { outline:2px solid #1a5fb4; background:#fff; }
   .lj input.kichik { width:56px; text-align:center; }
   .lj select.ksel { font-size:11px; padding:2px; border:1px solid #c8ccd0; border-radius:4px; margin-top:2px; }
@@ -250,8 +250,8 @@
 <table class="lj" id="ljTbl">
   <thead><tr>
     <th class="g-main" rowspan="2" style="width:34px;">№</th>
-    <th class="g-main" rowspan="2" style="min-width:150px; width:170px;">Иш тури</th>
-    <th class="g-main" rowspan="2" style="min-width:260px;">Изоҳ</th>
+    <th class="g-main" rowspan="2" style="min-width:230px; width:280px;">Иш тури</th>
+    <th class="g-main" rowspan="2" style="width:170px;">Изоҳ</th>
     <th class="g-main" colspan="4">Умумий</th>
     <th class="g-done" colspan="2">Бажарилган</th>
     <th class="g-left" colspan="2">Қолган</th>
@@ -599,7 +599,7 @@
           (wEdit
             ? ('<td class="ctr yb-wu">'+esc(x.unit||'')+'</td>'+
                '<td class="num"><span style="display:flex; gap:3px; align-items:flex-start;">'+
-               '<input class="wkin yb-wq" type="number" min="0" step="0.001" value="'+(x.wq||'')+'" placeholder="0" style="width:72px; flex:none;">'+
+               '<input class="wkin yb-wq" type="number" min="0" step="0.001" value="'+(x.wq||'')+'" placeholder="0" style="flex:1; min-width:56px;">'+
                '<button type="button" class="wi-tgl yb-wi-tgl" title="Ҳафталикка изоҳ ёзиш/яшириш">✎</button>'+
                '<textarea class="wkin tx yb-wi" rows="1" placeholder="ҳафталик изоҳ..." style="'+((x.wi||'').trim()?'':'display:none; ')+'flex:1; min-width:110px;">'+esc(x.wi||'')+'</textarea></span></td>'+
                '<td class="num"><input class="wkin yb-wp" type="number" min="0" value="'+(x.wp||'')+'"></td>'+
