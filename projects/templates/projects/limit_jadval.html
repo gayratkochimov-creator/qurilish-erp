@@ -23,9 +23,11 @@
   #ljOk { display:none; background:#26a269; color:#fff; padding:5px 12px; border-radius:6px; margin-bottom:8px; font-weight:700; font-size:12.5px; }
   #ljOk.show { display:inline-block; }
   .lj-wrap { overflow:auto; background:#fff; border-radius:6px; box-shadow:0 1px 3px rgba(0,0,0,.15); max-height:calc(100vh - 220px); }
-  table.lj { border-collapse:separate; border-spacing:0; width:100%; min-width:1450px; }
+  table.lj { border-collapse:separate; border-spacing:0; width:100%; min-width:1574px; }
   .lj th, .lj td { border:1px solid #c8ccd0; padding:4px 6px; background:#fff; font-size:12.5px; }
-  .lj td { padding:2px 3px; }   /* kataklar chiziqqa yaqin — inputlar deyarli chetma-chet */
+  .lj td { padding:2px 3px; }
+  .lj td.num { font-variant-numeric:tabular-nums; }
+  .lj td.c-total, .lj td.c-fsum, .lj td.c-lsum, .lj td.c-ws { font-weight:600; }   /* kataklar chiziqqa yaqin — inputlar deyarli chetma-chet */
   .lj thead th { color:#fff; text-align:center; font-weight:600; position:sticky; z-index:3; }
   .lj thead tr:first-child th { top:0; }
   .lj thead tr.sub th { top:27px; font-size:12px; font-weight:500; }
@@ -250,18 +252,18 @@
 <table class="lj" id="ljTbl">
   <thead><tr>
     <th class="g-main" rowspan="2" style="width:34px;">№</th>
-    <th class="g-main" rowspan="2" style="min-width:220px;">Иш тури</th>
-    <th class="g-main" rowspan="2" style="min-width:260px;">Изоҳ</th>
+    <th class="g-main" rowspan="2" style="min-width:250px;">Иш тури</th>
+    <th class="g-main" rowspan="2" style="min-width:220px;">Изоҳ</th>
     <th class="g-main" colspan="4">Умумий</th>
     <th class="g-done" colspan="2">Бажарилган</th>
     <th class="g-left" colspan="2">Қолган</th>
     <th class="g-mat" colspan="4" id="wkHead">Ҳафталик материал</th>
-    <th class="g-mat" rowspan="2" style="width:60px;">Амал</th>
+    <th class="g-mat" rowspan="2" style="width:44px;">Амал</th>
   </tr><tr class="sub">
-    <th class="g-main" style="width:46px;">Бирл.</th><th class="g-main" style="width:74px;">Объём</th><th class="g-main" style="width:86px;">Нархи</th><th class="g-main" style="width:96px;">Сумма</th>
-    <th class="g-done" style="width:64px;">Объём</th><th class="g-done" style="width:92px;">Сумма</th>
-    <th class="g-left" style="width:64px;">Объём</th><th class="g-left" style="width:92px;">Сумма</th>
-    <th class="g-mat" style="width:44px;">Бирл.</th><th class="g-mat" style="width:98px;">Объём</th><th class="g-mat" style="width:86px;">Нархи</th><th class="g-mat" style="width:92px;">Сумма</th>
+    <th class="g-main" style="width:50px;">Бирл.</th><th class="g-main" style="width:80px;">Объём</th><th class="g-main" style="width:96px;">Нархи</th><th class="g-main" style="width:100px;">Сумма</th>
+    <th class="g-done" style="width:80px;">Объём</th><th class="g-done" style="width:100px;">Сумма</th>
+    <th class="g-left" style="width:80px;">Объём</th><th class="g-left" style="width:100px;">Сумма</th>
+    <th class="g-mat" style="width:44px;">Бирл.</th><th class="g-mat" style="width:100px;">Объём</th><th class="g-mat" style="width:96px;">Нархи</th><th class="g-mat" style="width:100px;">Сумма</th>
   </tr></thead>
   <tbody id="ljBody">
   {% if not guruhlar %}
