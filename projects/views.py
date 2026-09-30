@@ -4551,12 +4551,30 @@ def limit_jadval(request, pk):
                 messages.error(request, xato)
                 return redirect("limit_jadval", pk=pk)
 
+        # ---- Umumiy limit DAVRI (boshlanish/tugash sanasi) — pul emas, zanjirsiz ----
+        sana_ozgardi = False
+        if lim_edit_huquq and ("lim_start" in payload or "lim_end" in payload):
+            def _sana(v):
+                try:
+                    return datetime.date.fromisoformat(str(v)) if v else None
+                except ValueError:
+                    return None
+            ls_, le_ = _sana(payload.get("lim_start")), _sana(payload.get("lim_end"))
+            if ls_ and le_ and le_ < ls_:
+                messages.error(request, "Umumiy limit tugash sanasi boshlanishidan oldin bo'lmasin.")
+                return redirect("limit_jadval", pk=pk)
+            if ls_ != p.limit_start or le_ != p.limit_end:
+                p.limit_start, p.limit_end = ls_, le_
+                p.save(update_fields=["limit_start", "limit_end"])
+                sana_ozgardi = True
+                messages.success(request, "Umumiy limit davri saqlandi.")
+
         # ---- Умумий ustunini SHU jadvaldan tahrirlash + yangi blok/qator ----
         # Admin — to'g'ridan-to'g'ri qo'llanadi; PTO — snab→PTO→dir→admin
         # zanjiriga LimitChangeRequest bo'lib ketadi (eski forma bilan bir xil).
         lim_edits = payload.get("limit_edits") or []
         lim_new = payload.get("limit_new") or []
-        lim_ozgardi = False
+        lim_ozgardi = sana_ozgardi
         if (lim_edits or lim_new) and lim_edit_huquq:
             if p.limit_requests.filter(status__in=LIM_JARAYON).exists():
                 messages.error(request, "Limit o'zgartirish so'rovi zanjirda turibdi — "
@@ -4935,6 +4953,8 @@ def limit_jadval(request, pk):
         "p": p, "guruhlar": guruhlar, "can_edit": can_edit,
         "lim_edit_huquq": lim_edit_huquq,
         "lim_ruxsat": p.limit_tahrir_ruxsat,
+        "lim_start": p.limit_start.isoformat() if p.limit_start else "",
+        "lim_end": p.limit_end.isoformat() if p.limit_end else "",
         "lim_qulf": (zanjir_ishtirokchi and not is_admin(request.user)
                      and limit_bor and not p.limit_tahrir_ruxsat),
         "lim_holat": lim_holat,
@@ -5433,7 +5453,11 @@ def limit_jadval_export(request, pk):
 
     ws["A1"] = f"{p.code} — {p.name}"
     ws["A1"].font = Font(name=AR, bold=True, size=14)
-    sub = "Ҳафталик лимит: УМУМИЙ · БАЖАРИЛГАН · ҚОЛГАН"
+    sub = "Умумий лимит ва ҳафталик лимитлар: УМУМИЙ · БАЖАРИЛГАН · ҚОЛГАН"
+    if p.limit_start or p.limit_end:
+        sub += (f" · Умумий лимит даври: "
+                f"{p.limit_start:%d.%m.%Y}" if p.limit_start else " · Умумий лимит даври: ...")
+        sub += f" — {p.limit_end:%d.%m.%Y}" if p.limit_end else " — ..."
     if haftalar:
         sub += (f" · {len(haftalar)} ҳафта (эскилари яширин устунларда,"
                 " «+» билан очилади)")

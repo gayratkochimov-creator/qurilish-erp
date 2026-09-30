@@ -118,7 +118,19 @@
 <a class="hint" href="{% url 'project_detail' p.id %}" style="color:var(--brand); font-weight:600; display:inline-block; margin-bottom:10px;">&larr; {{ p.code }} — {{ p.name }}</a>
 {% if messages %}{% for m in messages %}<div class="msg {{ m.tags }}">{{ m }}</div>{% endfor %}{% endif %}
 
-<div class="lj-top"><h2>{{ p.name }} — ҳафталик лимит</h2></div>
+<div class="lj-top" style="display:flex; align-items:center; gap:18px; flex-wrap:wrap;">
+  <h2 style="margin:0;">{{ p.name }} — Умумий лимит ва ҳафталик лимитлар</h2>
+  <span class="lim-sana" style="display:inline-flex; align-items:center; gap:7px; font-size:12.5px; color:#334155; background:#eef6ff; border:1px solid #bfdbfe; border-radius:6px; padding:4px 10px;">
+    <b>Умумий лимит даври:</b>
+    {% if lim_edit_huquq %}
+      <input type="date" id="limStart" value="{{ lim_start }}" title="Бошланиши" style="padding:3px 6px; border:1px solid #c8ccd0; border-radius:4px; font-size:12px;">
+      <span>—</span>
+      <input type="date" id="limEnd" value="{{ lim_end }}" title="Тугаши" style="padding:3px 6px; border:1px solid #c8ccd0; border-radius:4px; font-size:12px;">
+    {% else %}
+      <span>{% if lim_start %}{{ lim_start }}{% else %}…{% endif %} — {% if lim_end %}{{ lim_end }}{% else %}…{% endif %}</span>
+    {% endif %}
+  </span>
+</div>
 <div class="lj-sub">{% if can_edit %}Ҳафта ичида нарх ўзгарса: қатордаги <b>х</b> тугмасини босасиз → эски нархда сўралган объёмни ёзасиз → қолгани янги нархда алоҳида қатор бўлади. Ҳамма сумма автоматик. «Ҳафтани ёпиш» — сўров директор тасдиғига юборилади.{% if is_adm %} Админ сифатида Умумий объём/нархни ҳам шу ерда тўғрилайсиз (тўғридан-тўғри қўлланади).{% else %} Умумий объём/нархни ўзгартирсангиз ёки блок/иш қўшсангиз — сақлашда <b>снабжение → ПТО → директор → админ</b> занжирига сўров кетади.{% endif %}{% elif lim_edit_huquq %}<b>Умумий</b> устундаги объём/нархни таҳрирлаб ёки «+ Блок (бўлим)» билан янги бўлим қўшиб, яшил «▶ Лимитни юбориш» тугмаси орқали занжирга жўнатишингиз мумкин. Ҳафталик устунни ПТО/админ тўлдиради.{% else %}Кўриш режими — ҳафталик устунини ПТО/админ тўлдиради.{% if lim_qulf %} Умумий лимит тасдиқланган — таҳрирлаш фақат админ рухсати билан очилади.{% endif %}{% endif %}
 {% if lim_pending %}<br><b style="color:#b45309;">⏳ Лимит ўзгартириш сўрови занжирда — у якунлангунча Умумий устуни шу жадвалда қулфланади.{% if lim_holat.edit_id %} Тўғрилаш учун пастдаги «✎ Лимитни таҳрирлаш» тугмасидан фойдаланинг{% if is_adm %} ёки Тасдиқлар бўлимида орқага қайтаринг{% endif %}.{% endif %}</b>{% endif %}</div>
 
@@ -237,8 +249,8 @@
 <table class="lj" id="ljTbl">
   <thead><tr>
     <th class="g-main" rowspan="2" style="width:34px;">№</th>
-    <th class="g-main" rowspan="2" style="min-width:210px;">Иш тури</th>
-    <th class="g-main" rowspan="2" style="min-width:110px;">Изоҳ</th>
+    <th class="g-main" rowspan="2" style="min-width:150px; width:170px;">Иш тури</th>
+    <th class="g-main" rowspan="2" style="min-width:260px;">Изоҳ</th>
     <th class="g-main" colspan="4">Умумий</th>
     <th class="g-done" colspan="2">Бажарилган</th>
     <th class="g-left" colspan="2">Қолган</th>
@@ -1118,16 +1130,20 @@
         });
       });
     }
-    if (!items.length && !limEdits.length && !limNew.length){ limZanjir=false; alert('Камида битта қаторга объём киритинг.'); return; }
+    var lsQ = document.getElementById('limStart'), leQ = document.getElementById('limEnd');
+    var sanaOzgardi = !!(lsQ && leQ && (lsQ.value !== LIM_SANA0[0] || leQ.value !== LIM_SANA0[1]));
+    if (!items.length && !limEdits.length && !limNew.length && !sanaOzgardi){ limZanjir=false; alert('Камида битта қаторга объём киритинг.'); return; }
     if ((!ADMIN_RAW || limZanjir) && (limEdits.length || limNew.length) &&
         !confirm('Умумий лимит ўзгаришлари СНАБЖЕНИЕ → ПТО → ДИРЕКТОР → АДМИН занжирига сўров бўлиб кетади ва Тасдиқлар бўлимида кўринади. Давом этамизми?')){ limZanjir=false; return; }
     if (!items.length && action==='submit'){ alert('Ҳафтани ёпиш учун ҳафталик устунига объём киритинг.'); return; }
     var h = haftaTop(sel);
     var wsEl = document.getElementById('wkStart'), weEl = document.getElementById('wkEnd');
+    var lsEl = document.getElementById('limStart'), leEl = document.getElementById('limEnd');
     var payload = { action:action, items:items, limit_edits:limEdits, limit_new:limNew,
       lim_zanjir: limZanjir,
       week_start: (wsEl ? wsEl.value : '') || (h?h.ws:''),
       week_end: (weEl ? weEl.value : '') || (h?h.we:'') };
+    if (lsEl && leEl){ payload.lim_start = lsEl.value || ''; payload.lim_end = leEl.value || ''; }
     limZanjir = false;
     if (action==='submit' && !confirm('Ҳафта ёпилади — сўров директор тасдиғига юборилади. Давом этамизми?')) return;
     try { localStorage.removeItem(autoKey()); } catch(e){}
@@ -1139,8 +1155,11 @@
   if (bY) bY.onclick = function(){ yuborish('submit'); };
   // ▶ Лимитни юбориш — Умумий ўзгаришларини кейинги юсерга (занжирга) жўнатиш
   var limZanjir = false;   // admin «Занжирга юбориш»ни танласа true bo'ladi
+  var LIM_SANA0 = [ (document.getElementById('limStart')||{}).value || '', (document.getElementById('limEnd')||{}).value || '' ];
   function limOzgarishBor(){
     var bor = false;
+    var lsE = document.getElementById('limStart'), leE = document.getElementById('limEnd');
+    if (lsE && leE && (lsE.value !== LIM_SANA0[0] || leE.value !== LIM_SANA0[1])) bor = true;
     ishRows().forEach(function(tr){
       var lq = tr.querySelector('.lim-q'), lp = tr.querySelector('.lim-p');
       if (lq && (Math.abs(pf(lq.value)-pf(tr.dataset.vol))>0.0001 ||
@@ -1306,6 +1325,21 @@
     var el = document.getElementById(id);
     if (el) el.addEventListener('change', autoSaqla);
   });
+  // Hafta BOSHI yozilsa — TUGASHI avtomatik (+6 kun, 7 kunlik hafta)
+  (function(){
+    var ws0 = document.getElementById('wkStart'), we0 = document.getElementById('wkEnd');
+    if (!ws0 || !we0) return;
+    ws0.addEventListener('change', function(){
+      if (!ws0.value) return;
+      var d = new Date(ws0.value + 'T00:00:00');
+      if (isNaN(d.getTime())) return;
+      d.setDate(d.getDate() + 6);
+      var m = String(d.getMonth()+1).padStart(2,'0'), dd = String(d.getDate()).padStart(2,'0');
+      we0.value = d.getFullYear() + '-' + m + '-' + dd;
+      autoSaqla();
+    });
+    // Umumiy limit davri: boshlanish yozilsa tugash bo'sh bo'lsa hech narsa majburlanmaydi (davr erkin)
+  })();
   // Eski (14 kundan o'tgan) avtosaqlashlarni tozalash
   try {
     for (var ai = localStorage.length - 1; ai >= 0; ai--){

@@ -63,6 +63,9 @@ class Project(models.Model):
     # Limit TASDIQLANGACH zanjir ishtirokchilari uni tahrirlay olmaydi;
     # admin shu bayroq bilan BIR MARTALIK ruxsat beradi (so'rov yuborilgach o'chadi)
     limit_tahrir_ruxsat = models.BooleanField("Limit tahririga admin ruxsati", default=False)
+    # Umumiy limit amal qilish davri (jadval sarlavhasida ko'rinadi)
+    limit_start = models.DateField("Umumiy limit boshlanishi", null=True, blank=True)
+    limit_end = models.DateField("Umumiy limit tugashi", null=True, blank=True)
     grafik_start = models.DateField("Grafik boshlanish sanasi", null=True, blank=True)
     grafik_end = models.DateField("Grafik tugash sanasi", null=True, blank=True)
     created_at = models.DateTimeField("Yaratilgan", auto_now_add=True)
