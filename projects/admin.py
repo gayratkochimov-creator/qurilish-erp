@@ -1,6 +1,7 @@
 ﻿"""
 projects/admin.py — Obyektlar (Project) va ish bo'limlari uchun admin.
 """
+from django import forms
 from django.contrib import admin, messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
@@ -279,8 +280,27 @@ class WeeklyRequestAdmin(FirmaScopedAdmin):
 
 
 # ---- Foydalanuvchini firmaga biriktirish (login yaratganda) ----
+class UserProfileForm(forms.ModelForm):
+    """Obyektlar FAQAT profil firmasidan bo'lsin — boshqa firma obyekti biriktirilsa xato."""
+    class Meta:
+        model = UserProfile
+        fields = ["role", "firma", "projects"]
+
+    def clean(self):
+        data = super().clean()
+        firma = data.get("firma")
+        begona = [p for p in (data.get("projects") or []) if firma and p.firma_id != firma.pk]
+        if begona:
+            raise forms.ValidationError(
+                "Boshqa firmaning obyekti biriktirilmoqda: "
+                + ", ".join(f"{p.name} ({p.firma})" for p in begona)
+                + f". Foydalanuvchi firmasi — {firma}; faqat shu firma obyektlarini tanlang.")
+        return data
+
+
 class UserProfileInline(admin.StackedInline):
     model = UserProfile
+    form = UserProfileForm
     can_delete = False
     fk_name = "user"
     verbose_name = "Lavozim va biriktirish"

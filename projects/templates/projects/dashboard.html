@@ -252,11 +252,16 @@
     <form method="get" class="ffilt">
       <input type="hidden" name="tab" id="tabField" value="{{ active_tab }}">
       <span class="flbl">Firma:</span>
+      {% if firmalar|length > 1 %}
       <select name="firma" onchange="this.form.submit()">
         <option value="">Barcha firmalar (umumiy)</option>
         {% for f in firmalar %}<option value="{{ f.id }}" {% if sel_firma == f.id|stringformat:'s' %}selected{% endif %}>{{ f.name }}</option>{% endfor %}
       </select>
       {% if sel_firma %}<a class="clr" href="{% url 'dashboard' %}">tozalash</a>{% endif %}
+      {% else %}
+      {# Bitta firma — tanlov shart emas (foydalanuvchi faqat o'z firmasini ko'radi) #}
+      <b style="font-size:13.5px;">{% for f in firmalar %}{{ f.name }}{% empty %}—{% endfor %}</b>
+      {% endif %}
     </form>
     <div class="acts">
       <a class="btn" href="{% url 'limit_export' %}">Eksport</a>

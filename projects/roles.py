@@ -117,10 +117,15 @@ def visible_projects(user, qs=None):
     if is_director(user) or is_bux(user):
         f = user_firma(user)
         return qs.filter(firma=f) if f else qs.none()
-    # PTO / Prorab — faqat biriktirilgan obyektlar
+    # PTO / Prorab / Snab — faqat biriktirilgan obyektlar; profilida firma
+    # ko'rsatilgan bo'lsa, boshqa firmaning obyekti (xato biriktirilgan bo'lsa ham)
+    # ko'rinmaydi — firma izolyatsiyasi
     prof = getattr(user, "profile", None)
     if prof is not None:
-        return qs.filter(pk__in=prof.projects.values_list("pk", flat=True))
+        qs = qs.filter(pk__in=prof.projects.values_list("pk", flat=True))
+        if prof.firma_id:
+            qs = qs.filter(firma_id=prof.firma_id)
+        return qs
     return qs.none()
 
 
