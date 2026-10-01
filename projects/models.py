@@ -183,6 +183,7 @@ class LimitChangeRequest(models.Model):
     """Mavjud limitni o'zgartirish so'rovi — admin tasdiqlaydi."""
 
     class Status(models.TextChoices):
+        DRAFT = "draft", "Qoralama"              # jadvalda saqlangan, hali zanjirga yuborilmagan
         SNAB = "snab", "Snabjeniye ko'rigida"   # PTO yuborgach snabjeniye narx/tarkibni ko'radi
         PTO2 = "pto2", "PTO xulosasida"          # snabjeniyedan qaytgan — PTO yakuniy xulosa beradi
         DIR = "dir", "Direktor tasdig'ida"

@@ -3838,9 +3838,17 @@ def _lj_guruhlar(items, fakt):
 
 def _lj_taklif_huquq(user, req):
     """Zanjirdagi limit so'rovini (taklifni) KIM tahrirlay oladi: admin — istalgan
-    bosqichda, snabjeniye — o'z (snab) bosqichida, PTO — xulosa (pto2) bosqichida."""
+    bosqichda, snabjeniye — o'z (snab) bosqichida, PTO — xulosa (pto2) bosqichida.
+    QORALAMA (draft) — Умумийni tahrirlash huquqi borlar: zanjir ishtirokchilari va
+    admin; qatorli tasdiqlangan limit bo'lsa faqat admin ruxsati bilan."""
     from .roles import is_snab as _is_snab
-    if req is None or req.status not in LIM_JARAYON:
+    if req is None:
+        return False
+    if req.status == "draft":
+        p = req.project
+        zanjir = is_pto(user) or _is_snab(user) or is_director(user)
+        return (is_admin(user) or zanjir) and (not p.limit_items.exists() or p.limit_tahrir_ruxsat)
+    if req.status not in LIM_JARAYON:
         return False
     return (is_admin(user)
             or (req.status == "snab" and _is_snab(user))
@@ -3896,7 +3904,7 @@ def _lj_taklif_saqla(request, p, payload):
     from django.utils import timezone as _tz
     qayt = redirect(reverse("limit_jadval", args=[p.pk]))
     # Avval HUQUQ — huquqsiz foydalanuvchi tekshiruv xabarlarini ham ko'rmaydi
-    req = p.limit_requests.filter(status__in=LIM_JARAYON).order_by("-id").first()
+    req = p.limit_requests.filter(status__in=LIM_JARAYON + ["draft"]).order_by("-id").first()
     if req is None:
         messages.error(request, "Zanjirda limit so'rovi yo'q — sahifa yangilandi.")
         return qayt
@@ -3924,7 +3932,7 @@ def _lj_taklif_saqla(request, p, payload):
         # Qayta tekshiruv: sahifa ochiq turganda so'rov boshqa bosqichga o'tgan yoki
         # boshqa foydalanuvchi tahrirlagan bo'lsa — eski oynadan ustiga yozilmaydi
         req = (LimitChangeRequest.objects.select_for_update()
-               .filter(project=p, status__in=LIM_JARAYON).order_by("-id").first())
+               .filter(project=p, status__in=LIM_JARAYON + ["draft"]).order_by("-id").first())
         if req is None or _lj_taklif_token(req) != str(payload.get("token") or ""):
             messages.error(request, "So'rov siz ochgandan keyin o'zgargan (boshqa bosqich yoki "
                                     "boshqa foydalanuvchi tahriri) — sahifa yangilandi, qayta kiriting.")
@@ -3942,8 +3950,108 @@ def _lj_taklif_saqla(request, p, payload):
         req.edited_at = _tz.now()
         req.save(update_fields=["new_material", "new_labor", "new_machinery",
                                 "new_other", "edited_by", "edited_at"])
-    messages.success(request, f"Taklif saqlandi ({len(items)} qator, yangi umumiy: "
-                              f"{_money(req.new_total)}). Endi keyingi bosqichga yuborishingiz mumkin.")
+    if req.status == "draft":
+        messages.success(request, f"Qoralama saqlandi ({len(items)} qator, umumiy: {_money(req.new_total)}). "
+                                  "Keyin davom ettirishingiz yoki «Лимитни юбориш» bilan zanjirga jo'natishingiz mumkin.")
+    else:
+        messages.success(request, f"Taklif saqlandi ({len(items)} qator, yangi umumiy: "
+                                  f"{_money(req.new_total)}). Endi keyingi bosqichga yuborishingiz mumkin.")
+    return qayt
+
+
+def _lj_qoralama_yarat(request, p, payload):
+    """Умумий tahriri tugallanmagan bo'lsa — jadvaldagi TO'LIQ ro'yxat (mavjud
+    qatorlar `asl` bilan + yangi qatorlar) serverga QORALAMA bo'lib saqlanadi;
+    keyin istalgan qurilmadan o'sha joyidan davom ettiriladi."""
+    qayt = redirect(reverse("limit_jadval", args=[p.pk]))
+    if p.limit_requests.filter(status__in=LIM_JARAYON).exists():
+        messages.error(request, "Limit so'rovi zanjirda turibdi — qoralama saqlab bo'lmaydi.")
+        return qayt
+    items, sums = [], {k: Decimal("0") for k in KINDS}
+    for e in payload.get("req_items") or []:
+        it, xato = _lj_qator(e)
+        if xato:
+            messages.error(request, xato)
+            return qayt
+        if it is not None:
+            items.append(it)
+            sums[it["kind"]] += (it["quantity"] * it["unit_price"]).quantize(Decimal("0.01"))
+    if not items:
+        messages.error(request, "Qoralama uchun kamida bitta qator kiriting.")
+        return qayt
+    ozimniki = set(p.limit_items.values_list("pk", flat=True))
+    for it in items:
+        if it["asl_id"] not in ozimniki:
+            it["asl_id"] = None
+    with transaction.atomic():
+        p.limit_requests.filter(status="draft").delete()
+        q = LimitChangeRequest.objects.create(
+            project=p, status="draft",
+            old_material=p.limit_material, old_labor=p.limit_labor,
+            old_machinery=p.limit_machinery, old_other=p.limit_other,
+            new_material=sums["material"], new_labor=sums["labor"],
+            new_machinery=sums["machinery"], new_other=sums["other"],
+            reason="Qoralama (limit jadvali)", requested_by=request.user)
+        LimitChangeItem.objects.bulk_create([LimitChangeItem(request=q, **it) for it in items])
+    messages.success(request, f"Qoralama saqlandi ({len(items)} qator). Zanjirga YUBORILMADI — "
+                              "keyin shu yerdan davom ettirasiz yoki «Лимитни юбориш»ni bosasiz.")
+    return qayt
+
+
+def _lj_qoralama_amal(request, p, amal):
+    """Qoralama bilan amal: send — zanjirga yuborish; apply — admin to'g'ridan
+    qo'llaydi; delete — o'chirish."""
+    qayt = redirect(reverse("limit_jadval", args=[p.pk]))
+    q = p.limit_requests.filter(status="draft").order_by("-id").first()
+    if q is None:
+        messages.error(request, "Qoralama topilmadi — sahifa yangilandi.")
+        return qayt
+    if not _lj_taklif_huquq(request.user, q):
+        raise PermissionDenied("Qoralama bilan ishlash huquqi yo'q.")
+    if amal == "delete":
+        q.delete()
+        messages.info(request, "Qoralama o'chirildi.")
+        return qayt
+    if not q.proposed_items.exists():
+        messages.error(request, "Qoralamada qator yo'q — avval qatorlarni kiritib saqlang.")
+        return qayt
+    if p.limit_requests.filter(status__in=LIM_JARAYON).exists():
+        messages.error(request, "Limit so'rovi zanjirda turibdi — avval u yakunlansin.")
+        return qayt
+    from django.utils import timezone as _tz
+    if amal == "apply":
+        if not is_admin(request.user):
+            raise PermissionDenied("To'g'ridan qo'llashni faqat admin qiladi.")
+        if p.limit_items.exists() and not p.limit_tahrir_ruxsat:
+            messages.error(request, "Tasdiqlangan limit qulf — avval «Таҳрирга рухсат бериш».")
+            return qayt
+        with transaction.atomic():
+            q.status = "adm"
+            q.requested_by = q.requested_by or request.user
+            q.save(update_fields=["status", "requested_by"])
+            q.approve(request.user)
+            if p.limit_tahrir_ruxsat:
+                p.limit_tahrir_ruxsat = False
+                p.save(update_fields=["limit_tahrir_ruxsat"])
+        p.refresh_from_db()
+        messages.success(request, f"Умумий limit qo'llandi: {_money(p.budget_total)}.")
+        return qayt
+    if amal == "send":
+        _st = _limit_boshlangich(p)
+        with transaction.atomic():
+            q.status = _st
+            q.requested_by = request.user
+            q.created_at = _tz.now()
+            q.old_material, q.old_labor = p.limit_material, p.limit_labor
+            q.old_machinery, q.old_other = p.limit_machinery, p.limit_other
+            q.reason = "Limit jadvalidan tahrir"
+            q.save()
+            if p.limit_tahrir_ruxsat:
+                p.limit_tahrir_ruxsat = False   # ruxsat bir martalik
+                p.save(update_fields=["limit_tahrir_ruxsat"])
+        messages.success(request, _limit_yubor_xabar(_st))
+        return qayt
+    messages.error(request, "Noma'lum amal.")
     return qayt
 
 
@@ -3982,19 +4090,25 @@ def limit_jadval(request, pk):
 
     # Zanjirdagi limit so'rovi (taklif) — shu jadvalning o'zida ko'rinadi/tahrirlanadi
     lim_pend_obj = p.limit_requests.filter(status__in=LIM_JARAYON).order_by("-id").first()
-    taklif_huquq = _lj_taklif_huquq(request.user, lim_pend_obj)
-    taklif_bor = bool(lim_pend_obj) and lim_pend_obj.proposed_items.exists()
+    # Zanjirga yuborilmagan QORALAMA (tugallanmagan kiritish) — xuddi taklif kabi ochiladi
+    qoralama_obj = (None if lim_pend_obj
+                    else p.limit_requests.filter(status="draft").order_by("-id").first())
+    taklif_obj = lim_pend_obj or qoralama_obj
+    taklif_huquq = _lj_taklif_huquq(request.user, taklif_obj)
+    taklif_bor = bool(taklif_obj) and taklif_obj.proposed_items.exists()
     # Ko'rinish: zanjir payti odatda TAKLIF ko'rsatiladi; amaldagi limit qatorlari
     # bo'lsa «?korinish=amaldagi» bilan haftalik ishga o'tiladi
-    taklif_view = bool(lim_pend_obj) and (taklif_bor or taklif_huquq) and (
+    taklif_view = bool(taklif_obj) and (taklif_bor or taklif_huquq) and (
         request.GET.get("korinish") != "amaldagi")
-    _qs = "" if taklif_view or not lim_pend_obj else "?korinish=amaldagi"
+    _qs = "" if taklif_view or not taklif_obj else "?korinish=amaldagi"
 
     def _qayt():
         return redirect(reverse("limit_jadval", args=[pk]) + _qs)
 
     # ---------- POST: qoralamani saqlash / tasdiqqa yuborish ----------
     if request.method == "POST":
+        if request.POST.get("qoralama_amal"):
+            return _lj_qoralama_amal(request, p, request.POST.get("qoralama_amal"))
         try:
             payload = _json.loads(request.POST.get("payload") or "{}")
         except ValueError:
@@ -4005,6 +4119,10 @@ def limit_jadval(request, pk):
         # Zanjirdagi TAKLIFni saqlash — bosqich egasi (snab/PTO xulosa/admin)
         if payload.get("action") == "req_save":
             return _lj_taklif_saqla(request, p, payload)
+        if payload.get("action") == "draft_save":
+            if not lim_edit_huquq:
+                raise PermissionDenied("Умумий limitni tahrirlash huquqi yo'q.")
+            return _lj_qoralama_yarat(request, p, payload)
         if not (can_edit or lim_edit_huquq):
             raise PermissionDenied("Bu jadvalni tahrirlash huquqi yo'q.")
         # Haftalik qatorlar/yopish — faqat PTO yoki admin
@@ -4275,7 +4393,7 @@ def limit_jadval(request, pk):
     # TAKLIF ko'rinishida amaldagi limit o'rniga ZANJIRDAGI taklif qatorlari chiqadi.
     taklif_json, taklif_ochirilgan = None, []
     if taklif_view:
-        guruhlar = _lj_guruhlar(lim_pend_obj.proposed_items.all().order_by("id"), fakt)
+        guruhlar = _lj_guruhlar(taklif_obj.proposed_items.all().order_by("id"), fakt)
         if amaldagi_bor:
             # Amaldagi limitdan farqi: yangi / o'zgargan / o'chirilayotgan qatorlar
             joriy = {}
@@ -4458,6 +4576,12 @@ def limit_jadval(request, pk):
     # Taklif qatorsiz (eski usuldagi, faqat summali) so'rov bo'lsa — summasi ko'rsatiladi
     taklif_sum = (_money(lim_pend_obj.new_total)
                   if lim_pend_obj and not taklif_bor else "")
+    qoralama = None
+    if qoralama_obj:
+        qoralama = {"kim": qoralama_obj.requested_by.username if qoralama_obj.requested_by_id else "",
+                    "vaqt": _v(qoralama_obj.edited_at or qoralama_obj.created_at),
+                    "soni": qoralama_obj.proposed_items.count(),
+                    "huquq": taklif_huquq, "apply": is_admin(request.user) and taklif_huquq}
     return render(request, "projects/limit_jadval.html", {
         "p": p, "guruhlar": guruhlar,
         # Taklif ko'rinishida haftalik va Умумий (amaldagi) tahriri o'chiq
@@ -4465,7 +4589,8 @@ def limit_jadval(request, pk):
         "lim_edit_huquq": lim_edit_huquq and not taklif_view,
         "taklif_view": taklif_view, "taklif_edit": taklif_view and taklif_huquq,
         "taklif_json": taklif_json, "taklif_ochirilgan": taklif_ochirilgan,
-        "taklif_token": _lj_taklif_token(lim_pend_obj) if lim_pend_obj else "",
+        "taklif_token": _lj_taklif_token(taklif_obj) if taklif_obj else "",
+        "qoralama": qoralama,
         # Admin tahriri to'g'ridan qo'llanadimi (eski summali limitda — faqat ruxsat bilan)
         "adm_togri": is_admin(request.user) and not (
             limit_bor and not amaldagi_bor and not p.limit_tahrir_ruxsat),

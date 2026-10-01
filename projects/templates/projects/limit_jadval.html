@@ -172,10 +172,24 @@
   {% endif %}
 </div>
 {% endif %}
-{% if lim_pending %}
+{% if qoralama %}
+<div class="noprint" style="display:flex; border-radius:6px; padding:7px 12px; margin-bottom:8px; font-size:12.5px; align-items:center; gap:10px; flex-wrap:wrap; background:#fff7ed; border:1px solid #fdba74;">
+  <b>📝 ҚОРАЛАМА</b>
+  <span style="color:#6b7280;">— {{ qoralama.soni }} қатор сақланган, занжирга ҳали ЮБОРИЛМАГАН{% if qoralama.kim %} · {{ qoralama.kim }}{% endif %}{% if qoralama.vaqt %} · {{ qoralama.vaqt }}{% endif %}.{% if taklif_edit %} Давом эттириб «💾 Сақлаш (қоралама)», тугагач «▶ Лимитни юбориш».{% endif %}</span>
+  {% if qoralama.huquq %}
+  <span style="margin-left:auto; display:inline-flex; gap:8px; align-items:center; flex-wrap:wrap;">
+    {% if not taklif_view %}<a href="?korinish=taklif" style="border-radius:5px; padding:4px 12px; font-weight:700; background:#7c3aed; color:#fff; text-decoration:none; white-space:nowrap;">📝 Қораламани очиш →</a>{% endif %}
+    <form method="post" class="lim-amal-f" style="margin:0;" onsubmit="return confirm('Қоралама занжирга (снабжение → ПТО → директор → админ) сўров бўлиб юборилсинми?');">{% csrf_token %}<input type="hidden" name="qoralama_amal" value="send"><button type="submit" style="border:none; border-radius:5px; background:#26a269; color:#fff; padding:4px 13px; font-weight:700; font-size:12px; cursor:pointer;">▶ Лимитни юбориш</button></form>
+    {% if qoralama.apply %}<form method="post" class="lim-amal-f" style="margin:0;" onsubmit="return confirm('Қоралама занжирсиз ТЎҒРИДАН лимит сифатида қўлланилсинми?');">{% csrf_token %}<input type="hidden" name="qoralama_amal" value="apply"><button type="submit" style="border:none; border-radius:5px; background:#1a5fb4; color:#fff; padding:4px 13px; font-weight:700; font-size:12px; cursor:pointer;">✓ Лимитни қўллаш</button></form>{% endif %}
+    <form method="post" style="margin:0;" onsubmit="return confirm('Қоралама ўчирилсинми? Сақланган қаторлар йўқолади.');">{% csrf_token %}<input type="hidden" name="qoralama_amal" value="delete"><button type="submit" style="border:none; border-radius:5px; background:#c01c28; color:#fff; padding:4px 13px; font-weight:700; font-size:12px; cursor:pointer;">🗑 Ўчириш</button></form>
+  </span>
+  {% endif %}
+</div>
+{% endif %}
+{% if lim_pending or qoralama and taklif_view %}
 <div class="noprint" style="display:flex; border-radius:6px; padding:6px 12px; margin-bottom:8px; font-size:12.5px; align-items:center; gap:10px; flex-wrap:wrap; background:#fffbeb; border:1px solid #fde68a;">
   {% if taklif_view %}
-    <b>📋 Жадвалда: ЗАНЖИРДАГИ ТАКЛИФ</b>
+    <b>{% if qoralama %}📝 Жадвалда: ҚОРАЛАМА{% else %}📋 Жадвалда: ЗАНЖИРДАГИ ТАКЛИФ{% endif %}</b>
     <span style="color:#6b7280;">{% if taklif_edit %}— қаторларни тўлиқ таҳрирлайсиз (ном, бирлик, объём, нарх, қўшиш/ўчириш){% else %}— фақат кўриш; таҳрир жорий босқич эгасида{% endif %}{% if amaldagi_bor and not taklif_edit %} · <span style="background:#dcfce7; color:#15803d; border-radius:4px; padding:0 5px; font-weight:700;">янги</span> / <span style="background:#fef3c7; color:#92400e; border-radius:4px; padding:0 5px; font-weight:700;">ўзгарди</span> — амалдаги лимитдан фарқи{% endif %}</span>
     {% if taklif_sum %}<span style="color:#9a3412;">Сўров эски усулда юборилган (фақат сумма: <b>{{ taklif_sum }}</b>) — қаторларини шу ерда киритинг.</span>{% endif %}
     {% if taklif_ochirilgan %}<span style="color:#b91c1c;">✕ Ўчирилаётган қаторлар: {% for n in taklif_ochirilgan %}{% if not forloop.first %}, {% endif %}«{{ n }}»{% endfor %}</span>{% endif %}
@@ -205,9 +219,10 @@
   </span>
   {% endif %}
   {% if taklif_edit %}
-  <button class="b-green" id="btnReqSaqla" type="button" title="Занжирдаги таклиф қаторларини сақлаш — босқич ўзгармайди">💾 Таклифни сақлаш</button>
+  <button class="b-green" id="btnReqSaqla" type="button" title="{% if qoralama %}Қораламани сақлаш — занжирга юборилмайди{% else %}Занжирдаги таклиф қаторларини сақлаш — босқич ўзгармайди{% endif %}">💾 {% if qoralama %}Сақлаш (қоралама){% else %}Таклифни сақлаш{% endif %}</button>
   {% endif %}
   {% if lim_edit_huquq %}
+  <button class="b-blue" id="btnQoralama" type="button" title="Тугатмаган бўлсангиз — жадвал серверда қоралама бўлиб сақланади; занжирга юборилмайди, кейин шу жойидан давом этасиз">💾 Қоралама сақлаш</button>
   <button class="b-green" id="btnLimYubor" title="{% if adm_togri %}Умумий устундаги ўзгаришлар тўғридан-тўғри қўлланади{% else %}Умумий лимит ўзгаришлари кейинги юсерга (снабжение → ПТО → директор → админ) сўров бўлиб кетади{% endif %}">▶ {% if adm_togri %}Лимитни қўллаш{% else %}Лимитни юбориш{% endif %}</button>
   {% if adm_togri %}<button class="b-blue" id="btnLimZanjir" title="Ўзгаришлар тўғридан қўлланмайди — снабжение → ПТО → директор → админ занжирига СЎРОВ бўлиб кетади ва Тасдиқлар бўлимида кўринади">📨 Занжирга юбориш</button>{% endif %}
   {% endif %}
@@ -1418,6 +1433,33 @@
   }
   var bRS = document.getElementById('btnReqSaqla');
   if (bRS) bRS.onclick = taklifSaqla;
+  // -------- 💾 ҚОРАЛАМА САҚЛАШ (Умумий тўлиқ рўйхати серверга, занжирсиз) --------
+  var bQ = document.getElementById('btnQoralama');
+  if (bQ) bQ.onclick = function(){
+    hisobla();
+    if (window._ljErr){ alert('⛔ Хато бор — аввал тўғриланг (юқоридаги рўйхат)'); return; }
+    var rows = [];
+    ishRows().forEach(function(tr){
+      if (rowDel(tr) || !tr.dataset.id) return;
+      var x = limRow(tr), b = limBlok(tr.dataset.bolim);
+      if (!(x.name||'').trim()) return;
+      rows.push({ asl:+tr.dataset.id, name:x.name, unit:x.unit||'', kind:x.kind||'material', note:x.izoh||'',
+                  bolim:(b.bolim||'').trim(), masul:(b.masul||'').trim(), vol:x.vol||0, price:x.price||0 });
+    });
+    yangiBloklar.forEach(function(blk){
+      blk.rows.forEach(function(x){
+        if ((x.name||'').trim())
+          rows.push({ asl:null, name:x.name, unit:x.unit||'', kind:x.kind||'material', note:x.izoh||'',
+                      bolim:blkBolim(blk).trim(), masul:blkMasul(blk).trim(), vol:x.vol||0, price:x.price||0 });
+      });
+    });
+    if (!rows.length){ alert('Қоралама учун камида битта қатор (иш номи) киритинг.'); return; }
+    if (!confirm('Жадвал ҚОРАЛАМА сифатида сақланади (занжирга юборилмайди). Кейин шу жойидан давом этасиз. Давом этамизми?')) return;
+    yuborilmoqda = true; clearTimeout(autoT);
+    try { localStorage.removeItem(autoKey()); } catch(e){}
+    document.getElementById('ljPayload').value = JSON.stringify({ action:'draft_save', req_items:rows });
+    document.getElementById('ljForm').submit();
+  };
   if (TAKLIF_EDIT){
     // Saqlanmagan tahrir bilan bosqichni o'tkazib yubormaslik
     document.querySelectorAll('form.lim-amal-f').forEach(function(f){
