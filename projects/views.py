@@ -254,6 +254,8 @@ def _narx_tahlil(p):
             }
         d["limit_qty"] += li.quantity
         d["limit_sum"] += li.total
+        d["fakt_qty"] += li.boshlangich_qty or 0
+        d["fakt_sum"] += li.boshlangich_sum or 0
     for wi in (WeeklyRequestItem.objects
                .filter(request__project=p, request__status=WeeklyRequest.Status.APPROVED)):
         k = (wi.name or "").strip().lower() + "|" + (wi.bolim or "").strip().lower()
@@ -845,7 +847,7 @@ def _hafta_jadval_guruhlar(w, lim_cache, fakt_cache):
             k = _lj_key(li.name, li.bolim)
             d = lk.setdefault(k, {"qty": Decimal("0"), "sum": Decimal("0"),
                                   "price": li.unit_price})
-            d["qty"] += li.quantity
+            d["qty"] += li.quantity - (li.boshlangich_qty or 0)
             d["sum"] += li.total
         lim_cache[pid] = lk
         fk_ = {}
@@ -1721,7 +1723,7 @@ def _tasdiqlar_data(status="dir", user=None):
             k = _lj_key(li.name, li.bolim)
             d = lim_key.setdefault(k, {"qty": Decimal("0"), "sum": Decimal("0"),
                                        "price": li.unit_price})
-            d["qty"] += li.quantity
+            d["qty"] += li.quantity - (li.boshlangich_qty or 0)
             d["sum"] += li.total
         fakt_key = {}
         for fi in WeeklyRequestItem.objects.filter(request__project=w.project,
@@ -3820,12 +3822,17 @@ def _lj_guruhlar(items, fakt):
                     if rem["qty"] else Decimal("0")
             rem["qty"] -= f_qty
             rem["sum"] -= f_sum
+        bq = getattr(li, "boshlangich_qty", None) or Decimal("0")
+        bs = getattr(li, "boshlangich_sum", None) or Decimal("0")
         g["rows"].append({
             "id": li.pk, "asl": getattr(li, "asl_id", None),
             "key": k, "name": li.name, "izoh": li.note or "", "unit": li.unit or "",
             "kind": li.kind, "bolim": kal,
             "vol": float(li.quantity), "price": float(li.unit_price),
-            "fakt_qty": float(f_qty), "fakt_sum": float(f_sum),
+            # Бажарилган = limitgacha (qo'lda) + tasdiqlangan haftaliklar
+            "bq": float(bq), "bs": float(bs),
+            "wq": float(f_qty), "ws": float(f_sum),
+            "fakt_qty": float(f_qty + bq), "fakt_sum": float(f_sum + bs),
         })
     guruhlar = [g for kk, g in _g.items() if kk] + [g for kk, g in _g.items() if not kk]
     nr = 0
@@ -3882,10 +3889,18 @@ def _lj_qator(e):
         asl_id = int(e.get("asl")) if e.get("asl") not in (None, "", 0) else None
     except (TypeError, ValueError):
         asl_id = None
+    # Limitgacha bajarilgan (qo'lda): miqdor va summa; summa yozilmasa — miqdor × narx
+    bq = _to_dec(str(e.get("bq") or "0")) or Decimal("0")
+    bs = _to_dec(str(e.get("bs") or "0")) or Decimal("0")
+    if not (bq.is_finite() and bs.is_finite()) or not (0 <= bq < _LJ_CHEGARA and 0 <= bs < _LJ_CHEGARA):
+        return None, f"«{nm}»: бажарилган қисми noto'g'ri (manfiy yoki juda katta) — saqlanmadi."
+    if bq > 0 and bs == 0:
+        bs = bq * pr
     return {"asl_id": asl_id, "kind": kind if kind in KINDS else "material", "name": nm,
             "unit": " ".join(str(e.get("unit") or "").split())[:32],
             # Bazadagi aniqlik bilan bir xil yaxlitlash — summa qatorlar bilan mos tursin
             "quantity": q.quantize(Decimal("0.001")), "unit_price": pr.quantize(Decimal("0.01")),
+            "boshlangich_qty": bq.quantize(Decimal("0.001")), "boshlangich_sum": bs.quantize(Decimal("0.01")),
             "note": " ".join(str(e.get("note") or "").split())[:500],
             "bolim": " ".join(str(e.get("bolim") or "").split())[:200],
             "masul": " ".join(str(e.get("masul") or "").split())[:120]}, None
@@ -3895,6 +3910,8 @@ def _lj_qator_dict(li):
     """LimitItem -> jadval qatori dict (taqqoslash/taklif uchun)."""
     return {"asl_id": li.pk, "kind": li.kind, "name": li.name, "unit": li.unit or "",
             "quantity": li.quantity, "unit_price": li.unit_price,
+            "boshlangich_qty": li.boshlangich_qty or Decimal("0"),
+            "boshlangich_sum": li.boshlangich_sum or Decimal("0"),
             "note": li.note or "", "bolim": li.bolim or "", "masul": li.masul or ""}
 
 
@@ -4332,7 +4349,7 @@ def limit_jadval(request, pk):
         for li in p.limit_items.all():
             d = qoldiq.setdefault(_lj_key(li.name, li.bolim),
                                   {"qty": Decimal("0"), "unit": li.unit, "nom": li.name})
-            d["qty"] += li.quantity
+            d["qty"] += li.quantity - (li.boshlangich_qty or 0)
         for w in haftalar:
             if w.status != "approved":
                 continue
@@ -4447,8 +4464,8 @@ def limit_jadval(request, pk):
                 "bolim": g["bolim"], "masul": g["masul"],
                 "rows": [{"name": r["name"], "unit": r["unit"], "kind": r["kind"],
                           "vol": r["vol"], "price": r["price"], "izoh": r["izoh"],
-                          "asl": r.get("asl"),
-                          "fq": r["fakt_qty"], "fs": r["fakt_sum"]} for r in g["rows"]],
+                          "asl": r.get("asl"), "bq": r["bq"], "bs": r["bs"],
+                          "fq": r["wq"], "fs": r["ws"]} for r in g["rows"]],
             } for g in guruhlar]
             guruhlar = []
     else:
@@ -5098,7 +5115,8 @@ def limit_jadval_export(request, pk):
         g["rows"].append({"name": li.name, "izoh": li.note or "",
                           "unit": li.unit or "", "key": k,
                           "qty": li.quantity, "price": li.unit_price,
-                          "f_qty": f_qty, "f_sum": f_sum})
+                          "f_qty": f_qty + (li.boshlangich_qty or 0),
+                          "f_sum": f_sum + (li.boshlangich_sum or 0)})
 
     # --- Excel ---
     wb = openpyxl.Workbook()

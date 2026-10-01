@@ -223,6 +223,8 @@
   {% endif %}
   {% if lim_edit_huquq and not can_edit %}
   <button class="b-blue" id="btnQoralama" type="button" title="Тугатмаган бўлсангиз — жадвал серверда қоралама бўлиб сақланади; занжирга юборилмайди, кейин шу жойидан давом этасиз">💾 Қоралама сақлаш</button>
+  {% endif %}
+  {% if lim_edit_huquq %}
   <button class="b-green" id="btnLimYubor" title="{% if adm_togri %}Умумий устундаги ўзгаришлар тўғридан-тўғри қўлланади{% else %}Умумий лимит ўзгаришлари кейинги юсерга (снабжение → ПТО → директор → админ) сўров бўлиб кетади{% endif %}">▶ {% if adm_togri %}Лимитни қўллаш{% else %}Лимитни юбориш{% endif %}</button>
   {% if adm_togri %}<button class="b-blue" id="btnLimZanjir" title="Ўзгаришлар тўғридан қўлланмайди — снабжение → ПТО → директор → админ занжирига СЎРОВ бўлиб кетади ва Тасдиқлар бўлимида кўринади">📨 Занжирга юбориш</button>{% endif %}
   {% endif %}
@@ -306,7 +308,7 @@
     <th class="g-main" rowspan="2" style="width:151px; min-width:151px;">Иш тури</th>
     <th class="g-main" rowspan="2" style="width:189px; min-width:189px;">Изоҳ</th>
     <th class="g-main" colspan="4">Умумий</th>
-    <th class="g-done" colspan="2">Бажарилган</th>
+    <th class="g-done" colspan="2" title="Лимитгача бажарилган (қўлда киритилади) + тасдиқланган ҳафталиклар (автоматик)">Бажарилган</th>
     <th class="g-left" colspan="2">Қолган</th>
     <th class="g-mat" colspan="4" id="wkHead">Ҳафталик материал</th>
     <th class="g-mat" rowspan="2" style="width:44px;">Амал</th>
@@ -331,6 +333,7 @@
         data-unit="{{ r.unit }}" data-kind="{{ r.kind }}" data-n="{{ forloop.counter }}"
         data-vol="{{ r.vol|unlocalize }}" data-price="{{ r.price|unlocalize }}"
         data-fqty="{{ r.fakt_qty|unlocalize }}" data-fsum="{{ r.fakt_sum|unlocalize }}"
+        data-bq="{{ r.bq|unlocalize }}" data-bs="{{ r.bs|unlocalize }}" data-wq="{{ r.wq|unlocalize }}" data-ws="{{ r.ws|unlocalize }}"
         data-izoh="{{ r.izoh }}">
       <td class="ctr rn">{{ forloop.counter }}</td>
       <td>{{ r.name }}{% if r.ozg == 'yangi' %} <span style="background:#dcfce7; color:#15803d; border-radius:4px; padding:0 5px; font-size:10.5px; font-weight:700;">янги</span>{% elif r.ozg == 'ozgardi' %} <span style="background:#fef3c7; color:#92400e; border-radius:4px; padding:0 5px; font-size:10.5px; font-weight:700;">ўзгарди</span>{% endif %}</td>
@@ -466,7 +469,8 @@
   function limRow(tr){
     var id = tr.dataset.id;
     return limRows[id] || (limRows[id] = { name:tr.dataset.name, unit:tr.dataset.unit, kind:tr.dataset.kind||'material',
-      izoh:tr.dataset.izoh||'', vol:pf(tr.dataset.vol), price:pf(tr.dataset.price), del:false });
+      izoh:tr.dataset.izoh||'', vol:pf(tr.dataset.vol), price:pf(tr.dataset.price),
+      bq:pf(tr.dataset.bq), bs:pf(tr.dataset.bs), del:false });
   }
   function limBlok(bolim0){
     var b = document.querySelector('#ljBody tr.block[data-bolim="'+CSS.escape(bolim0)+'"]');
@@ -627,13 +631,19 @@
         tr.cells[3].innerHTML = '<input class="wkin kichik lim-u" value="'+esc(x.unit)+'" placeholder="бирл.">';
         tr.querySelector('.c-vol').innerHTML = '<input class="wkin lim-q" type="number" min="0" step="0.001" value="'+(vol||'')+'">';
         tr.querySelector('.c-price').innerHTML = '<input class="wkin lim-p" type="number" min="0" value="'+(price||'')+'">';
+        // Бажарилган: лимитгача олинган қисм ҚЎЛДА (ҳафталиклар устига автоматик қўшилади)
+        var wq0 = pf(tr.dataset.wq), ws0 = pf(tr.dataset.ws);
+        var hint = wq0 ? ' title="+ тасдиқланган ҳафталиклар: '+fmt(wq0)+' / '+fmt(ws0)+'"' : ' title="Лимитгача бажарилган/олинган қисм — қўлда"';
+        tr.querySelector('.c-fqty').innerHTML = '<input class="wkin lim-bq" type="number" min="0" step="0.001" value="'+(x.bq||'')+'" placeholder="0"'+hint+'>';
+        tr.querySelector('.c-fsum').innerHTML = '<input class="wkin lim-bs" type="number" min="0" value="'+(x.bs||'')+'" placeholder="0"'+hint+'>';
+        fq = wq0 + (x.bq||0); fs = ws0 + (x.bs||0);
       } else {
         tr.querySelector('.c-vol').textContent = fmt(vol);
         tr.querySelector('.c-price').textContent = fmt(price);
+        tr.querySelector('.c-fqty').textContent = fmt(fq);
+        tr.querySelector('.c-fsum').textContent = fmt(fs);
       }
       tr.querySelector('.c-total').textContent = fmt(vol*price);
-      tr.querySelector('.c-fqty').textContent = fmt(fq);
-      tr.querySelector('.c-fsum').textContent = fmt(fs);
       tr.querySelector('.c-lqty').textContent = fmt(vol-fq);
       tr.querySelector('.c-lsum').textContent = fmt(vol*price-fs);
 
@@ -783,8 +793,9 @@
           '<td class="num"><input class="wkin yb-q" type="number" min="0" step="0.001" value="'+(x.vol||'')+'"></td>'+
           '<td class="num"><input class="wkin yb-p" type="number" min="0" value="'+(x.price||'')+'"></td>'+
           '<td class="num yb-s">'+fmt((x.vol||0)*(x.price||0))+'</td>'+
-          '<td class="num">'+fmt(x.fq||0)+'</td><td class="num">'+fmt(x.fs||0)+'</td>'+
-          '<td class="num yb-lq">'+fmt((x.vol||0)-(x.fq||0))+'</td><td class="num yb-ls">'+fmt((x.vol||0)*(x.price||0)-(x.fs||0))+'</td>'+
+          '<td class="num"><input class="wkin yb-bq" type="number" min="0" step="0.001" value="'+(x.bq||'')+'" placeholder="0" title="Лимитгача бажарилган/олинган қисм — қўлда'+((x.fq||0)?('; + ҳафталиклар: '+fmt(x.fq)):'')+'"></td>'+
+          '<td class="num"><input class="wkin yb-bs" type="number" min="0" value="'+(x.bs||'')+'" placeholder="0" title="Лимитгача бажарилган сумма'+((x.fs||0)?('; + ҳафталиклар: '+fmt(x.fs)):'')+'"></td>'+
+          '<td class="num yb-lq">'+fmt((x.vol||0)-(x.fq||0)-(x.bq||0))+'</td><td class="num yb-ls">'+fmt((x.vol||0)*(x.price||0)-(x.fs||0)-(x.bs||0))+'</td>'+
           (wEdit
             ? ('<td class="ctr yb-wu">'+esc(x.unit||'')+'</td>'+
                '<td class="num"><span style="display:flex; gap:3px; align-items:flex-start;">'+
@@ -812,18 +823,23 @@
           if (ochiq){ t.focus(); izohKengay(t); }
         };
         [['yb-n','name'],['yb-u','unit'],['yb-k','kind'],['yb-q','vol'],['yb-p','price'],
-         ['yb-i','izoh'],['yb-wq','wq'],['yb-wp','wp'],['yb-wi','wi']].forEach(function(pr){
+         ['yb-i','izoh'],['yb-wq','wq'],['yb-wp','wp'],['yb-wi','wi'],['yb-bq','bq'],['yb-bs','bs']].forEach(function(pr){
           var inp = r.querySelector('.'+pr[0]);
           if (!inp) return;
           inp.addEventListener('input', function(){
             izohKengay(inp);
-            var raqam = (pr[1]==='vol'||pr[1]==='price'||pr[1]==='wq'||pr[1]==='wp');
+            var raqam = (pr[1]==='vol'||pr[1]==='price'||pr[1]==='wq'||pr[1]==='wp'||pr[1]==='bq'||pr[1]==='bs');
             x[pr[1]] = raqam ? pf(inp.value) : inp.value;
             taklifDirty = true;
+            if (pr[1]==='bs') x.bsQolda = true;
+            if ((pr[1]==='bq' || pr[1]==='price') && !x.bsQolda){
+              x.bs = Math.round((x.bq||0) * (x.price||0) * 100) / 100;
+              var bsI = r.querySelector('.yb-bs'); if (bsI) bsI.value = x.bs || '';
+            }
             if (pr[1]==='price' && !(x.wp||0)){ var wpI=r.querySelector('.yb-wp'); if (wpI && !wpI.value) wpI.placeholder = inp.value; }
             r.querySelector('.yb-s').textContent = fmt((x.vol||0)*(x.price||0));
-            r.querySelector('.yb-lq').textContent = fmt((x.vol||0)-(x.fq||0));
-            r.querySelector('.yb-ls').textContent = fmt((x.vol||0)*(x.price||0)-(x.fs||0));
+            r.querySelector('.yb-lq').textContent = fmt((x.vol||0)-(x.fq||0)-(x.bq||0));
+            r.querySelector('.yb-ls').textContent = fmt((x.vol||0)*(x.price||0)-(x.fs||0)-(x.bs||0));
             var wu=r.querySelector('.yb-wu'); if (wu) wu.textContent = x.unit||'';
             var ws2=r.querySelector('.yb-ws'); if (ws2) ws2.textContent = fmt((x.wq||0)*((x.wp||x.price)||0));
             // KETMA-KET kiritish: oxirgi qatorga nom yozilishi bilan YANGI qator
@@ -1134,6 +1150,7 @@
       if (tr.classList.contains('ish')){
         if (rowDel(tr)) return;
         var vol=rowVol(tr), price=rowPrice(tr), fs=pf(tr.dataset.fsum), fq=pf(tr.dataset.fqty);
+        if (LIM_EDIT && tr.dataset.id){ var lx0 = limRow(tr); fq = pf(tr.dataset.wq) + (lx0.bq||0); fs = pf(tr.dataset.ws) + (lx0.bs||0); }
         var w = rowWeek(tr);
         // Умумий тахрирланса — Сумма ва Қолган жонли янгиланади
         tr.querySelector('.c-total').textContent = fmt(vol*price);
@@ -1175,8 +1192,8 @@
         if (tr._ybx){
           // mavjud blok ichiga qo'shilgan YANGI limit qatori — blok yakuniga kiradi
           nrk++; tr.cells[0].textContent = nrk;
-          var yx = tr._ybx, ys = (yx.vol||0)*(yx.price||0);
-          sT += ys; sL += ys; sW += (yx.wq||0)*((yx.wp||0)||(yx.price||0));
+          var yx = tr._ybx, ys = (yx.vol||0)*(yx.price||0), yf = (yx.fs||0)+(yx.bs||0);
+          sT += ys; sF += yf; sL += ys - yf; sW += (yx.wq||0)*((yx.wp||0)||(yx.price||0));
           return;
         }
         // blok ichiga qo'shilgan yangi ish — blok yakunining hafta summasiga kiradi
@@ -1197,13 +1214,14 @@
       var toldirilgan = false;
       var bT=0, bF=0, bW=0;
       blk.rows.forEach(function(x){
-        var s0 = (x.vol||0)*(x.price||0), f0 = (x.fs||0);
+        var s0 = (x.vol||0)*(x.price||0), f0 = (x.fs||0) + (x.bs||0), fq0 = (x.fq||0) + (x.bq||0);
         gT += s0; gF += f0; gL += s0 - f0;
         var wnarx = (x.wp||0) || (x.price||0);
         gW += (x.wq||0) * wnarx;
         bT += s0; bF += f0; bW += (x.wq||0) * wnarx;
-        if ((x.name||'').trim() && (x.vol||0) < (x.fq||0) - 0.001)
-          warns.push('"'+x.name+'"'+(blk.bolim?(' ('+blk.bolim+')'):'')+': бажарилган ('+fmt(x.fq)+') умумийдан ('+fmt(x.vol||0)+') ортиқ.');
+        if ((x.name||'').trim() && (x.vol||0) < fq0 - 0.001)
+          warns.push('"'+x.name+'"'+(blk.bolim?(' ('+blk.bolim+')'):'')+': бажарилган ('+fmt(fq0)+') умумийдан ('+fmt(x.vol||0)+') ортиқ.');
+        if ((x.bq||0) < 0 || (x.bs||0) < 0) errs.push('«'+(x.name||blkNomi)+'»: бажарилган қисми манфий бўлмасин');
         if ((x.vol||0)>0 || (x.wq||0)>0 || (x.name||'').trim()) toldirilgan = true;
         if ((x.vol||0) < 0 || (x.price||0) < 0)
           errs.push('«'+(x.name||blkNomi)+'»: объём/нарх манфий бўлмасин');
@@ -1286,9 +1304,13 @@
       else if (c.contains('lim-k')) x.kind = e.target.value;
       else if (c.contains('lim-q')) x.vol = pf(e.target.value);
       else if (c.contains('lim-p')) x.price = pf(e.target.value);
+      else if (c.contains('lim-bq')){ x.bq = pf(e.target.value);
+        if (!x.bsQolda){ x.bs = Math.round(x.bq * (x.price||0) * 100) / 100; var bsI = tr.querySelector('.lim-bs'); if (bsI) bsI.value = x.bs || ''; } }
+      else if (c.contains('lim-bs')){ x.bs = pf(e.target.value); x.bsQolda = true; }
     }
     if (c.contains('in-q') || c.contains('in-p') || c.contains('lim-q') || c.contains('lim-p') ||
-        c.contains('lim-n') || c.contains('lim-u') || c.contains('lim-i') || c.contains('lim-k')) hisobla();
+        c.contains('lim-n') || c.contains('lim-u') || c.contains('lim-i') || c.contains('lim-k') ||
+        c.contains('lim-bq') || c.contains('lim-bs')) hisobla();
   });
   // Mavjud blok ichiga «+ Қатор» — янги қатор ШУ блокнинг охирида пайдо бўлади
   document.getElementById('ljBody').addEventListener('click', function(e){
@@ -1427,7 +1449,7 @@
         if ((x.name||'').trim())
           rows.push({ bolim:(blk.bolim||'').trim(), masul:(blk.masul||'').trim(), name:x.name,
                       unit:x.unit||'', kind:x.kind||'material', vol:x.vol||0, price:x.price||0,
-                      note:x.izoh||'', asl:x.asl||null });
+                      note:x.izoh||'', asl:x.asl||null, bq:x.bq||0, bs:x.bs||0 });
       });
     });
     if (!rows.length){ alert('Камида битта қатор бўлиши керак. Сўровни бутунлай бекор қилиш учун уни орқага қайтаринг ёки рад этинг.'); return; }
@@ -1448,13 +1470,13 @@
       var x = limRow(tr), b = limBlok(tr.dataset.bolim);
       if (!(x.name||'').trim()) return;
       rows.push({ asl:+tr.dataset.id, name:x.name, unit:x.unit||'', kind:x.kind||'material', note:x.izoh||'',
-                  bolim:(b.bolim||'').trim(), masul:(b.masul||'').trim(), vol:x.vol||0, price:x.price||0 });
+                  bolim:(b.bolim||'').trim(), masul:(b.masul||'').trim(), vol:x.vol||0, price:x.price||0, bq:x.bq||0, bs:x.bs||0 });
     });
     yangiBloklar.forEach(function(blk){
       blk.rows.forEach(function(x){
         if ((x.name||'').trim())
           rows.push({ asl:null, name:x.name, unit:x.unit||'', kind:x.kind||'material', note:x.izoh||'',
-                      bolim:blkBolim(blk).trim(), masul:blkMasul(blk).trim(), vol:x.vol||0, price:x.price||0 });
+                      bolim:blkBolim(blk).trim(), masul:blkMasul(blk).trim(), vol:x.vol||0, price:x.price||0, bq:x.bq||0, bs:x.bs||0 });
       });
     });
     if (!rows.length){ alert('Қоралама учун камида битта қатор (иш номи) киритинг.'); return; }
@@ -1492,10 +1514,12 @@
       if (x.del){ out.del.push(+id); return; }
       var b = limBlok(tr.dataset.bolim);
       var e = { id:+id, name:(x.name||'').trim(), unit:(x.unit||'').trim(), kind:x.kind||'material', note:(x.izoh||'').trim(),
-                bolim:(b.bolim||'').trim(), masul:(b.masul||'').trim(), vol:x.vol||0, price:x.price||0 };
+                bolim:(b.bolim||'').trim(), masul:(b.masul||'').trim(), vol:x.vol||0, price:x.price||0,
+                bq:x.bq||0, bs:x.bs||0 };
       var asl = { name:tr.dataset.name, unit:tr.dataset.unit, kind:tr.dataset.kind||'material', note:tr.dataset.izoh||'',
                   bolim:tr.dataset.bolim, masul:(document.querySelector('#ljBody tr.block[data-bolim="'+CSS.escape(tr.dataset.bolim)+'"]')||{dataset:{}}).dataset.masul||'' };
-      var ozg = Math.abs(e.vol-pf(tr.dataset.vol))>0.0001 || Math.abs(e.price-pf(tr.dataset.price))>0.0001;
+      var ozg = Math.abs(e.vol-pf(tr.dataset.vol))>0.0001 || Math.abs(e.price-pf(tr.dataset.price))>0.0001 ||
+                Math.abs(e.bq-pf(tr.dataset.bq))>0.0001 || Math.abs(e.bs-pf(tr.dataset.bs))>0.001;
       Object.keys(asl).forEach(function(k){ if (e[k] !== asl[k]) ozg = true; });
       if (ozg) out.edits.push(e);
     });
@@ -1503,7 +1527,8 @@
       blk.rows.forEach(function(x){
         if ((x.name||'').trim())
           out.yangi.push({ bolim:blkBolim(blk), masul:blkMasul(blk), name:x.name, unit:x.unit||'',
-                           kind:x.kind||'material', vol:x.vol||0, price:x.price||0, note:x.izoh||'', asl:x.asl||null });
+                           kind:x.kind||'material', vol:x.vol||0, price:x.price||0, note:x.izoh||'', asl:x.asl||null,
+                           bq:x.bq||0, bs:x.bs||0 });
       });
     });
     return out;

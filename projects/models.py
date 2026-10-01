@@ -277,7 +277,8 @@ class LimitChangeRequest(models.Model):
                 qatorlar = [
                     {"kind": it.kind, "name": it.name, "unit": it.unit,
                      "quantity": it.quantity, "unit_price": it.unit_price, "note": it.note,
-                     "bolim": it.bolim, "masul": it.masul, "asl_id": it.asl_id}
+                     "bolim": it.bolim, "masul": it.masul, "asl_id": it.asl_id,
+                     "boshlangich_qty": it.boshlangich_qty, "boshlangich_sum": it.boshlangich_sum}
                     for it in proposed
                 ]
                 if any(q["asl_id"] for q in qatorlar):
@@ -457,6 +458,10 @@ class LimitItem(models.Model):
     # bo'yicha ketma-ket guruhlanadi; mas'ul shaxs bo'limga yozib qo'yiladi
     bolim = models.CharField("Bo'lim", max_length=200, blank=True)
     masul = models.CharField("Mas'ul shaxs", max_length=120, blank=True)
+    # Limit kiritilguncha ALLAQACHON bajarilgan/olingan qism (PTO qo'lda kiritadi);
+    # «Бажарилган» = shu + tasdiqlangan haftaliklar
+    boshlangich_qty = models.DecimalField("Limitgacha bajarilgan (miqdor)", default=0, **QTY)
+    boshlangich_sum = models.DecimalField("Limitgacha bajarilgan (summa)", default=0, **MONEY)
     created_at = models.DateTimeField("Qo'shilgan sana", auto_now_add=True, null=True)
     updated_at = models.DateTimeField("O'zgartirilgan sana", auto_now=True, null=True)
 
@@ -586,7 +591,8 @@ def limit_qatorlarini_qolla(project, items):
     LimitItem o'rnida yangilanadi (sana/ID saqlanadi, haftalik tarixi ergashadi),
     `asl_id` yo'q — yangi qator, ro'yxatda yo'q mavjud qatorlar o'chiriladi."""
     mavjud = {li.pk: li for li in project.limit_items.all()}
-    MAYDON = ("kind", "name", "unit", "quantity", "unit_price", "note", "bolim", "masul")
+    MAYDON = ("kind", "name", "unit", "quantity", "unit_price", "note", "bolim", "masul",
+              "boshlangich_qty", "boshlangich_sum")
     qoldi = set()
     for it in items:
         li = mavjud.get(it.get("asl_id"))
@@ -634,6 +640,8 @@ def sync_limit_items(project, items):
             or li.note != it.get("note", "")
             or li.bolim != it.get("bolim", "")
             or li.masul != it.get("masul", "")
+            or li.boshlangich_qty != it.get("boshlangich_qty", 0)
+            or li.boshlangich_sum != it.get("boshlangich_sum", 0)
         )
         if ozgardi:
             li.unit = it.get("unit", "")
@@ -642,6 +650,8 @@ def sync_limit_items(project, items):
             li.note = it.get("note", "")
             li.bolim = it.get("bolim", "")
             li.masul = it.get("masul", "")
+            li.boshlangich_qty = it.get("boshlangich_qty", 0)
+            li.boshlangich_sum = it.get("boshlangich_sum", 0)
             li.save()          # auto_now -> updated_at yangilanadi
     # ro'yxatda qolmaganlarni o'chiramiz
     for navbat in mavjud.values():
@@ -664,6 +674,8 @@ class LimitChangeItem(models.Model):
     note = models.CharField("Primechaniye (qator izohi)", max_length=500, blank=True)
     bolim = models.CharField("Bo'lim", max_length=200, blank=True)
     masul = models.CharField("Mas'ul shaxs", max_length=120, blank=True)
+    boshlangich_qty = models.DecimalField("Limitgacha bajarilgan (miqdor)", default=0, **QTY)
+    boshlangich_sum = models.DecimalField("Limitgacha bajarilgan (summa)", default=0, **MONEY)
     # Qaysi MAVJUD limit qatorining o'zgartirilgan nusxasi (bo'sh — yangi qator).
     # Shu orqali qayta nomlangan qator tasdiqlanganda o'rnida yangilanadi, haftalik
     # tarixi (bajarilgan/qolgan) uzilmaydi.
