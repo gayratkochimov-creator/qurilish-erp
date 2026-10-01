@@ -163,7 +163,7 @@
   {% else %}
     <span style="border-radius:999px; padding:2px 11px; font-weight:700; background:#dcfce7; color:#15803d; border:1px solid #86efac;">✓ Тасдиқланган<span style="font-weight:400;"> — {{ lim_holat.kim }}{% if lim_holat.vaqt %} · {{ lim_holat.vaqt }}{% endif %}</span></span>
     {% if lim_ruxsat %}<span style="border-radius:999px; padding:2px 11px; font-weight:700; background:#fef3c7; color:#92400e; border:1px solid #fcd34d;">🔓 Админ таҳрирга рухсат берган — Умумийни ўзгартириб «▶ Лимитни юбориш»ни босинг</span>
-    {% elif lim_qulf %}<span style="font-size:12px; color:#64748b;">🔒 Таҳрирлаш учун админ рухсати керак</span>{% endif %}
+    {% elif lim_qulf %}<span style="font-size:12px; color:#64748b;">🔒 Мавжуд қаторларни таҳрирлаш учун админ рухсати керак{% if lim_qosh_huquq %} · янги блок/қатор қўшиш мумкин — занжир орқали (ҳар бир юсердан ўтади){% endif %}</span>{% endif %}
     {% if is_adm %}
     <form method="post" action="{% url 'limit_tahrir_ruxsat' p.pk %}" style="margin:0; margin-left:auto;">{% csrf_token %}
       <button type="submit" style="border:0; border-radius:7px; padding:5px 14px; font-weight:700; font-size:12px; cursor:pointer; color:#fff; background:{% if lim_ruxsat %}#b45309{% else %}#1a5fb4{% endif %};">{% if lim_ruxsat %}🔒 Рухсатни ёпиш{% else %}🔓 Таҳрирга рухсат бериш{% endif %}</button>
@@ -223,6 +223,10 @@
   {% endif %}
   {% if lim_edit_huquq and not can_edit %}
   <button class="b-blue" id="btnQoralama" type="button" title="Тугатмаган бўлсангиз — жадвал серверда қоралама бўлиб сақланади; занжирга юборилмайди, кейин шу жойидан давом этасиз">💾 Қоралама сақлаш</button>
+  {% endif %}
+  {% if lim_qosh_huquq %}
+  <button class="b-green" id="btnLimYubor" title="Янги блок/қаторлар снабжение → ПТО → директор → админ занжирига сўров бўлиб кетади (мавжуд қаторлар ўзгармайди)">▶ Лимитни юбориш</button>
+  {% if not can_edit %}<button class="b-blue" id="btnQoralama" type="button" title="Янги қаторларни қоралама сифатида сақлаш">💾 Қоралама сақлаш</button>{% endif %}
   {% endif %}
   {% if lim_edit_huquq %}
   <button class="b-green" id="btnLimYubor" title="{% if adm_togri %}Умумий устундаги ўзгаришлар тўғридан-тўғри қўлланади{% else %}Умумий лимит ўзгаришлари кейинги юсерга (снабжение → ПТО → директор → админ) сўров бўлиб кетади{% endif %}">▶ {% if adm_togri %}Лимитни қўллаш{% else %}Лимитни юбориш{% endif %}</button>
@@ -347,7 +351,7 @@
       <td class="ctr c-amal"></td>
     </tr>
     {% endfor %}
-    {% if lim_edit_huquq %}<tr class="lim-addrow" data-bolim="{{ g.bolim }}"><td style="padding:0;"></td><td colspan="16" style="background:#f6f9fd; padding:1px 8px;"><button type="button" class="blk-add lim-addqator" style="margin-left:0; padding:0 8px; font-size:11px; line-height:17px;">+ Қатор</button><button type="button" class="blk-add lim-addblok" style="margin-left:6px; padding:0 8px; font-size:11px; line-height:17px;">+ Янги блок</button></td></tr>{% endif %}
+    {% if lim_edit_huquq or lim_qosh_huquq %}<tr class="lim-addrow" data-bolim="{{ g.bolim }}"><td style="padding:0;"></td><td colspan="16" style="background:#f6f9fd; padding:1px 8px;"><button type="button" class="blk-add lim-addqator" style="margin-left:0; padding:0 8px; font-size:11px; line-height:17px;">+ Қатор</button><button type="button" class="blk-add lim-addblok" style="margin-left:6px; padding:0 8px; font-size:11px; line-height:17px;">+ Янги блок</button></td></tr>{% endif %}
     <tr class="subtotal"><td colspan="6" style="text-align:right;">Блок якуни:</td>
       <td class="num s-total"></td><td></td><td class="num s-fsum"></td>
       <td></td><td class="num s-lsum"></td><td colspan="3"></td>
@@ -434,7 +438,11 @@
   var TAKLIF = {{ taklif_view|yesno:"true,false" }};
   var TAKLIF_EDIT = {{ taklif_edit|yesno:"true,false" }};
   var TAKLIF_TOKEN = "{{ taklif_token|escapejs }}";
-  var BLOK_EDIT = LIM_EDIT || TAKLIF_EDIT;   // blok/qator qo'shish-o'chirish huquqi
+  // Qulfdagi limitga YANGI blok/qator qo'shish (zanjir orqali) — mavjud qatorlar o'zgarmaydi
+  var LIM_QOSH = {{ lim_qosh_huquq|yesno:"true,false" }};
+  // Qoralama tahririda qulf: asl (mavjud) qatorlar faqat o'qiladi
+  var TAKLIF_QULF = {{ taklif_qulf|yesno:"true,false" }};
+  var BLOK_EDIT = LIM_EDIT || TAKLIF_EDIT || LIM_QOSH;   // blok/qator qo'shish-o'chirish huquqi
   var taklifDirty = false;                   // saqlanmagan taklif tahriri bor
   var yuborilmoqda = false;                  // forma ketayotganda avtosaqlash yozmasin
   var QAYTAR_TMPL = "{% url 'weekly_return_pto' 123456789 %}";
@@ -747,11 +755,11 @@
       var ichAnchor = null;
       if (blk.ichida !== undefined){
         ichAnchor = document.querySelector('#ljBody tr.lim-addrow[data-bolim="'+CSS.escape(blk.ichida)+'"]');
-        if (!ichAnchor || !LIM_EDIT) return;
+        if (!ichAnchor || !(LIM_EDIT || LIM_QOSH)) return;
       }
       // Mavjud blokdan KEYIN qo'shilgan yangi blok — o'sha blok yakunidan so'ng chiziladi
       var keyinAnchor = null;
-      if (blk.keyin !== undefined && LIM_EDIT){
+      if (blk.keyin !== undefined && (LIM_EDIT || LIM_QOSH)){
         var la = document.querySelector('#ljBody tr.lim-addrow[data-bolim="'+CSS.escape(blk.keyin)+'"]');
         keyinAnchor = la ? la.nextElementSibling : null;   // «Блок якуни» qatori
         while (keyinAnchor && keyinAnchor.nextElementSibling && keyinAnchor.nextElementSibling.classList.contains('yb-keyin'))
@@ -767,6 +775,10 @@
         '<input class="wkin tx yb-masul" value="'+esc(blk.masul||'')+'" placeholder="масъул (ихтиёрий)" style="width:190px;">'+
         (TAKLIF_EDIT ? '' : '<span style="font-weight:400; font-size:11px; color:#8a5a00;">(янги блок — «Лимитни юбориш» билан занжирга кетади)</span>')+'</span></td>'+
         '<td class="ctr"><button type="button" class="del-btn" title="Блокни ўчириш">✕</button></td>';
+      if (TAKLIF_QULF && blk.rows.some(function(x){ return x.asl; })){
+        hr.querySelectorAll('.yb-bolim,.yb-masul').forEach(function(i){ i.disabled = true; });
+        var hdb = hr.querySelector('.del-btn'); if (hdb) hdb.remove();
+      }
       hr.querySelector('.yb-bolim').addEventListener('input', function(){ blk.bolim = this.value; taklifDirty = true; hisobla(); });
       hr.querySelector('.yb-masul').addEventListener('input', function(){ blk.masul = this.value; taklifDirty = true; autoSaqla(); });
       hr.querySelector('.del-btn').onclick = function(){
@@ -806,6 +818,11 @@
           '<td class="ctr"><button type="button" class="del-btn" title="Қаторни ўчириш">✕</button></td>';
         r.querySelector('.yb-k').value = x.kind||'material';
         turChipUla(r, r.querySelector('.yb-k'), x);
+        if (TAKLIF_QULF && x.asl){
+          // Тасдиқланган қатор — қулф: фақат ўқилади (ҳафталик устуни очиқ)
+          r.querySelectorAll('.yb-n,.yb-u,.yb-q,.yb-p,.yb-i,.yb-bq,.yb-bs,.yb-k').forEach(function(i){ i.disabled = true; i.title = '🔒 Тасдиқланган қатор — ўзгартириш учун админ рухсати керак'; });
+          var db0 = r.querySelector('.del-btn'); if (db0) db0.remove();
+        }
         r.querySelector('.del-btn').onclick = function(){
           if ((x.fq||0) > 0 && !confirm('«'+(x.name||'')+'» бўйича бажарилган иш бор ('+fmt(x.fq)+'). Қатор барибир ўчирилсинми?')) return;
           var i0 = blk.rows.indexOf(x);
@@ -907,7 +924,7 @@
   }
   // Mavjud blokdan KEYIN yangi blok (jadvalning o'sha joyida paydo bo'ladi)
   function keyinBlokQosh(bolim0){
-    if (!LIM_EDIT){ alert('⏳ Лимит сўрови занжирда ёки сизда ҳуқуқ йўқ — ҳозир блок қўшилмайди.'); return; }
+    if (!(LIM_EDIT || LIM_QOSH)){ alert('⏳ Лимит сўрови занжирда ёки сизда ҳуқуқ йўқ — ҳозир блок қўшилмайди.'); return; }
     yangiBloklar.push({ bolim:'', masul:'', keyin: bolim0,
       rows:[{name:'',unit:'',kind:'material',vol:0,price:0}] });
     chizYangiBloklar(); hisobla();
@@ -1279,7 +1296,7 @@
     ['btnSaqla','btnYopish'].forEach(function(id){
       var b = document.getElementById(id); if (b) b.style.display = edit ? '' : 'none';
     });
-    document.querySelectorAll('#ljBody tr.lim-addrow').forEach(function(b){ b.style.display = LIM_EDIT ? '' : 'none'; });
+    document.querySelectorAll('#ljBody tr.lim-addrow').forEach(function(b){ b.style.display = (LIM_EDIT || LIM_QOSH) ? '' : 'none'; });
     var bLim0 = document.getElementById('btnLimYubor');
     if (bLim0) bLim0.style.display = LIM_EDIT ? '' : 'none';
     var bLimZ0 = document.getElementById('btnLimZanjir');
@@ -1314,7 +1331,7 @@
   document.getElementById('ljBody').addEventListener('click', function(e){
     if (e.target.classList.contains('lim-addblok')){ keyinBlokQosh(e.target.closest('tr.lim-addrow').dataset.bolim); return; }
     if (!e.target.classList.contains('lim-addqator')) return;
-    if (!LIM_EDIT){ alert('⏳ Лимит сўрови занжирда ёки сизда ҳуқуқ йўқ — ҳозир қатор қўшилмайди.'); return; }
+    if (!(LIM_EDIT || LIM_QOSH)){ alert('⏳ Лимит сўрови занжирда ёки сизда ҳуқуқ йўқ — ҳозир қатор қўшилмайди.'); return; }
     var bolim0 = e.target.closest('tr.lim-addrow').dataset.bolim;
     var blk = null;
     yangiBloklar.forEach(function(b){ if (b.ichida === bolim0) blk = b; });
@@ -1523,8 +1540,8 @@
   // Умумий ўзгаришлари: {edits:[{id,...}], del:[id], yangi:[...]} — фақат ҲАҚИҚИЙ ўзгарганлар
   function limPayload(){
     var out = { edits:[], del:[], yangi:[] };
-    if (!LIM_EDIT) return out;
-    ishRows().forEach(function(tr){
+    if (!LIM_EDIT && !LIM_QOSH) return out;
+    if (LIM_EDIT) ishRows().forEach(function(tr){
       var id = tr.dataset.id; if (!id) return;
       var x = limRows[id]; if (!x) return;
       if (x.del){ out.del.push(+id); return; }

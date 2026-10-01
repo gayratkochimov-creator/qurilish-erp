@@ -3852,9 +3852,10 @@ def _lj_taklif_huquq(user, req):
     if req is None:
         return False
     if req.status == "draft":
-        p = req.project
+        # Qulf (tasdiqlangan limit, ruxsatsiz) bo'lsa ham qoralama davom ettiriladi —
+        # lekin mavjud (asl) qatorlar o'zgarmaydi (_lj_qulf_normalla), faqat yangilari
         zanjir = is_pto(user) or _is_snab(user) or is_director(user)
-        return (is_admin(user) or zanjir) and (not p.limit_items.exists() or p.limit_tahrir_ruxsat)
+        return is_admin(user) or zanjir
     if req.status not in LIM_JARAYON:
         return False
     return (is_admin(user)
@@ -3915,6 +3916,32 @@ def _lj_qator_dict(li):
             "note": li.note or "", "bolim": li.bolim or "", "masul": li.masul or ""}
 
 
+def _lj_qulf(p):
+    """Умумий qulfmi: qatorli limit tasdiqlangan va admin ruxsat bermagan."""
+    return p.limit_items.exists() and not p.limit_tahrir_ruxsat
+
+
+def _lj_qulf_normalla(p, items):
+    """Qulf holatida QORALAMA: mavjud (asl) qatorlar BAZADAGIDEK qoladi va hech biri
+    tushib qolmaydi — faqat YANGI qatorlar qo'shiladi (zanjir orqali). Qaytaradi:
+    (items, sums)."""
+    asl = {li.pk: _lj_qator_dict(li) for li in p.limit_items.all().order_by("id")}
+    yangi = []
+    bor = set()
+    for it in items:
+        a = it.get("asl_id")
+        if a in asl:
+            bor.add(a)
+        else:
+            it["asl_id"] = None
+            yangi.append(it)
+    natija = [asl[pk] for pk in asl] + yangi
+    sums = {k: Decimal("0") for k in KINDS}
+    for it in natija:
+        sums[it["kind"]] += (it["quantity"] * it["unit_price"]).quantize(Decimal("0.01"))
+    return natija, sums
+
+
 def _lj_taklif_saqla(request, p, payload, qayt_kerak=True):
     """Zanjirdagi taklif qatorlarini limit jadvalining O'ZIDAN saqlash
     (avval alohida «so'rovni tahrirlash» formasi edi)."""
@@ -3956,6 +3983,8 @@ def _lj_taklif_saqla(request, p, payload, qayt_kerak=True):
             return qayt
         if not _lj_taklif_huquq(request.user, req):
             raise PermissionDenied("Bu bosqichda so'rovni siz tahrirlay olmaysiz.")
+        if req.status == "draft" and _lj_qulf(p):
+            items, sums = _lj_qulf_normalla(p, items)
         req.proposed_items.all().delete()
         LimitChangeItem.objects.bulk_create(
             [LimitChangeItem(request=req, **it) for it in items])
@@ -4002,6 +4031,8 @@ def _lj_qoralama_yarat(request, p, payload):
 def _lj_qoralama_yoz(request, p, items, sums):
     """Tayyor qatorlar ro'yxatini QORALAMA bo'lib yozadi (eskisi almashadi)."""
     qayt = redirect(reverse("limit_jadval", args=[p.pk]))
+    if _lj_qulf(p):
+        items, sums = _lj_qulf_normalla(p, items)
     ozimniki = set(p.limit_items.values_list("pk", flat=True))
     for it in items:
         if it["asl_id"] not in ozimniki:
@@ -4104,6 +4135,9 @@ def limit_jadval(request, pk):
     # «Таҳрирга рухсат» bilan ochiladi
     lim_edit_huquq = (is_admin(request.user) or zanjir_ishtirokchi) and (
         not amaldagi_bor or p.limit_tahrir_ruxsat)
+    # Tasdiqlangan (qulf) limitga ham YANGI blok/qator qo'shish mumkin — faqat
+    # zanjir orqali (admin ham), mavjud qatorlar tegilmaydi
+    lim_qosh_huquq = (is_admin(request.user) or zanjir_ishtirokchi) and not lim_edit_huquq
 
     haftalar = list(WeeklyRequest.objects.filter(project=p)
                     .exclude(status="rejected")
@@ -4144,12 +4178,13 @@ def limit_jadval(request, pk):
             return _lj_taklif_saqla(request, p, payload)
         # Taklif/qoralama tahririda yashil «Сақлаш» / «Ҳафтани ёпиш»: avval taklif
         # qatorlari saqlanadi, keyin HAFTALIK (xato bo'lsa — to'xtaydi)
-        if taklif_view and taklif_huquq and isinstance(payload.get("req_items"), list):
+        if (payload.get("action") in ("save", "submit") and taklif_view and taklif_huquq
+                and isinstance(payload.get("req_items"), list)):
             r_ = _lj_taklif_saqla(request, p, payload, qayt_kerak=False)
             if r_ is not None:
                 return r_
         if payload.get("action") == "draft_save":
-            if not lim_edit_huquq:
+            if not (lim_edit_huquq or lim_qosh_huquq):
                 raise PermissionDenied("Умумий limitni tahrirlash huquqi yo'q.")
             return _lj_qoralama_yarat(request, p, payload)
         if not (can_edit or lim_edit_huquq):
@@ -4203,14 +4238,21 @@ def limit_jadval(request, pk):
                 lim_del.add(int(x))
             except (TypeError, ValueError):
                 pass
+        # QO'SHISH rejimi: qulf, lekin yangi qatorlar — zanjir orqali (tahrir/o'chirish yo'q)
+        qosh_rejim = (not lim_edit_huquq) and lim_qosh_huquq and bool(lim_new)
+        if qosh_rejim:
+            if lim_edits or lim_del:
+                messages.warning(request, "Mavjud qatorlar qulf — ularning o'zgarishi e'tiborga olinmadi, "
+                                          "faqat YANGI qatorlar zanjirga yuborildi.")
+            lim_edits, lim_del = [], set()
         lim_ozgarish = bool(lim_edits or lim_new or lim_del)
         lim_ozgardi = sana_ozgardi
-        if lim_ozgarish and lim_edit_huquq:
+        if lim_ozgarish and (lim_edit_huquq or qosh_rejim):
             if p.limit_requests.filter(status__in=LIM_JARAYON).exists():
                 messages.error(request, "Limit o'zgartirish so'rovi zanjirda turibdi — "
                                         "avval u yakunlansin, keyin Умумийni tahrirlaysiz.")
                 return _qayt()
-        if lim_ozgarish and not lim_edit_huquq:
+        if lim_ozgarish and not (lim_edit_huquq or qosh_rejim):
             messages.error(request, "Умумий limit tasdiqlangan (qulf) — tahrirlash uchun "
                                     "admin «Таҳрирга рухсат бериш»ni bosishi kerak.")
         # Admin ham «Занжирга юбориш»ни tanlasa — to'g'ridan emas, so'rov bo'lib ketadi
@@ -4219,9 +4261,11 @@ def limit_jadval(request, pk):
         # admin ruxsat bermagan bo'lsa, uning tahriri ham to'g'ridan emas — zanjir orqali
         if is_admin(request.user) and limit_bor and not amaldagi_bor and not p.limit_tahrir_ruxsat:
             admin_zanjir = True
+        if qosh_rejim:
+            admin_zanjir = True   # qulfdagi limitga qo'shish — admin ham zanjir orqali
         edits, yangilar = {}, []
         qayta_nom = {}   # eski nom|bo'lim -> yangi {name, bolim, unit, kind} (admin to'g'ridan)
-        if lim_ozgarish and lim_edit_huquq:
+        if lim_ozgarish and (lim_edit_huquq or qosh_rejim):
             # Tozalash — xato bo'lsa hech narsa yozilmaydi
             for e in lim_edits:
                 try:
@@ -4242,7 +4286,7 @@ def limit_jadval(request, pk):
                 if it is not None:
                     yangilar.append(it)
         lim_qoralama = bool(payload.get("lim_qoralama")) and not payload.get("lim_zanjir")
-        if lim_ozgarish and lim_edit_huquq and lim_qoralama:
+        if lim_ozgarish and (lim_edit_huquq or qosh_rejim) and lim_qoralama:
             # Yashil «Сақлаш»: Умумий o'zgarishlari (joriy tarkib + tahrir + yangi) ZANJIRGA
             # EMAS — QORALAMA bo'lib saqlanadi, keyin davom ettiriladi / yuboriladi
             t_items, t_sums = [], {k: Decimal("0") for k in KINDS}
@@ -4266,7 +4310,7 @@ def limit_jadval(request, pk):
             lim_ozgardi = True
             if payload.get("items"):
                 _qs = "?korinish=amaldagi"   # haftalik ham saqlanmoqda — o'sha ko'rinishda qolsin
-        elif lim_ozgarish and lim_edit_huquq and (not is_admin(request.user) or admin_zanjir):
+        elif lim_ozgarish and (lim_edit_huquq or qosh_rejim) and (not is_admin(request.user) or admin_zanjir):
             # PTO/snab/direktor (yoki admin «Занжирга»): joriy tarkib + o'zgarishlar =
             # TAKLIF -> tasdiqlash zanjiri
             t_items, t_sums = [], {k: Decimal("0") for k in KINDS}
@@ -4645,6 +4689,9 @@ def limit_jadval(request, pk):
         # Taklif ko'rinishida haftalik va Умумий (amaldagi) tahriri o'chiq
         "can_edit": can_edit,
         "lim_edit_huquq": lim_edit_huquq and not taklif_view,
+        "lim_qosh_huquq": lim_qosh_huquq and not taklif_view and not lim_pend_obj,
+        # Qoralama tahririda qulf: asl qatorlar faqat o'qiladi
+        "taklif_qulf": bool(taklif_view and qoralama_obj and _lj_qulf(p)),
         "taklif_view": taklif_view, "taklif_edit": taklif_view and taklif_huquq,
         "taklif_json": taklif_json, "taklif_ochirilgan": taklif_ochirilgan,
         "taklif_token": _lj_taklif_token(taklif_obj) if taklif_obj else "",
