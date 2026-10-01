@@ -1824,6 +1824,24 @@ def tasdiqlar(request):
     return render(request, "projects/tasdiqlar.html", {"lim_list": lim_list, "wk_list": wk_list})
 
 
+def _limit_bosqich_egasi(req, status):
+    """Limit so'rovining shu bosqichida javob beradigan foydalanuvchi: avval shu
+    so'rovda o'sha bosqichni bajargan odam, bo'lmasa obyekt/firmaga biriktirilgani."""
+    from django.contrib.auth import get_user_model
+    U = get_user_model()
+    p = req.project
+    if status == "snab":
+        return req.snab_by or (U.objects.filter(is_active=True, profile__projects=p, profile__role="snab")
+                               .order_by("username").first())
+    if status == "pto2":
+        return req.pto2_by or req.requested_by or (
+            U.objects.filter(is_active=True, profile__projects=p, profile__role="pto").order_by("username").first())
+    if status == "dir":
+        return req.director_by or (U.objects.filter(is_active=True, profile__firma=p.firma, profile__role="director")
+                                   .order_by("username").first())
+    return None
+
+
 @login_required
 def _limit_request_action_asl(request, pk):
     """Limit o'zgartirish so'rovini tasdiqlash / rad etish (admin)."""
@@ -1920,11 +1938,25 @@ def _limit_request_action_asl(request, pk):
                 S.ADM: (lambda u: is_admin(u), {S.DIR, S.PTO2}),
             }
             NOMI = {S.SNAB: "Snabjeniyega", S.PTO2: "PTOga", S.DIR: "Direktorga"}
-            if req.status not in RUXSAT:
+            if is_admin(request.user) and req.status in LIM_JARAYON:
+                # ADMIN — istalgan bosqichdan, shu so'rovda QATNASHGAN istalgan
+                # foydalanuvchiga (xato qilganiga) qaytaradi
+                mumkin = {S.PTO2}
+                if req.snab_by_id:
+                    mumkin.add(S.SNAB)
+                if req.director_by_id:
+                    mumkin.add(S.DIR)
+                mumkin.discard(req.status)
+                ruxsat_bor, targetlar = True, mumkin
+            elif req.status in RUXSAT:
+                ruxsat_bor, targetlar = RUXSAT[req.status][0](request.user), RUXSAT[req.status][1]
+            else:
+                ruxsat_bor, targetlar = None, set()
+            if ruxsat_bor is None:
                 messages.error(request, "Bu bosqichdan orqaga qaytarib bo'lmaydi.")
-            elif not RUXSAT[req.status][0](request.user):
+            elif not ruxsat_bor:
                 raise PermissionDenied("Bu bosqichda qaytarish huquqi yo'q.")
-            elif target not in RUXSAT[req.status][1]:
+            elif target not in targetlar:
                 messages.error(request, "Qaytariladigan bosqich noto'g'ri.")
             elif not sabab:
                 messages.error(request, "Qaytarish sababini yozing.")
@@ -1935,8 +1967,21 @@ def _limit_request_action_asl(request, pk):
                 req.edited_by = request.user
                 req.edited_at = timezone.now()
                 req.save(update_fields=["status", "decision_note", "edited_by", "edited_at"])
+                # Qaytarilgan bosqich EGASIGA xabar (tizim banneri + Telegram)
+                oluvchi = _limit_bosqich_egasi(req, target)
+                tg = False
+                if oluvchi is not None and oluvchi.pk != request.user.pk:
+                    _link = request.build_absolute_uri(reverse("limit_jadval", args=[req.project_id]))
+                    _, tg = _lj_xabar_yubor(
+                        f"↩ «{req.project.name}» limit so'rovi sizga QAYTARILDI "
+                        f"({request.user.username}). Sabab: {sabab}\n"
+                        f"Limit jadvalida tuzatib, qayta yuboring: {_link}",
+                        oluvchi, request.user)
                 messages.info(request, f"↩ So'rov {NOMI.get(target, target)} qaytarildi "
-                                       f"(sabab: {sabab}). U tahrirlab qayta yuboradi.")
+                                       f"(sabab: {sabab})."
+                                       + (f" {oluvchi.username}ga xabar yuborildi"
+                                          + (" (Telegram ham)." if tg else " (tizimda).")
+                                          if oluvchi is not None else ""))
             return redirect(reverse("dashboard") + "?tab=tasdiqlar")
         # DIREKTOR bosqichi: dir → adm (yoki rad)
         if a == "dir_approve":
@@ -4351,28 +4396,30 @@ def limit_jadval(request, pk):
     lim_holat = None
     if lim_pend_obj:
         r0 = lim_pend_obj
+        # Bosqichlar TARTIB bo'yicha: joriy bosqichdan KEYINGILARI — hali kutilmoqda
+        # (orqaga qaytarilgan bo'lsa, ilgari imzolangan bo'lsa ham kulrang)
+        TARTIB = ["snab", "pto2", "dir", "adm"]
+        joriy_i = TARTIB.index(r0.status) if r0.status in TARTIB else -1
         steps = [{"nom": "ПТО киритди", "holat": "ok",
                   "kim": r0.requested_by.username if r0.requested_by_id else "",
                   "vaqt": _v(r0.created_at)}]
-        if r0.snab_by_id or r0.status == "snab":
-            steps.append({"nom": "Снабжение нархлади" if r0.snab_by_id else "СНАБЖЕНИЕ нархлашида",
-                          "holat": "ok" if r0.snab_by_id else "joriy",
-                          "kim": r0.snab_by.username if r0.snab_by_id else "",
-                          "vaqt": _v(r0.snab_at)})
-        if r0.pto2_by_id or r0.status == "pto2":
-            steps.append({"nom": "ПТО хулосаси" if r0.pto2_by_id else "ПТО хулосасида",
-                          "holat": "ok" if r0.pto2_by_id else "joriy",
-                          "kim": r0.pto2_by.username if r0.pto2_by_id else "",
-                          "vaqt": _v(r0.pto2_at)})
-        if r0.director_by_id or r0.status == "dir":
-            steps.append({"nom": "Директор" if r0.director_by_id else "ДИРЕКТОР тасдиғида",
-                          "holat": "ok" if r0.director_by_id else "joriy",
-                          "kim": r0.director_by.username if r0.director_by_id else "",
-                          "vaqt": _v(r0.director_at)})
-        steps.append({"nom": "АДМИН тасдиғида" if r0.status == "adm" else "Админ",
-                      "holat": "joriy" if r0.status == "adm" else "keyin",
-                      "kim": "", "vaqt": ""})
-        lim_holat = {"mode": "pending", "steps": steps}
+        BOSQ = [("snab", "Снабжение нархлади", "СНАБЖЕНИЕ нархлашида", r0.snab_by, r0.snab_at),
+                ("pto2", "ПТО хулосаси", "ПТО хулосасида", r0.pto2_by, r0.pto2_at),
+                ("dir", "Директор", "ДИРЕКТОР тасдиғида", r0.director_by, r0.director_at),
+                ("adm", "Админ", "АДМИН тасдиғида", None, None)]
+        for st_, ok_nom, kut_nom, kim, vaqt in BOSQ:
+            i_ = TARTIB.index(st_)
+            if i_ < joriy_i and (kim is not None or st_ == "pto2"):
+                steps.append({"nom": ok_nom, "holat": "ok",
+                              "kim": kim.username if kim else "", "vaqt": _v(vaqt)})
+            elif i_ == joriy_i:
+                steps.append({"nom": kut_nom, "holat": "joriy", "kim": "", "vaqt": ""})
+            elif i_ > joriy_i and (st_ != "snab" or _snab_bor(p)):
+                steps.append({"nom": ok_nom, "holat": "keyin", "kim": "", "vaqt": ""})
+        lim_holat = {"mode": "pending", "steps": steps,
+                     # orqaga qaytarilgan bo'lsa — sababi bannerda
+                     "qaytarish": (r0.decision_note or "")
+                     if (r0.decision_note or "").startswith("↩") else ""}
         from .roles import is_snab as _is_snab0
         # Shu bosqich egasi jadvalning O'ZIDA oldinga o'tkazadi yoki ORQAGA qaytaradi
         _u, _st = request.user, r0.status
@@ -4389,6 +4436,11 @@ def limit_jadval(request, pk):
         elif _st == "adm" and is_admin(_u):
             _amal = {"oldinga": ("approve", "✓ Тасдиқлаш (админ)"),
                      "orqaga": [("pto2", "ПТОга"), ("dir", "Директорга")]}
+        if _amal and is_admin(_u):
+            # Admin — shu so'rovda QATNASHGAN istalgan foydalanuvchiga qaytaradi
+            _amal["orqaga"] = [(k, n) for k, n in (("snab", "Снабжениега"), ("pto2", "ПТОга"), ("dir", "Директорга"))
+                               if k != _st and (k == "pto2" or (k == "snab" and r0.snab_by_id)
+                                                or (k == "dir" and r0.director_by_id))]
         if _amal:
             _amal["id"] = r0.id
         lim_holat["amal"] = _amal
