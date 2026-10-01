@@ -210,7 +210,7 @@
 <div class="lj-tabs" id="ljTabs"></div>
 <div class="lj-bar">
   {% if can_edit %}
-  <button class="b-green" id="btnSaqla">💾 Сақлаш</button>
+  <button class="b-green" id="btnSaqla" title="Ҳафталик — қоралама; Умумий ўзгаришлар — ҚОРАЛАМА (занжирга юборилмайди, кейин давом этасиз)">💾 Сақлаш</button>
   <button class="b-green" id="btnYopish">▶ Ҳафтани ёпиш</button>
   <button class="b-blue" id="btnYubor" type="button">📤 Масъулга юбориш</button>
   <span id="sanaBox" style="display:flex; gap:6px; align-items:center;">
@@ -221,7 +221,7 @@
   {% if taklif_edit %}
   <button class="b-green" id="btnReqSaqla" type="button" title="{% if qoralama %}Қораламани сақлаш — занжирга юборилмайди{% else %}Занжирдаги таклиф қаторларини сақлаш — босқич ўзгармайди{% endif %}">💾 {% if qoralama %}Сақлаш (қоралама){% else %}Таклифни сақлаш{% endif %}</button>
   {% endif %}
-  {% if lim_edit_huquq %}
+  {% if lim_edit_huquq and not can_edit %}
   <button class="b-blue" id="btnQoralama" type="button" title="Тугатмаган бўлсангиз — жадвал серверда қоралама бўлиб сақланади; занжирга юборилмайди, кейин шу жойидан давом этасиз">💾 Қоралама сақлаш</button>
   <button class="b-green" id="btnLimYubor" title="{% if adm_togri %}Умумий устундаги ўзгаришлар тўғридан-тўғри қўлланади{% else %}Умумий лимит ўзгаришлари кейинги юсерга (снабжение → ПТО → директор → админ) сўров бўлиб кетади{% endif %}">▶ {% if adm_togri %}Лимитни қўллаш{% else %}Лимитни юбориш{% endif %}</button>
   {% if adm_togri %}<button class="b-blue" id="btnLimZanjir" title="Ўзгаришлар тўғридан қўлланмайди — снабжение → ПТО → директор → админ занжирига СЎРОВ бўлиб кетади ва Тасдиқлар бўлимида кўринади">📨 Занжирга юбориш</button>{% endif %}
@@ -1357,6 +1357,7 @@
   }
 
   // -------- САҚЛАШ / ҲАФТАНИ ЁПИШ --------
+  var limMode = 'qoralama';   // 'qoralama' (Сақлаш) | 'yubor' (▶ Лимитни юбориш/қўллаш) | 'zanjir'
   function yuborish(action){
     hisobla();
     if (window._ljErr){ alert('⛔ Хато бор — аввал тўғриланг (юқоридаги рўйхат)'); return; }
@@ -1393,19 +1394,22 @@
     var limEdits = lp0.edits, limNew = lp0.yangi, limDel = lp0.del;
     var lsQ = document.getElementById('limStart'), leQ = document.getElementById('limEnd');
     var sanaOzgardi = !!(lsQ && leQ && (lsQ.value !== LIM_SANA0[0] || leQ.value !== LIM_SANA0[1]));
-    if (!items.length && !limEdits.length && !limNew.length && !limDel.length && !sanaOzgardi){ limZanjir=false; alert('Камида битта қаторга объём киритинг.'); return; }
-    if ((!ADM_TOGRI || limZanjir) && (limEdits.length || limNew.length || limDel.length) &&
-        !confirm('Умумий лимит ўзгаришлари СНАБЖЕНИЕ → ПТО → ДИРЕКТОР → АДМИН занжирига сўров бўлиб кетади ва Тасдиқлар бўлимида кўринади. Давом этамизми?')){ limZanjir=false; return; }
+    var limBor = !!(limEdits.length || limNew.length || limDel.length);
+    if (!items.length && !limBor && !sanaOzgardi){ limZanjir=false; limMode='qoralama'; alert('Камида битта қаторга объём киритинг.'); return; }
+    if (limMode !== 'qoralama' && (!ADM_TOGRI || limZanjir) && limBor &&
+        !confirm('Умумий лимит ўзгаришлари СНАБЖЕНИЕ → ПТО → ДИРЕКТОР → АДМИН занжирига сўров бўлиб кетади ва Тасдиқлар бўлимида кўринади. Давом этамизми?')){ limZanjir=false; limMode='qoralama'; return; }
+    if (limMode === 'qoralama' && limBor &&
+        !confirm('Умумий лимит ўзгаришлари ҚОРАЛАМА сифатида сақланади (занжирга юборилмайди) — кейин шу жойидан давом этасиз. Юбориш учун «▶ Лимитни юбориш»ни босасиз. Давом этамизми?')){ return; }
     if (!items.length && action==='submit'){ alert('Ҳафтани ёпиш учун ҳафталик устунига объём киритинг.'); return; }
     var h = haftaTop(sel);
     var wsEl = document.getElementById('wkStart'), weEl = document.getElementById('wkEnd');
     var lsEl = document.getElementById('limStart'), leEl = document.getElementById('limEnd');
     var payload = { action:action, items:items, limit_edits:limEdits, limit_new:limNew, limit_del:limDel,
-      lim_zanjir: limZanjir,
+      lim_zanjir: limZanjir, lim_qoralama: limMode === 'qoralama',
       week_start: (wsEl ? wsEl.value : '') || (h?h.ws:''),
       week_end: (weEl ? weEl.value : '') || (h?h.we:'') };
     if (lsEl && leEl){ payload.lim_start = lsEl.value || ''; payload.lim_end = leEl.value || ''; }
-    limZanjir = false;
+    limZanjir = false; limMode = 'qoralama';
     if (action==='submit' && !confirm('Ҳафта ёпилади — сўров директор тасдиғига юборилади. Давом этамизми?')) return;
     // Forma ketgach kechikkan avtosaqlash eski holatni QAYTA yozib qo'ymasin
     yuborilmoqda = true; clearTimeout(autoT);
@@ -1516,7 +1520,7 @@
       alert('Умумий устунда ўзгариш йўқ.\nАввал Умумий объём/нархни ўзгартиринг ёки «+ Блок (бўлим)» билан янги блок киритинг — кейин занжирга юборасиз.');
       return;
     }
-    limZanjir = true;
+    limZanjir = true; limMode = 'zanjir';
     yuborish('save');
   };
   var bLim = document.getElementById('btnLimYubor');
@@ -1526,6 +1530,7 @@
       alert('Умумий устунда ўзгариш йўқ.\nАввал Умумий объём/нархни ўзгартиринг ёки «+ Блок (бўлим)» билан янги блок киритинг — кейин шу тугма билан юборасиз.');
       return;
     }
+    limMode = 'yubor';
     yuborish('save');
   };
 

@@ -3979,6 +3979,12 @@ def _lj_qoralama_yarat(request, p, payload):
     if not items:
         messages.error(request, "Qoralama uchun kamida bitta qator kiriting.")
         return qayt
+    return _lj_qoralama_yoz(request, p, items, sums)
+
+
+def _lj_qoralama_yoz(request, p, items, sums):
+    """Tayyor qatorlar ro'yxatini QORALAMA bo'lib yozadi (eskisi almashadi)."""
+    qayt = redirect(reverse("limit_jadval", args=[p.pk]))
     ozimniki = set(p.limit_items.values_list("pk", flat=True))
     for it in items:
         if it["asl_id"] not in ozimniki:
@@ -4212,7 +4218,32 @@ def limit_jadval(request, pk):
                     return _qayt()
                 if it is not None:
                     yangilar.append(it)
-        if lim_ozgarish and lim_edit_huquq and (not is_admin(request.user) or admin_zanjir):
+        lim_qoralama = bool(payload.get("lim_qoralama")) and not payload.get("lim_zanjir")
+        if lim_ozgarish and lim_edit_huquq and lim_qoralama:
+            # Yashil «Сақлаш»: Умумий o'zgarishlari (joriy tarkib + tahrir + yangi) ZANJIRGA
+            # EMAS — QORALAMA bo'lib saqlanadi, keyin davom ettiriladi / yuboriladi
+            t_items, t_sums = [], {k: Decimal("0") for k in KINDS}
+            for li in p.limit_items.all().order_by("id"):
+                if li.id in lim_del:
+                    continue
+                it = _lj_qator_dict(li)
+                if li.id in edits:
+                    edits[li.id]["asl_id"] = li.id
+                    it = edits[li.id]
+                t_items.append(it)
+                t_sums[it["kind"]] += (it["quantity"] * it["unit_price"]).quantize(Decimal("0.01"))
+            for it in yangilar:
+                it["asl_id"] = None
+                t_items.append(it)
+                t_sums[it["kind"]] += (it["quantity"] * it["unit_price"]).quantize(Decimal("0.01"))
+            if not t_items:
+                messages.error(request, "Qoralama uchun kamida bitta qator kiriting.")
+                return _qayt()
+            _lj_qoralama_yoz(request, p, t_items, t_sums)
+            lim_ozgardi = True
+            if payload.get("items"):
+                _qs = "?korinish=amaldagi"   # haftalik ham saqlanmoqda — o'sha ko'rinishda qolsin
+        elif lim_ozgarish and lim_edit_huquq and (not is_admin(request.user) or admin_zanjir):
             # PTO/snab/direktor (yoki admin «Занжирга»): joriy tarkib + o'zgarishlar =
             # TAKLIF -> tasdiqlash zanjiri
             t_items, t_sums = [], {k: Decimal("0") for k in KINDS}
