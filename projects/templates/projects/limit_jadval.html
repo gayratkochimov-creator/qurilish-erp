@@ -233,7 +233,7 @@
   <a href="{% url 'project_detail' p.id %}" class="b-gray" style="padding:6px 14px; border-radius:4px; color:#fff; font-size:12.5px; text-decoration:none;">⚙️ Обект саҳифаси</a>
 </div>
 <div id="ljAuto" style="display:none; background:#ecfdf5; border:1px solid #6ee7b7; border-radius:6px; padding:7px 12px; margin-bottom:8px; font-size:12.5px;">
-  💾 Саҳифа ёпилиши (свет ўчиши)дан олдин ёзилган — <b class="t"></b> даги — САҚЛАНМАГАН ўзгаришлар қайта тикланди. Ишончли сақлаш учун «Сақлаш»ни босинг.
+  💾 Саҳифа ёпилиши (свет ўчиши)дан олдин ёзилган — <b class="t"></b> даги — САҚЛАНМАГАН ўзгаришлар қайта тикланди. <span class="qaysi">Ишончли сақлаш учун «Сақлаш»ни босинг.</span>
   <button type="button" id="ljAutoClear" style="margin-left:8px; border:1px solid #fca5a5; background:#fef2f2; color:#b91c1c; border-radius:5px; padding:2px 10px; cursor:pointer; font-size:12px;">Тикланганни бекор қилиш</button>
 </div>
 {% if nav_info %}
@@ -1655,6 +1655,16 @@
     if (el){
       el.style.display='block';
       el.querySelector('.t').textContent = new Date(s.t).toLocaleString('ru-RU');
+      // Qaysi tugma: Умумий (blok/qator) tiklangan bo'lsa — qoralama/limit, haftalik bo'lsa — Сақлаш
+      var limTik = LIM_EDIT && (yangiBloklar.length || Object.keys(s.lim||{}).length);
+      var wkTik = Object.keys(s.rows||{}).length || extralar.length;
+      var q = el.querySelector('.qaysi');
+      if (q){
+        var m = [];
+        if (limTik) m.push('Умумий лимит учун — «💾 Қоралама сақлаш» (кейин давом этасиз) ёки «▶ Лимитни ' + (ADM_TOGRI ? 'қўллаш' : 'юбориш') + '»');
+        if (wkTik) m.push('ҳафталик учун — яшил «💾 Сақлаш»');
+        q.textContent = m.length ? ('Ишончли сақлаш учун: ' + m.join('; ') + '.') : 'Ишончли сақлаш учун «Сақлаш»ни босинг.';
+      }
     }
   }
   var acBtn = document.getElementById('ljAutoClear');
