@@ -4408,7 +4408,7 @@ def limit_jadval(request, pk):
                     qoldiq[k_] = {"qty": it.quantity - (it.boshlangich_qty or 0),
                                   "unit": it.unit, "nom": it.name}
         for w in haftalar:
-            if w.status != "approved":
+            if w.status == "rejected" or (draft is not None and w.id == draft.id):
                 continue
             for it in w.items.all():
                 k = _lj_key(it.name, it.bolim)
@@ -4483,10 +4483,11 @@ def limit_jadval(request, pk):
         return _qayt()
 
     # ---------- GET ----------
-    # Fakt (tasdiqlangan) nom+bo'lim kesimida
+    # Fakt nom+bo'lim kesimida: yozilgan haftalik = olingan (rad etilgandan tashqari
+    # hammasi); hozirgi QORALAMA hafta jadvalda jonli qo'shiladi (serverda emas)
     fakt = {}
     for w in haftalar:
-        if w.status != "approved":
+        if w.status == "rejected" or (draft is not None and w.id == draft.id):
             continue
         for it in w.items.all():
             k = _lj_key(it.name, it.bolim)
@@ -5133,8 +5134,8 @@ def limit_jadval_export(request, pk):
 
     # --- fakt (tasdiqlangan haftalar) + dublikatlarga taqsimot (sahifadagidek) ---
     fakt = {}
-    for wi in WeeklyRequestItem.objects.filter(request__project=p,
-                                               request__status="approved"):
+    for wi in (WeeklyRequestItem.objects.filter(request__project=p)
+               .exclude(request__status__in=["rejected", "draft"])):
         k = _lj_key(wi.name, wi.bolim)
         d = fakt.setdefault(k, {"qty": Decimal("0"), "sum": Decimal("0")})
         d["qty"] += wi.quantity
