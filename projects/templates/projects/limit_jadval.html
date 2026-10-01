@@ -134,8 +134,8 @@
     {% endif %}
   </span>
 </div>
-<div class="lj-sub">{% if can_edit %}Ҳафта ичида нарх ўзгарса: қатордаги <b>х</b> тугмасини босасиз → эски нархда сўралган объёмни ёзасиз → қолгани янги нархда алоҳида қатор бўлади. Ҳамма сумма автоматик. «Ҳафтани ёпиш» — сўров директор тасдиғига юборилади.{% if is_adm %} Админ сифатида Умумий объём/нархни ҳам шу ерда тўғрилайсиз (тўғридан-тўғри қўлланади).{% else %} Умумий объём/нархни ўзгартирсангиз ёки блок/иш қўшсангиз — сақлашда <b>снабжение → ПТО → директор → админ</b> занжирига сўров кетади.{% endif %}{% elif lim_edit_huquq %}<b>Умумий</b> устундаги объём/нархни таҳрирлаб ёки «+ Блок (бўлим)» билан янги бўлим қўшиб, яшил «▶ Лимитни юбориш» тугмаси орқали занжирга жўнатишингиз мумкин. Ҳафталик устунни ПТО/админ тўлдиради.{% else %}Кўриш режими — ҳафталик устунини ПТО/админ тўлдиради.{% if lim_qulf %} Умумий лимит тасдиқланган — таҳрирлаш фақат админ рухсати билан очилади.{% endif %}{% endif %}
-{% if lim_pending %}<br><b style="color:#b45309;">⏳ Лимит ўзгартириш сўрови занжирда — у якунлангунча Умумий устуни шу жадвалда қулфланади.{% if lim_holat.edit_id %} Тўғрилаш учун пастдаги «✎ Лимитни таҳрирлаш» тугмасидан фойдаланинг{% if is_adm %} ёки Тасдиқлар бўлимида орқага қайтаринг{% endif %}.{% endif %}</b>{% endif %}</div>
+<div class="lj-sub">{% if taklif_view %}Жадвалда занжирдаги лимит таклифи: Умумий · Бажарилган · Қолган. Ҳафталик иш «Амалдаги лимит» кўринишида юритилади.{% elif can_edit %}Ҳафта ичида нарх ўзгарса: қатордаги <b>х</b> тугмасини босасиз → эски нархда сўралган объёмни ёзасиз → қолгани янги нархда алоҳида қатор бўлади. Ҳамма сумма автоматик. «Ҳафтани ёпиш» — сўров директор тасдиғига юборилади.{% if is_adm %} Админ сифатида Умумий объём/нархни ҳам шу ерда тўғрилайсиз (тўғридан-тўғри қўлланади).{% else %} Умумий объём/нархни ўзгартирсангиз ёки блок/иш қўшсангиз — сақлашда <b>снабжение → ПТО → директор → админ</b> занжирига сўров кетади.{% endif %}{% elif lim_edit_huquq %}<b>Умумий</b> устундаги объём/нархни таҳрирлаб ёки «+ Блок (бўлим)» билан янги бўлим қўшиб, яшил «▶ Лимитни юбориш» тугмаси орқали занжирга жўнатишингиз мумкин. Ҳафталик устунни ПТО/админ тўлдиради.{% else %}Кўриш режими — ҳафталик устунини ПТО/админ тўлдиради.{% if lim_qulf %} Умумий лимит тасдиқланган — таҳрирлаш фақат админ рухсати билан очилади.{% endif %}{% endif %}
+{% if lim_pending %}<br><b style="color:#b45309;">⏳ Лимит сўрови занжирда — {% if taklif_edit %}ҳозир СИЗНИНГ босқичингиз: таклиф қаторларини шу жадвалда тўғрилаб «💾 Таклифни сақлаш»ни босинг, кейин кейинги босқичга юборинг.{% elif taklif_view %}жадвалда ЗАНЖИРДАГИ ТАКЛИФ кўрсатилмоқда (фақат кўриш).{% else %}у якунлангунча Умумий устуни қулф; ҳафталик иш давом этади.{% endif %}</b>{% endif %}</div>
 
 {% if lim_holat %}
 <div class="noprint" style="display:flex; border-radius:6px; padding:7px 12px; margin-bottom:8px; font-size:12.5px; align-items:center; gap:8px; flex-wrap:wrap; {% if lim_holat.mode == 'pending' %}background:#f5f3ff; border:1px solid #ddd6fe;{% else %}background:#f0fdf4; border:1px solid #bbf7d0;{% endif %}">
@@ -149,9 +149,9 @@
     {% endfor %}
     {% if lim_holat.amal %}
     <span style="margin-left:auto; display:inline-flex; gap:8px; align-items:center; flex-wrap:wrap;">
-      <form method="post" action="{% url 'limit_request_action' lim_holat.amal.id %}" style="margin:0;">{% csrf_token %}<input type="hidden" name="next" value="jadval"><input type="hidden" name="action" value="{{ lim_holat.amal.oldinga.0 }}"><button type="submit" style="border:none; border-radius:5px; background:#26a269; color:#fff; padding:4px 13px; font-weight:700; font-size:12px; cursor:pointer;">{{ lim_holat.amal.oldinga.1 }}</button></form>
+      <form method="post" class="lim-amal-f" action="{% url 'limit_request_action' lim_holat.amal.id %}" style="margin:0;">{% csrf_token %}<input type="hidden" name="next" value="jadval"><input type="hidden" name="action" value="{{ lim_holat.amal.oldinga.0 }}"><button type="submit" style="border:none; border-radius:5px; background:#26a269; color:#fff; padding:4px 13px; font-weight:700; font-size:12px; cursor:pointer;">{{ lim_holat.amal.oldinga.1 }}</button></form>
       {% if lim_holat.amal.orqaga %}
-      <form method="post" action="{% url 'limit_request_action' lim_holat.amal.id %}" style="margin:0; display:inline-flex; gap:5px; align-items:center;" onsubmit="var s=this.querySelector('[name=sabab]'); if(!s.value.trim()){ alert('Қайтариш сабабини ёзинг.'); s.focus(); return false; }">{% csrf_token %}<input type="hidden" name="next" value="jadval"><input type="hidden" name="action" value="orqaga">
+      <form method="post" class="lim-amal-f" action="{% url 'limit_request_action' lim_holat.amal.id %}" style="margin:0; display:inline-flex; gap:5px; align-items:center;" onsubmit="var s=this.querySelector('[name=sabab]'); if(!s.value.trim()){ alert('Қайтариш сабабини ёзинг.'); s.focus(); return false; }">{% csrf_token %}<input type="hidden" name="next" value="jadval"><input type="hidden" name="action" value="orqaga">
         <select name="target" style="padding:3px 6px; border:1px solid #c8ccd0; border-radius:4px; font-size:12px;">{% for tg in lim_holat.amal.orqaga %}<option value="{{ tg.0 }}">{{ tg.1 }}</option>{% endfor %}</select>
         <input type="text" name="sabab" placeholder="сабаб..." style="padding:3px 6px; border:1px solid #c8ccd0; border-radius:4px; font-size:12px; width:140px;">
         <button type="submit" style="border:none; border-radius:5px; background:#c2410c; color:#fff; padding:4px 13px; font-weight:700; font-size:12px; cursor:pointer;">↩ Орқага қайтариш</button>
@@ -159,7 +159,6 @@
       {% endif %}
     </span>
     {% endif %}
-    {% if lim_holat.edit_id %}<a href="{% url 'limit_request_edit' lim_holat.edit_id %}" style="{% if not lim_holat.amal %}margin-left:auto;{% endif %} border-radius:7px; padding:4px 14px; font-weight:700; background:#1a5fb4; color:#fff; text-decoration:none; white-space:nowrap;">✎ Лимитни таҳрирлаш</a>{% endif %}
   {% else %}
     <span style="border-radius:999px; padding:2px 11px; font-weight:700; background:#dcfce7; color:#15803d; border:1px solid #86efac;">✓ Тасдиқланган<span style="font-weight:400;"> — {{ lim_holat.kim }}{% if lim_holat.vaqt %} · {{ lim_holat.vaqt }}{% endif %}</span></span>
     {% if lim_ruxsat %}<span style="border-radius:999px; padding:2px 11px; font-weight:700; background:#fef3c7; color:#92400e; border:1px solid #fcd34d;">🔓 Админ таҳрирга рухсат берган — Умумийни ўзгартириб «▶ Лимитни юбориш»ни босинг</span>
@@ -170,6 +169,27 @@
     </form>
     {% endif %}
   {% endif %}
+</div>
+{% endif %}
+{% if lim_pending %}
+<div class="noprint" style="display:flex; border-radius:6px; padding:6px 12px; margin-bottom:8px; font-size:12.5px; align-items:center; gap:10px; flex-wrap:wrap; background:#fffbeb; border:1px solid #fde68a;">
+  {% if taklif_view %}
+    <b>📋 Жадвалда: ЗАНЖИРДАГИ ТАКЛИФ</b>
+    <span style="color:#6b7280;">{% if taklif_edit %}— қаторларни тўлиқ таҳрирлайсиз (ном, бирлик, объём, нарх, қўшиш/ўчириш){% else %}— фақат кўриш; таҳрир жорий босқич эгасида{% endif %}{% if amaldagi_bor and not taklif_edit %} · <span style="background:#dcfce7; color:#15803d; border-radius:4px; padding:0 5px; font-weight:700;">янги</span> / <span style="background:#fef3c7; color:#92400e; border-radius:4px; padding:0 5px; font-weight:700;">ўзгарди</span> — амалдаги лимитдан фарқи{% endif %}</span>
+    {% if taklif_sum %}<span style="color:#9a3412;">Сўров эски усулда юборилган (фақат сумма: <b>{{ taklif_sum }}</b>) — қаторларини шу ерда киритинг.</span>{% endif %}
+    {% if taklif_ochirilgan %}<span style="color:#b91c1c;">✕ Ўчирилаётган қаторлар: {% for n in taklif_ochirilgan %}{% if not forloop.first %}, {% endif %}«{{ n }}»{% endfor %}</span>{% endif %}
+    <a href="?korinish=amaldagi" style="margin-left:auto; border-radius:5px; padding:3px 12px; font-weight:700; background:#475569; color:#fff; text-decoration:none; white-space:nowrap;">Амалдаги лимит ва ҳафталик →</a>
+  {% else %}
+    <b>📊 Жадвалда: АМАЛДАГИ лимит ва ҳафталик</b>
+    {% if taklif_sum %}<span style="color:#6b7280;">— занжирдаги сўров эски усулда (фақат сумма): <b>{{ taklif_sum }}</b></span>
+    {% else %}<a href="?korinish=taklif" style="margin-left:auto; border-radius:5px; padding:3px 12px; font-weight:700; background:#7c3aed; color:#fff; text-decoration:none; white-space:nowrap;">📋 Занжирдаги таклифни кўриш →</a>{% endif %}
+  {% endif %}
+</div>
+{% endif %}
+{% if eski_sum and not taklif_view %}
+<div class="noprint" style="border-radius:6px; padding:7px 12px; margin-bottom:8px; font-size:12.5px; background:#fff7ed; border:1px solid #fed7aa; color:#9a3412;">
+  <b>⚠ Бу объект лимити ЭСКИ усулда — фақат сумма билан киритилган</b> ({% for nom, v in eski_sum %}{% if not forloop.first %} · {% endif %}{{ nom }}: <b>{{ v }}</b>{% endfor %}), қаторлари йўқ.
+  {% if lim_edit_huquq %}Янги қолипга ўтказиш учун пастда <b>«+ Янги блок (бўлим)»</b> билан блок ва қаторларни киритинг — занжирда тасдиқлангач эски сумма ўрнини янги рўйхат эгаллайди{% if is_adm and not adm_togri %} (админ тўғридан қўллаши учун аввал «Таҳрирга рухсат бериш» керак){% endif %}.{% elif lim_pending %}Қаторлар занжирдаги сўров тасдиқлангач пайдо бўлади.{% endif %}
 </div>
 {% endif %}
 <div class="lj-tabs" id="ljTabs"></div>
@@ -183,9 +203,12 @@
     <label>охири <input type="date" id="wkEnd" value="{{ taklif_we }}"></label>
   </span>
   {% endif %}
+  {% if taklif_edit %}
+  <button class="b-green" id="btnReqSaqla" type="button" title="Занжирдаги таклиф қаторларини сақлаш — босқич ўзгармайди">💾 Таклифни сақлаш</button>
+  {% endif %}
   {% if lim_edit_huquq %}
-  <button class="b-green" id="btnLimYubor" title="{% if is_adm %}Умумий устундаги ўзгаришлар тўғридан-тўғри қўлланади{% else %}Умумий лимит ўзгаришлари кейинги юсерга (снабжение → ПТО → директор → админ) сўров бўлиб кетади{% endif %}">▶ {% if is_adm %}Лимитни қўллаш{% else %}Лимитни юбориш{% endif %}</button>
-  {% if is_adm %}<button class="b-blue" id="btnLimZanjir" title="Ўзгаришлар тўғридан қўлланмайди — снабжение → ПТО → директор → админ занжирига СЎРОВ бўлиб кетади ва Тасдиқлар бўлимида кўринади">📨 Занжирга юбориш</button>{% endif %}
+  <button class="b-green" id="btnLimYubor" title="{% if adm_togri %}Умумий устундаги ўзгаришлар тўғридан-тўғри қўлланади{% else %}Умумий лимит ўзгаришлари кейинги юсерга (снабжение → ПТО → директор → админ) сўров бўлиб кетади{% endif %}">▶ {% if adm_togri %}Лимитни қўллаш{% else %}Лимитни юбориш{% endif %}</button>
+  {% if adm_togri %}<button class="b-blue" id="btnLimZanjir" title="Ўзгаришлар тўғридан қўлланмайди — снабжение → ПТО → директор → админ занжирига СЎРОВ бўлиб кетади ва Тасдиқлар бўлимида кўринади">📨 Занжирга юбориш</button>{% endif %}
   {% endif %}
   <input type="text" id="ljQidir" placeholder="🔍 Бўлим бўйича излаш..." style="padding:6px 10px; border:1px solid #c8ccd0; border-radius:4px; font-size:12.5px; min-width:190px;">
   <button class="b-gray" id="btnHisobot">📊 Нарх тарихи ҳисоботи</button>
@@ -278,22 +301,23 @@
     <th class="g-mat" style="width:44px;">Бирл.</th><th class="g-mat" style="width:100px;">Объём</th><th class="g-mat" style="width:96px;">Нархи</th><th class="g-mat" style="width:100px;">Сумма</th>
   </tr></thead>
   <tbody id="ljBody">
-  {% if not guruhlar %}
+  {% if not guruhlar and not taklif_edit %}
     <tr><td colspan="16" style="text-align:center; color:#94a3b8; padding:26px;">
-      Умумий лимит ҳали киритилмаган.
-      Пастдаги <b>«+ Янги блок (бўлим)»</b> тугмаси билан шу ерда киритинг{% if not is_adm %} — сақлашда снабжение → ПТО → директор → админ занжирига сўров кетади{% endif %}.
+      {% if lim_pending %}Занжирдаги сўровда қаторлар йўқ (эски усул — фақат сумма).
+      {% else %}Умумий лимит ҳали киритилмаган.
+      {% if lim_edit_huquq %}Пастдаги <b>«+ Янги блок (бўлим)»</b> тугмаси билан шу ерда киритинг{% if not is_adm %} — сақлашда снабжение → ПТО → директор → админ занжирига сўров кетади{% endif %}.{% endif %}{% endif %}
     </td></tr>
   {% endif %}
   {% for g in guruhlar %}
-    <tr class="block" data-bolim="{{ g.bolim }}"><td></td><td colspan="14">{{ g.bolim|default:"Бўлимсиз қаторлар" }}{% if g.masul %} &nbsp;·&nbsp; Масъул: {{ g.masul }}{% endif %}</td><td></td></tr>
+    <tr class="block" data-bolim="{{ g.bolim }}" data-masul="{{ g.masul }}"><td></td><td colspan="14">{{ g.bolim|default:"Бўлимсиз қаторлар" }}{% if g.masul %} &nbsp;·&nbsp; Масъул: {{ g.masul }}{% endif %}</td><td></td></tr>
     {% for r in g.rows %}
-    <tr class="ish" data-key="{{ r.key }}" data-name="{{ r.name }}" data-bolim="{{ r.bolim }}"
+    <tr class="ish" data-id="{{ r.id|default:"" }}" data-key="{{ r.key }}" data-name="{{ r.name }}" data-bolim="{{ r.bolim }}"
         data-unit="{{ r.unit }}" data-kind="{{ r.kind }}" data-n="{{ forloop.counter }}"
         data-vol="{{ r.vol|unlocalize }}" data-price="{{ r.price|unlocalize }}"
         data-fqty="{{ r.fakt_qty|unlocalize }}" data-fsum="{{ r.fakt_sum|unlocalize }}"
         data-izoh="{{ r.izoh }}">
       <td class="ctr rn">{{ forloop.counter }}</td>
-      <td>{{ r.name }}</td>
+      <td>{{ r.name }}{% if r.ozg == 'yangi' %} <span style="background:#dcfce7; color:#15803d; border-radius:4px; padding:0 5px; font-size:10.5px; font-weight:700;">янги</span>{% elif r.ozg == 'ozgardi' %} <span style="background:#fef3c7; color:#92400e; border-radius:4px; padding:0 5px; font-size:10.5px; font-weight:700;">ўзгарди</span>{% endif %}</td>
       <td class="c-izoh" style="font-size:11.5px; color:#666;">{{ r.izoh }}</td>
       <td class="ctr">{{ r.unit }}</td>
       <td class="num c-vol"></td><td class="num c-price"></td><td class="num c-total"></td>
@@ -304,6 +328,7 @@
       <td class="ctr c-amal"></td>
     </tr>
     {% endfor %}
+    {% if lim_edit_huquq %}<tr class="lim-addrow" data-bolim="{{ g.bolim }}"><td style="padding:0;"></td><td colspan="16" style="background:#f6f9fd; padding:1px 8px;"><button type="button" class="blk-add lim-addqator" style="margin-left:0; padding:0 8px; font-size:11px; line-height:17px;">+ Қатор</button><button type="button" class="blk-add lim-addblok" style="margin-left:6px; padding:0 8px; font-size:11px; line-height:17px;">+ Янги блок</button></td></tr>{% endif %}
     <tr class="subtotal"><td colspan="6" style="text-align:right;">Блок якуни:</td>
       <td class="num s-total"></td><td></td><td class="num s-fsum"></td>
       <td></td><td class="num s-lsum"></td><td colspan="3"></td>
@@ -328,10 +353,12 @@
   <table class="lj" id="hisobotTbl" style="min-width:760px;"></table>
 </div>
 
-{% if can_edit %}
+{% if can_edit or lim_edit_huquq or taklif_edit %}
 <form method="post" id="ljForm" style="display:none;">{% csrf_token %}
   <input type="hidden" name="payload" id="ljPayload">
 </form>
+{% endif %}
+{% if can_edit %}
 <div class="lj-modal-bg" id="ljModalBg">
   <div class="lj-modal">
     <h3>✂ Қаторни бўлиш — нарх ўзгарди</h3>
@@ -372,15 +399,25 @@
 {% endif %}
 
 {{ hafta_json|json_script:"haftaJson" }}
+{% if taklif_edit %}{{ taklif_json|json_script:"taklifJson" }}{% endif %}
 <script>
 (function(){
   var HAFTA = JSON.parse(document.getElementById('haftaJson').textContent);
   var CAN_EDIT = {{ can_edit|yesno:"true,false" }};
   var ADMIN_RAW = {{ is_adm|yesno:"true,false" }};
+  var ADM_TOGRI = {{ adm_togri|yesno:"true,false" }};   // admin tahriri to'g'ridan qo'llanadimi
   var IS_ADM = ADMIN_RAW && !{{ lim_pending|yesno:"true,false" }};
   // Умумийni ZANJIRNING HAR BIR ishtirokchisi (PTO/snab/direktor/admin) shu
   // jadvalda tahrirlaydi — admin to'g'ridan, qolganlarda zanjirga so'rov ketadi
   var LIM_EDIT = {{ lim_edit_huquq|yesno:"true,false" }} && !{{ lim_pending|yesno:"true,false" }};
+  // Zanjirdagi TAKLIF ko'rinishi: bosqich egasi taklif qatorlarini shu jadvalda
+  // to'liq tahrirlaydi (avval alohida forma edi) — bloklar yangiBloklar mexanizmida
+  var TAKLIF = {{ taklif_view|yesno:"true,false" }};
+  var TAKLIF_EDIT = {{ taklif_edit|yesno:"true,false" }};
+  var TAKLIF_TOKEN = "{{ taklif_token|escapejs }}";
+  var BLOK_EDIT = LIM_EDIT || TAKLIF_EDIT;   // blok/qator qo'shish-o'chirish huquqi
+  var taklifDirty = false;                   // saqlanmagan taklif tahriri bor
+  var yuborilmoqda = false;                  // forma ketayotganda avtosaqlash yozmasin
   var QAYTAR_TMPL = "{% url 'weekly_return_pto' 123456789 %}";
   var EXPORT_URL = "{% url 'limit_jadval_export' p.pk %}";
   var WK_ACT_TMPL = "{% url 'weekly_action' 123456789 %}";
@@ -404,6 +441,24 @@
   });
   var DRAFT_ID = {{ draft_id|default:"null" }};
   var yangiBloklar = [];   // admin qo'shgan yangi limit bloklari (saqlanmagan)
+  if (TAKLIF_EDIT){
+    try { yangiBloklar = JSON.parse(document.getElementById('taklifJson').textContent) || []; } catch(e){}
+  }
+  var ybSubs = [];         // yangi/taklif bloklarining «Блок якуни» qatorlari
+  // Mavjud limit qatorlari/bloklarining TAHRIR holati (LIM_EDIT): id -> {...}, bolim0 -> {bolim, masul}
+  var limRows = {}, limBloklar = {};
+  function limRow(tr){
+    var id = tr.dataset.id;
+    return limRows[id] || (limRows[id] = { name:tr.dataset.name, unit:tr.dataset.unit, kind:tr.dataset.kind||'material',
+      izoh:tr.dataset.izoh||'', vol:pf(tr.dataset.vol), price:pf(tr.dataset.price), del:false });
+  }
+  function limBlok(bolim0){
+    var b = document.querySelector('#ljBody tr.block[data-bolim="'+CSS.escape(bolim0)+'"]');
+    return limBloklar[bolim0] || (limBloklar[bolim0] = { bolim:bolim0, masul:(b ? b.dataset.masul : '')||'' });
+  }
+  function blkBolim(blk){ return blk.ichida !== undefined ? limBlok(blk.ichida).bolim : (blk.bolim||''); }
+  function blkMasul(blk){ return blk.ichida !== undefined ? limBlok(blk.ichida).masul : (blk.masul||''); }
+  var KSEL = '<select class="ksel lim-k"><option value="material">Материал</option><option value="labor">Иш ҳақи</option><option value="machinery">Машина части</option><option value="other">Кўзда тутилмаган</option></select>';
   var STATUS_NOMI = { dir:"Директор тасдиғида", submitted:"Админ тасдиғида", approved:"Тасдиқланган", draft:"Қоралама" };
   var sel = DRAFT_ID !== null ? ('w'+DRAFT_ID)
             : (CAN_EDIT ? 'yangi' : (HAFTA.length ? 'w'+HAFTA[HAFTA.length-1].id : 'yangi'));
@@ -412,7 +467,7 @@
 
   function fmt(n){ n = Math.round(n*100)/100; return n.toLocaleString('ru-RU'); }
   function pf(v){ var x = parseFloat(String(v).replace(/\s/g,'').replace(',','.')); return isNaN(x)?0:x; }
-  function esc(s){ var d=document.createElement('div'); d.textContent=s==null?'':String(s); return d.innerHTML; }
+  function esc(s){ var d=document.createElement('div'); d.textContent=s==null?'':String(s); return d.innerHTML.replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
   function izohKengay(el){ if (!el || el.tagName!=='TEXTAREA') return; el.style.height='auto'; el.style.height=(el.scrollHeight+2)+'px'; }
   // Katta summa yozilsa raqam katagi YONGA kengayadi (qiymat ko'rinib turadi)
   function raqamKengay(el){
@@ -462,7 +517,8 @@
     var h = haftaTop(sel);
     var edit = tahrirmi();
     var raqam = h ? h.raqam : (HAFTA.length+1);
-    document.getElementById('wkHead').textContent = raqam+'-ҳафталик материал ' + (edit?'✏️':'🔒');
+    document.getElementById('wkHead').textContent = TAKLIF ? 'Ҳафталик (таклиф кўринишида йўқ)'
+      : raqam+'-ҳафталик материал ' + (edit?'✏️':'🔒');
     if (edit && h){
       var ws0 = document.getElementById('wkStart'), we0 = document.getElementById('wkEnd');
       if (ws0) ws0.value = h.ws;
@@ -470,7 +526,8 @@
     }
     // ---- ZANJIR HOLATI banneri: so'rov hozir KIMDA turibdi ----
     var st = document.getElementById('wkStatus');
-    if (st){
+    if (st && TAKLIF){ st.style.display = 'none'; }
+    else if (st){
       if (!h){
         // + Янги ҳафта tabi — jarayon boshlanmagan
         st.innerHTML = '<b style="margin-right:4px;">Ҳафталик ҳолати:</b>'+
@@ -484,7 +541,7 @@
                    : holat==='joriy' ? 'background:#1a5fb4; color:#fff; border:1px solid #1a5fb4;'
                    : 'background:#f1f5f9; color:#94a3b8; border:1px solid #e2e8f0;';
           var belgi = holat==='ok' ? '✓ ' : (holat==='joriy' ? '⏳ ' : '');
-          var qoshimcha = (kim ? ' — '+kim : '') + (vaqt ? ' · '+vaqt : '');
+          var qoshimcha = (kim ? ' — '+esc(kim) : '') + (vaqt ? ' · '+esc(vaqt) : '');
           return '<span style="border-radius:999px; padding:2px 11px; font-weight:700; '+rang+'">'+belgi+nom+
                  (holat!=='keyin' ? '<span style="font-weight:400;">'+qoshimcha+(holat==='joriy'?' · кутилмоқда':'')+'</span>' : '')+'</span>';
         }
@@ -528,12 +585,30 @@
     }
     document.querySelectorAll('#ljBody tr.split').forEach(function(x){ x.remove(); });
 
+    if (LIM_EDIT){
+      // Blok sarlavhasi: bo'lim nomi va mas'ul ham tahrirlanadi
+      document.querySelectorAll('#ljBody tr.block:not(.exhdr)').forEach(function(bt){
+        var b = limBlok(bt.dataset.bolim);
+        bt.cells[1].innerHTML = '<span style="display:inline-flex; gap:8px; align-items:center; flex-wrap:wrap;">'+
+          '<input class="wkin tx lim-bn" value="'+esc(b.bolim)+'" placeholder="бўлим номи" style="width:280px; font-weight:700;">'+
+          '<input class="wkin tx lim-bm" value="'+esc(b.masul)+'" placeholder="масъул (ихтиёрий)" style="width:190px;"></span>';
+        bt.querySelector('.lim-bn').addEventListener('input', function(){ b.bolim = this.value; autoSaqla(); });
+        bt.querySelector('.lim-bm').addEventListener('input', function(){ b.masul = this.value; autoSaqla(); });
+      });
+    }
     ishRows().forEach(function(tr){
       var key = tr.dataset.key;
       var vol = pf(tr.dataset.vol), price = pf(tr.dataset.price);
       var fq = pf(tr.dataset.fqty), fs = pf(tr.dataset.fsum);
       if (LIM_EDIT){
-        // Админ Умумийни шу ерда тўғрилайди — сариқ катаклар
+        // Умумий қатори ТЎЛИҚ таҳрирланади — янги блок қаторлари билан бир хил кўриниш
+        var x = limRow(tr);
+        vol = x.vol; price = x.price;
+        tr.style.display = x.del ? 'none' : '';
+        tr.cells[1].innerHTML = '<input class="wkin tx lim-n" value="'+esc(x.name)+'" placeholder="иш номи...">'+KSEL;
+        var ksel = tr.querySelector('.lim-k'); ksel.value = x.kind || 'material';
+        turChipUla(tr, ksel, x);
+        tr.cells[3].innerHTML = '<input class="wkin kichik lim-u" value="'+esc(x.unit)+'" placeholder="бирл.">';
         tr.querySelector('.c-vol').innerHTML = '<input class="wkin lim-q" type="number" min="0" step="0.001" value="'+(vol||'')+'">';
         tr.querySelector('.c-price').innerHTML = '<input class="wkin lim-p" type="number" min="0" value="'+(price||'')+'">';
       } else {
@@ -553,15 +628,39 @@
       if (edit){
         var m = items.length ? items[0] : null;
         var q0 = m ? m.qty : 0, p0 = m ? m.price : price;
-        wq.innerHTML = '<input class="wkin in-q" type="number" min="0" step="0.001" value="'+(q0||'')+'" placeholder="0">';
+        if (LIM_EDIT){
+          // Изоҳ устуни — ЛИМИТ изоҳи; ҳафталик изоҳ ✎ тугмаси билан (янги қаторлардагидек)
+          wq.innerHTML = '<span style="display:flex; gap:3px; align-items:flex-start;">'+
+            '<input class="wkin in-q" type="number" min="0" step="0.001" value="'+(q0||'')+'" placeholder="0" style="flex:1; min-width:56px;">'+
+            '<button type="button" class="wi-tgl in-i-tgl" title="Ҳафталикка изоҳ ёзиш/яшириш">✎</button>'+
+            '<textarea class="wkin tx in-i" rows="1" placeholder="ҳафталик изоҳ..." style="'+((m&&m.izoh)?'':'display:none; ')+'flex:1; min-width:110px;">'+esc(m?m.izoh:'')+'</textarea></span>';
+          wq.querySelector('.in-i-tgl').onclick = function(){
+            var t = tr.querySelector('.in-i'); var ochiq = t.style.display === 'none';
+            t.style.display = ochiq ? '' : 'none'; if (ochiq){ t.focus(); izohKengay(t); }
+          };
+          iz.innerHTML = '<textarea class="wkin tx lim-i" rows="1" placeholder="изоҳ...">'+esc(limRow(tr).izoh)+'</textarea>';
+          izohKengay(iz.querySelector('.lim-i'));
+        } else {
+          wq.innerHTML = '<input class="wkin in-q" type="number" min="0" step="0.001" value="'+(q0||'')+'" placeholder="0">';
+          iz.innerHTML = '<textarea class="wkin tx in-i" rows="1" placeholder="'+esc(tr.dataset.izoh||'изоҳ')+'">'+esc(m?m.izoh:'')+'</textarea>';
+        }
         wp.innerHTML = '<input class="wkin in-p" type="number" min="0" value="'+(p0||'')+'">';
         ws.textContent = fmt(q0*p0);
         am.innerHTML = '<button type="button" class="split-btn" title="Нарх ўзгарди — қаторни бўлиш">х</button>';
         am.querySelector('.split-btn').onclick = function(){ ochModal(key); };
-        iz.innerHTML = '<textarea class="wkin tx in-i" rows="1" placeholder="'+esc(tr.dataset.izoh||'изоҳ')+'">'+esc(m?m.izoh:'')+'</textarea>';
         izohKengay(iz.querySelector('.in-i'));
         bolaklar[key] = items.slice(1).map(function(x){ return { qty:x.qty, price:x.price, izoh:x.izoh }; });
         chizBolaklar(tr, key, true);
+      } else if (LIM_EDIT){
+        // Ҳафта ёпиқ, лекин Умумий таҳрирланади (снаб/директор ёки ёпиқ ҳафта табида)
+        wq.textContent = items.length ? fmt(items[0].qty) : '';
+        wp.textContent = items.length ? fmt(items[0].price) : '';
+        ws.textContent = items.length ? fmt(items[0].sum) : '';
+        am.textContent = '';
+        iz.innerHTML = '<textarea class="wkin tx lim-i" rows="1" placeholder="изоҳ...">'+esc(limRow(tr).izoh)+'</textarea>';
+        izohKengay(iz.querySelector('.lim-i'));
+        bolaklar[key] = items.length>1 ? items.slice(1).map(function(x){ return { qty:x.qty, price:x.price, izoh:x.izoh }; }) : [];
+        if (items.length>1) chizBolaklar(tr, key, false);
       } else {
         wq.textContent = items.length ? fmt(items[0].qty) : '';
         wp.textContent = items.length ? fmt(items[0].price) : '';
@@ -572,6 +671,19 @@
           bolaklar[key] = items.slice(1).map(function(x){ return { qty:x.qty, price:x.price, izoh:x.izoh }; });
           chizBolaklar(tr, key, false);
         } else bolaklar[key] = [];
+      }
+      if (LIM_EDIT){
+        // ✕ — мавжуд қаторни ўчириш (сақлашда занжирга/тўғридан кетади)
+        var db = document.createElement('button'); db.type = 'button'; db.className = 'del-btn lim-del'; db.title = 'Қаторни ўчириш'; db.textContent = '✕';
+        db.onclick = function(){
+          var x0 = limRow(tr);
+          if (fq > 0 && !confirm('«'+x0.name+'» бўйича бажарилган иш бор ('+fmt(fq)+'). Қатор барибир ўчирилсинми?')) return;
+          if (fq <= 0 && !confirm('«'+x0.name+'» қатори лимитдан ўчирилсинми?')) return;
+          x0.del = true; tr.style.display = 'none';
+          document.querySelectorAll('#ljBody tr.split[data-key="'+CSS.escape(key)+'"]').forEach(function(t){ t.style.display = 'none'; });
+          hisobla();
+        };
+        am.appendChild(db);
       }
     });
     // limitda yo'q qatorlar
@@ -584,44 +696,68 @@
     hisobla();
   }
 
+  function rowDel(tr){ var x = LIM_EDIT && tr.dataset.id ? limRows[tr.dataset.id] : null; return !!(x && x.del); }
+  function rowDelKey(key){ if (!LIM_EDIT || !key) return false; var tr = document.querySelector('#ljBody tr.ish[data-key="'+CSS.escape(key)+'"]'); return !!(tr && rowDel(tr)); }
   function rowVol(tr){ var i=tr.querySelector('.lim-q'); return i?pf(i.value):pf(tr.dataset.vol); }
   function rowPrice(tr){ var i=tr.querySelector('.lim-p'); return i?pf(i.value):pf(tr.dataset.price); }
 
   // -------- + Блок (бўлим) — админ янги лимит блоки қўшади --------
   function chizYangiBloklar(){
     var tb = document.getElementById('yangiBody'); tb.innerHTML='';
-    if (!yangiBloklar.length){
+    ybSubs = [];
+    document.querySelectorAll('#ljBody tr.extra.yb-ich, #ljBody tr.yb-keyin').forEach(function(t){ t.remove(); });
+    yangiBloklar = yangiBloklar.filter(function(b){ return b.ichida === undefined || b.rows.length; });
+    if (!yangiBloklar.some(function(b){ return b.ichida === undefined && b.keyin === undefined; })){
       // Blok yo'q bo'lsa ham jadval ICHIDA qo'shish tugmasi turadi
-      if (LIM_EDIT){
+      if (BLOK_EDIT){
         var addr0 = document.createElement('tr'); addr0.className = 'yb-addrow';
         addr0.innerHTML = '<td style="padding:0;"></td><td colspan="16" style="background:#f6f9fd; padding:1px 8px;">'+
           '<button type="button" class="blk-add yb-addblok0" style="margin-left:0; padding:0 8px; font-size:11px; line-height:17px;">+ Янги блок (бўлим)</button></td>';
         addr0.querySelector('.yb-addblok0').onclick = yangiBlokQosh;
         tb.appendChild(addr0);
       }
-      return;
+      if (!yangiBloklar.length) return;
     }
     yangiBloklar.forEach(function(blk, bi){
-      var hr = document.createElement('tr'); hr.className='block';
+      // Mavjud blok ICHIGA qo'shilgan qatorlar — sarlavhasiz, o'sha blokning «+ Қатор» qatori oldiga
+      var ichAnchor = null;
+      if (blk.ichida !== undefined){
+        ichAnchor = document.querySelector('#ljBody tr.lim-addrow[data-bolim="'+CSS.escape(blk.ichida)+'"]');
+        if (!ichAnchor || !LIM_EDIT) return;
+      }
+      // Mavjud blokdan KEYIN qo'shilgan yangi blok — o'sha blok yakunidan so'ng chiziladi
+      var keyinAnchor = null;
+      if (blk.keyin !== undefined && LIM_EDIT){
+        var la = document.querySelector('#ljBody tr.lim-addrow[data-bolim="'+CSS.escape(blk.keyin)+'"]');
+        keyinAnchor = la ? la.nextElementSibling : null;   // «Блок якуни» qatori
+        while (keyinAnchor && keyinAnchor.nextElementSibling && keyinAnchor.nextElementSibling.classList.contains('yb-keyin'))
+          keyinAnchor = keyinAnchor.nextElementSibling;
+      }
+      function ins(el){
+        if (keyinAnchor){ el.classList.add('yb-keyin'); keyinAnchor.after(el); keyinAnchor = el; }
+        else tb.appendChild(el);
+      }
+      var hr = document.createElement('tr'); hr.className='block'; hr.dataset.bi = bi;
       hr.innerHTML = '<td></td><td colspan="14"><span style="display:inline-flex; gap:8px; align-items:center; flex-wrap:wrap;">'+
-        '<input class="wkin tx yb-bolim" value="'+esc(blk.bolim||'')+'" placeholder="бўлим номи (масалан: 1-этаж иш хаклари)" style="width:280px; font-weight:700;">'+
+        '<input class="wkin tx yb-bolim" value="'+esc(blk.bolim||'')+'" placeholder="'+(TAKLIF_EDIT?'бўлим номи (бўш — «Бўлимсиз қаторлар»)':'бўлим номи (масалан: 1-этаж иш хаклари)')+'" style="width:280px; font-weight:700;">'+
         '<input class="wkin tx yb-masul" value="'+esc(blk.masul||'')+'" placeholder="масъул (ихтиёрий)" style="width:190px;">'+
-        '<span style="font-weight:400; font-size:11px; color:#8a5a00;">(янги блок — «Лимитни юбориш» билан занжирга кетади)</span></span></td>'+
+        (TAKLIF_EDIT ? '' : '<span style="font-weight:400; font-size:11px; color:#8a5a00;">(янги блок — «Лимитни юбориш» билан занжирга кетади)</span>')+'</span></td>'+
         '<td class="ctr"><button type="button" class="del-btn" title="Блокни ўчириш">✕</button></td>';
-      hr.querySelector('.yb-bolim').addEventListener('input', function(){ blk.bolim = this.value; autoSaqla(); });
-      hr.querySelector('.yb-masul').addEventListener('input', function(){ blk.masul = this.value; autoSaqla(); });
+      hr.querySelector('.yb-bolim').addEventListener('input', function(){ blk.bolim = this.value; taklifDirty = true; hisobla(); });
+      hr.querySelector('.yb-masul').addEventListener('input', function(){ blk.masul = this.value; taklifDirty = true; autoSaqla(); });
       hr.querySelector('.del-btn').onclick = function(){
         var bor = blk.rows.some(function(x){ return (x.name||'').trim() || x.vol>0; });
         if (bor && !confirm('"'+blk.bolim+'" блокида маълумот бор. Барибир ўчирилсинми?')) return;
-        yangiBloklar.splice(bi,1); chizYangiBloklar(); hisobla();
+        yangiBloklar.splice(bi,1); taklifDirty = true; chizYangiBloklar(); hisobla();
       };
-      tb.appendChild(hr);
-      var blokTrs = [];   // shu blok qatorlarining tr'lari (raqamlash uchun)
+      if (!ichAnchor) ins(hr);
+      var blokTrs = [], rqBosh = 0;   // shu blok qatorlarining tr'lari (raqamlash uchun)
       function raqamla(){
-        blokTrs.forEach(function(t, i){ t.cells[0].textContent = i + 1; });
+        blokTrs.forEach(function(t, i){ t.cells[0].textContent = rqBosh + i + 1; });
       }
       function qatorYasa(x){
-        var r = document.createElement('tr'); r.className='extra';
+        var r = document.createElement('tr'); r.className='extra'; r._ybx = x; r.dataset.bi = bi;
+        if (ichAnchor || keyinAnchor) r.className += ' yb-ich';
         var wEdit = tahrirmi();   // hafta ustuni faqat PTO/admin tahriridagi ochiq haftada
         r.innerHTML = '<td class="ctr"></td>'+
           '<td><input class="wkin tx yb-n" value="'+esc(x.name||'')+'" placeholder="иш номи...">'+
@@ -631,8 +767,8 @@
           '<td class="num"><input class="wkin yb-q" type="number" min="0" step="0.001" value="'+(x.vol||'')+'"></td>'+
           '<td class="num"><input class="wkin yb-p" type="number" min="0" value="'+(x.price||'')+'"></td>'+
           '<td class="num yb-s">'+fmt((x.vol||0)*(x.price||0))+'</td>'+
-          '<td class="num">0</td><td class="num">0</td>'+
-          '<td class="num yb-lq">'+fmt(x.vol||0)+'</td><td class="num yb-ls">'+fmt((x.vol||0)*(x.price||0))+'</td>'+
+          '<td class="num">'+fmt(x.fq||0)+'</td><td class="num">'+fmt(x.fs||0)+'</td>'+
+          '<td class="num yb-lq">'+fmt((x.vol||0)-(x.fq||0))+'</td><td class="num yb-ls">'+fmt((x.vol||0)*(x.price||0)-(x.fs||0))+'</td>'+
           (wEdit
             ? ('<td class="ctr yb-wu">'+esc(x.unit||'')+'</td>'+
                '<td class="num"><span style="display:flex; gap:3px; align-items:flex-start;">'+
@@ -646,8 +782,10 @@
         r.querySelector('.yb-k').value = x.kind||'material';
         turChipUla(r, r.querySelector('.yb-k'), x);
         r.querySelector('.del-btn').onclick = function(){
+          if ((x.fq||0) > 0 && !confirm('«'+(x.name||'')+'» бўйича бажарилган иш бор ('+fmt(x.fq)+'). Қатор барибир ўчирилсинми?')) return;
           var i0 = blk.rows.indexOf(x);
           if (i0 > -1) blk.rows.splice(i0, 1);
+          taklifDirty = true;
           chizYangiBloklar(); hisobla();
         };
         var wiT = r.querySelector('.yb-wi-tgl');
@@ -665,10 +803,11 @@
             izohKengay(inp);
             var raqam = (pr[1]==='vol'||pr[1]==='price'||pr[1]==='wq'||pr[1]==='wp');
             x[pr[1]] = raqam ? pf(inp.value) : inp.value;
+            taklifDirty = true;
             if (pr[1]==='price' && !(x.wp||0)){ var wpI=r.querySelector('.yb-wp'); if (wpI && !wpI.value) wpI.placeholder = inp.value; }
             r.querySelector('.yb-s').textContent = fmt((x.vol||0)*(x.price||0));
-            r.querySelector('.yb-lq').textContent = fmt(x.vol||0);
-            r.querySelector('.yb-ls').textContent = fmt((x.vol||0)*(x.price||0));
+            r.querySelector('.yb-lq').textContent = fmt((x.vol||0)-(x.fq||0));
+            r.querySelector('.yb-ls').textContent = fmt((x.vol||0)*(x.price||0)-(x.fs||0));
             var wu=r.querySelector('.yb-wu'); if (wu) wu.textContent = x.unit||'';
             var ws2=r.querySelector('.yb-ws'); if (ws2) ws2.textContent = fmt((x.wq||0)*((x.wp||x.price)||0));
             // KETMA-KET kiritish: oxirgi qatorga nom yozilishi bilan YANGI qator
@@ -690,33 +829,60 @@
         izohKengay(r.querySelector('.yb-wi'));
         return r;
       }
-      blk.rows.forEach(function(x){ tb.appendChild(qatorYasa(x)); });
+      if (ichAnchor){
+        // Raqamlash mavjud qatorlardan davom etadi
+        var t0 = ichAnchor.previousElementSibling;
+        while (t0 && !t0.classList.contains('block')){ if (t0.classList.contains('ish') && !rowDel(t0)) rqBosh++; t0 = t0.previousElementSibling; }
+        blk.rows.forEach(function(x){ ichAnchor.parentNode.insertBefore(qatorYasa(x), ichAnchor); });
+        raqamla();
+        return;
+      }
+      blk.rows.forEach(function(x){ ins(qatorYasa(x)); });
       raqamla();
+      // Блок якуни — mavjud bloklardagi kabi (hisobla() to'ldiradi)
+      var sub = document.createElement('tr'); sub.className = 'subtotal';
+      sub.innerHTML = '<td colspan="6" style="text-align:right;">Блок якуни:</td>'+
+        '<td class="num s-total"></td><td></td><td class="num s-fsum"></td>'+
+        '<td></td><td class="num s-lsum"></td><td colspan="3"></td>'+
+        '<td class="num s-wsum"></td><td></td>';
+      ins(sub);
+      ybSubs[bi] = sub;
       // Blok YAKUNIDA qo'shish tugmalari: shu blokka qator / yana yangi blok
       var addr = document.createElement('tr'); addr.className = 'yb-addrow';
       addr.innerHTML = '<td style="padding:0;"></td><td colspan="16" style="background:#f6f9fd; padding:1px 8px;">'+
         '<button type="button" class="blk-add yb-addqator" style="margin-left:0; padding:0 8px; font-size:11px; line-height:17px;">+ Қатор</button>'+
         '<button type="button" class="blk-add yb-addblok" style="margin-left:6px; padding:0 8px; font-size:11px; line-height:17px;">+ Янги блок</button></td>';
       addr.querySelector('.yb-addqator').onclick = function(){
-        blk.rows.push({name:'',unit:'',kind:'material',vol:0,price:0});
+        var oxk = blk.rows.length ? (blk.rows[blk.rows.length-1].kind||'material') : 'material';
+        blk.rows.push({name:'',unit:'',kind:oxk,vol:0,price:0});
         chizYangiBloklar(); hisobla();
-        var qs = document.querySelectorAll('#yangiBody tr.extra .yb-n');
         // shu blokning oxirgi qatoriga fokus
-        var idx = 0, jami = 0;
-        yangiBloklar.forEach(function(b2, b2i){ if (b2 === blk) idx = jami + b2.rows.length - 1; jami += b2.rows.length; });
-        if (qs[idx]) qs[idx].focus();
+        var qs = document.querySelectorAll('tr.extra[data-bi="'+yangiBloklar.indexOf(blk)+'"] .yb-n');
+        if (qs.length) qs[qs.length-1].focus();
       };
-      addr.querySelector('.yb-addblok').onclick = yangiBlokQosh;
-      tb.appendChild(addr);
+      addr.querySelector('.yb-addblok').onclick = function(){
+        if (blk.keyin !== undefined) keyinBlokQosh(blk.keyin); else yangiBlokQosh();
+      };
+      ins(addr);
     });
   }
   function yangiBlokQosh(){
-    if (!LIM_EDIT){ alert('⏳ Лимит сўрови занжирда ёки сизда ҳуқуқ йўқ — ҳозир блок қўшилмайди.'); return; }
+    if (!BLOK_EDIT){ alert('⏳ Лимит сўрови занжирда ёки сизда ҳуқуқ йўқ — ҳозир блок қўшилмайди.'); return; }
+    taklifDirty = true;
     yangiBloklar.push({ bolim:'', masul:'',
       rows:[{name:'',unit:'',kind:'material',vol:0,price:0}] });
     chizYangiBloklar(); hisobla();
     var bls = document.querySelectorAll('#yangiBody .yb-bolim');
     if (bls.length) bls[bls.length-1].focus();
+  }
+  // Mavjud blokdan KEYIN yangi blok (jadvalning o'sha joyida paydo bo'ladi)
+  function keyinBlokQosh(bolim0){
+    if (!LIM_EDIT){ alert('⏳ Лимит сўрови занжирда ёки сизда ҳуқуқ йўқ — ҳозир блок қўшилмайди.'); return; }
+    yangiBloklar.push({ bolim:'', masul:'', keyin: bolim0,
+      rows:[{name:'',unit:'',kind:'material',vol:0,price:0}] });
+    chizYangiBloklar(); hisobla();
+    var inp = document.querySelector('#ljBody tr.block[data-bi="'+(yangiBloklar.length-1)+'"] .yb-bolim');
+    if (inp) inp.focus();
   }
 
   function chizBolaklar(tr, key, edit){
@@ -814,8 +980,8 @@
                        t.classList.contains('subtotal') || t.classList.contains('yb-addrow');
           if (chetki) return null;
           dataBor = true;
-          var k = t.dataset.kind || null;
-          if (!k){ var s = t.querySelector('.yb-k, .ex-k'); if (s) k = s.value; }
+          var s = t.querySelector('.lim-k, .yb-k, .ex-k');
+          var k = s ? s.value : (t.dataset.kind || null);
           if (!k) k = lastKind; else lastKind = k;
           var ok = okQ && (LJ_KF === 'all' || !k || k === LJ_KF);
           if (ok) bironBor = true;
@@ -823,6 +989,7 @@
         });
         if (!dataBor) bironBor = okQ;   // bo'sh blok — faqat izlashga qaraydi
         grp.forEach(function(t, i){
+          if ((t.classList.contains('ish') || t.classList.contains('split')) && rowDelKey(t.dataset.key)){ t.style.display = 'none'; return; }   // ўчирилган қатор
           t.style.display = (vis[i] === null ? (okQ && bironBor) : vis[i]) ? '' : 'none';
         });
         grp = [];
@@ -851,7 +1018,7 @@
   // Бўлими мавжуд блокка мос келса — қатор ШУ БЛОК ИЧИДА (якунидан олдин)
   // кўринади, акс ҳолда пастдаги «Лимитда йўқ ишлар» бўлимида туради.
   function chizExtralar(){
-    document.querySelectorAll('#ljTbl tr.extra, #ljTbl tr.exhdr').forEach(function(x){ x.remove(); });
+    document.querySelectorAll('#ljBody tr.extra:not(.yb-ich), #boshqaBody tr.extra, #ljTbl tr.exhdr').forEach(function(x){ x.remove(); });
     var tb = document.getElementById('boshqaBody');
     var edit = tahrirmi();
     if (!extralar.length){ hisobla(); return; }
@@ -922,11 +1089,6 @@
     var oxirgi = document.querySelector('tr.extra[data-ei="'+(extralar.length-1)+'"] .ex-n');
     if (oxirgi) oxirgi.focus();
   }
-  // Блок сарлавҳасидаги «+ Иш» — иш ШУ бўлимга қўшилади
-  document.getElementById('ljBody').addEventListener('click', function(e){
-    if (e.target.classList.contains('blk-add'))
-      ishQosh(e.target.closest('tr.block').dataset.bolim || '');
-  });
 
   // -------- ҲИСОБ + ХАТО --------
   function rowWeek(tr){
@@ -949,11 +1111,12 @@
     var warns = [];
     var edit = tahrirmi();
     var gT=0,gF=0,gL=0,gW=0;
-    var sT=0,sF=0,sL=0,sW=0;
+    var sT=0,sF=0,sL=0,sW=0,nrk=0;
     var body = document.getElementById('ljBody');
     Array.prototype.forEach.call(body.rows, function(tr){
-      if (tr.classList.contains('block')){ sT=0;sF=0;sL=0;sW=0; return; }
+      if (tr.classList.contains('block')){ sT=0;sF=0;sL=0;sW=0; nrk=0; return; }
       if (tr.classList.contains('ish')){
+        if (rowDel(tr)) return;
         var vol=rowVol(tr), price=rowPrice(tr), fs=pf(tr.dataset.fsum), fq=pf(tr.dataset.fqty);
         var w = rowWeek(tr);
         // Умумий тахрирланса — Сумма ва Қолган жонли янгиланади
@@ -963,13 +1126,18 @@
         sT+=vol*price; sF+=fs; sL+=vol*price-fs; sW+=w.s;
         gT+=vol*price; gF+=fs; gL+=vol*price-fs; gW+=w.s;
         tr.classList.remove('row-err'); tr.classList.remove('row-warn');
-        var rn = tr.querySelector('.rn'); rn.textContent = tr.dataset.n;
+        nrk++; var rn = tr.querySelector('.rn'); rn.textContent = nrk;
         // Бажарилган умумийдан ортиқ (лимитдан ошиб бўлган) — ОГОҲЛАНТИРИШ,
         // сақлашни бломайди: бу ЭСКИ тасдиқлар оқибати, янги сўров айби эмас
         if (vol < fq - 0.001){
           warns.push('"'+tr.dataset.name+'"'+(tr.dataset.bolim?(' ('+tr.dataset.bolim+')'):'')+': бажарилган ('+fmt(fq)+') умумийдан ('+fmt(vol)+') ортиқ — лимитдан '+fmt(fq-vol)+' '+tr.dataset.unit+' ошиб бўлган. Умумий объёмни тўғриланг ёки бажарилганни текширинг.');
           tr.classList.add('row-warn');
-          rn.textContent = tr.dataset.n+' ⚠';
+          rn.textContent = nrk+' ⚠';
+        }
+        if (LIM_EDIT){
+          var lx = limRow(tr);
+          if (!(lx.name||'').trim()){ errs.push('Умумий қатор: иш номи ўчирилган (бўш) — ёзинг ёки қаторни ✕ билан ўчиринг'); tr.classList.add('row-err'); }
+          if (vol < 0 || price < 0){ errs.push('«'+lx.name+'»: объём/нарх манфий бўлмасин'); tr.classList.add('row-err'); }
         }
         if (edit){
           var lq = vol-fq;
@@ -983,11 +1151,18 @@
           (bolaklar[tr.dataset.key]||[]).forEach(function(b){
             if ((b.qty||0)>0 && (b.price||0)<=0){ errs.push('"'+tr.dataset.name+'" (бўлак): нарх киритилмаган'); xatoBor = true; }
           });
-          if (xatoBor){ tr.classList.add('row-err'); rn.textContent = tr.dataset.n+' ⛔'; }
+          if (xatoBor){ tr.classList.add('row-err'); rn.textContent = nrk+' ⛔'; }
         }
         return;
       }
       if (tr.classList.contains('extra')){
+        if (tr._ybx){
+          // mavjud blok ichiga qo'shilgan YANGI limit qatori — blok yakuniga kiradi
+          nrk++; tr.cells[0].textContent = nrk;
+          var yx = tr._ybx, ys = (yx.vol||0)*(yx.price||0);
+          sT += ys; sL += ys; sW += (yx.wq||0)*((yx.wp||0)||(yx.price||0));
+          return;
+        }
         // blok ichiga qo'shilgan yangi ish — blok yakunining hafta summasiga kiradi
         var xx = extralar[+tr.dataset.ei];
         if (xx) sW += (xx.qty||0)*(xx.price||0);
@@ -1001,15 +1176,21 @@
       }
     });
     // Yangi (saqlanmagan) limit bloklari — Умумий ва Қолганга qo'shiladi
-    yangiBloklar.forEach(function(blk){
-      var blkNomi = (blk.bolim||'').trim() || 'Янги блок';
+    yangiBloklar.forEach(function(blk, bi){
+      var blkNomi = blkBolim(blk).trim() || (TAKLIF_EDIT ? 'Бўлимсиз' : 'Янги блок');
       var toldirilgan = false;
+      var bT=0, bF=0, bW=0;
       blk.rows.forEach(function(x){
-        var s0 = (x.vol||0)*(x.price||0);
-        gT += s0; gL += s0;
+        var s0 = (x.vol||0)*(x.price||0), f0 = (x.fs||0);
+        gT += s0; gF += f0; gL += s0 - f0;
         var wnarx = (x.wp||0) || (x.price||0);
         gW += (x.wq||0) * wnarx;
+        bT += s0; bF += f0; bW += (x.wq||0) * wnarx;
+        if ((x.name||'').trim() && (x.vol||0) < (x.fq||0) - 0.001)
+          warns.push('"'+x.name+'"'+(blk.bolim?(' ('+blk.bolim+')'):'')+': бажарилган ('+fmt(x.fq)+') умумийдан ('+fmt(x.vol||0)+') ортиқ.');
         if ((x.vol||0)>0 || (x.wq||0)>0 || (x.name||'').trim()) toldirilgan = true;
+        if ((x.vol||0) < 0 || (x.price||0) < 0)
+          errs.push('«'+(x.name||blkNomi)+'»: объём/нарх манфий бўлмасин');
         if (((x.vol||0)>0 || (x.wq||0)>0) && !(x.name||'').trim())
           errs.push('«'+blkNomi+'» блоки: иш номи ёзилмаган');
         // Умумий НАРХ мажбурий ЭМАС — занжирда СНАБЖЕНИЕ нархлайди
@@ -1017,8 +1198,16 @@
         if ((x.wq||0)>0 && (x.vol||0)>0 && (x.wq||0) > (x.vol||0)+0.001)
           errs.push('«'+(x.name||blkNomi)+'»: ҳафталик '+fmt(x.wq)+' — умумий '+fmt(x.vol)+' дан ортиқ');
       });
-      if (toldirilgan && !(blk.bolim||'').trim())
+      // Taklif tahririda bo'limsiz blok ruxsat («Бўлимсиз қаторлар» — eski ma'lumot)
+      if (toldirilgan && !blkBolim(blk).trim() && !TAKLIF_EDIT && blk.ichida === undefined)
         errs.push('Янги блокнинг БЎЛИМ НОМИ ёзилмаган (сариқ қатордаги биринчи катак)');
+      var sb2 = ybSubs[bi];
+      if (sb2){
+        sb2.querySelector('.s-total').textContent = fmt(bT);
+        sb2.querySelector('.s-fsum').textContent = fmt(bF);
+        sb2.querySelector('.s-lsum').textContent = fmt(bT-bF);
+        sb2.querySelector('.s-wsum').textContent = fmt(bW);
+      }
     });
     extralar.forEach(function(x, i){
       gW += (x.qty||0)*(x.price||0);
@@ -1042,7 +1231,7 @@
       document.getElementById('ljErrHdr').textContent = '⛔ '+errs.length+' та хато';
       errs.forEach(function(e){ var li=document.createElement('li'); li.textContent=e; list.appendChild(li); });
       panel.classList.add('show'); ok.classList.remove('show');
-    } else { panel.classList.remove('show'); if (edit && !warns.length) ok.classList.add('show'); else ok.classList.remove('show'); }
+    } else { panel.classList.remove('show'); if ((edit || TAKLIF_EDIT) && !warns.length) ok.classList.add('show'); else ok.classList.remove('show'); }
     // Огоҳлантиришлар (сариқ) — сақлашни БЛОКЛАМАЙДИ
     var wp = document.getElementById('ljWarn'), wl = document.getElementById('ljWarnList');
     if (wp){
@@ -1058,7 +1247,7 @@
     ['btnSaqla','btnYopish'].forEach(function(id){
       var b = document.getElementById(id); if (b) b.style.display = edit ? '' : 'none';
     });
-    document.querySelectorAll('.blk-add').forEach(function(b){ b.style.display = edit ? '' : 'none'; });
+    document.querySelectorAll('#ljBody tr.lim-addrow').forEach(function(b){ b.style.display = LIM_EDIT ? '' : 'none'; });
     var bLim0 = document.getElementById('btnLimYubor');
     if (bLim0) bLim0.style.display = LIM_EDIT ? '' : 'none';
     var bLimZ0 = document.getElementById('btnLimZanjir');
@@ -1069,9 +1258,41 @@
   }
 
   document.getElementById('ljBody').addEventListener('input', function(e){
-    if (e.target.classList.contains('in-i') || e.target.classList.contains('ex-i')) izohKengay(e.target);
-    if (e.target.classList.contains('in-q') || e.target.classList.contains('in-p') ||
-        e.target.classList.contains('lim-q') || e.target.classList.contains('lim-p')) hisobla();
+    var c = e.target.classList;
+    if (c.contains('in-i') || c.contains('ex-i') || c.contains('lim-i')) izohKengay(e.target);
+    var tr = e.target.closest('tr.ish');
+    if (tr && LIM_EDIT && tr.dataset.id){
+      var x = limRow(tr);
+      if (c.contains('lim-n')){ x.name = e.target.value; if (tr._turKorinish) tr._turKorinish();
+        if (pf(tr.dataset.fqty) > 0 && !tr._nomOgoh){ tr._nomOgoh = true; alert('Бу қатор бўйича бажарилган иш бор. Номини ўзгартирсангиз, ҳафталик тарихи янги номга ўтказилади.'); } }
+      else if (c.contains('lim-u')){ x.unit = e.target.value; tr.querySelector('.c-wb').textContent = x.unit; }
+      else if (c.contains('lim-i')) x.izoh = e.target.value;
+      else if (c.contains('lim-k')) x.kind = e.target.value;
+      else if (c.contains('lim-q')) x.vol = pf(e.target.value);
+      else if (c.contains('lim-p')) x.price = pf(e.target.value);
+    }
+    if (c.contains('in-q') || c.contains('in-p') || c.contains('lim-q') || c.contains('lim-p') ||
+        c.contains('lim-n') || c.contains('lim-u') || c.contains('lim-i') || c.contains('lim-k')) hisobla();
+  });
+  // Mavjud blok ichiga «+ Қатор» — янги қатор ШУ блокнинг охирида пайдо бўлади
+  document.getElementById('ljBody').addEventListener('click', function(e){
+    if (e.target.classList.contains('lim-addblok')){ keyinBlokQosh(e.target.closest('tr.lim-addrow').dataset.bolim); return; }
+    if (!e.target.classList.contains('lim-addqator')) return;
+    if (!LIM_EDIT){ alert('⏳ Лимит сўрови занжирда ёки сизда ҳуқуқ йўқ — ҳозир қатор қўшилмайди.'); return; }
+    var bolim0 = e.target.closest('tr.lim-addrow').dataset.bolim;
+    var blk = null;
+    yangiBloklar.forEach(function(b){ if (b.ichida === bolim0) blk = b; });
+    if (!blk){ blk = { ichida: bolim0, bolim:'', masul:'', rows:[] }; yangiBloklar.push(blk); }
+    // tur — shu blokning oxirgi qatoridan meros
+    var oxk = 'material';
+    if (blk.rows.length) oxk = blk.rows[blk.rows.length-1].kind || 'material';
+    else { var t0 = e.target.closest('tr.lim-addrow').previousElementSibling;
+           while (t0 && !t0.classList.contains('block')){ if (t0.classList.contains('ish')){ oxk = (limRows[t0.dataset.id]||{}).kind || t0.dataset.kind || 'material'; break; } t0 = t0.previousElementSibling; } }
+    blk.rows.push({name:'', unit:'', kind:oxk, vol:0, price:0});
+    chizYangiBloklar(); hisobla();
+    var qs = document.querySelectorAll('#ljBody tr.lim-addrow[data-bolim="'+CSS.escape(bolim0)+'"]');
+    var prev = qs.length ? qs[0].previousElementSibling : null;
+    if (prev && prev.querySelector('.yb-n')) prev.querySelector('.yb-n').focus();
   });
 
   // -------- ✂ БЎЛИШ --------
@@ -1125,6 +1346,7 @@
     if (window._ljErr){ alert('⛔ Хато бор — аввал тўғриланг (юқоридаги рўйхат)'); return; }
     var items = [];
     ishRows().forEach(function(tr){
+      if (rowDel(tr)) return;   // ўчирилган қаторнинг ҳафталиги ҳам кетмайди
       var iq = tr.querySelector('.in-q'), ip = tr.querySelector('.in-p'), ii = tr.querySelector('.in-i');
       if (!iq) return;
       var q = pf(iq.value);
@@ -1144,49 +1366,68 @@
     yangiBloklar.forEach(function(blk){
       blk.rows.forEach(function(x){
         if ((x.wq||0)>0 && (x.name||'').trim())
-          items.push({ name:x.name, bolim:(blk.bolim||'').trim(), unit:x.unit||'',
+          items.push({ name:x.name, bolim:blkBolim(blk).trim(), unit:x.unit||'',
                        kind:x.kind||'material', qty:x.wq,
                        price:(x.wp||0) || (x.price||0),
                        izoh:(x.wi||'').trim() || x.izoh || '' });
       });
     });
-    // Админ Умумий тахрирлари: қиймати ўзгарган қаторлар
-    var limEdits = [], limNew = [];
-    if (LIM_EDIT){
-      ishRows().forEach(function(tr){
-        var lq = tr.querySelector('.lim-q'), lp = tr.querySelector('.lim-p');
-        if (!lq) return;
-        if (Math.abs(pf(lq.value)-pf(tr.dataset.vol))>0.0001 || Math.abs(pf(lp.value)-pf(tr.dataset.price))>0.0001)
-          limEdits.push({ key:tr.dataset.key, vol:pf(lq.value), price:pf(lp.value) });
-      });
-      yangiBloklar.forEach(function(blk){
-        blk.rows.forEach(function(x){
-          if ((x.name||'').trim() && (x.vol||0)>0)
-            limNew.push({ bolim:blk.bolim, masul:blk.masul, name:x.name, unit:x.unit,
-                          kind:x.kind||'material', vol:x.vol, price:x.price,
-                          note:x.izoh||'' });
-        });
-      });
-    }
+    // Умумий таҳрирлари: ўзгарган/ўчирилган мавжуд қаторлар + янги қаторлар
+    var lp0 = limPayload();
+    var limEdits = lp0.edits, limNew = lp0.yangi, limDel = lp0.del;
     var lsQ = document.getElementById('limStart'), leQ = document.getElementById('limEnd');
     var sanaOzgardi = !!(lsQ && leQ && (lsQ.value !== LIM_SANA0[0] || leQ.value !== LIM_SANA0[1]));
-    if (!items.length && !limEdits.length && !limNew.length && !sanaOzgardi){ limZanjir=false; alert('Камида битта қаторга объём киритинг.'); return; }
-    if ((!ADMIN_RAW || limZanjir) && (limEdits.length || limNew.length) &&
+    if (!items.length && !limEdits.length && !limNew.length && !limDel.length && !sanaOzgardi){ limZanjir=false; alert('Камида битта қаторга объём киритинг.'); return; }
+    if ((!ADM_TOGRI || limZanjir) && (limEdits.length || limNew.length || limDel.length) &&
         !confirm('Умумий лимит ўзгаришлари СНАБЖЕНИЕ → ПТО → ДИРЕКТОР → АДМИН занжирига сўров бўлиб кетади ва Тасдиқлар бўлимида кўринади. Давом этамизми?')){ limZanjir=false; return; }
     if (!items.length && action==='submit'){ alert('Ҳафтани ёпиш учун ҳафталик устунига объём киритинг.'); return; }
     var h = haftaTop(sel);
     var wsEl = document.getElementById('wkStart'), weEl = document.getElementById('wkEnd');
     var lsEl = document.getElementById('limStart'), leEl = document.getElementById('limEnd');
-    var payload = { action:action, items:items, limit_edits:limEdits, limit_new:limNew,
+    var payload = { action:action, items:items, limit_edits:limEdits, limit_new:limNew, limit_del:limDel,
       lim_zanjir: limZanjir,
       week_start: (wsEl ? wsEl.value : '') || (h?h.ws:''),
       week_end: (weEl ? weEl.value : '') || (h?h.we:'') };
     if (lsEl && leEl){ payload.lim_start = lsEl.value || ''; payload.lim_end = leEl.value || ''; }
     limZanjir = false;
     if (action==='submit' && !confirm('Ҳафта ёпилади — сўров директор тасдиғига юборилади. Давом этамизми?')) return;
+    // Forma ketgach kechikkan avtosaqlash eski holatni QAYTA yozib qo'ymasin
+    yuborilmoqda = true; clearTimeout(autoT);
     try { localStorage.removeItem(autoKey()); } catch(e){}
     document.getElementById('ljPayload').value = JSON.stringify(payload);
     document.getElementById('ljForm').submit();
+  }
+  // -------- 💾 ТАКЛИФНИ САҚЛАШ (занжирдаги сўров қаторлари) --------
+  function taklifSaqla(){
+    hisobla();
+    if (window._ljErr){ alert('⛔ Хато бор — аввал тўғриланг (юқоридаги рўйхат)'); return; }
+    var rows = [];
+    yangiBloklar.forEach(function(blk){
+      blk.rows.forEach(function(x){
+        if ((x.name||'').trim())
+          rows.push({ bolim:(blk.bolim||'').trim(), masul:(blk.masul||'').trim(), name:x.name,
+                      unit:x.unit||'', kind:x.kind||'material', vol:x.vol||0, price:x.price||0,
+                      note:x.izoh||'', asl:x.asl||null });
+      });
+    });
+    if (!rows.length){ alert('Камида битта қатор бўлиши керак. Сўровни бутунлай бекор қилиш учун уни орқага қайтаринг ёки рад этинг.'); return; }
+    yuborilmoqda = true; taklifDirty = false;
+    document.getElementById('ljPayload').value = JSON.stringify({ action:'req_save', token:TAKLIF_TOKEN, req_items:rows });
+    document.getElementById('ljForm').submit();
+  }
+  var bRS = document.getElementById('btnReqSaqla');
+  if (bRS) bRS.onclick = taklifSaqla;
+  if (TAKLIF_EDIT){
+    // Saqlanmagan tahrir bilan bosqichni o'tkazib yubormaslik
+    document.querySelectorAll('form.lim-amal-f').forEach(function(f){
+      f.addEventListener('submit', function(e){
+        if (taklifDirty){ e.preventDefault(); e.stopImmediatePropagation();
+          alert('Таклифда САҚЛАНМАГАН ўзгариш бор — аввал «💾 Таклифни сақлаш»ни босинг.'); }
+      }, true);
+    });
+    window.addEventListener('beforeunload', function(e){
+      if (taklifDirty && !yuborilmoqda){ e.preventDefault(); e.returnValue = ''; }
+    });
   }
   var bS = document.getElementById('btnSaqla'), bY = document.getElementById('btnYopish');
   if (bS) bS.onclick = function(){ yuborish('save'); };
@@ -1194,19 +1435,37 @@
   // ▶ Лимитни юбориш — Умумий ўзгаришларини кейинги юсерга (занжирга) жўнатиш
   var limZanjir = false;   // admin «Занжирга юбориш»ни танласа true bo'ladi
   var LIM_SANA0 = [ (document.getElementById('limStart')||{}).value || '', (document.getElementById('limEnd')||{}).value || '' ];
-  function limOzgarishBor(){
-    var bor = false;
-    var lsE = document.getElementById('limStart'), leE = document.getElementById('limEnd');
-    if (lsE && leE && (lsE.value !== LIM_SANA0[0] || leE.value !== LIM_SANA0[1])) bor = true;
+  // Умумий ўзгаришлари: {edits:[{id,...}], del:[id], yangi:[...]} — фақат ҲАҚИҚИЙ ўзгарганлар
+  function limPayload(){
+    var out = { edits:[], del:[], yangi:[] };
+    if (!LIM_EDIT) return out;
     ishRows().forEach(function(tr){
-      var lq = tr.querySelector('.lim-q'), lp = tr.querySelector('.lim-p');
-      if (lq && (Math.abs(pf(lq.value)-pf(tr.dataset.vol))>0.0001 ||
-                 Math.abs(pf(lp.value)-pf(tr.dataset.price))>0.0001)) bor = true;
+      var id = tr.dataset.id; if (!id) return;
+      var x = limRows[id]; if (!x) return;
+      if (x.del){ out.del.push(+id); return; }
+      var b = limBlok(tr.dataset.bolim);
+      var e = { id:+id, name:(x.name||'').trim(), unit:(x.unit||'').trim(), kind:x.kind||'material', note:(x.izoh||'').trim(),
+                bolim:(b.bolim||'').trim(), masul:(b.masul||'').trim(), vol:x.vol||0, price:x.price||0 };
+      var asl = { name:tr.dataset.name, unit:tr.dataset.unit, kind:tr.dataset.kind||'material', note:tr.dataset.izoh||'',
+                  bolim:tr.dataset.bolim, masul:(document.querySelector('#ljBody tr.block[data-bolim="'+CSS.escape(tr.dataset.bolim)+'"]')||{dataset:{}}).dataset.masul||'' };
+      var ozg = Math.abs(e.vol-pf(tr.dataset.vol))>0.0001 || Math.abs(e.price-pf(tr.dataset.price))>0.0001;
+      Object.keys(asl).forEach(function(k){ if (e[k] !== asl[k]) ozg = true; });
+      if (ozg) out.edits.push(e);
     });
     yangiBloklar.forEach(function(blk){
-      blk.rows.forEach(function(x){ if ((x.name||'').trim() && (x.vol||0)>0) bor = true; });
+      blk.rows.forEach(function(x){
+        if ((x.name||'').trim())
+          out.yangi.push({ bolim:blkBolim(blk), masul:blkMasul(blk), name:x.name, unit:x.unit||'',
+                           kind:x.kind||'material', vol:x.vol||0, price:x.price||0, note:x.izoh||'', asl:x.asl||null });
+      });
     });
-    return bor;
+    return out;
+  }
+  function limOzgarishBor(){
+    var lsE = document.getElementById('limStart'), leE = document.getElementById('limEnd');
+    if (lsE && leE && (lsE.value !== LIM_SANA0[0] || leE.value !== LIM_SANA0[1])) return true;
+    var lp = limPayload();
+    return !!(lp.edits.length || lp.del.length || lp.yangi.length);
   }
   var bLimZ = document.getElementById('btnLimZanjir');
   if (bLimZ) bLimZ.onclick = function(){
@@ -1219,16 +1478,8 @@
   };
   var bLim = document.getElementById('btnLimYubor');
   if (bLim) bLim.onclick = function(){
-    var bor = false;
-    ishRows().forEach(function(tr){
-      var lq = tr.querySelector('.lim-q'), lp = tr.querySelector('.lim-p');
-      if (lq && (Math.abs(pf(lq.value)-pf(tr.dataset.vol))>0.0001 ||
-                 Math.abs(pf(lp.value)-pf(tr.dataset.price))>0.0001)) bor = true;
-    });
-    yangiBloklar.forEach(function(blk){
-      blk.rows.forEach(function(x){ if ((x.name||'').trim() && (x.vol||0)>0) bor = true; });
-    });
-    if (!bor){
+    var lp = limPayload();
+    if (!(lp.edits.length || lp.del.length || lp.yangi.length)){
       alert('Умумий устунда ўзгариш йўқ.\nАввал Умумий объём/нархни ўзгартиринг ёки «+ Блок (бўлим)» билан янги блок киритинг — кейин шу тугма билан юборасиз.');
       return;
     }
@@ -1285,24 +1536,29 @@
     var rows = {}, lim = {};
     ishRows().forEach(function(tr){
       var iq=tr.querySelector('.in-q'), ip=tr.querySelector('.in-p'), ii=tr.querySelector('.in-i');
-      if (iq && ((iq.value||'')!=='' || (ip&&(ip.value||'')!=='') || (ii&&ii.value)))
+      if (iq && ((iq.value||'')!=='' || (ii&&ii.value) ||
+                 (ip && (ip.value||'')!=='' && Math.abs(pf(ip.value)-pf(tr.dataset.price))>0.0001)))
         rows[tr.dataset.key] = { q:iq.value, p:ip?ip.value:'', i:ii?ii.value:'' };
-      var lq=tr.querySelector('.lim-q'), lp=tr.querySelector('.lim-p');
-      if (lq && (Math.abs(pf(lq.value)-pf(tr.dataset.vol))>0.0001 ||
-                 Math.abs(pf(lp.value)-pf(tr.dataset.price))>0.0001))
-        lim[tr.dataset.key] = { q:lq.value, p:lp.value };
     });
+    if (LIM_EDIT){
+      // faqat o'zgargan mavjud qatorlar va bloklar
+      var lp = limPayload();
+      lp.edits.forEach(function(e){ lim[e.id] = limRows[e.id]; });
+      lp.del.forEach(function(id){ lim[id] = limRows[id]; });
+    }
     return { t:Date.now(),
       ws:(document.getElementById('wkStart')||{}).value||'',
       we:(document.getElementById('wkEnd')||{}).value||'',
-      rows:rows, lim:lim, bolaklar:bolaklar, extralar:extralar, yangiBloklar:yangiBloklar };
+      rows:rows, lim:lim, limBloklar:(LIM_EDIT ? limBloklar : {}),
+      bolaklar:bolaklar, extralar:extralar, yangiBloklar:yangiBloklar };
   }
   var autoT = null;
   function autoSaqla(){
-    if (!tahrirmi()) return;
+    if (!tahrirmi() || yuborilmoqda) return;
     clearTimeout(autoT);
     autoT = setTimeout(function(){
       try {
+        if (yuborilmoqda) return;
         var s = snapshotOl();
         var bolakBor = Object.keys(bolaklar).some(function(k){ return (bolaklar[k]||[]).length; });
         var bosh = !Object.keys(s.rows).length && !Object.keys(s.lim).length &&
@@ -1317,11 +1573,22 @@
     var s = null;
     try { s = JSON.parse(localStorage.getItem(autoKey())||'null'); } catch(e){}
     if (!s || !s.rows) return;
+    if (!LIM_EDIT && !Object.keys(s.rows).length && !(s.extralar||[]).length &&
+        !Object.keys(s.bolaklar||{}).some(function(k){ return (s.bolaklar[k]||[]).length; })){
+      // faqat Умумий (blok) tahriri saqlangan edi, u esa endi yopiq — tiklanadigan narsa yo'q
+      try { localStorage.removeItem(autoKey()); } catch(e){}
+      return;
+    }
+    // Умумий tahriri yopiq bo'lsa (zanjir/qulf) — eski saqlanmagan bloklar tiklanmaydi
+    if (LIM_EDIT){
+      Object.keys(s.lim||{}).forEach(function(id){ if (s.lim[id] && typeof s.lim[id] === 'object' && 'name' in s.lim[id]) limRows[id] = s.lim[id]; });
+      Object.keys(s.limBloklar||{}).forEach(function(k){ limBloklar[k] = s.limBloklar[k]; });
+    }
     // MUHIM: renderAll o'zi extralar/bolaklarni joriy haftadan qayta o'rnatadi,
     // shuning uchun snapshot AVVAL render, KEYIN ustiga qo'yiladi
     renderAll();
     extralar = s.extralar || [];
-    yangiBloklar = s.yangiBloklar || [];
+    yangiBloklar = LIM_EDIT ? (s.yangiBloklar || []) : [];
     Object.keys(s.bolaklar||{}).forEach(function(k){
       if ((s.bolaklar[k]||[]).length) bolaklar[k] = s.bolaklar[k];
     });
@@ -1338,13 +1605,7 @@
       var v=s.rows[k], iq=tr.querySelector('.in-q'), ip=tr.querySelector('.in-p'), ii=tr.querySelector('.in-i');
       if (iq && v.q!=='') iq.value=v.q;
       if (ip && v.p!=='') ip.value=v.p;
-      if (ii && v.i){ ii.value=v.i; izohKengay(ii); }
-    });
-    Object.keys(s.lim||{}).forEach(function(k){
-      var tr=document.querySelector('#ljBody tr.ish[data-key="'+CSS.escape(k)+'"]'); if(!tr) return;
-      var lq=tr.querySelector('.lim-q'), lp=tr.querySelector('.lim-p');
-      if (lq) lq.value=s.lim[k].q;
-      if (lp) lp.value=s.lim[k].p;
+      if (ii && v.i){ ii.value=v.i; ii.style.display=''; izohKengay(ii); }
     });
     hisobla();
     var el = document.getElementById('ljAuto');
@@ -1396,6 +1657,8 @@
     if (bYu) bYu.onclick = function(){ yBg.classList.add('show'); };
     document.getElementById('yuborBekor').onclick = function(){ yBg.classList.remove('show'); };
   }
+
+  window.addEventListener('pageshow', function(e){ if (e.persisted) yuborilmoqda = false; });
 
   renderAll();
   autoTikla();

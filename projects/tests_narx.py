@@ -125,7 +125,7 @@ class NarxTahlilTest(TestCase):
 
 
 class NarxOqimTest(TestCase):
-    """weekly_add izoh talabi va limitni joriy narxda yangilash so'rovi."""
+    """Limitni joriy narxda yangilash so'rovi va Excel narx farqi."""
 
     def setUp(self):
         User = get_user_model()
@@ -139,39 +139,6 @@ class NarxOqimTest(TestCase):
         # PTO faqat o'ziga BIRIKTIRILGAN obyektni ko'radi (multi-tenant izolyatsiya)
         prof, _ = UserProfile.objects.update_or_create(user=self.pto, defaults={"role": "pto"})
         prof.projects.add(self.p)
-
-    def _post_hafta(self, narx, izoh=""):
-        return self.client.post(reverse("weekly_add", args=[self.p.id]), {
-            "week_start": "2026-02-02", "week_end": "2026-02-08",
-            "kind": ["material"], "name": ["Beton"], "unit": ["m3"],
-            "quantity": ["10"], "unit_price": [str(narx)], "item_note": [izoh], "item_bolim": ["Poydevor"],
-        })
-
-    def test_izohsiz_narx_ozgarishi_rad(self):
-        self.client.force_login(self.pto)
-        r = self._post_hafta(900000)          # +12.5% > NARX_FARQ_FOIZ
-        self.assertEqual(r.status_code, 302)
-        self.assertEqual(WeeklyRequest.objects.count(), 0)
-
-    def test_izoh_bilan_otadi(self):
-        self.client.force_login(self.pto)
-        self._post_hafta(900000, izoh="Zavod narxni oshirdi")
-        self.assertEqual(WeeklyRequest.objects.count(), 1)
-
-    def test_kichik_farq_izohsiz_otadi(self):
-        self.client.force_login(self.pto)
-        self._post_hafta(820000)              # +2.5% ≤ chegara
-        self.assertEqual(WeeklyRequest.objects.count(), 1)
-        self.assertGreater(NARX_FARQ_FOIZ, Decimal("2.5"))
-
-    def test_bosh_sorov_yaratilmaydi(self):
-        self.client.force_login(self.pto)
-        self.client.post(reverse("weekly_add", args=[self.p.id]), {
-            "week_start": "2026-02-02", "week_end": "2026-02-08",
-            "kind": ["material"], "name": ["Beton"], "unit": ["m3"],
-            "quantity": [""], "unit_price": [""], "item_note": [""], "item_bolim": [""],
-        })
-        self.assertEqual(WeeklyRequest.objects.count(), 0)
 
     def test_excel_narx_farqi_formulasi(self):
         from .views import _obj_limit_wb

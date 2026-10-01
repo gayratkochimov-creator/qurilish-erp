@@ -261,7 +261,6 @@ class LimitChangeRequest(models.Model):
     def approve(self, admin_user):
         from django.utils import timezone
         p = self.project
-        proposed = list(self.proposed_items.all())
         # Limitni qo'llash + statusni yozish BITTA tranzaksiyada — yarim holat qolmasin
         with transaction.atomic():
             # Qulf + status qayta tekshiruvi: ikki admin bir vaqtda bossa faqat bittasi o'tadi
@@ -269,15 +268,23 @@ class LimitChangeRequest(models.Model):
                      .values_list("status", flat=True).get(pk=self.pk))
             if joriy != self.Status.ADM:
                 return
+            # Qulfdan KEYIN o'qiladi — bir vaqtdagi tahrir bilan farq qolmasin
+            proposed = list(self.proposed_items.all())
             if proposed:
                 # «Limit ichi» tarkibi bo'yicha so'rov — taklif etilgan tarkibni qo'llash
                 # (o'chirib-qayta yaratmaymiz — o'zgarmagan qatorlarning sanasi saqlansin)
-                sync_limit_items(p, [
+                qatorlar = [
                     {"kind": it.kind, "name": it.name, "unit": it.unit,
                      "quantity": it.quantity, "unit_price": it.unit_price, "note": it.note,
-                     "bolim": it.bolim, "masul": it.masul}
+                     "bolim": it.bolim, "masul": it.masul, "asl_id": it.asl_id}
                     for it in proposed
-                ])
+                ]
+                if any(q["asl_id"] for q in qatorlar):
+                    limit_qatorlarini_qolla(p, qatorlar)      # jadvaldan: ID bo'yicha
+                else:
+                    for q in qatorlar:
+                        q.pop("asl_id")
+                    sync_limit_items(p, qatorlar)             # eski so'rovlar: nom bo'yicha
                 p.recompute_limits()
             else:
                 # Eski usul — faqat raqamli limit
@@ -561,6 +568,42 @@ class GrafikTasdiq(models.Model):
         return f"{self.project.code} grafik — {self.get_status_display()}"
 
 
+def hafta_qatorlarini_qayta_nomla(project, eski, yangi):
+    """Limit qatori qayta nomlansa/boshqa bo'limga o'tsa — unga bog'liq HAFTALIK
+    qatorlar ham ergashadi (bog'lanish nom+bo'lim orqali; aks holda bajarilgan/qolgan
+    tarixi uziladi). `eski`/`yangi` — {name, bolim, unit, kind}."""
+    if all(eski[k] == yangi[k] for k in ("name", "bolim", "unit", "kind")):
+        return 0
+    return (WeeklyRequestItem.objects
+            .filter(request__project=project, name=eski["name"], bolim=eski["bolim"])
+            .update(name=yangi["name"], bolim=yangi["bolim"],
+                    unit=yangi["unit"], kind=yangi["kind"]))
+
+
+def limit_qatorlarini_qolla(project, items):
+    """Limit jadvalidan kelgan TO'LIQ ro'yxatni qo'llaydi: `asl_id` bor qator — o'sha
+    LimitItem o'rnida yangilanadi (sana/ID saqlanadi, haftalik tarixi ergashadi),
+    `asl_id` yo'q — yangi qator, ro'yxatda yo'q mavjud qatorlar o'chiriladi."""
+    mavjud = {li.pk: li for li in project.limit_items.all()}
+    MAYDON = ("kind", "name", "unit", "quantity", "unit_price", "note", "bolim", "masul")
+    qoldi = set()
+    for it in items:
+        li = mavjud.get(it.get("asl_id"))
+        if li is None:
+            LimitItem.objects.create(project=project, **{k: it[k] for k in MAYDON})
+            continue
+        qoldi.add(li.pk)
+        if any(getattr(li, k) != it[k] for k in MAYDON):
+            eski = {"name": li.name, "bolim": li.bolim, "unit": li.unit, "kind": li.kind}
+            for k in MAYDON:
+                setattr(li, k, it[k])
+            li.save()          # auto_now -> updated_at yangilanadi
+            hafta_qatorlarini_qayta_nomla(project, eski, {k: it[k] for k in ("name", "bolim", "unit", "kind")})
+    for pk, li in mavjud.items():
+        if pk not in qoldi:
+            li.delete()
+
+
 def sync_limit_items(project, items):
     """Limit tarkibini yangilaydi — o'zgarmagan qatorlarning SANASI saqlanib qoladi.
 
@@ -620,6 +663,13 @@ class LimitChangeItem(models.Model):
     note = models.CharField("Primechaniye (qator izohi)", max_length=500, blank=True)
     bolim = models.CharField("Bo'lim", max_length=200, blank=True)
     masul = models.CharField("Mas'ul shaxs", max_length=120, blank=True)
+    # Qaysi MAVJUD limit qatorining o'zgartirilgan nusxasi (bo'sh — yangi qator).
+    # Shu orqali qayta nomlangan qator tasdiqlanganda o'rnida yangilanadi, haftalik
+    # tarixi (bajarilgan/qolgan) uzilmaydi.
+    asl = models.ForeignKey(
+        LimitItem, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="takliflar", verbose_name="Asl qator",
+    )
     created_at = models.DateTimeField("Kiritilgan sana", auto_now_add=True, null=True)
 
     class Meta:

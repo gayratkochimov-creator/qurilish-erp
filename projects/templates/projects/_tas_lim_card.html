@@ -71,7 +71,7 @@
     <div class="new">{{ r.new_str }}</div>
   </div>
   <div class="tacts">
-    {% if stage != 'dir' %}<a class="btn-edit" href="{% url 'limit_request_edit' r.obj.id %}">Tahrirlash</a>{% endif %}
+    <a class="btn-edit" href="{% url 'limit_jadval' r.obj.project_id %}?korinish=taklif" title="Taklif limit jadvalining o'zida ko'rinadi va tahrirlanadi">📊 Jadvalda ochish</a>
     {% if stage == 'snab' %}
       <form method="post" action="{% url 'limit_request_action' r.obj.id %}"><input type="hidden" name="action" value="snab_return">{% csrf_token %}<button class="btn-ok">Narxlandi — PTOga qaytarish</button></form>
     {% elif stage == 'pto2' %}

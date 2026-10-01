@@ -648,7 +648,6 @@
               {# ADMIN: submitted bosqichida yakuniy tasdiqlaydi #}
               {% if is_admin %}
                 {% if s.is_submitted %}
-                  <a class="mini" href="{% url 'weekly_edit' s.obj.id %}">Tahrirlash</a>
                   {% if s.oshgan %}
                     <form method="post" action="{% url 'weekly_action' s.obj.id %}" onsubmit="return confirm('Bu so\'rov limitdan oshadi. Baribir tasdiqlaysizmi?');"><input type="hidden" name="action" value="approve"><input type="hidden" name="confirm_over" value="1">{% csrf_token %}<button class="mini over" title="{% for o in s.oshgan %}{{ o }}&#10;{% endfor %}">Limitdan oshsa ham tasdiqlash</button></form>
                   {% else %}
@@ -656,7 +655,6 @@
                   {% endif %}
                 {% endif %}
                 {% if s.is_approved %}
-                  <a class="mini" href="{% url 'weekly_edit' s.obj.id %}">Tahrirlash</a>
                   <a class="mini" href="{% url 'weekly_return_pto' s.obj.id %}" style="color:#b45309; border-color:#fcd9b6;" title="Kamchilik topilsa — sabab + Telegram kodi bilan PTOga qaytariladi">↩ PTOga qaytarish</a>
                 {% endif %}
               {% endif %}

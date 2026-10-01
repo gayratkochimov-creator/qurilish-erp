@@ -85,9 +85,7 @@
     {% endif %}
   </div>
   <div class="tacts">
-    {% if nav_is_admin %}
-      <a href="{% url 'weekly_edit' w.obj.id %}" class="btn-ok" style="background:#1a5fb4; text-decoration:none; text-align:center; display:block;">✎ Таҳрирлаш</a>
-    {% endif %}
+    <a href="{% url 'limit_jadval' w.obj.project_id %}?korinish=amaldagi" class="btn-ok" style="background:#1a5fb4; text-decoration:none; text-align:center; display:block;">📊 Жадвалда очиш</a>
     {% if stage == 'dir' %}
       <form method="post" action="{% url 'weekly_action' w.obj.id %}"><input type="hidden" name="action" value="dir_approve"><input type="hidden" name="next" value="tasdiqlar">{% csrf_token %}<button class="btn-ok">Тасдиқлаш</button></form>
       <form method="post" action="{% url 'weekly_action' w.obj.id %}" class="rejform" onsubmit="var s=this.querySelector('[name=reject_note]'); if(!s.value.trim()){ alert('Сабабини ёзинг.'); s.focus(); return false; }">
