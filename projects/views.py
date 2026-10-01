@@ -3915,7 +3915,7 @@ def _lj_qator_dict(li):
             "note": li.note or "", "bolim": li.bolim or "", "masul": li.masul or ""}
 
 
-def _lj_taklif_saqla(request, p, payload):
+def _lj_taklif_saqla(request, p, payload, qayt_kerak=True):
     """Zanjirdagi taklif qatorlarini limit jadvalining O'ZIDAN saqlash
     (avval alohida «so'rovni tahrirlash» formasi edi)."""
     from django.utils import timezone as _tz
@@ -3973,7 +3973,7 @@ def _lj_taklif_saqla(request, p, payload):
     else:
         messages.success(request, f"Taklif saqlandi ({len(items)} qator, yangi umumiy: "
                                   f"{_money(req.new_total)}). Endi keyingi bosqichga yuborishingiz mumkin.")
-    return qayt
+    return qayt if qayt_kerak else None
 
 
 def _lj_qoralama_yarat(request, p, payload):
@@ -4142,6 +4142,12 @@ def limit_jadval(request, pk):
         # Zanjirdagi TAKLIFni saqlash — bosqich egasi (snab/PTO xulosa/admin)
         if payload.get("action") == "req_save":
             return _lj_taklif_saqla(request, p, payload)
+        # Taklif/qoralama tahririda yashil «Сақлаш» / «Ҳафтани ёпиш»: avval taklif
+        # qatorlari saqlanadi, keyin HAFTALIK (xato bo'lsa — to'xtaydi)
+        if taklif_view and taklif_huquq and isinstance(payload.get("req_items"), list):
+            r_ = _lj_taklif_saqla(request, p, payload, qayt_kerak=False)
+            if r_ is not None:
+                return r_
         if payload.get("action") == "draft_save":
             if not lim_edit_huquq:
                 raise PermissionDenied("Умумий limitni tahrirlash huquqi yo'q.")
@@ -4350,6 +4356,13 @@ def limit_jadval(request, pk):
             d = qoldiq.setdefault(_lj_key(li.name, li.bolim),
                                   {"qty": Decimal("0"), "unit": li.unit, "nom": li.name})
             d["qty"] += li.quantity - (li.boshlangich_qty or 0)
+        if taklif_view and taklif_obj is not None:
+            # Hali tasdiqlanmagan taklif qatorlari — chegara sifatida ularning hajmi
+            for it in taklif_obj.proposed_items.all():
+                k_ = _lj_key(it.name, it.bolim)
+                if k_ not in qoldiq:
+                    qoldiq[k_] = {"qty": it.quantity - (it.boshlangich_qty or 0),
+                                  "unit": it.unit, "nom": it.name}
         for w in haftalar:
             if w.status != "approved":
                 continue
@@ -4503,9 +4516,6 @@ def limit_jadval(request, pk):
             "adm_at": f"{_lt0(w.approved_at):%d.%m %H:%M}" if w.approved_at else "",
         })
 
-    if taklif_view:
-        hafta_data = []   # haftalik ish — «amaldagi limit» ko'rinishida
-
     # Yangi hafta uchun taklif sanalar
     if haftalar:
         oxirgi = max(w.week_end for w in haftalar)
@@ -4633,7 +4643,7 @@ def limit_jadval(request, pk):
     return render(request, "projects/limit_jadval.html", {
         "p": p, "guruhlar": guruhlar,
         # Taklif ko'rinishida haftalik va Умумий (amaldagi) tahriri o'chiq
-        "can_edit": can_edit and not taklif_view,
+        "can_edit": can_edit,
         "lim_edit_huquq": lim_edit_huquq and not taklif_view,
         "taklif_view": taklif_view, "taklif_edit": taklif_view and taklif_huquq,
         "taklif_json": taklif_json, "taklif_ochirilgan": taklif_ochirilgan,
@@ -4656,7 +4666,7 @@ def limit_jadval(request, pk):
         "is_adm": is_admin(request.user),
         "lim_pending": bool(lim_pend_obj),
         "hafta_json": hafta_data,
-        "draft_id": draft.id if draft and not taklif_view else None,
+        "draft_id": draft.id if draft else None,
         "taklif_ws": t_ws.isoformat(), "taklif_we": t_we.isoformat(),
     })
 

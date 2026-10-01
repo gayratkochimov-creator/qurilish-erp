@@ -134,7 +134,7 @@
     {% endif %}
   </span>
 </div>
-<div class="lj-sub">{% if taklif_view %}Жадвалда занжирдаги лимит таклифи: Умумий · Бажарилган · Қолган. Ҳафталик иш «Амалдаги лимит» кўринишида юритилади.{% elif can_edit %}Ҳафта ичида нарх ўзгарса: қатордаги <b>х</b> тугмасини босасиз → эски нархда сўралган объёмни ёзасиз → қолгани янги нархда алоҳида қатор бўлади. Ҳамма сумма автоматик. «Ҳафтани ёпиш» — сўров директор тасдиғига юборилади.{% if is_adm %} Админ сифатида Умумий объём/нархни ҳам шу ерда тўғрилайсиз (тўғридан-тўғри қўлланади).{% else %} Умумий объём/нархни ўзгартирсангиз ёки блок/иш қўшсангиз — сақлашда <b>снабжение → ПТО → директор → админ</b> занжирига сўров кетади.{% endif %}{% elif lim_edit_huquq %}<b>Умумий</b> устундаги объём/нархни таҳрирлаб ёки «+ Блок (бўлим)» билан янги бўлим қўшиб, яшил «▶ Лимитни юбориш» тугмаси орқали занжирга жўнатишингиз мумкин. Ҳафталик устунни ПТО/админ тўлдиради.{% else %}Кўриш режими — ҳафталик устунини ПТО/админ тўлдиради.{% if lim_qulf %} Умумий лимит тасдиқланган — таҳрирлаш фақат админ рухсати билан очилади.{% endif %}{% endif %}
+<div class="lj-sub">{% if taklif_view %}Жадвалда {% if qoralama %}қоралама{% else %}занжирдаги лимит таклифи{% endif %}: Умумий · Бажарилган · Қолган{% if can_edit %} · ҳафталик устунни шу қаторлар бўйича тўлдириб, сана бошланиши/тугашини кўрсатиб «Сақлаш» ёки «Ҳафтани ёпиш»ни босасиз{% endif %}.{% elif can_edit %}Ҳафта ичида нарх ўзгарса: қатордаги <b>х</b> тугмасини босасиз → эски нархда сўралган объёмни ёзасиз → қолгани янги нархда алоҳида қатор бўлади. Ҳамма сумма автоматик. «Ҳафтани ёпиш» — сўров директор тасдиғига юборилади.{% if is_adm %} Админ сифатида Умумий объём/нархни ҳам шу ерда тўғрилайсиз (тўғридан-тўғри қўлланади).{% else %} Умумий объём/нархни ўзгартирсангиз ёки блок/иш қўшсангиз — сақлашда <b>снабжение → ПТО → директор → админ</b> занжирига сўров кетади.{% endif %}{% elif lim_edit_huquq %}<b>Умумий</b> устундаги объём/нархни таҳрирлаб ёки «+ Блок (бўлим)» билан янги бўлим қўшиб, яшил «▶ Лимитни юбориш» тугмаси орқали занжирга жўнатишингиз мумкин. Ҳафталик устунни ПТО/админ тўлдиради.{% else %}Кўриш режими — ҳафталик устунини ПТО/админ тўлдиради.{% if lim_qulf %} Умумий лимит тасдиқланган — таҳрирлаш фақат админ рухсати билан очилади.{% endif %}{% endif %}
 {% if lim_pending %}<br><b style="color:#b45309;">⏳ Лимит сўрови занжирда — {% if taklif_edit %}ҳозир СИЗНИНГ босқичингиз: таклиф қаторларини шу жадвалда тўғрилаб «💾 Таклифни сақлаш»ни босинг, кейин кейинги босқичга юборинг.{% elif taklif_view %}жадвалда ЗАНЖИРДАГИ ТАКЛИФ кўрсатилмоқда (фақат кўриш).{% else %}у якунлангунча Умумий устуни қулф; ҳафталик иш давом этади.{% endif %}</b>{% endif %}</div>
 
 {% if lim_holat %}
@@ -537,8 +537,7 @@
     var h = haftaTop(sel);
     var edit = tahrirmi();
     var raqam = h ? h.raqam : (HAFTA.length+1);
-    document.getElementById('wkHead').textContent = TAKLIF ? 'Ҳафталик (таклиф кўринишида йўқ)'
-      : raqam+'-ҳафталик материал ' + (edit?'✏️':'🔒');
+    document.getElementById('wkHead').textContent = raqam+'-ҳафталик материал ' + (edit?'✏️':'🔒');
     if (edit && h){
       var ws0 = document.getElementById('wkStart'), we0 = document.getElementById('wkEnd');
       if (ws0) ws0.value = h.ws;
@@ -546,8 +545,7 @@
     }
     // ---- ZANJIR HOLATI banneri: so'rov hozir KIMDA turibdi ----
     var st = document.getElementById('wkStatus');
-    if (st && TAKLIF){ st.style.display = 'none'; }
-    else if (st){
+    if (st){
       if (!h){
         // + Янги ҳафта tabi — jarayon boshlanmagan
         st.innerHTML = '<b style="margin-right:4px;">Ҳафталик ҳолати:</b>'+
@@ -1431,6 +1429,12 @@
       week_start: (wsEl ? wsEl.value : '') || (h?h.ws:''),
       week_end: (weEl ? weEl.value : '') || (h?h.we:'') };
     if (lsEl && leEl){ payload.lim_start = lsEl.value || ''; payload.lim_end = leEl.value || ''; }
+    if (TAKLIF_EDIT){
+      // Taklif/qoralama tahririda: taklif qatorlari ham shu POST bilan saqlanadi
+      var tq = taklifQatorlar();
+      if (!tq.length){ alert('Камида битта таклиф қатори бўлиши керак.'); return; }
+      payload.req_items = tq; payload.token = TAKLIF_TOKEN; taklifDirty = false;
+    }
     limZanjir = false; limMode = 'qoralama';
     if (action==='submit' && !confirm('Ҳафта ёпилади — сўров директор тасдиғига юборилади. Давом этамизми?')) return;
     // Forma ketgach kechikkan avtosaqlash eski holatni QAYTA yozib qo'ymasin
@@ -1440,6 +1444,18 @@
     document.getElementById('ljForm').submit();
   }
   // -------- 💾 ТАКЛИФНИ САҚЛАШ (занжирдаги сўров қаторлари) --------
+  function taklifQatorlar(){
+    var rows = [];
+    yangiBloklar.forEach(function(blk){
+      blk.rows.forEach(function(x){
+        if ((x.name||'').trim())
+          rows.push({ bolim:(blk.bolim||'').trim(), masul:(blk.masul||'').trim(), name:x.name,
+                      unit:x.unit||'', kind:x.kind||'material', vol:x.vol||0, price:x.price||0,
+                      note:x.izoh||'', asl:x.asl||null, bq:x.bq||0, bs:x.bs||0 });
+      });
+    });
+    return rows;
+  }
   function taklifSaqla(){
     hisobla();
     if (window._ljErr){ alert('⛔ Хато бор — аввал тўғриланг (юқоридаги рўйхат)'); return; }
@@ -1622,7 +1638,7 @@
     return { t:Date.now(),
       ws:(document.getElementById('wkStart')||{}).value||'',
       we:(document.getElementById('wkEnd')||{}).value||'',
-      rows:rows, lim:lim, limBloklar:(LIM_EDIT ? limBloklar : {}),
+      rows:rows, lim:lim, limBloklar:(LIM_EDIT ? limBloklar : {}), token:(TAKLIF_EDIT ? TAKLIF_TOKEN : ''),
       bolaklar:bolaklar, extralar:extralar, yangiBloklar:yangiBloklar };
   }
   var autoT = null;
@@ -1647,6 +1663,7 @@
     try { s = JSON.parse(localStorage.getItem(autoKey())||'null'); } catch(e){}
     if (!s || !s.rows) return;
     if (!LIM_EDIT && !Object.keys(s.rows).length && !(s.extralar||[]).length &&
+        !(TAKLIF_EDIT && s.token === TAKLIF_TOKEN && (s.yangiBloklar||[]).length) &&
         !Object.keys(s.bolaklar||{}).some(function(k){ return (s.bolaklar[k]||[]).length; })){
       // faqat Умумий (blok) tahriri saqlangan edi, u esa endi yopiq — tiklanadigan narsa yo'q
       try { localStorage.removeItem(autoKey()); } catch(e){}
@@ -1661,7 +1678,9 @@
     // shuning uchun snapshot AVVAL render, KEYIN ustiga qo'yiladi
     renderAll();
     extralar = s.extralar || [];
-    yangiBloklar = LIM_EDIT ? (s.yangiBloklar || []) : [];
+    if (LIM_EDIT) yangiBloklar = s.yangiBloklar || [];
+    else if (TAKLIF_EDIT){ if (s.token === TAKLIF_TOKEN && (s.yangiBloklar||[]).length) yangiBloklar = s.yangiBloklar; }
+    else yangiBloklar = [];
     Object.keys(s.bolaklar||{}).forEach(function(k){
       if ((s.bolaklar[k]||[]).length) bolaklar[k] = s.bolaklar[k];
     });
