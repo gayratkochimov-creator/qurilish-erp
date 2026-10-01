@@ -1939,13 +1939,9 @@ def _limit_request_action_asl(request, pk):
             }
             NOMI = {S.SNAB: "Snabjeniyega", S.PTO2: "PTOga", S.DIR: "Direktorga"}
             if is_admin(request.user) and req.status in LIM_JARAYON:
-                # ADMIN — istalgan bosqichdan, shu so'rovda QATNASHGAN istalgan
-                # foydalanuvchiga (xato qilganiga) qaytaradi
-                mumkin = {S.PTO2}
-                if req.snab_by_id:
-                    mumkin.add(S.SNAB)
-                if req.director_by_id:
-                    mumkin.add(S.DIR)
+                # ADMIN — istalgan bosqichdan snab / PTO / direktorning istalganiga
+                # (xato qilganiga) qaytaradi
+                mumkin = {S.SNAB, S.PTO2, S.DIR}
                 mumkin.discard(req.status)
                 ruxsat_bor, targetlar = True, mumkin
             elif req.status in RUXSAT:
@@ -4437,10 +4433,9 @@ def limit_jadval(request, pk):
             _amal = {"oldinga": ("approve", "✓ Тасдиқлаш (админ)"),
                      "orqaga": [("pto2", "ПТОга"), ("dir", "Директорга")]}
         if _amal and is_admin(_u):
-            # Admin — shu so'rovda QATNASHGAN istalgan foydalanuvchiga qaytaradi
-            _amal["orqaga"] = [(k, n) for k, n in (("snab", "Снабжениега"), ("pto2", "ПТОга"), ("dir", "Директорга"))
-                               if k != _st and (k == "pto2" or (k == "snab" and r0.snab_by_id)
-                                                or (k == "dir" and r0.director_by_id))]
+            # Admin — snab / PTO / direktorning istalganiga qaytaradi (joriy bosqichdan tashqari)
+            _amal["orqaga"] = [(k, n) for k, n in (("pto2", "ПТОга"), ("snab", "Снабжениега"), ("dir", "Директорга"))
+                               if k != _st]
         if _amal:
             _amal["id"] = r0.id
         lim_holat["amal"] = _amal
