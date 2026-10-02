@@ -4414,7 +4414,10 @@ def limit_jadval(request, pk):
             _lj_qoralama_yoz(request, p, t_items, t_sums)
             lim_ozgardi = True
             if payload.get("items"):
-                _qs = "?korinish=amaldagi"   # haftalik ham saqlanmoqda — o'sha ko'rinishda qolsin
+                # haftalik ham saqlanmoqda — o'sha ko'rinishda qolsin, lekin Умумий qayerdaligini aytamiz
+                _qs = "?korinish=amaldagi"
+                messages.info(request, "Умумий устундаги ўзгаришлар ҚОРАЛАМАга сақланди (жадвалда кўринмайди) — "
+                                       "кўриш/давом эттириш учун тепадаги «📝 Қораламани очиш →» тугмасини босинг.")
         elif lim_ozgarish and (lim_edit_huquq or qosh_rejim) and (not is_admin(request.user) or admin_zanjir):
             # PTO/snab/direktor (yoki admin «Занжирга»): joriy tarkib + o'zgarishlar =
             # TAKLIF -> tasdiqlash zanjiri

@@ -439,6 +439,7 @@
   var TAKLIF = {{ taklif_view|yesno:"true,false" }};
   var TAKLIF_EDIT = {{ taklif_edit|yesno:"true,false" }};
   var TAKLIF_TOKEN = "{{ taklif_token|escapejs }}";
+  var QORALAMA_BOR = {{ qoralama|yesno:"true,false" }};   // obyektda saqlangan qoralama bor (amaldagi ko'rinishda)
   // Qulfdagi limitga YANGI blok/qator qo'shish (zanjir orqali) — mavjud qatorlar o'zgarmaydi
   var LIM_QOSH = {{ lim_qosh_huquq|yesno:"true,false" }};
   // Qoralama tahririda qulf: asl (mavjud) qatorlar faqat o'qiladi
@@ -1488,7 +1489,10 @@
     if (limMode !== 'qoralama' && (!ADM_TOGRI || limZanjir) && limBor &&
         !confirm('Умумий лимит ўзгаришлари СНАБЖЕНИЕ → ПТО → ДИРЕКТОР → АДМИН занжирига сўров бўлиб кетади ва Тасдиқлар бўлимида кўринади. Давом этамизми?')){ limZanjir=false; limMode='qoralama'; return; }
     if (limMode === 'qoralama' && limBor &&
-        !confirm('Умумий лимит ўзгаришлари ҚОРАЛАМА сифатида сақланади (занжирга юборилмайди) — кейин шу жойидан давом этасиз. Юбориш учун «▶ Лимитни юбориш»ни босасиз. Давом этамизми?')){ return; }
+        !confirm((QORALAMA_BOR && !TAKLIF_EDIT ? 'ДИҚҚАТ: бу объектда сақланган ҚОРАЛАМА бор — у ҳозирги жадвал ҳолати билан АЛМАШТИРИЛАДИ.
+
+' : '')+
+                 'Умумий лимит ўзгаришлари ҚОРАЛАМА сифатида сақланади (занжирга юборилмайди) — кейин «📝 Қораламани очиш» орқали давом этасиз. Юбориш учун «▶ Лимитни юбориш»ни босасиз. Давом этамизми?')){ return; }
     if (!items.length && action==='submit'){ alert('Ҳафтани ёпиш учун ҳафталик устунига объём киритинг.'); return; }
     var h = haftaTop(sel);
     var wsEl = document.getElementById('wkStart'), weEl = document.getElementById('wkEnd');
