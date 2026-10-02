@@ -2078,6 +2078,19 @@ def _weekly_action_asl(request, pk):
     proj_id = req.project_id
     if request.method == "POST":
         action = request.POST.get("action")
+        if action == "tahrir_ruxsat":
+            # ADMIN: yopiq haftani jadvalda tahrirlashga BIR MARTALIK ruxsat (har hafta uchun alohida)
+            if not is_admin(request.user):
+                raise PermissionDenied("Ruxsatni faqat admin beradi.")
+            if req.status == "draft":
+                messages.info(request, "Qoralama hafta allaqachon tahrirlanadi.")
+            else:
+                req.tahrir_ruxsat = not req.tahrir_ruxsat
+                req.save(update_fields=["tahrir_ruxsat"])
+                messages.success(request, ("🔓 Hafta tahririga ruxsat berildi — jadvalda o'zgartirib "
+                                           "«Сақлаш»ni bosing (bir martalik)."
+                                           if req.tahrir_ruxsat else "🔒 Hafta tahriri yana yopildi."))
+            return redirect("project_detail", pk=proj_id)
         if action == "ack":
             # So'rov egasi «Tasdiqlandi» xabarini ko'rdi — boshqa ko'rsatilmaydi
             if req.created_by_id == request.user.id:
@@ -3815,6 +3828,50 @@ def material_sorov_action(request, pk):
 
 # ================== LIMIT JADVALI (Sirdaryo ko'rinishi) ==================
 
+def _hafta_qatorlarini_yangila(w, yangi, ws_, we_, user):
+    """Yopiq haftaning qatorlarini jadvaldagi ro'yxat bilan O'RNIDA yangilaydi.
+    Bir xil nom+bo'lim qatorlar tartib bo'yicha juftlanadi; to'lov (Moliya) yozilgan
+    qator o'chirilmaydi va to'langandan kam qilinmaydi. Xato matni yoki None."""
+    from collections import defaultdict, deque
+    from django.utils import timezone as _tz
+    mavjud = defaultdict(deque)
+    for it in w.items.all().order_by("id"):
+        mavjud[_lj_key(it.name, it.bolim)].append(it)
+    reja_yangila, reja_yarat = [], []
+    for y in yangi:
+        navbat = mavjud.get(_lj_key(y.name, y.bolim))
+        if navbat:
+            it = navbat.popleft()
+            yangi_total = (y.quantity * y.unit_price).quantize(Decimal("0.01"))
+            if yangi_total < it.berildi:
+                return (f"«{it.name}» qatoriga {_money(it.berildi)} to'lov yozilgan — "
+                        "summani to'lovdan kamaytirib bo'lmaydi.")
+            reja_yangila.append((it, y))
+        else:
+            reja_yarat.append(y)
+    ochiriladi = [it for nav in mavjud.values() for it in nav]
+    for it in ochiriladi:
+        if it.moliyalar.exists():
+            return (f"«{it.name}» qatoriga to'lov yozilgan — uni o'chirib bo'lmaydi. "
+                    "Avval buxgalter bilan hal qiling.")
+    with transaction.atomic():
+        for it, y in reja_yangila:
+            it.kind, it.unit = y.kind, y.unit
+            it.quantity, it.unit_price, it.note = y.quantity, y.unit_price, y.note
+            it.save(update_fields=["kind", "unit", "quantity", "unit_price", "note"])
+        for it in ochiriladi:
+            it.delete()
+        for y in reja_yarat:
+            y.request = w
+        if reja_yarat:
+            WeeklyRequestItem.objects.bulk_create(reja_yarat)
+        w.week_start, w.week_end = ws_, we_
+        w.edited_by, w.edited_at = user, _tz.now()
+        w.tahrir_ruxsat = False          # ruxsat bir martalik
+        w.save(update_fields=["week_start", "week_end", "edited_by", "edited_at", "tahrir_ruxsat"])
+    return None
+
+
 def _lj_key(name, bolim):
     return (name or "").strip().lower() + "|" + (bolim or "").strip().lower()
 
@@ -4232,6 +4289,15 @@ def limit_jadval(request, pk):
             raise PermissionDenied("Haftalik ustunini faqat PTO yoki admin to'ldiradi.")
         # Faqat Умумий tahrirlanayotgan bo'lsa (snab/direktor) — hafta sanasi shart emas
         faqat_limit = not payload.get("items") and payload.get("action") != "submit"
+        # Admin ruxsat bergan YOPIQ hafta tahrirlanmoqdami (qoralama o'rniga)?
+        ruxsat_hafta = None
+        try:
+            _hid = int(payload.get("hafta_id") or 0)
+        except (TypeError, ValueError):
+            _hid = 0
+        if _hid:
+            ruxsat_hafta = next((w for w in haftalar if w.id == _hid and w.status != "draft"
+                                 and w.tahrir_ruxsat), None)
         ws_ = we_ = None
         if not faqat_limit:
             try:
@@ -4240,7 +4306,8 @@ def limit_jadval(request, pk):
             except ValueError:
                 messages.error(request, "Hafta boshi va oxiri sanasini kiriting.")
                 return _qayt()
-            xato = _hafta_sana_xatosi(p, ws_, we_, exclude_id=draft.id if draft else None)
+            xato = _hafta_sana_xatosi(p, ws_, we_, exclude_id=(ruxsat_hafta.id if ruxsat_hafta
+                                                                else (draft.id if draft else None)))
             if xato:
                 messages.error(request, xato)
                 return _qayt()
@@ -4446,7 +4513,7 @@ def limit_jadval(request, pk):
                     qoldiq[k_] = {"qty": it.quantity - (it.boshlangich_qty or 0),
                                   "unit": it.unit, "nom": it.name}
         for w in haftalar:
-            if w.status == "rejected" or (draft is not None and w.id == draft.id):
+            if w.status == "rejected" or (draft is not None and w.id == draft.id) or w.tahrir_ruxsat:
                 continue
             for it in w.items.all():
                 k = _lj_key(it.name, it.bolim)
@@ -4499,6 +4566,16 @@ def limit_jadval(request, pk):
             messages.error(request, "Kamida bitta qatorga miqdor kiriting.")
             return _qayt()
 
+        if ruxsat_hafta is not None:
+            # YOPIQ haftani (admin ruxsati bilan) tahrirlash: qatorlar O'RNIDA yangilanadi —
+            # to'lov yozilgan qator o'chirilmaydi/kamaytirilmaydi; status o'zgarmaydi
+            xato = _hafta_qatorlarini_yangila(ruxsat_hafta, yangi_items, ws_, we_, request.user)
+            if xato:
+                messages.error(request, xato)
+            else:
+                messages.success(request, f"{ruxsat_hafta.week_start:%d.%m}–{ruxsat_hafta.week_end:%d.%m} "
+                                          f"haftasi tahrirlandi ({len(yangi_items)} qator). Ruxsat yopildi.")
+            return _qayt()
         with transaction.atomic():
             if draft is None:
                 draft = WeeklyRequest.objects.create(
@@ -4525,7 +4602,7 @@ def limit_jadval(request, pk):
     # hammasi); hozirgi QORALAMA hafta jadvalda jonli qo'shiladi (serverda emas)
     fakt = {}
     for w in haftalar:
-        if w.status == "rejected" or (draft is not None and w.id == draft.id):
+        if w.status == "rejected" or (draft is not None and w.id == draft.id) or w.tahrir_ruxsat:
             continue
         for it in w.items.all():
             k = _lj_key(it.name, it.bolim)
@@ -4588,7 +4665,8 @@ def limit_jadval(request, pk):
             "id": w.id, "raqam": i,
             "sana": f"{w.week_start:%d.%m}-{w.week_end:%d.%m.%Y}",
             "ws": w.week_start.isoformat(), "we": w.week_end.isoformat(),
-            "status": w.status, "locked": w.status != "draft",
+            "status": w.status, "locked": w.status != "draft" and not w.tahrir_ruxsat,
+            "ruxsat": bool(w.tahrir_ruxsat),
             "number": w.number or "", "items": items_map, "boshqa": boshqa,
             # Zanjir holati banneri uchun imzolar
             "kiritdi": w.created_by.username if w.created_by_id else "",

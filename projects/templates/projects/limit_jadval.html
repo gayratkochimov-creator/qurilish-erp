@@ -532,7 +532,7 @@
     var t = document.getElementById('ljTabs'); t.innerHTML='';
     HAFTA.forEach(function(h){
       var b = document.createElement('button');
-      var belgi = h.status==='draft' ? '✏️' : h.status==='dir' ? '⏳ дир.' :
+      var belgi = h.ruxsat ? '🔓 таҳрир' : h.status==='draft' ? '✏️' : h.status==='dir' ? '⏳ дир.' :
                   h.status==='submitted' ? '⏳ адм.' : '🔒';
       b.textContent = h.raqam+'-ҳафта ('+h.sana+') ' + belgi;
       b.title = STATUS_NOMI[h.status] || h.status;
@@ -583,6 +583,11 @@
         }
         var okra = '<span style="color:#9ca3af;">→</span>';
         var html = '<b style="margin-right:4px;">Ҳафталик ҳолати:</b>';
+        // Admin: yopiq haftani tahrirlashga BIR MARTALIK ruxsat (har hafta uchun alohida)
+        var ruxsatTugma = (h.status !== 'draft' && ADMIN_RAW)
+          ? wkForma(h.id, 'tahrir_ruxsat', h.ruxsat ? '🔒 Рухсатни ёпиш' : '🔓 Таҳрирга рухсат бериш', h.ruxsat ? '#b45309' : '#1a5fb4', false) : '';
+        var ruxsatBelgi = h.ruxsat
+          ? '<span style="border-radius:999px; padding:2px 11px; font-weight:700; background:#fef3c7; color:#92400e; border:1px solid #fcd34d;">🔓 Админ таҳрирга рухсат берган — ўзгартириб «💾 Сақлаш»ни босинг (бир марталик)</span>' : '';
         if (h.status === 'draft'){
           html += qadam('ПТО (қоралама)', 'joriy', h.kiritdi, h.kiritdi_at) + okra +
                   qadam('Директор', 'keyin') + okra + qadam('Админ', 'keyin');
@@ -590,29 +595,33 @@
         } else if (h.status === 'dir'){
           html += qadam('ПТО юборди', 'ok', h.kiritdi, h.kiritdi_at) + okra +
                   qadam('ДИРЕКТОР тасдиғида', 'joriy') + okra + qadam('Админ', 'keyin');
-          if (WK_DIR_ACTOR) html += '<span style="margin-left:auto; display:inline-flex; gap:8px; align-items:center; flex-wrap:wrap;">'+
-            wkForma(h.id, 'dir_approve', '✓ Тасдиқлаш (директор)', '#26a269', false)+
-            wkForma(h.id, 'dir_reject', '↩ Орқага қайтариш', '#c2410c', true)+'</span>';
+          html += ruxsatBelgi;
+          html += '<span style="margin-left:auto; display:inline-flex; gap:8px; align-items:center; flex-wrap:wrap;">'+
+            (WK_DIR_ACTOR ? (wkForma(h.id, 'dir_approve', '✓ Тасдиқлаш (директор)', '#26a269', false)+
+                             wkForma(h.id, 'dir_reject', '↩ Орқага қайтариш', '#c2410c', true)) : '')+ruxsatTugma+'</span>';
           st.style.cssText = 'display:flex; border-radius:6px; padding:7px 12px; margin-bottom:8px; font-size:12.5px; align-items:center; gap:8px; flex-wrap:wrap; background:#eff6ff; border:1px solid #bfdbfe;';
         } else if (h.status === 'submitted'){
           html += qadam('ПТО юборди', 'ok', h.kiritdi, h.kiritdi_at) + okra +
                   qadam('Директор', 'ok', h.dir_by, h.dir_at) + okra +
                   qadam('АДМИН тасдиғида', 'joriy');
+          html += ruxsatBelgi;
           if (ADMIN_RAW) html += '<span style="margin-left:auto; display:inline-flex; gap:8px; align-items:center; flex-wrap:wrap;">'+
             wkForma(h.id, 'approve', '✓ Тасдиқлаш (админ)', '#26a269', false)+
-            wkForma(h.id, 'draft', '↩ Орқага қайтариш', '#c2410c', true)+'</span>';
+            wkForma(h.id, 'draft', '↩ Орқага қайтариш', '#c2410c', true)+ruxsatTugma+'</span>';
           st.style.cssText = 'display:flex; border-radius:6px; padding:7px 12px; margin-bottom:8px; font-size:12.5px; align-items:center; gap:8px; flex-wrap:wrap; background:#eff6ff; border:1px solid #bfdbfe;';
         } else {
           html += qadam('ПТО юборди', 'ok', h.kiritdi, h.kiritdi_at) + okra +
                   (h.dir_by ? (qadam('Директор', 'ok', h.dir_by, h.dir_at) + okra) : '') +
                   qadam('ТАСДИҚЛАНДИ', 'ok', h.adm_by, h.adm_at);
+          html += ruxsatBelgi;
           if (ADMIN_RAW){
             // Тасдиқдан кейин яна таҳрир керак бўлса — ПТОга қайтариш (Телеграм код билан)
-            html += '<a href="'+QAYTAR_TMPL.replace('123456789', h.id)+'" '+
-                    'style="margin-left:auto; background:#b45309; color:#fff; border-radius:5px; '+
+            html += '<span style="margin-left:auto; display:inline-flex; gap:8px; align-items:center; flex-wrap:wrap;">'+ruxsatTugma+
+                    '<a href="'+QAYTAR_TMPL.replace('123456789', h.id)+'" '+
+                    'style="background:#b45309; color:#fff; border-radius:5px; '+
                     'padding:4px 12px; font-weight:700; text-decoration:none; font-size:12px;" '+
                     'title="Сўров ПТО қораламасига қайтади — таҳрирлаб қайта юборади. Телеграм код сўралади.">'+
-                    '↩ ПТОга қайтариш</a>';
+                    '↩ ПТОга қайтариш</a></span>';
           }
           st.style.cssText = 'display:flex; border-radius:6px; padding:7px 12px; margin-bottom:8px; font-size:12.5px; align-items:center; gap:8px; flex-wrap:wrap; background:#f0fdf4; border:1px solid #bbf7d0;';
         }
@@ -1319,8 +1328,9 @@
     }
     var sb = document.getElementById('sanaBox');
     if (sb) sb.style.display = edit ? 'flex' : 'none';
+    var hR = haftaTop(sel), ruxsatRejim = !!(hR && hR.ruxsat && hR.status !== 'draft');
     ['btnSaqla','btnYopish'].forEach(function(id){
-      var b = document.getElementById(id); if (b) b.style.display = edit ? '' : 'none';
+      var b = document.getElementById(id); if (b) b.style.display = (edit && !(id==='btnYopish' && ruxsatRejim)) ? '' : 'none';
     });
     document.querySelectorAll('#ljBody tr.lim-addrow').forEach(function(b){ b.style.display = (LIM_EDIT || LIM_QOSH) ? '' : 'none'; });
     var bLim0 = document.getElementById('btnLimYubor');
@@ -1468,6 +1478,7 @@
     var wsEl = document.getElementById('wkStart'), weEl = document.getElementById('wkEnd');
     var lsEl = document.getElementById('limStart'), leEl = document.getElementById('limEnd');
     var payload = { action:action, items:items, limit_edits:limEdits, limit_new:limNew, limit_del:limDel,
+      hafta_id: (h && h.ruxsat && h.status !== 'draft') ? h.id : null,
       lim_zanjir: limZanjir, lim_qoralama: limMode === 'qoralama',
       week_start: (wsEl ? wsEl.value : '') || (h?h.ws:''),
       week_end: (weEl ? weEl.value : '') || (h?h.we:'') };

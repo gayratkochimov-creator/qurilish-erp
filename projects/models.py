@@ -347,6 +347,9 @@ class WeeklyRequest(models.Model):
         related_name="weekly_director", verbose_name="Direktor tasdiqladi",
     )
     director_at = models.DateTimeField("Direktor tasdig'i sanasi", null=True, blank=True)
+    # ADMIN bergan BIR MARTALIK ruxsat: yopiq (yuborilgan/tasdiqlangan) haftani jadvalda
+    # qayta tahrirlash — har hafta uchun alohida; saqlangach o'zi yopiladi
+    tahrir_ruxsat = models.BooleanField("Tahrirga admin ruxsati", default=False)
     # So'rovni OXIRGI marta kim tahrirlagan (admin/PTO)
     edited_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
