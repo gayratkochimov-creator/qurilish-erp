@@ -2,7 +2,7 @@
 <div class="tcard">
   <div class="tmain">
     <div class="pname">{{ r.obj.project.code }} — {{ r.obj.project.name }}</div>
-    <div class="tmeta">So'rovchi: {{ r.obj.requested_by.username|default:"—" }} · {{ r.obj.created_at|date:"d.m.Y H:i" }}{% if r.obj.reason %} · «{{ r.obj.reason }}»{% endif %}{% if r.obj.snab_by and stage != 'snab' %}<br>✓ Snabjeniye narxladi: <b>{{ r.obj.snab_by.username }}</b> · {{ r.obj.snab_at|date:"d.m.Y H:i" }}{% endif %}{% if r.obj.pto2_by and stage != 'snab' and stage != 'pto2' %}<br>✓ PTO xulosasi: <b>{{ r.obj.pto2_by.username }}</b> · {{ r.obj.pto2_at|date:"d.m.Y H:i" }}{% endif %}{% if stage == 'adm' and r.obj.director_by %}<br>✓ Direktor tasdiqladi: <b>{{ r.obj.director_by.username }}</b> · {{ r.obj.director_at|date:"d.m.Y H:i" }}{% endif %}{% if r.obj.edited_by %}<br><span style="color:#b45309;">✎ Oxirgi tahrir: <b>{{ r.obj.edited_by.username }}</b> · {{ r.obj.edited_at|date:"d.m.Y H:i" }}</span>{% endif %}{% if r.obj.decision_note and '↩' in r.obj.decision_note %}<br><span style="color:#b45309; font-weight:700;">{{ r.obj.decision_note }}</span>{% endif %}</div>
+    <div class="tmeta">So'rovchi: {{ r.obj.requested_by.username|default:"—" }} · {{ r.obj.created_at|date:"d.m.Y H:i" }}{% if r.obj.reason %} · «{{ r.obj.reason }}»{% endif %}{% if r.obj.snab_by and stage != 'snab' %}<br>✓ Snabjeniye narxladi: <b>{{ r.obj.snab_by.username }}</b> · {{ r.obj.snab_at|date:"d.m.Y H:i" }}{% endif %}{% if r.obj.pto2_by and stage != 'snab' and stage != 'pto2' %}<br>✓ PTO xulosasi: <b>{{ r.obj.pto2_by.username }}</b> · {{ r.obj.pto2_at|date:"d.m.Y H:i" }}{% endif %}{% if stage == 'adm' or stage == 'prov' %}{% if r.obj.director_by %}<br>✓ Direktor tasdiqladi: <b>{{ r.obj.director_by.username }}</b> · {{ r.obj.director_at|date:"d.m.Y H:i" }}{% endif %}{% endif %}{% if stage == 'adm' and r.obj.prov_by %}<br>✓ Proverchik tekshirdi: <b>{{ r.obj.prov_by.username }}</b> · {{ r.obj.prov_at|date:"d.m.Y H:i" }}{% endif %}{% if r.obj.edited_by %}<br><span style="color:#b45309;">✎ Oxirgi tahrir: <b>{{ r.obj.edited_by.username }}</b> · {{ r.obj.edited_at|date:"d.m.Y H:i" }}</span>{% endif %}{% if r.obj.decision_note and '↩' in r.obj.decision_note %}<br><span style="color:#b45309; font-weight:700;">{{ r.obj.decision_note }}</span>{% endif %}</div>
     <div class="cats">
       {% for nom, old, new in r.cats %}<span class="catline"><span class="n">{{ nom }}:</span> <span class="v">{{ old }}</span><span class="arr">→</span><span class="v new">{{ new }}</span></span>{% endfor %}
     </div>
@@ -95,6 +95,14 @@
         <input type="text" name="decision_note" class="rejnote" placeholder="Rad etish sababi...">
         <button class="btn-no">Rad etish</button>
       </form>
+    {% elif stage == 'prov' %}
+      <form method="post" action="{% url 'limit_request_action' r.obj.id %}"><input type="hidden" name="action" value="prov_approve">{% csrf_token %}<button class="btn-ok">Tekshirildi — adminga</button></form>
+      <form method="post" action="{% url 'limit_request_action' r.obj.id %}" class="rejform" onsubmit="var s=this.querySelector('[name=sabab]'); if(!s.value.trim()){ alert('Sababini yozing.'); s.focus(); return false; }">
+        <input type="hidden" name="action" value="orqaga">{% csrf_token %}
+<input type="hidden" name="target" value="dir">
+        <input type="text" name="sabab" class="rejnote" placeholder="sabab (to'g'irlash uchun)...">
+        <button class="btn-no">↩ Orqaga yuborish</button>
+      </form>
     {% else %}
       <form method="post" action="{% url 'limit_request_action' r.obj.id %}"><input type="hidden" name="action" value="approve">{% csrf_token %}<button class="btn-ok">Admin tasdiqlash</button></form>
       <form method="post" action="{% url 'limit_request_action' r.obj.id %}" class="rejform" onsubmit="var s=this.querySelector('[name=sabab]'); if(!s.value.trim()){ alert('Sababini yozing.'); s.focus(); return false; }">
@@ -102,6 +110,8 @@
         <select name="target" style="padding:6px; border:1px solid var(--line); border-radius:7px; font-size:12px;">
           <option value="pto2">PTOga (tahrirga)</option>
           <option value="dir">Direktorga</option>
+          {% if r.obj.prov_by %}<option value="prov">Proverchikga</option>{% endif %}
+          {% if r.obj.snab_by %}<option value="snab">Snabjeniyega</option>{% endif %}
         </select>
         <input type="text" name="sabab" class="rejnote" placeholder="sabab (to'g'irlash uchun)...">
         <button class="btn-no">↩ Orqaga yuborish</button>

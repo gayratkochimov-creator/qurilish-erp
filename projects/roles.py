@@ -76,6 +76,17 @@ def is_snab(user):
     return user.groups.filter(name=SNAB_GROUP).exists()
 
 
+def is_prov(user):
+    """Proverchik (tekshiruvchi) — limit zanjirida direktordan keyin, admindan oldin
+    tekshiradi; firma darajasida ko'radi."""
+    if not (user.is_authenticated and not user.is_superuser):
+        return False
+    r = _role(user)
+    if r:
+        return r == "prov"
+    return user.groups.filter(name="Proverchik").exists()
+
+
 def is_bux(user):
     """Buxgalter — o'z FIRMASIdagi hamma obyekt/limit/ombor/hisobotni FAQAT KO'RADI,
     Excel yuklab oladi. Hech narsani o'zgartirmaydi va tasdiqlamaydi."""
@@ -114,7 +125,7 @@ def visible_projects(user, qs=None):
     if user.is_superuser:
         return qs
     # Direktor va BUXGALTER — firma darajasi (profil roli ustun; guruh faqat profil bo'lmaganda)
-    if is_director(user) or is_bux(user):
+    if is_director(user) or is_bux(user) or is_prov(user):
         f = user_firma(user)
         return qs.filter(firma=f) if f else qs.none()
     # PTO / Prorab / Snab — faqat biriktirilgan obyektlar; profilida firma

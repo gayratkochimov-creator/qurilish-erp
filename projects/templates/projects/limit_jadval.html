@@ -338,9 +338,9 @@
         data-vol="{{ r.vol|unlocalize }}" data-price="{{ r.price|unlocalize }}"
         data-fqty="{{ r.fakt_qty|unlocalize }}" data-fsum="{{ r.fakt_sum|unlocalize }}"
         data-bq="{{ r.bq|unlocalize }}" data-bs="{{ r.bs|unlocalize }}" data-wq="{{ r.wq|unlocalize }}" data-ws="{{ r.ws|unlocalize }}"
-        data-izoh="{{ r.izoh }}">
+        data-izoh="{{ r.izoh }}" data-sana="{{ r.sana }}">
       <td class="ctr rn">{{ forloop.counter }}</td>
-      <td>{{ r.name }}{% if r.ozg == 'yangi' %} <span style="background:#dcfce7; color:#15803d; border-radius:4px; padding:0 5px; font-size:10.5px; font-weight:700;">янги</span>{% elif r.ozg == 'ozgardi' %} <span style="background:#fef3c7; color:#92400e; border-radius:4px; padding:0 5px; font-size:10.5px; font-weight:700;">ўзгарди</span>{% endif %}</td>
+      <td title="{% if r.sana %}Киритилган: {{ r.sana }}{% endif %}">{{ r.name }}{% if r.sana %} <span class="qsana" style="font-size:10px; color:#94a3b8; white-space:nowrap;">{{ r.sana }}</span>{% endif %}{% if r.ozg == 'yangi' %} <span style="background:#dcfce7; color:#15803d; border-radius:4px; padding:0 5px; font-size:10.5px; font-weight:700;">янги</span>{% elif r.ozg == 'ozgardi' %} <span style="background:#fef3c7; color:#92400e; border-radius:4px; padding:0 5px; font-size:10.5px; font-weight:700;">ўзгарди</span>{% endif %}</td>
       <td class="c-izoh" style="font-size:11.5px; color:#666;">{{ r.izoh }}</td>
       <td class="ctr">{{ r.unit }}</td>
       <td class="num c-vol"></td><td class="num c-price"></td><td class="num c-total"></td>
@@ -641,7 +641,7 @@
         var x = limRow(tr);
         vol = x.vol; price = x.price;
         tr.style.display = x.del ? 'none' : '';
-        tr.cells[1].innerHTML = '<input class="wkin tx lim-n" value="'+esc(x.name)+'" placeholder="иш номи...">'+KSEL;
+        tr.cells[1].innerHTML = '<input class="wkin tx lim-n" value="'+esc(x.name)+'" placeholder="иш номи..." title="'+(tr.dataset.sana ? 'Киритилган: '+esc(tr.dataset.sana) : '')+'">'+KSEL;
         var ksel = tr.querySelector('.lim-k'); ksel.value = x.kind || 'material';
         turChipUla(tr, ksel, x);
         tr.cells[3].innerHTML = '<input class="wkin kichik lim-u" value="'+esc(x.unit)+'" placeholder="бирл.">';
@@ -813,7 +813,8 @@
         }
         var liveQ = wEdit ? (x.wq||0) : 0, liveS = wEdit ? (x.wq||0)*((x.wp||0)||(x.price||0)) : 0;
         r.innerHTML = '<td class="ctr"></td>'+
-          '<td><input class="wkin tx yb-n" value="'+esc(x.name||'')+'" placeholder="иш номи...">'+
+          '<td><input class="wkin tx yb-n" value="'+esc(x.name||'')+'" placeholder="иш номи..."'+(x.sana ? ' title="Киритилган: '+esc(x.sana)+'"' : '')+'>'+
+          (x.sana ? '<span style="font-size:10px; color:#94a3b8; white-space:nowrap; margin-left:4px;">'+esc(x.sana)+'</span>' : '')+
           '<select class="ksel yb-k"><option value="material">Материал</option><option value="labor">Иш ҳақи</option><option value="machinery">Машина части</option><option value="other">Кўзда тутилмаган</option></select></td>'+
           '<td><textarea class="wkin tx yb-i" rows="1" placeholder="изоҳ...">'+esc(x.izoh||'')+'</textarea></td>'+
           '<td class="ctr"><input class="wkin kichik yb-u" value="'+esc(x.unit||'')+'" placeholder="бирл."></td>'+

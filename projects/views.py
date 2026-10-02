@@ -55,7 +55,13 @@ KINDS = ("material", "labor", "machinery", "other")
 
 # Tasdiqlash zanjirida «jarayonda» statuslar:
 # snab (snabjeniye ko'rigida) -> pto2 (PTO xulosasida) -> dir -> adm
-LIM_JARAYON = ["snab", "pto2", "dir", "adm"]
+LIM_JARAYON = ["snab", "pto2", "dir", "prov", "adm"]
+
+
+def _prov_bor(firma):
+    """Firmada proverchik (tekshiruvchi) bormi? Bo'lsa zanjir: direktor -> proverchik -> admin."""
+    from .models import UserProfile
+    return bool(firma) and UserProfile.objects.filter(role="prov", firma=firma, user__is_active=True).exists()
 
 
 def _snab_bor(p):
@@ -460,8 +466,12 @@ def dashboard(request):
     _adm = is_admin(request.user)
     _snb = _is_snab_f(request.user)
     _pto_f = is_pto(request.user)
+    from .roles import is_prov as _is_prov_f
+    _prv = _is_prov_f(request.user)
     tas_lim, tas_wk, tas_lim2, tas_wk2 = [], [], [], []
-    tas_lim_s, tas_lim_p2 = [], []
+    tas_lim_s, tas_lim_p2, tas_lim_pr = [], [], []
+    if _prv or _adm:
+        tas_lim_pr, _x = _tasdiqlar_data("prov", user=request.user)
     if _dir:
         tas_lim, tas_wk = _tasdiqlar_data("dir", user=request.user)
     if _adm:
@@ -481,7 +491,7 @@ def dashboard(request):
         graf_adm = list(GrafikTasdiq.objects.filter(
             status="adm", project__in=visible_projects(request.user)
         ).select_related("project", "yubordi", "director_by"))
-    tas_show = _dir or _adm or _snb or bool(tas_lim_p2)
+    tas_show = _dir or _adm or _snb or _prv or bool(tas_lim_p2)
     from django.utils import timezone as _tz
     _h = _tz.localtime().hour
     greeting = "Xayrli tong" if _h < 12 else ("Xayrli kun" if _h < 18 else "Xayrli kech")
@@ -493,10 +503,11 @@ def dashboard(request):
         "tas_lim2": tas_lim2, "tas_wk2": tas_wk2,      # admin navbati
         "tas_lim_s": tas_lim_s,                        # snabjeniye navbati
         "tas_lim_p2": tas_lim_p2,                      # PTO xulosasi navbati
-        "is_director": _dir, "is_snab": _snb, "tas_show": tas_show,
+        "tas_lim_pr": tas_lim_pr,                      # proverchik navbati
+        "is_director": _dir, "is_snab": _snb, "is_prov": _prv, "tas_show": tas_show,
         "graf_dir": graf_dir, "graf_adm": graf_adm,    # grafik tasdiqlash navbatlari
         "tas_count": (len(tas_lim) + len(tas_wk) + len(tas_lim2) + len(tas_wk2)
-                      + len(tas_lim_s) + len(tas_lim_p2) + len(graf_dir) + len(graf_adm)),
+                      + len(tas_lim_s) + len(tas_lim_p2) + len(tas_lim_pr) + len(graf_dir) + len(graf_adm)),
         "greeting": greeting,
         "qatorlar": qatorlar,
         "cat_values": cat_values,
@@ -1841,6 +1852,9 @@ def _limit_bosqich_egasi(req, status):
     if status == "dir":
         return req.director_by or (U.objects.filter(is_active=True, profile__firma=p.firma, profile__role="director")
                                    .order_by("username").first())
+    if status == "prov":
+        return req.prov_by or (U.objects.filter(is_active=True, profile__firma=p.firma, profile__role="prov")
+                               .order_by("username").first())
     return None
 
 
@@ -1857,9 +1871,10 @@ def _limit_request_action_asl(request, pk):
         return redirect("project_detail", pk=req.project_id)
     from .roles import is_asosiy_admin, is_director, is_pto, is_snab
     S = LimitChangeRequest.Status
+    from .roles import is_prov
     if not (is_director(request.user) or is_admin(request.user)
-            or is_snab(request.user) or is_pto(request.user)):
-        raise PermissionDenied("Faqat snabjeniye, PTO, direktor yoki admin.")
+            or is_snab(request.user) or is_pto(request.user) or is_prov(request.user)):
+        raise PermissionDenied("Faqat snabjeniye, PTO, direktor, proverchik yoki admin.")
     if request.method == "POST":
         a = request.POST.get("action")
         if a == "delitem":
@@ -1933,17 +1948,19 @@ def _limit_request_action_asl(request, pk):
             sabab = " ".join((request.POST.get("sabab") or "").split())[:300]
             target = request.POST.get("target") or ""
             RUXSAT = {
-                # joriy status: (kim qaytara oladi, ruxsat etilgan targetlar)
+                # joriy status: (kim qaytara oladi, ruxsat etilgan targetlar) —
+                # har bir foydalanuvchi YUBORGAN foydalanuvchiga to'g'rilash uchun qaytaradi
                 S.PTO2: (lambda u: is_pto(u) or is_admin(u), {S.SNAB}),
                 S.DIR: (lambda u: (is_director(u) and not u.is_superuser)
                         or is_asosiy_admin(u), {S.PTO2}),
-                S.ADM: (lambda u: is_admin(u), {S.DIR, S.PTO2}),
+                S.PROV: (lambda u: is_prov(u) or is_admin(u), {S.DIR}),
+                S.ADM: (lambda u: is_admin(u), {S.DIR, S.PTO2, S.PROV}),
             }
-            NOMI = {S.SNAB: "Snabjeniyega", S.PTO2: "PTOga", S.DIR: "Direktorga"}
+            NOMI = {S.SNAB: "Snabjeniyega", S.PTO2: "PTOga", S.DIR: "Direktorga", S.PROV: "Proverchikga"}
             if is_admin(request.user) and req.status in LIM_JARAYON:
-                # ADMIN — istalgan bosqichdan snab / PTO / direktorning istalganiga
-                # (xato qilganiga) qaytaradi
-                mumkin = {S.SNAB, S.PTO2, S.DIR}
+                # ADMIN — istalgan bosqichdan snab / PTO / direktor / proverchikning
+                # istalganiga (xato qilganiga) qaytaradi
+                mumkin = {S.SNAB, S.PTO2, S.DIR, S.PROV}
                 mumkin.discard(req.status)
                 ruxsat_bor, targetlar = True, mumkin
             elif req.status in RUXSAT:
@@ -1993,11 +2010,27 @@ def _limit_request_action_asl(request, pk):
             if req.status != S.DIR:
                 messages.error(request, "Bu so'rov direktor bosqichida emas.")
             else:
-                req.status = S.ADM
+                # Firmada proverchik bo'lsa — avval unga, keyin adminga
+                keyingi = S.PROV if _prov_bor(req.project.firma) else S.ADM
+                req.status = keyingi
                 req.director_by = request.user
                 req.director_at = timezone.now()
                 req.save(update_fields=["status", "director_by", "director_at"])
-                messages.success(request, f"«{req.project.name}» — direktor tasdiqladi, admin tasdig'iga o'tdi.")
+                messages.success(request, f"«{req.project.name}» — direktor tasdiqladi, "
+                                          + ("proverchik tekshiruviga o'tdi." if keyingi == S.PROV
+                                             else "admin tasdig'iga o'tdi."))
+        elif a == "prov_approve":
+            # PROVERCHIK bosqichi: tekshirib adminga o'tkazadi
+            if not (is_prov(request.user) or is_admin(request.user)):
+                raise PermissionDenied("Faqat proverchik.")
+            if req.status != S.PROV:
+                messages.error(request, "Bu so'rov proverchik bosqichida emas.")
+            else:
+                req.status = S.ADM
+                req.prov_by = request.user
+                req.prov_at = timezone.now()
+                req.save(update_fields=["status", "prov_by", "prov_at"])
+                messages.success(request, f"«{req.project.name}» — proverchik tekshirdi, admin tasdig'iga o'tdi.")
         elif a == "dir_reject":
             if request.user.is_superuser and not is_asosiy_admin(request.user):
                 messages.error(request, "Direktor bosqichini HAQIQIY direktor yoki ASOSIY admin ko'radi.")
@@ -3824,7 +3857,9 @@ def _lj_guruhlar(items, fakt):
             rem["sum"] -= f_sum
         bq = getattr(li, "boshlangich_qty", None) or Decimal("0")
         bs = getattr(li, "boshlangich_sum", None) or Decimal("0")
+        _ca = getattr(li, "created_at", None)
         g["rows"].append({
+            "sana": f"{_ca:%d.%m.%Y}" if _ca else "",
             "id": li.pk, "asl": getattr(li, "asl_id", None),
             "key": k, "name": li.name, "izoh": li.note or "", "unit": li.unit or "",
             "kind": li.kind, "bolim": kal,
@@ -3858,9 +3893,12 @@ def _lj_taklif_huquq(user, req):
         return is_admin(user) or zanjir
     if req.status not in LIM_JARAYON:
         return False
+    from .roles import is_prov as _is_prov, is_asosiy_admin as _asos
     return (is_admin(user)
             or (req.status == "snab" and _is_snab(user))
-            or (req.status == "pto2" and is_pto(user)))
+            or (req.status == "pto2" and is_pto(user))
+            or (req.status == "dir" and ((is_director(user) and not user.is_superuser) or _asos(user)))
+            or (req.status == "prov" and _is_prov(user)))
 
 
 def _lj_taklif_token(req):
@@ -4522,7 +4560,7 @@ def limit_jadval(request, pk):
                 "bolim": g["bolim"], "masul": g["masul"],
                 "rows": [{"name": r["name"], "unit": r["unit"], "kind": r["kind"],
                           "vol": r["vol"], "price": r["price"], "izoh": r["izoh"],
-                          "asl": r.get("asl"), "bq": r["bq"], "bs": r["bs"],
+                          "asl": r.get("asl"), "bq": r["bq"], "bs": r["bs"], "sana": r.get("sana", ""),
                           "fq": r["wq"], "fs": r["ws"]} for r in g["rows"]],
             } for g in guruhlar]
             guruhlar = []
@@ -4615,7 +4653,7 @@ def limit_jadval(request, pk):
         r0 = lim_pend_obj
         # Bosqichlar TARTIB bo'yicha: joriy bosqichdan KEYINGILARI — hali kutilmoqda
         # (orqaga qaytarilgan bo'lsa, ilgari imzolangan bo'lsa ham kulrang)
-        TARTIB = ["snab", "pto2", "dir", "adm"]
+        TARTIB = ["snab", "pto2", "dir", "prov", "adm"]
         joriy_i = TARTIB.index(r0.status) if r0.status in TARTIB else -1
         steps = [{"nom": "ПТО киритди", "holat": "ok",
                   "kim": r0.requested_by.username if r0.requested_by_id else "",
@@ -4623,7 +4661,9 @@ def limit_jadval(request, pk):
         BOSQ = [("snab", "Снабжение нархлади", "СНАБЖЕНИЕ нархлашида", r0.snab_by, r0.snab_at),
                 ("pto2", "ПТО хулосаси", "ПТО хулосасида", r0.pto2_by, r0.pto2_at),
                 ("dir", "Директор", "ДИРЕКТОР тасдиғида", r0.director_by, r0.director_at),
+                ("prov", "Проверчик", "ПРОВЕРЧИК текширувида", r0.prov_by, r0.prov_at),
                 ("adm", "Админ", "АДМИН тасдиғида", None, None)]
+        prov_bor = _prov_bor(p.firma) or bool(r0.prov_by_id)
         for st_, ok_nom, kut_nom, kim, vaqt in BOSQ:
             i_ = TARTIB.index(st_)
             if i_ < joriy_i and (kim is not None or st_ == "pto2"):
@@ -4631,13 +4671,13 @@ def limit_jadval(request, pk):
                               "kim": kim.username if kim else "", "vaqt": _v(vaqt)})
             elif i_ == joriy_i:
                 steps.append({"nom": kut_nom, "holat": "joriy", "kim": "", "vaqt": ""})
-            elif i_ > joriy_i and (st_ != "snab" or _snab_bor(p)):
+            elif i_ > joriy_i and (st_ != "snab" or _snab_bor(p)) and (st_ != "prov" or prov_bor):
                 steps.append({"nom": ok_nom, "holat": "keyin", "kim": "", "vaqt": ""})
         lim_holat = {"mode": "pending", "steps": steps,
                      # orqaga qaytarilgan bo'lsa — sababi bannerda
                      "qaytarish": (r0.decision_note or "")
                      if (r0.decision_note or "").startswith("↩") else ""}
-        from .roles import is_snab as _is_snab0
+        from .roles import is_snab as _is_snab0, is_prov as _is_prov_u
         # Shu bosqich egasi jadvalning O'ZIDA oldinga o'tkazadi yoki ORQAGA qaytaradi
         _u, _st = request.user, r0.status
         _dir_actor = (is_director(_u) and not _u.is_superuser) or _asosiy_adm(_u)
@@ -4648,15 +4688,18 @@ def limit_jadval(request, pk):
             _amal = {"oldinga": ("pto_send_dir", "▶ Директорга юбориш"),
                      "orqaga": [("snab", "Снабжениега")] if r0.snab_by_id else []}
         elif _st == "dir" and _dir_actor:
-            _amal = {"oldinga": ("dir_approve", "✓ Тасдиқлаш (директор)"),
+            _amal = {"oldinga": ("dir_approve", "✓ Тасдиқлаш (директор)" + (" — проверчикга" if _prov_bor(p.firma) else "")),
                      "orqaga": [("pto2", "ПТОга")]}
+        elif _st == "prov" and (_is_prov_u(_u) or is_admin(_u)):
+            _amal = {"oldinga": ("prov_approve", "✓ Текширилди — админга"),
+                     "orqaga": [("dir", "Директорга")]}
         elif _st == "adm" and is_admin(_u):
             _amal = {"oldinga": ("approve", "✓ Тасдиқлаш (админ)"),
                      "orqaga": [("pto2", "ПТОга"), ("dir", "Директорга")]}
         if _amal and is_admin(_u):
-            # Admin — snab / PTO / direktorning istalganiga qaytaradi (joriy bosqichdan tashqari)
-            _amal["orqaga"] = [(k, n) for k, n in (("pto2", "ПТОга"), ("snab", "Снабжениега"), ("dir", "Директорга"))
-                               if k != _st]
+            # Admin — snab / PTO / direktor / proverchikning istalganiga qaytaradi (joriy bosqichdan tashqari)
+            _amal["orqaga"] = [(k, n) for k, n in (("pto2", "ПТОга"), ("snab", "Снабжениега"), ("dir", "Директорга"), ("prov", "Проверчикга"))
+                               if k != _st and (k != "prov" or prov_bor)]
         if _amal:
             _amal["id"] = r0.id
         lim_holat["amal"] = _amal
@@ -4747,11 +4790,13 @@ def _lj_zanjir_userlar(p, sender):
     snab = birinchi("snab")
     direktor = (U.objects.filter(is_active=True, profile__firma=p.firma,
                                  profile__role="director").order_by("username").first())
+    prov = (U.objects.filter(is_active=True, profile__firma=p.firma,
+                             profile__role="prov").order_by("username").first())
     admin = (U.objects.filter(is_active=True, is_superuser=True,
                               username=getattr(_s, "ASOSIY_ADMIN_LOGIN", "admin")).first()
              or U.objects.filter(is_active=True, is_superuser=True).order_by("username").first())
     zanjir = []
-    for u in (pto, snab, pto, direktor, admin):
+    for u in (pto, snab, pto, direktor, prov, admin):
         if u is None or u.pk == sender.pk:
             continue
         if zanjir and zanjir[-1].pk == u.pk:   # ketma-ket takror emas

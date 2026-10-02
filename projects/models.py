@@ -187,6 +187,7 @@ class LimitChangeRequest(models.Model):
         SNAB = "snab", "Snabjeniye ko'rigida"   # PTO yuborgach snabjeniye narx/tarkibni ko'radi
         PTO2 = "pto2", "PTO xulosasida"          # snabjeniyedan qaytgan — PTO yakuniy xulosa beradi
         DIR = "dir", "Direktor tasdig'ida"
+        PROV = "prov", "Proverchik tekshiruvida"   # direktordan keyin, admindan oldin
         ADM = "adm", "Admin tasdig'ida"
         PENDING = "pending", "Kutilmoqda"   # eski yozuvlar uchun (migratsiyada 'dir'ga o'tadi)
         APPROVED = "approved", "Tasdiqlangan"
@@ -234,6 +235,11 @@ class LimitChangeRequest(models.Model):
         related_name="limit_requests_dir", verbose_name="Direktor tasdiqladi",
     )
     director_at = models.DateTimeField("Direktor tasdig'i sanasi", null=True, blank=True)
+    prov_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="limit_requests_prov", verbose_name="Proverchik tekshirdi",
+    )
+    prov_at = models.DateTimeField("Proverchik tekshiruvi sanasi", null=True, blank=True)
     decided_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
         related_name="limit_requests_decided", verbose_name="Qaror qilgan (admin)",
@@ -709,10 +715,11 @@ class UserProfile(models.Model):
         PRORAB = "prorab", "Prorab"
         SNAB = "snab", "Snabjeniye"
         BUX = "bux", "Buxgalter"   # firma bo'yicha FAQAT KO'RISH + Excel
+        PROV = "prov", "Proverchik (tekshiruvchi)"   # limit zanjiri: direktordan keyin, admindan oldin
 
     # Rol -> Django guruh nomi (is_pto/is_director/is_prorab guruh bo'yicha ishlaydi)
     ROLE_GROUP = {"director": "Direktor", "pto": "PTO", "prorab": "Prorab",
-                  "snab": "Snabjeniye", "bux": "Buxgalter"}
+                  "snab": "Snabjeniye", "bux": "Buxgalter", "prov": "Proverchik"}
 
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE,

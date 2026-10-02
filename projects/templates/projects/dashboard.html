@@ -561,6 +561,15 @@
     {% endif %}
     {% endif %}
 
+    {% if is_prov or tas_lim_pr %}
+    {# ===== PROVERCHIK NAVBATI (direktordan o'tgan, admindan oldin) ===== #}
+    <div class="stage-head dir">Proverchik tekshiruvida <span class="sh-note">— direktordan o'tgan; tekshirib adminga yuboriladi</span></div>
+    <div class="sec">
+      <h3>Limit o'zgartirish so'rovlari {% if tas_lim_pr %}<span class="c">{{ tas_lim_pr|length }}</span>{% endif %}</h3>
+      {% for r in tas_lim_pr %}{% include "projects/_tas_lim_card.html" with r=r stage='prov' %}{% empty %}<div class="tempty">Proverchik tekshiruvini kutayotgan limit so'rovi yo'q.</div>{% endfor %}
+    </div>
+    {% endif %}
+
     {% if request.user.is_superuser %}
     {# ===== ADMIN NAVBATI (direktordan o'tganlar) ===== #}
     <div class="stage-head adm">Admin tasdig'ida <span class="sh-note">— direktordan o'tgan, yakuniy tasdiqlash</span></div>
