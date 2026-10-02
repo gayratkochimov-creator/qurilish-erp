@@ -67,7 +67,6 @@
   .wi-tgl { border:1px solid #d3b8e0; background:#fff; color:#813d9c; border-radius:4px; padding:1px 6px; cursor:pointer; font-size:11px; flex:none; align-self:center; }
   .wi-tgl:hover { background:#813d9c; color:#fff; }
   .wi-tgl.has { background:#fde68a; border-color:#f59e0b; color:#92400e; }
-  .fq-jami, .fs-jami, .yb-fq-jami, .yb-fs-jami { display:block; font-size:10px; color:#64748b; text-align:right; white-space:nowrap; }
   /* Tur chipi — yozib bo'lingach jadvalda KO'RINMAYDI; qator ustiga borilganda
      chiqadi, bosilsa select qayta ochiladi */
   .k-chip { display:none; font-size:10.5px; font-weight:700; border-radius:999px; padding:0 9px; cursor:pointer; border:1px solid transparent; line-height:16px; position:absolute; right:6px; top:50%; transform:translateY(-50%); box-shadow:0 1px 3px rgba(0,0,0,.12); }
@@ -680,9 +679,11 @@
         tr.querySelector('.c-price').innerHTML = '<input class="wkin lim-p" type="number" min="0" value="'+(price||'')+'">';
         // Бажарилган: лимитгача олинган қисм ҚЎЛДА (ҳафталиклар устига автоматик қўшилади)
         var wq0 = pf(tr.dataset.wq), ws0 = pf(tr.dataset.ws);
-        var hint = wq0 ? ' title="+ тасдиқланган ҳафталиклар: '+fmt(wq0)+' / '+fmt(ws0)+'"' : ' title="Лимитгача бажарилган/олинган қисм — қўлда"';
-        tr.querySelector('.c-fqty').innerHTML = '<input class="wkin lim-bq" type="number" min="0" step="0.001" value="'+(x.bq||'')+'" placeholder="0"'+hint+'><span class="fq-jami"></span>';
-        tr.querySelector('.c-fsum').innerHTML = '<input class="wkin lim-bs" type="number" min="0" value="'+(x.bs||'')+'" placeholder="0"'+hint+'><span class="fs-jami"></span>';
+        // Katakda ЖАМИ бажарилган: ёзилган ҳафталиклар (автоматик) + қўлда киритилган қисм.
+        // Фойдаланувчи ёзган сон жами ҳисобланади — ҳафталиклар ундан айирилиб, қолгани қўлда қисм бўлади
+        var hint = ' title="Жами бажарилган = ҳафталиклар ('+fmt(wq0)+' / '+fmt(ws0)+', автоматик) + қўлда киритилган қисм"';
+        tr.querySelector('.c-fqty').innerHTML = '<input class="wkin lim-bq" type="number" min="0" step="0.001" value="'+(((x.bq||0)+wq0)||'')+'" placeholder="0"'+hint+'>';
+        tr.querySelector('.c-fsum').innerHTML = '<input class="wkin lim-bs" type="number" min="0" value="'+(((x.bs||0)+ws0)||'')+'" placeholder="0"'+hint+'>';
         fq = wq0 + (x.bq||0); fs = ws0 + (x.bs||0);
       } else {
         tr.querySelector('.c-vol').textContent = fmt(vol);
@@ -847,8 +848,8 @@
           '<td class="num"><input class="wkin yb-q" type="number" min="0" step="0.001" value="'+(x.vol||'')+'"></td>'+
           '<td class="num"><input class="wkin yb-p" type="number" min="0" value="'+(x.price||'')+'"></td>'+
           '<td class="num yb-s">'+fmt((x.vol||0)*(x.price||0))+'</td>'+
-          '<td class="num"><input class="wkin yb-bq" type="number" min="0" step="0.001" value="'+(x.bq||'')+'" placeholder="0" title="Лимитгача бажарилган/олинган қисм — қўлда'+((x.fq||0)?('; + ҳафталиклар: '+fmt(x.fq)):'')+'"><span class="yb-fq-jami"></span></td>'+
-          '<td class="num"><input class="wkin yb-bs" type="number" min="0" value="'+(x.bs||'')+'" placeholder="0" title="Лимитгача бажарилган сумма'+((x.fs||0)?('; + ҳафталиклар: '+fmt(x.fs)):'')+'"><span class="yb-fs-jami"></span></td>'+
+          '<td class="num"><input class="wkin yb-bq" type="number" min="0" step="0.001" value="'+(((x.bq||0)+(x.fq||0))||'')+'" placeholder="0" title="Жами бажарилган = ҳафталиклар ('+fmt(x.fq||0)+', автоматик) + қўлда киритилган қисм"></td>'+
+          '<td class="num"><input class="wkin yb-bs" type="number" min="0" value="'+(((x.bs||0)+(x.fs||0))||'')+'" placeholder="0" title="Жами бажарилган сумма = ҳафталиклар ('+fmt(x.fs||0)+') + қўлда"></td>'+
           '<td class="num yb-lq">'+fmt((x.vol||0)-(x.fq||0)-(x.bq||0)-liveQ)+'</td><td class="num yb-ls">'+fmt((x.vol||0)*(x.price||0)-(x.fs||0)-(x.bs||0)-liveS)+'</td>'+
           (wEdit
             ? ('<td class="ctr yb-wu">'+esc(x.unit||'')+'</td>'+
@@ -885,10 +886,12 @@
             var raqam = (pr[1]==='vol'||pr[1]==='price'||pr[1]==='wq'||pr[1]==='wp'||pr[1]==='bq'||pr[1]==='bs');
             x[pr[1]] = raqam ? pf(inp.value) : inp.value;
             taklifDirty = true;
-            if (pr[1]==='bs') x.bsQolda = true;
+            // Бажарилган катагида ЖАМИ ёзилади — ҳафталиклар айирилиб қўлда қисм сақланади
+            if (pr[1]==='bq') x.bq = Math.max(0, x.bq - (x.fq||0));
+            if (pr[1]==='bs'){ x.bs = Math.max(0, x.bs - (x.fs||0)); x.bsQolda = true; }
             if ((pr[1]==='bq' || pr[1]==='price') && !x.bsQolda){
               x.bs = Math.round((x.bq||0) * (x.price||0) * 100) / 100;
-              var bsI = r.querySelector('.yb-bs'); if (bsI) bsI.value = x.bs || '';
+              var bsI = r.querySelector('.yb-bs'); if (bsI) bsI.value = (x.bs + (x.fs||0)) || '';
             }
             if (pr[1]==='price' && !(x.wp||0)){ var wpI=r.querySelector('.yb-wp'); if (wpI && !wpI.value) wpI.placeholder = inp.value; }
             r.querySelector('.yb-s').textContent = fmt((x.vol||0)*(x.price||0));
@@ -1212,11 +1215,6 @@
         // Умумий тахрирланса — Сумма ва Қолган жонли янгиланади
         tr.querySelector('.c-total').textContent = fmt(vol*price);
         if (!LIM_EDIT){ tr.querySelector('.c-fqty').textContent = fmt(fqJ); tr.querySelector('.c-fsum').textContent = fmt(fsJ); }
-        else {
-          var j1 = tr.querySelector('.fq-jami'), j2 = tr.querySelector('.fs-jami');
-          if (j1) j1.textContent = 'жами ' + fmt(fqJ);
-          if (j2) j2.textContent = 'жами ' + fmt(fsJ);
-        }
         tr.querySelector('.c-lqty').textContent = fmt(vol-fqJ);
         tr.querySelector('.c-lsum').textContent = fmt(vol*price-fsJ);
         sT+=vol*price; sF+=fsJ; sL+=vol*price-fsJ; sW+=w.s;
@@ -1309,18 +1307,6 @@
         sb2.querySelector('.s-wsum').textContent = fmt(bW);
       }
     });
-    // Yangi/taklif qatorlarida Бажарилган жами (limitgacha + haftaliklar + joriy)
-    (function(){
-      var wE = tahrirmi();
-      document.querySelectorAll('tr.extra').forEach(function(tr){
-        var x = tr._ybx; if (!x) return;
-        var j1 = tr.querySelector('.yb-fq-jami'), j2 = tr.querySelector('.yb-fs-jami');
-        if (!j1) return;
-        var wn = (x.wp||0) || (x.price||0);
-        j1.textContent = 'жами ' + fmt((x.fq||0)+(x.bq||0)+(wE ? (x.wq||0) : 0));
-        j2.textContent = 'жами ' + fmt((x.fs||0)+(x.bs||0)+(wE ? (x.wq||0)*wn : 0));
-      });
-    })();
     extralar.forEach(function(x, i){
       gW += (x.qty||0)*(x.price||0);
       if (edit){
@@ -1383,9 +1369,11 @@
       else if (c.contains('lim-k')) x.kind = e.target.value;
       else if (c.contains('lim-q')) x.vol = pf(e.target.value);
       else if (c.contains('lim-p')) x.price = pf(e.target.value);
-      else if (c.contains('lim-bq')){ x.bq = pf(e.target.value);
-        if (!x.bsQolda){ x.bs = Math.round(x.bq * (x.price||0) * 100) / 100; var bsI = tr.querySelector('.lim-bs'); if (bsI) bsI.value = x.bs || ''; } }
-      else if (c.contains('lim-bs')){ x.bs = pf(e.target.value); x.bsQolda = true; }
+      else if (c.contains('lim-bq')){
+        // Yozilgan son — ЖАМИ; haftaliklar (server) ayirilib qo'lda qism saqlanadi
+        x.bq = Math.max(0, pf(e.target.value) - pf(tr.dataset.wq));
+        if (!x.bsQolda){ x.bs = Math.round(x.bq * (x.price||0) * 100) / 100; var bsI = tr.querySelector('.lim-bs'); if (bsI) bsI.value = (x.bs + pf(tr.dataset.ws)) || ''; } }
+      else if (c.contains('lim-bs')){ x.bs = Math.max(0, pf(e.target.value) - pf(tr.dataset.ws)); x.bsQolda = true; }
     }
     if (c.contains('in-q') || c.contains('in-p') || c.contains('lim-q') || c.contains('lim-p') ||
         c.contains('lim-n') || c.contains('lim-u') || c.contains('lim-i') || c.contains('lim-k') ||
