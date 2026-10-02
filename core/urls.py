@@ -19,10 +19,13 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from django.urls import include, path
+from django.views.generic import RedirectView
 
 from projects import auth2fa, impersonate
 
 urlpatterns = [
+    # Django admin'ning o'z login sahifasi 2FA'ni chetlab o'tmasin — umumiy loginga
+    path('admin/login/', RedirectView.as_view(url='/login/?next=/admin/', permanent=False)),
     path('admin/', admin.site.urls),
     # Admin xodim sifatida kirib jarayonni tekshiradi (parolsiz, faqat superuser)
     path('sifatida-kirish/<int:pk>/', impersonate.sifatida_kirish, name='sifatida_kirish'),

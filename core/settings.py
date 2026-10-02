@@ -156,6 +156,10 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 # Authentication / login
 LOGIN_URL = 'login'
+# Telegram orqali kod bilan kirish MAJBURIY: profilida Telegram bog'lanmagan
+# foydalanuvchi tizimga kira olmaydi (avval botda /start -> login -> parol).
+# Favqulodda holatda (bot ishlamay qolsa) serverda False qilib vaqtincha o'chiriladi.
+TELEGRAM_2FA_MAJBURIY = os.environ.get("TELEGRAM_2FA_MAJBURIY", "1") != "0"
 LOGIN_REDIRECT_URL = 'dashboard'
 LOGOUT_REDIRECT_URL = 'login'
 

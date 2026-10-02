@@ -127,6 +127,36 @@ def tg_send(chat_id, text):
     return _api_json("sendMessage", {"chat_id": chat_id, "text": text})
 
 
+_BOT_USERNAME = None
+
+
+def bot_username():
+    """Botning @username'i (getMe) — login sahifasida ro'yxatdan o'tish havolasi uchun.
+    Bir marta olinadi, xotirada saqlanadi; xato bo'lsa bo'sh satr."""
+    global _BOT_USERNAME
+    if _BOT_USERNAME is not None:
+        return _BOT_USERNAME
+    t = _token()
+    nom = ""
+    if t:
+        try:
+            with urllib.request.urlopen(f"https://api.telegram.org/bot{t}/getMe", timeout=10) as r:
+                d = json.loads(r.read().decode("utf-8", "replace"))
+                nom = (d.get("result") or {}).get("username") or ""
+        except Exception as e:
+            _log_xato("getMe", f"xato: {e}")
+            return ""          # keyingi safar yana urinadi
+    _BOT_USERNAME = nom
+    return nom
+
+
+def tg_majburiy():
+    """Telegram orqali kod bilan kirish MAJBURIYmi (settings.TELEGRAM_2FA_MAJBURIY,
+    sukut — ha). Favqulodda holatda serverda False qilib o'chiriladi."""
+    from django.conf import settings
+    return bool(getattr(settings, "TELEGRAM_2FA_MAJBURIY", True))
+
+
 def tg_send_kb(chat_id, text, keyboard):
     """Inline tugmali xabar (admin tasdiqlash/rad etish uchun)."""
     return _api_json("sendMessage", {
@@ -172,6 +202,7 @@ def kirish(request):
     if request.user.is_authenticated:
         return redirect("/")
     xato = ""
+    bot_kerak = False      # Telegram bog'lanmagan — ro'yxatdan o'tish yo'riqnomasi chiqadi
     if request.method == "POST":
         user = authenticate(
             request,
@@ -183,10 +214,18 @@ def kirish(request):
         else:
             prof = getattr(user, "profile", None)
             chat = (prof.telegram_chat_id or "").strip() if prof else ""
-            if not chat:
-                # Telegram bog'lanmagan — oddiy kirish (qulflanib qolmasin)
+            if not chat and not tg_majburiy():
+                # Telegram bog'lanmagan va majburiy emas — oddiy kirish
                 dj_login(request, user)
                 return redirect(_next_sahifa(request))
+            if not chat:
+                # MAJBURIY: Telegram botda ro'yxatdan o'tmasdan tizimga kirib bo'lmaydi
+                bot_kerak = True
+                xato = ("Tizimga faqat Telegram orqali kod bilan kiriladi. "
+                        "Avval botda ro'yxatdan o'ting, keyin qayta kiring.")
+                return render(request, "registration/login.html",
+                              {"xato": xato, "bot_kerak": True, "bot": bot_username(),
+                               "login_nomi": user.username})
             kod = f"{secrets.randbelow(1000000):06d}"
             yubordi = tg_send(
                 chat,
@@ -207,7 +246,8 @@ def kirish(request):
                     "next": _next_sahifa(request),
                 }
                 return redirect("login_kod")
-    return render(request, "registration/login.html", {"xato": xato})
+    return render(request, "registration/login.html",
+                  {"xato": xato, "bot_kerak": bot_kerak, "bot": bot_username() if bot_kerak else ""})
 
 
 def kirish_kod(request):

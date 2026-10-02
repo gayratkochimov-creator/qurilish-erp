@@ -39,6 +39,15 @@
     {% if xato %}
       <div class="err">{{ xato }}</div>
     {% endif %}
+    {% if bot_kerak %}
+      <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px; padding:12px 14px; font-size:13px; margin-bottom:16px; line-height:1.5;">
+        <b>Telegram botda ro'yxatdan o'tish:</b><br>
+        1. {% if bot %}Botni oching: <a href="https://t.me/{{ bot }}" target="_blank" style="font-weight:700;">@{{ bot }}</a>{% else %}Tizim Telegram botini oching{% endif %}<br>
+        2. <b>/start</b> yuboring → login so'raydi → <b>{{ login_nomi|default:"loginingiz" }}</b> yozing<br>
+        3. Parolni yozing (bot xabarni darhol o'chiradi) → «bog'landi» javobi keladi<br>
+        4. Shu sahifaga qaytib qayta kiring — kod Telegramga keladi.
+      </div>
+    {% endif %}
 
     <form method="post">
       {% csrf_token %}
