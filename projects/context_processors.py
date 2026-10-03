@@ -1,3 +1,35 @@
+_KOD_VERSIYA = None
+
+
+def kod_versiya():
+    """Ishlab turgan kodning git commit'i (qisqa) — sahifada ko'rinadi, deploy tekshiruvi uchun.
+    `.git` dan to'g'ridan o'qiladi (git buyrug'isiz); jarayon umrida bir marta."""
+    global _KOD_VERSIYA
+    if _KOD_VERSIYA is not None:
+        return _KOD_VERSIYA
+    v = ""
+    try:
+        from django.conf import settings
+        g = settings.BASE_DIR / ".git"
+        head = (g / "HEAD").read_text(encoding="utf-8").strip()
+        if head.startswith("ref:"):
+            ref = head.split(" ", 1)[1].strip()
+            f = g / ref
+            if f.exists():
+                v = f.read_text(encoding="utf-8").strip()
+            else:
+                for line in (g / "packed-refs").read_text(encoding="utf-8").splitlines():
+                    if line.endswith(" " + ref):
+                        v = line.split(" ", 1)[0]
+                        break
+        else:
+            v = head
+    except Exception:
+        v = ""
+    _KOD_VERSIYA = v[:7]
+    return _KOD_VERSIYA
+
+
 def approvals(request):
     """Sidebar uchun kutilayotgan tasdiqlar soni.
 
@@ -16,7 +48,8 @@ def approvals(request):
     # Firma/obyekt izolyatsiyasi: har kim faqat o'z navbatini ko'radi (admin=hammasi)
     _vp = visible_projects(u)
     ctx = {"nav_is_pto": _pto, "nav_is_prorab": _prorab,
-           "nav_is_director": _dir, "nav_is_admin": _adm}
+           "nav_is_director": _dir, "nav_is_admin": _adm,
+           "kod_versiya": kod_versiya()}
     # ADMIN xabarlari — o'qilmaganlari har sahifa tepasida ko'rinadi
     try:
         from django.db.models import Q

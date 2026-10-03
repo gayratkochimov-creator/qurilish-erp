@@ -151,7 +151,7 @@
       <div class="av">{{ request.user.username|first|upper }}</div>
       <div class="u">
         <div class="n">{{ request.user.username }}</div>
-        <div class="r">{% if request.user.is_superuser %}Administrator{% else %}Foydalanuvchi{% endif %}</div>
+        <div class="r">{% if request.user.is_superuser %}Administrator{% else %}Foydalanuvchi{% endif %}{% if kod_versiya %} <span title="Dastur versiyasi (kod)" style="opacity:.6; font-size:10px;">· v{{ kod_versiya }}</span>{% endif %}</div>
       </div>
     </div>
   </aside>

@@ -4616,6 +4616,7 @@ def limit_jadval(request, pk):
     # Limit qatorlari bo'lim guruhlari bilan (fakt taqsimoti — _lj_guruhlar ichida).
     # TAKLIF ko'rinishida amaldagi limit o'rniga ZANJIRDAGI taklif qatorlari chiqadi.
     taklif_json, taklif_ochirilgan = None, []
+    taklif_keys = set()
     if taklif_view:
         guruhlar = _lj_guruhlar(taklif_obj.proposed_items.all().order_by("id"), fakt)
         if amaldagi_bor:
@@ -4643,11 +4644,14 @@ def limit_jadval(request, pk):
                           "asl": r.get("asl"), "bq": r["bq"], "bs": r["bs"], "sana": r.get("sana", ""),
                           "fq": r["wq"], "fs": r["ws"]} for r in g["rows"]],
             } for g in guruhlar]
+            # Haftalik qatorlar taklif qatorlariga KALIT bo'yicha bog'lanadi (aks holda ular
+            # «Лимитда йўқ ишлар»ga ham tushib, jadvalda ikki marta chiqib/saqlanib qolardi)
+            taklif_keys = {r["key"] for g in guruhlar for r in g["rows"]}
             guruhlar = []
     else:
         guruhlar = _lj_guruhlar(p.limit_items.all().order_by("id"), fakt)
 
-    limit_keys = {r["key"] for g in guruhlar for r in g["rows"]}
+    limit_keys = {r["key"] for g in guruhlar for r in g["rows"]} | taklif_keys
 
     # Hafta tablari ma'lumoti (JSONga)
     hafta_data = []
