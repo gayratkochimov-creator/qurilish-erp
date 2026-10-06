@@ -492,6 +492,13 @@
   var STATUS_NOMI = { dir:"Директор тасдиғида", submitted:"Админ тасдиғида", approved:"Тасдиқланган", draft:"Қоралама" };
   var sel = DRAFT_ID !== null ? ('w'+DRAFT_ID)
             : (CAN_EDIT ? 'yangi' : (HAFTA.length ? 'w'+HAFTA[HAFTA.length-1].id : 'yangi'));
+  // ?hafta=<id> — ruxsat bilan tahrirlangan hafta saqlangach shu haftada qolamiz
+  (function(){
+    var m = /[?&]hafta=(\d+)/.exec(location.search);
+    if (!m) return;
+    for (var i = 0; i < HAFTA.length; i++) if (String(HAFTA[i].id) === m[1]) { sel = 'w' + m[1]; break; }
+    try { history.replaceState(null, '', location.pathname + location.search.replace(/([?&])hafta=\d+&?/, '$1').replace(/[?&]$/, '') + location.hash); } catch (e) {}
+  })();
   var bolaklar = {};    // key -> [{qty, price, izoh}]
   var extralar = [];    // limitda yo'q ishlar: {name, bolim, unit, kind, qty, price, izoh}
 

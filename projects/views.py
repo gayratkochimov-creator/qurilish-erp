@@ -4124,8 +4124,15 @@ def limit_jadval(request, pk):
         request.GET.get("korinish") != "amaldagi")
     _qs = "" if taklif_view or not taklif_obj else "?korinish=amaldagi"
 
+    # Admin ruxsati bilan YOPIQ hafta tahrirlansa — saqlangach (yoki xato bo'lsa) sahifa
+    # o'sha haftada ochiladi; aks holda qoralama haftaga o'tib, «saqlanmadi» tuyulardi
+    _qayt_hafta = []
+
     def _qayt():
-        return redirect(reverse("limit_jadval", args=[pk]) + _qs)
+        url = reverse("limit_jadval", args=[pk]) + _qs
+        if _qayt_hafta:
+            url += ("&" if "?" in url else "?") + f"hafta={_qayt_hafta[0]}"
+        return redirect(url)
 
     # ---------- POST: qoralamani saqlash / tasdiqqa yuborish ----------
     if request.method == "POST":
@@ -4168,6 +4175,8 @@ def limit_jadval(request, pk):
         if _hid:
             ruxsat_hafta = next((w for w in haftalar if w.id == _hid and w.status != "draft"
                                  and w.tahrir_ruxsat), None)
+            if ruxsat_hafta is not None:
+                _qayt_hafta.append(ruxsat_hafta.id)
         ws_ = we_ = None
         if not faqat_limit:
             try:
