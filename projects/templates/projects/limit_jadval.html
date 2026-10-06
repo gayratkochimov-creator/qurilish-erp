@@ -117,6 +117,13 @@
     thead { display:table-header-group; }
     tr { page-break-inside:avoid; }
   }
+  /* Server xabarlari — xato QIZIL quti bo'lib ko'rinsin (oldin oddiy matn edi, «Сақланмади» ko'rinmasdi) */
+  .msg { border-radius:8px; padding:10px 14px; font-size:14px; font-weight:600; margin-bottom:8px; border:1px solid; }
+  .msg.success { background:#ecfdf5; color:#065f46; border-color:#a7f3d0; }
+  .msg.info { background:#eff6ff; color:#1e40af; border-color:#bfdbfe; }
+  .msg.warning { background:#fffbeb; color:#92400e; border-color:#fcd34d; }
+  .msg.error { background:#fef2f2; color:#991b1b; border-color:#fca5a5; border-left:5px solid #dc2626; font-size:15px; }
+  .msg.error::before { content:"⛔ "; }
 </style>
 
 <a class="hint" href="{% url 'project_detail' p.id %}" style="color:var(--brand); font-weight:600; display:inline-block; margin-bottom:10px;">&larr; {{ p.code }} — {{ p.name }}</a>
