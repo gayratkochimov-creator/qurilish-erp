@@ -1,185 +1,167 @@
-{% extends "base_site.html" %}
+﻿{% extends "base_site.html" %}
 {% load static l10n %}
 {% block title %}Boshqaruv paneli — Qurilish ERP{% endblock %}
 {% block page_title %}Boshqaruv paneli{% endblock %}
 
 {% block extra_head %}
 <style>
-  /* ===== "Executive Enterprise" — sahifa asosi ===== */
-  .db { --ink2:#213145; --ink-soft:#434655; --line-2:#eef2f7; --track:#e8edf3;
-        display:flex; flex-direction:column; gap:20px; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:var(--r-card); box-shadow:var(--shadow-sm); }
+  /* ===== "Executive Enterprise" — 8px ritm, 32px seksiya oralig'i ===== */
+  .db { --ink2:#213145; --ink-soft:#434655; --line-2:#eef2f7; --track:#e2e8f0;
+        display:flex; flex-direction:column; gap:32px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:var(--r-card); padding:24px; box-shadow:var(--shadow-sm); }
+  .card:hover { border-color:#cbd5e1; }
+  .cap { font-size:11px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:var(--mut); }
+  .section-head { font-size:12px; font-weight:600; line-height:16px; letter-spacing:.05em; text-transform:uppercase; color:var(--mut); margin:0 2px 12px; }
+  /* pane ichida .db gap ishlamaydi — 32px seksiya ritmi aniq beriladi */
+  #pane-korish > .hero { margin-bottom:24px; }
+  #pane-korish > .quick { margin-bottom:32px; }
+  #pane-korish > .cols { margin-bottom:32px; }
+  #pane-korish > .mcards { margin-bottom:32px; }
+
+  /* ===== HERO — chuqur ko'k gradient + qurilish silueti + ikonkali statlar ===== */
+  .hero { background:linear-gradient(105deg,#0a1f3d 0%,#123a7a 52%,#1d4ed8 100%);
+    color:#fff; border-radius:var(--r-hero); padding:26px 28px; display:flex;
+    justify-content:space-between; align-items:center; gap:24px; flex-wrap:wrap;
+    position:relative; overflow:hidden; box-shadow:0 18px 40px -18px rgba(13,42,97,.55); }
+  .hero::after { content:""; position:absolute; right:-80px; top:-120px; width:420px; height:420px; border-radius:50%; background:radial-gradient(circle,rgba(96,165,250,.30),transparent 66%); }
+  .hero .hl { position:relative; z-index:1; max-width:430px; }
+  .hero h2 { font-size:31px; font-weight:700; letter-spacing:-.02em; line-height:1.18; margin:0; }
+  .hero .hsub { font-size:13.5px; line-height:20px; color:#c9d6ef; margin-top:8px; }
+  .hero .hpic { position:relative; z-index:1; width:210px; height:112px; border-radius:14px; overflow:hidden; flex:none; border:1px solid rgba(255,255,255,.18); box-shadow:0 10px 24px -10px rgba(0,0,0,.5); }
+  .hero .hpic img, .hero .hpic svg { width:100%; height:100%; display:block; object-fit:cover; }
+  .hero .hstats { display:flex; gap:0; position:relative; z-index:1; flex-wrap:wrap; align-items:stretch; }
+  .hero .hs { display:flex; gap:12px; align-items:flex-start; padding:4px 24px; border-left:1px solid rgba(255,255,255,.16); }
+  .hero .hs:first-child { border-left:0; padding-left:0; }
+  .hero .hs:last-child { padding-right:6px; }
+  .hero .hs .ic { width:40px; height:40px; border-radius:11px; background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.14); display:grid; place-items:center; flex:none; margin-top:2px; }
+  .hero .hs .ic svg { width:20px; height:20px; stroke:#fff; stroke-width:1.7; }
+  .hero .hs .l { font-size:11px; font-weight:600; line-height:15px; letter-spacing:.06em; text-transform:uppercase; color:rgba(255,255,255,.75); white-space:nowrap; }
+  .hero .hs .n { font-size:24px; font-weight:700; line-height:30px; font-variant-numeric:tabular-nums; margin-top:4px; }
+  .hero .hs .u { font-size:11px; font-weight:500; color:rgba(255,255,255,.6); margin-top:1px; }
+  @media (max-width:1240px){ .hero .hpic { display:none; } }
+
+  .quick { display:grid; grid-template-columns:repeat(5,1fr); gap:14px; }
+  .qtile { background:var(--card); border:1px solid var(--line); border-radius:var(--r-card); padding:16px 15px; display:flex; align-items:center; gap:12px; box-shadow:var(--shadow-sm); transition:box-shadow .18s var(--ease-out), transform .18s var(--ease-out); text-decoration:none; }
+  .qtile:hover { box-shadow:var(--shadow); transform:translateY(-2px); }
+  .qico { width:44px; height:44px; border-radius:10px; display:grid; place-items:center; flex:none; }
+  .qico svg { width:21px; height:21px; stroke-width:1.9; }
+  .qtile .qw { min-width:0; }
+  .qtile .qt { font-size:14px; font-weight:600; color:var(--ink); line-height:19px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .qtile .qs { font-size:11.5px; color:var(--mut); margin-top:1px; font-weight:400; line-height:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .qtile .chev { margin-left:auto; color:#b6c0cf; display:grid; place-items:center; flex:none; transition:transform .18s var(--ease-out), color .18s; }
+  .qtile .chev svg { width:16px; height:16px; stroke-width:2.2; }
+  .qtile:hover .chev { transform:translateX(3px); color:var(--brand); }
+
+  .mcards { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+  .mcard { background:var(--card); border:1px solid var(--line); border-radius:var(--r-card); padding:20px 22px; box-shadow:var(--shadow-sm); transition:box-shadow .18s var(--ease-out), transform .18s var(--ease-out); text-decoration:none; display:flex; align-items:center; gap:16px; }
+  .mcard:hover { box-shadow:var(--shadow); transform:translateY(-2px); }
+  .mico { width:44px; height:44px; border-radius:10px; display:grid; place-items:center; flex:none; }
+  .mico svg { width:21px; height:21px; stroke-width:1.9; }
+  .mcard .ml { font-size:12px; font-weight:600; line-height:16px; letter-spacing:.05em; text-transform:uppercase; color:var(--mut); }
+  .mcard .mn { font-size:28px; font-weight:700; line-height:34px; color:var(--ink); font-variant-numeric:tabular-nums; margin-top:2px; }
+
+  /* Executive Enterprise — past shaffoflikdagi tint fon + to'yingan ikonka */
+  .cb{background:#dbeafe;color:#2563eb;} .cg{background:#dcfce7;color:#15803d;} .co{background:#ffedd5;color:#c2410c;} .cr{background:#fee2e2;color:#be123c;} .cp{background:#e2e8f0;color:#475569;} .ct{background:#cffafe;color:#0e7490;} .ci{background:#e0e7ff;color:#4338ca;}
+  @media (max-width:980px){ .quick{grid-template-columns:repeat(3,1fr);} .mcards{grid-template-columns:repeat(3,1fr);} }
+  @media (max-width:640px){ .quick,.mcards{grid-template-columns:repeat(2,1fr);} }
 
   .toolbar { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
-  .ffilt { display:inline-flex; align-items:center; gap:9px; flex-wrap:wrap; }
+  .toolbar .sub { font-size:13.5px; color:var(--mut); }
+  .ffilt { display:inline-flex; align-items:center; gap:9px; }
   .ffilt .flbl { font-size:13px; font-weight:600; color:var(--mut); }
-  .ffilt select { padding:9px 13px; border:1px solid #cbd5e1; border-radius:var(--r-ctl); font-size:13.5px; font-weight:600; background:var(--card); color:var(--ink); min-width:240px; max-width:100%; cursor:pointer; }
-  .ffilt select:focus { outline:none; border-color:var(--brand); box-shadow:0 0 0 3px rgba(37,99,235,.18); }
-  .ffilt .clr { font-size:12.5px; color:var(--mut); text-decoration:underline; }
+  .ffilt select { padding:9px 13px; border:1px solid var(--line); border-radius:10px; font-size:13.5px; font-weight:600; background:var(--card); color:var(--ink); min-width:240px; cursor:pointer; }
+  .ffilt select:focus { outline:none; border-color:var(--brand); box-shadow:0 0 0 3px rgba(10,110,209,.18); }
+  .ffilt .clr { font-size:12.5px; color:var(--mut); }
   .acts { display:flex; gap:8px; flex-wrap:wrap; }
-  .btn { display:inline-flex; align-items:center; gap:7px; font-size:13px; color:var(--ink2); background:var(--card); border:1px solid #cbd5e1; border-radius:var(--r-ctl); padding:9px 14px; font-weight:600; }
-  .btn:hover { background:#f8fafc; border-color:#94a3b8; }
-  .btn svg { width:15px; height:15px; }
+  .btn { font-size:13px; color:var(--ink2); background:var(--card); border:1px solid var(--line); border-radius:10px; padding:9px 15px; font-weight:600; transition:.18s; }
+  .btn:hover { background:#f8fafc; border-color:#c8d0de; transform:translateY(-1px); }
+  .btn.primary { background:var(--brand); color:#fff; border-color:var(--brand); }
+  .btn.primary:hover { background:#0857a8; border-color:#0857a8; }
 
-  /* Tasdiqlar kartalari ham shu umumiy jadval qoidalariga tayanadi */
+  /* KPI — unified anatomy */
+  .kpis { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+  .kpi { display:flex; flex-direction:column; }
+  .kpi .val { font-size:34px; font-weight:680; letter-spacing:-.025em; margin-top:14px; font-variant-numeric:tabular-nums lining-nums; line-height:1; color:var(--ink); }
+  .kpi .val .pctm { display:none; }
+  .kpi .delta { display:inline-flex; align-items:center; gap:5px; margin-top:12px; font-size:12px; font-weight:650; font-variant-numeric:tabular-nums; padding:3px 9px; border-radius:999px; background:var(--brand-soft); color:var(--brand); letter-spacing:.01em; width:max-content; }
+  .kpi .delta.warn { background:#fdf5ec; color:var(--warn); }
+  .kpi .delta.bad { background:#fbecec; color:var(--bad); }
+  .kpi .rule { height:1px; background:var(--line-2); margin-top:18px; }
+  .kpi .sub2 { font-size:12.5px; color:var(--mut); margin-top:14px; line-height:1.45; }
+  .kpi:hover { transform:translateY(-1px); }
+  .usebar { height:4px; background:var(--track); border-radius:999px; overflow:hidden; margin-top:14px; }
+  .usebar > span { display:block; height:100%; background:var(--brand); border-radius:999px; transition:width .8s cubic-bezier(.16,1,.3,1); }
+  .catmini { display:flex; gap:14px; flex-wrap:wrap; margin-top:14px; }
+  .dot { width:7px; height:7px; border-radius:50%; display:inline-block; margin-right:5px; vertical-align:middle; }
+  .dot.mat{background:#2563eb;} .dot.lab{background:#60a5fa;} .dot.mach{background:#bfdbfe;} .dot.oth{background:#d1d5db;}
+
+  /* two-col */
+  .cols { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+  /* Haftalik sarf grafigi — karta bo'yini to'liq egallaydi (bo'sh joy qolmasin).
+     MUHIM: canvas absolute — aks holda Chart.js kartani cheksiz cho'zib yuboradi */
+  .chartcard { display:flex; flex-direction:column; }
+  .chartcard .chwrap { position:relative; flex:1; min-height:240px; max-height:300px; }
+  .chartcard .chwrap canvas { position:absolute; inset:0; width:100% !important; height:100% !important; }
+  h3.ph { display:flex; align-items:center; gap:10px; font-size:12.5px; font-weight:700; line-height:16px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink); margin:0; }
+  .ph .pic { width:30px; height:30px; border-radius:8px; background:var(--brand-soft); color:var(--brand); display:grid; place-items:center; flex:none; }
+  .ph .pic svg { width:16px; height:16px; stroke-width:2; }
+  .phrow { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:18px; padding-bottom:14px; border-bottom:1px solid var(--line); }
+  .leg { display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  .leg .li { display:inline-flex; align-items:center; gap:6px; font-size:11.5px; font-weight:600; color:var(--mut); }
+  .leg .sw { width:10px; height:10px; border-radius:3px; background:var(--brand); display:inline-block; }
+  .leg .ln { width:16px; height:0; border-top:2.5px solid #f97316; border-radius:2px; display:inline-block; }
+  .pctpill { font-size:11.5px; font-weight:700; padding:2px 9px; border-radius:999px; font-variant-numeric:tabular-nums; }
+  .seg { display:inline-flex; background:#f1f5f9; border:1px solid var(--line); border-radius:9px; padding:2px; gap:2px; margin-left:6px; }
+  .seg button { border:0; background:transparent; color:#64748b; font-size:11.5px; font-weight:700; padding:4px 11px; border-radius:7px; cursor:pointer; transition:.14s; }
+  .seg button.on { background:#fff; color:var(--brand); box-shadow:0 1px 3px rgba(0,0,0,.08); }
+  .cat { padding:14px 0; border-top:1px solid var(--line-2); }
+  .cat:first-of-type { border-top:0; padding-top:0; }
+  .crow { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:9px; }
+  .crow .nm { font-weight:600; font-size:13.5px; display:flex; align-items:center; gap:8px; }
+  .crow .fig { font-size:12px; color:#64748b; font-variant-numeric:tabular-nums; }
+  .crow .fig b { color:var(--ink); font-weight:700; margin-left:6px; }
+  .track { height:6px; background:var(--track); border-radius:999px; overflow:hidden; }
+  .track > span { display:block; height:100%; border-radius:999px; transition:width .8s cubic-bezier(.16,1,.3,1); }
+
+  .dwrap { position:relative; height:196px; max-width:220px; margin:4px auto 20px; }
+  .dctr { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; pointer-events:none; }
+  .dctr b { font-size:36px; font-weight:700; letter-spacing:-.02em; line-height:44px; color:var(--ink); }
+  .dctr span { font-size:11px; font-weight:500; color:var(--mut); text-transform:uppercase; letter-spacing:.05em; margin-top:2px; }
+  .chart { width:100%; height:150px; display:block; }
+  .xlab { display:flex; justify-content:space-between; font-size:11px; color:var(--mut); margin-top:8px; }
+  .noch { padding:34px; text-align:center; color:#94a3b8; font-size:13px; }
+
+  /* ribbon — hairline-divided stat strip */
+  .ribbon { display:grid; grid-template-columns:repeat(6,1fr); gap:0; background:var(--card); border:1px solid var(--line); border-radius:14px; box-shadow:var(--shadow-sm); overflow:hidden; }
+  .tile { border:0; border-radius:0; box-shadow:none; background:transparent; padding:18px 20px; border-left:1px solid var(--line-2); transition:.14s; }
+  .tile:first-child { border-left:0; }
+  .tile .n { font-size:23px; font-weight:680; letter-spacing:-.02em; color:var(--ink); font-variant-numeric:tabular-nums; display:flex; align-items:center; gap:8px; }
+  .tile .n i { width:6px; height:6px; border-radius:50%; background:#cbd5e1; display:inline-block; }
+  .tile .l { font-size:11px; color:var(--mut); font-weight:600; margin-top:5px; }
+  .tile:hover { background:#fafbfd; }
+  .tile.warn .n i{background:var(--warn);} .tile.bad .n i{background:var(--bad);} .tile.info .n i{background:var(--brand);}
+
+  /* table */
+  .tw { padding:0; overflow:hidden; }
   table { width:100%; border-collapse:collapse; }
   th,td { text-align:left; }
+  th { padding:14px 24px; color:#475569; font-weight:700; font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; border-bottom:1px solid var(--line); }
+  td { padding:16px 24px; font-size:13.5px; border-bottom:1px solid var(--line-2); }
+  tbody tr:last-child td { border-bottom:none; }
+  tbody tr { transition:.14s; } tbody tr:hover { background:#fafbfd; }
   .num { text-align:right; font-variant-numeric:tabular-nums lining-nums; }
-
-  /* ===== «Umumiy ko'rinish» paneli — hamma klass dp- bilan (to'qnashuv bo'lmasin) ===== */
-  .dp { display:flex; flex-direction:column; gap:20px; }
-  .dp [hidden] { display:none !important; }
-  .dp-i { width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:1.9; stroke-linecap:round; stroke-linejoin:round; flex:none; }
-  .dp a:focus-visible, .dp button:focus-visible, .dp input:focus-visible { outline:2px solid var(--brand); outline-offset:2px; }
-
-  .dp-kpis { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; }
-  .dp-kpi { padding:16px 18px; display:flex; flex-direction:column; gap:7px; min-width:0; color:inherit; }
-  a.dp-kpi:hover { border-color:#b9c6dc; }
-  .dp-kpi .l { display:flex; align-items:center; gap:9px; font-size:11.5px; font-weight:700; color:var(--mut); text-transform:uppercase; letter-spacing:.05em; }
-  .dp-kpi .ic { width:30px; height:30px; border-radius:8px; display:grid; place-items:center; flex:none; }
-  .dp-kpi .ic .dp-i { width:16px; height:16px; }
-  .dp-kpi .v { font-size:25px; font-weight:700; letter-spacing:-.02em; line-height:1.15; font-variant-numeric:tabular-nums; white-space:nowrap; }
-  .dp-kpi .v small { font-size:12.5px; font-weight:500; color:var(--mut); margin-left:4px; letter-spacing:0; }
-  .dp-kpi .v.neg { color:var(--bad); }
-  .dp-kpi .f { display:flex; align-items:center; gap:7px; flex-wrap:wrap; font-size:12.5px; color:var(--mut); line-height:1.4; }
-  .dp-tag { display:inline-flex; align-items:center; gap:3px; font-weight:700; border-radius:6px; padding:1px 7px; font-size:11.5px; font-variant-numeric:tabular-nums; white-space:nowrap; background:#eef2f7; color:var(--ink2); }
-  .dp-tag.warn { background:#fef3c7; color:#92400e; }
-  .dp-tag.bad { background:#fee2e2; color:#991b1b; }
-  .dp-meter { height:6px; border-radius:99px; background:var(--track); overflow:hidden; }
-  .dp-meter > span { display:block; height:100%; border-radius:99px; }
-  .t-blue { background:#eff4ff; color:#1d4ed8; } .t-teal { background:#ccfbf1; color:#0f766e; }
-  .t-orange { background:#ffedd5; color:#c2410c; } .t-amber { background:#fef3c7; color:#b45309; }
-  .t-red { background:#fee2e2; color:#b91c1c; } .t-gray { background:#eef2f7; color:#334155; } .t-green { background:#dcfce7; color:#15803d; }
-
-  .dp-g2 { display:grid; grid-template-columns:minmax(0,1.45fr) minmax(0,1fr); gap:20px; align-items:start; }
-  .dp-g2.teng { grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
-  .dp-ch { display:flex; align-items:center; gap:10px; padding:13px 18px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
-  .dp-ch h3 { margin:0; font-size:14.5px; font-weight:700; letter-spacing:-.01em; }
-  .dp-cnt { background:#eef2f7; color:var(--ink2); font-size:11.5px; font-weight:700; border-radius:99px; padding:1px 8px; font-variant-numeric:tabular-nums; }
-  .dp-cnt.hot { background:#fee2e2; color:#991b1b; }
-  .dp-ch .r { margin-left:auto; display:flex; gap:8px; align-items:center; }
-  .dp-ch .r a { font-weight:600; font-size:12.5px; }
-  .dp-seg { display:inline-flex; background:#e8edf3; border-radius:8px; padding:2px; gap:2px; }
-  .dp-seg button { border:0; background:transparent; color:#475569; font:inherit; font-size:12px; font-weight:600; padding:5px 11px; border-radius:6px; cursor:pointer; }
-  .dp-seg button.on { background:#fff; color:var(--ink); box-shadow:0 1px 2px rgba(15,23,42,.12); }
-
-  .dp-chart { padding:14px 18px 12px; }
-  .dp-chart .wrap { position:relative; height:232px; }
-  .dp-chart canvas { position:absolute; inset:0; width:100% !important; height:100% !important; }
-  .dp-lg { display:flex; gap:16px; flex-wrap:wrap; font-size:12px; color:var(--mut); padding-top:10px; }
-  .dp-lg span { display:inline-flex; align-items:center; gap:6px; }
-  .dp-lg i { width:10px; height:10px; border-radius:3px; display:inline-block; }
-  .dp-lg i.ln { height:0; width:16px; border-top:2px dashed #b45309; border-radius:0; }
-  .dp-bosh { padding:34px 18px; text-align:center; color:#64748b; font-size:13px; }
-  .dp-bosh .dp-i { width:26px; height:26px; margin:0 auto 8px; color:#94a3b8; }
-  .dp-bosh.yaxshi .dp-i { color:var(--ok); }
-
-  .dp-att { list-style:none; margin:0; padding:4px 0; }
-  .dp-att li.yashir { display:none; }
-  .dp-att.ochiq li.yashir { display:block; }
-  .dp-att a { display:flex; align-items:center; gap:12px; padding:10px 18px; color:inherit; border-bottom:1px solid var(--line-2); }
-  .dp-att li:last-child a { border-bottom:0; }
-  .dp-att a:hover { background:#f8fafc; }
-  .dp-att .ic { width:34px; height:34px; border-radius:9px; display:grid; place-items:center; flex:none; }
-  .dp-att .tx { min-width:0; flex:1; }
-  .dp-att .t1 { font-weight:600; font-size:13px; line-height:1.35; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
-  .dp-att .t2 { font-size:12px; color:var(--mut); margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .dp-att .age { font-size:12px; font-weight:700; white-space:nowrap; font-variant-numeric:tabular-nums; color:var(--mut); }
-  .dp-att .age.bad { color:var(--bad); } .dp-att .age.warn { color:var(--warn); }
-  .dp-att .go { color:#94a3b8; width:15px; height:15px; }
-  .dp-more { display:block; width:100%; border:0; border-top:1px solid var(--line); background:#fafbfc; color:var(--brand); font:inherit; font-size:12.5px; font-weight:600; padding:10px; cursor:pointer; border-radius:0 0 var(--r-card) var(--r-card); }
-  .dp-more:hover { background:#f1f5f9; }
-
-  .dp-tb { display:flex; align-items:center; gap:10px; padding:11px 18px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
-  .dp-chips { display:flex; gap:6px; flex-wrap:wrap; }
-  .dp-chip { height:30px; padding:0 11px; border-radius:999px; border:1px solid #cbd5e1; background:#fff; font:inherit; font-size:12.5px; font-weight:600; color:var(--ink2); display:inline-flex; align-items:center; gap:6px; cursor:pointer; }
-  .dp-chip b { font-weight:700; color:#64748b; font-variant-numeric:tabular-nums; }
-  .dp-chip:hover { border-color:#94a3b8; }
-  .dp-chip.on { background:#0b1c30; border-color:#0b1c30; color:#fff; }
-  .dp-chip.on b { color:#cbd5e1; }
-  .dp-find { margin-left:auto; display:flex; align-items:center; gap:7px; height:32px; padding:0 10px; border:1px solid #cbd5e1; border-radius:var(--r-ctl); background:#fff; color:#64748b; min-width:200px; }
-  .dp-find:focus-within { border-color:var(--brand); box-shadow:0 0 0 3px rgba(37,99,235,.16); }
-  .dp-find .dp-i { width:15px; height:15px; }
-  .dp-find input { border:0; outline:0; background:transparent; font:inherit; font-size:13px; color:var(--ink); width:100%; }
-  .dp-scroll { overflow-x:auto; }
-  .dp .dp-tbl { font-size:13px; }
-  .dp .dp-tbl th { font-size:11px; font-weight:700; color:#475569; text-transform:uppercase; letter-spacing:.04em; padding:0; background:#f8fafc; border-bottom:1px solid var(--line); white-space:nowrap; }
-  .dp .dp-tbl th button { all:unset; box-sizing:border-box; display:flex; align-items:center; gap:4px; width:100%; padding:10px 12px; cursor:pointer; font:inherit; letter-spacing:inherit; text-transform:inherit; }
-  .dp .dp-tbl th.num button { justify-content:flex-end; }
-  .dp .dp-tbl th button:focus-visible { outline:2px solid var(--brand); outline-offset:-2px; }
-  .dp .dp-tbl th button:hover { color:var(--ink); }
-  .dp .dp-tbl th .ar { font-size:10px; opacity:.35; }
-  .dp .dp-tbl th[aria-sort="ascending"] .ar, .dp .dp-tbl th[aria-sort="descending"] .ar { opacity:1; color:var(--brand); }
-  .dp .dp-tbl th.plain { padding:10px 12px; }
-  .dp .dp-tbl td { padding:10px 12px; border-bottom:1px solid var(--line-2); white-space:nowrap; vertical-align:middle; }
-  .dp .dp-tbl tbody tr:hover td { background:#f8fbff; }
-  .dp .dp-tbl td.num { color:var(--ink-soft); }
-  .dp .dp-tbl td.neg { color:var(--bad); font-weight:600; }
-  .dp-nm { display:block; font-weight:600; color:var(--ink); white-space:normal; min-width:160px; line-height:1.3; }
-  .dp .dp-tbl td:first-child, .dp .dp-tbl th:first-child button { padding-left:18px; }
-  .dp .dp-tbl td:last-child, .dp .dp-tbl th.plain { padding-right:18px; }
-  .dp-cd { white-space:normal; }
-  .dp-nm:hover { color:var(--brand); }
-  .dp-cd { font-size:11.5px; color:var(--mut); margin-top:2px; }
-  .dp-cd a { color:inherit; text-decoration:underline; text-decoration-color:#cbd5e1; }
-  .dp-use { display:flex; align-items:center; gap:10px; min-width:120px; }
-  .dp-use .dp-meter { flex:1; }
-  .dp-use b { font-variant-numeric:tabular-nums; width:40px; text-align:right; font-size:12.5px; }
-  .dp-st { display:inline-flex; align-items:center; gap:6px; font-size:11.5px; font-weight:700; padding:2px 9px; border-radius:99px; white-space:nowrap; }
-  .dp-st::before { content:""; width:6px; height:6px; border-radius:50%; background:currentColor; }
-  .dp-st.ok { background:#dcfce7; color:#166534; } .dp-st.warn { background:#fef3c7; color:#92400e; }
-  .dp-st.bad { background:#fee2e2; color:#991b1b; } .dp-st.none { background:#eef2f7; color:#475569; }
-  .dp-st.zan { background:#eff4ff; color:#1d4ed8; }
-  .dp-sts { display:flex; flex-direction:column; align-items:flex-start; gap:4px; }
-  .dp-foot { display:flex; align-items:center; gap:10px; padding:11px 18px; font-size:12.5px; color:var(--mut); flex-wrap:wrap; }
-  .dp-foot .sp { flex:1; }
-  .dp-btn { display:inline-flex; align-items:center; height:30px; padding:0 12px; border-radius:var(--r-ctl); border:1px solid #cbd5e1; background:#fff; font:inherit; font-size:12.5px; font-weight:600; color:var(--ink); cursor:pointer; }
-  .dp-btn:hover { background:#f8fafc; border-color:#94a3b8; }
-
-  .dp-cats { padding:14px 18px 18px; display:flex; flex-direction:column; gap:15px; }
-  .dp-cat .hd { display:flex; align-items:baseline; gap:8px; font-size:13px; }
-  .dp-cat .hd .d { width:9px; height:9px; border-radius:3px; align-self:center; flex:none; }
-  .dp-cat .hd b { font-weight:600; }
-  .dp-cat .hd .n { margin-left:auto; font-variant-numeric:tabular-nums; color:var(--ink-soft); font-size:12.5px; white-space:nowrap; }
-  .dp-cat .hd .p { font-weight:700; font-variant-numeric:tabular-nums; min-width:42px; text-align:right; }
-  .dp-cat .hd .p.warn { color:var(--warn); } .dp-cat .hd .p.bad { color:var(--bad); }
-  .dp-cat .dp-meter { height:8px; margin-top:7px; }
-
-  .dp-act { list-style:none; margin:0; padding:8px 18px 12px; }
-  .dp-act li { display:flex; gap:12px; padding:8px 0; position:relative; }
-  .dp-act li::before { content:""; position:absolute; left:13px; top:36px; bottom:-8px; width:2px; background:var(--line-2); }
-  .dp-act li:last-child::before { display:none; }
-  .dp-act .dot { width:28px; height:28px; border-radius:50%; display:grid; place-items:center; flex:none; z-index:1; }
-  .dp-act .dot .dp-i { width:14px; height:14px; }
-  .dp-act .tx { font-size:13px; color:var(--ink-soft); line-height:1.4; }
-  .dp-act .tx b { color:var(--ink); font-weight:600; }
-  .dp-act .tx a { color:var(--ink); font-weight:600; }
-  .dp-act .tx a:hover { color:var(--brand); }
-  .dp-act .tm { font-size:11.5px; color:var(--mut); margin-top:1px; }
-
-  .dp-sh { display:flex; align-items:baseline; gap:10px; margin:4px 2px -6px; }
-  .dp-sh h3 { margin:0; font-size:14.5px; font-weight:700; }
-  .dp-sh span { font-size:12.5px; color:var(--mut); }
-  .dp-firms { display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:14px; }
-  .dp-firm { padding:14px 16px; display:flex; flex-direction:column; gap:10px; color:inherit; min-width:0; }
-  .dp-firm:hover { border-color:#b9c6dc; }
-  .dp-firm .nm { font-weight:600; font-size:13.5px; display:flex; gap:9px; align-items:center; min-width:0; }
-  .dp-firm .nm span:last-child { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .dp-firm .lo { width:30px; height:30px; border-radius:8px; background:#eef2f7; color:var(--ink2); display:grid; place-items:center; font-size:11.5px; font-weight:700; flex:none; }
-  .dp-firm .nums { display:flex; justify-content:space-between; gap:8px; font-size:12.5px; color:var(--mut); }
-  .dp-firm .nums b { color:var(--ink); font-variant-numeric:tabular-nums; }
-  .dp-firm .nums b.warn { color:var(--warn); } .dp-firm .nums b.bad { color:var(--bad); }
-
-  @media (max-width:1180px){ .dp-kpis { grid-template-columns:repeat(2,minmax(0,1fr)); } }
-  @media (max-width:1100px){ .dp-g2, .dp-g2.teng { grid-template-columns:minmax(0,1fr); } }
-  @media (max-width:720px){
-    .dp-kpis { grid-template-columns:minmax(0,1fr); }
-    .dp-hm { display:none; }
-    .dp-find { margin-left:0; flex:1 1 100%; }
-    .dp-use { min-width:96px; }
-    .dp-nm { min-width:130px; }
-    .ffilt select { min-width:0; }
-  }
+  td.num { color:var(--ink-soft); }
+  td.num.lead { color:var(--ink); font-weight:650; }
+  .lnk { color:var(--ink); font-weight:650; } .lnk:hover { color:var(--brand); }
+  .badge { display:inline-flex; align-items:center; gap:6px; color:var(--ink2); background:transparent; border:1px solid var(--line); padding:3px 10px; border-radius:999px; font-size:11px; font-weight:650; letter-spacing:.01em; }
+  .badge::before { content:""; width:6px; height:6px; border-radius:50%; background:currentColor; }
+  .badge.ok { color:var(--ok); border-color:#cfe6d6; background:#f3faf5; }
+  .badge.warn { color:var(--warn); border-color:#f0e0c8; background:#fdf8f0; }
+  .badge.bad { color:var(--bad); border-color:#eccccc; background:#fdf3f3; }
+  .mb { height:4px; background:var(--track); border-radius:999px; overflow:hidden; margin-top:8px; max-width:180px; }
+  .mb > span { display:block; height:100%; border-radius:999px; }
+  .empty { padding:44px 20px; text-align:center; color:#94a3b8; }
+  @media (max-width:960px){ .kpis{grid-template-columns:1fr;} .cols{grid-template-columns:1fr;} .ribbon{grid-template-columns:repeat(2,1fr);} .tile:nth-child(-n+2){border-top:0;} }
 
   /* tablar */
   .tabbar { display:flex; gap:2px; border-bottom:1px solid var(--line); }
@@ -264,34 +246,14 @@
 {% endblock %}
 
 {% block content %}
-{# Ikonkalar — bitta sprite (tashqi shrift/CDN yo'q) #}
-<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
-  <symbol id="dpi-wallet" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20"/><path d="M16 15h3"/></symbol>
-  <symbol id="dpi-cart" viewBox="0 0 24 24"><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2.5 3h2l2.6 12.2a2 2 0 0 0 2 1.6h8.4a2 2 0 0 0 2-1.6L21 7H6"/></symbol>
-  <symbol id="dpi-coins" viewBox="0 0 24 24"><ellipse cx="9" cy="7" rx="6" ry="3"/><path d="M3 7v5c0 1.7 2.7 3 6 3s6-1.3 6-3V7"/><path d="M9 15v2c0 1.7 2.7 3 6 3s6-1.3 6-3v-5c0-1.4-1.9-2.6-4.5-2.9"/></symbol>
-  <symbol id="dpi-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
-  <symbol id="dpi-alert" viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></symbol>
-  <symbol id="dpi-gauge" viewBox="0 0 24 24"><path d="M4 18a9 9 0 1 1 16 0"/><path d="M12 14l4-5"/><circle cx="12" cy="14" r="1.3"/></symbol>
-  <symbol id="dpi-draft" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 14h6"/><path d="M9 17h4"/></symbol>
-  <symbol id="dpi-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
-  <symbol id="dpi-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
-  <symbol id="dpi-x" viewBox="0 0 24 24"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></symbol>
-  <symbol id="dpi-send" viewBox="0 0 24 24"><path d="M21 3 10 14"/><path d="M21 3l-7 18-4-7-7-4z"/></symbol>
-  <symbol id="dpi-step" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></symbol>
-  <symbol id="dpi-chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
-  <symbol id="dpi-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></symbol>
-  <symbol id="dpi-down" viewBox="0 0 24 24"><path d="M12 4v12"/><path d="M6 11l6 6 6-6"/><path d="M5 21h14"/></symbol>
-  <symbol id="dpi-chart" viewBox="0 0 24 24"><path d="M6 20v-6"/><path d="M12 20V4"/><path d="M18 20V10"/></symbol>
-</svg>
-
 <div class="db">
   {% if messages %}{% for m in messages %}<div class="msg {{ m.tags }}">{{ m }}</div>{% endfor %}{% endif %}
   <div class="toolbar reveal" style="animation-delay:.02s">
     <form method="get" class="ffilt">
       <input type="hidden" name="tab" id="tabField" value="{{ active_tab }}">
-      <label class="flbl" for="dpFirma">Firma:</label>
+      <span class="flbl">Firma:</span>
       {% if firmalar|length > 1 %}
-      <select name="firma" id="dpFirma" onchange="this.form.submit()">
+      <select name="firma" onchange="this.form.submit()">
         <option value="">Barcha firmalar (umumiy)</option>
         {% for f in firmalar %}<option value="{{ f.id }}" {% if sel_firma == f.id|stringformat:'s' %}selected{% endif %}>{{ f.name }}</option>{% endfor %}
       </select>
@@ -302,8 +264,8 @@
       {% endif %}
     </form>
     <div class="acts">
-      <a class="btn" href="{% url 'limit_export' %}"><svg class="dp-i"><use href="#dpi-down"/></svg>Eksport</a>
-      <a class="btn" href="{% url 'hisobotlar_zip' %}" title="Barcha hisobotlarni bitta ZIP faylga jamlab yuklab olish"><svg class="dp-i"><use href="#dpi-down"/></svg>Hisobotlar (ZIP)</a>
+      <a class="btn" href="{% url 'limit_export' %}">Eksport</a>
+      <a class="btn" href="{% url 'hisobotlar_zip' %}" title="Barcha hisobotlarni bitta ZIP faylga jamlab yuklab olish">⬇ Hisobotlar (ZIP)</a>
     </div>
   </div>
 
@@ -313,306 +275,252 @@
   </div>
 
   <div class="pane" id="pane-korish" {% if active_tab != 'korish' %}style="display:none"{% endif %}>
-  <div class="dp">
-
-    {# ===== 1. Asosiy ko'rsatkichlar ===== #}
-    <section class="dp-kpis" aria-label="Asosiy ko'rsatkichlar">
-      <div class="card dp-kpi" title="{{ dp_kpi.limit_aniq }} so'm">
-        <div class="l"><span class="ic t-blue"><svg class="dp-i"><use href="#dpi-wallet"/></svg></span>Umumiy limit</div>
-        <div class="v">{{ dp_kpi.limit_q }}<small>so'm</small></div>
-        <div class="f">{{ dp_kpi.limitli }} ta limitli obyekt · jami {{ dp_jami }} ta</div>
+  <div class="hero reveal">
+    <div class="hl">
+      <h2>{{ greeting }}, {{ request.user.username }}!</h2>
+      <div class="hsub">Qurilish ERP — limit boshqaruvi. Bugungi umumiy holat quyida.</div>
+    </div>
+    <div class="hpic" aria-hidden="true">
+      <img src="{% static 'img/hero_qurilish.jpg' %}" alt="" loading="lazy">
+    </div>
+    <div class="hstats">
+      <div class="hs">
+        <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M16 13h4"/><path d="M2 10h20"/></svg></span>
+        <div><div class="l">Umumiy limit</div><div class="n">{{ jami_limit_str }}</div><div class="u">so'm</div></div>
       </div>
-      <div class="card dp-kpi" title="{{ dp_kpi.sarf_aniq }} so'm">
-        <div class="l"><span class="ic t-teal"><svg class="dp-i"><use href="#dpi-cart"/></svg></span>Sarflangan</div>
-        <div class="v">{{ dp_kpi.sarf_q }}<small>· {{ dp_kpi.foiz }}%</small></div>
-        <div class="dp-meter"><span style="width:{{ dp_kpi.bar }}%; background:{% if dp_kpi.foiz > 100 %}var(--bad){% else %}#0f766e{% endif %};"></span></div>
-        <div class="f">So'nggi 4 hafta: {{ dp_kpi.songgi4_q }}{% if dp_kpi.trend is not None %} <span class="dp-tag" title="Undan oldingi 4 haftaga nisbatan">{% if dp_kpi.trend > 0 %}↑{% elif dp_kpi.trend < 0 %}↓{% endif %} {{ dp_kpi.trend_abs }}%</span>{% endif %}</div>
+      <div class="hs">
+        <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1.6"/><circle cx="19" cy="21" r="1.6"/><path d="M2.5 3h2l2.6 12.4a2 2 0 0 0 2 1.6h8.7a2 2 0 0 0 2-1.6L21.5 7H6"/></svg></span>
+        <div><div class="l">Sarflangan — {{ foiz_used }}%</div><div class="n">{{ jami_sarf_str }}</div><div class="u">so'm</div></div>
       </div>
-      <div class="card dp-kpi" title="{{ dp_kpi.qoldiq_aniq }} so'm">
-        <div class="l"><span class="ic t-orange"><svg class="dp-i"><use href="#dpi-coins"/></svg></span>Qolgan</div>
-        <div class="v {% if dp_kpi.qoldiq_manfiy %}neg{% endif %}">{{ dp_kpi.qoldiq_q }}<small>· {{ dp_kpi.qolgan_foiz }}%</small></div>
-        <div class="dp-meter"><span style="width:{{ dp_kpi.qolgan_foiz }}%; background:#c2410c;"></span></div>
-        <div class="f" title="O'rtacha haftalik sarf (so'nggi {{ dp_kpi.ortacha_hafta }} hafta): {{ dp_kpi.ortacha_q }} so'm">
-          {% if dp_kpi.yetadi is not None %}O'rtacha sarf bilan ~{{ dp_kpi.yetadi }} haftaga yetadi
-          {% elif dp_kpi.qoldiq_manfiy %}Umumiy limitdan oshib ketgan
-          {% else %}So'nggi {{ dp_kpi.ortacha_hafta }} haftada sarf yo'q{% endif %}
-        </div>
+      <div class="hs">
+        <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/></svg></span>
+        <div><div class="l">Qolgan — {{ qolgan_foiz }}%</div><div class="n">{{ jami_qoldiq_str }}</div><div class="u">so'm</div></div>
       </div>
-      {% if tas_show %}<a class="card dp-kpi" href="?tab=tasdiqlar{% if sel_firma %}&firma={{ sel_firma }}{% endif %}">{% else %}<div class="card dp-kpi">{% endif %}
-        <div class="l"><span class="ic t-amber"><svg class="dp-i"><use href="#dpi-clock"/></svg></span>Tasdiq kutmoqda</div>
-        <div class="v">{{ dp_kpi.kutmoqda }}<small>so'rov</small></div>
-        <div class="f">
-          {% if dp_kpi.kutmoqda %}
-            {% if dp_kpi.sizda %}<span class="dp-tag bad">{{ dp_kpi.sizda }} tasi sizda</span>{% else %}<span class="dp-tag">sizda yo'q</span>{% endif %}
-            eng eskisi: {{ dp_kpi.eng_eski }}
-          {% else %}Jarayonda so'rov yo'q{% endif %}
-        </div>
-      {% if tas_show %}</a>{% else %}</div>{% endif %}
-    </section>
-
-    {# ===== 2. Haftalik sarf + e'tibor talab qiladiganlar ===== #}
-    <section class="dp-g2">
-      <div class="card">
-        <div class="dp-ch"><h3>Sarf dinamikasi</h3><span class="dp-cnt">tasdiqlangan</span>
-          <div class="r"><div class="dp-seg" id="dpSeg" role="group" aria-label="Davr"><button type="button" class="on" data-m="w" aria-pressed="true">Haftalik</button><button type="button" data-m="m" aria-pressed="false">Oylik</button></div></div></div>
-        {% if dp_hafta %}
-        <div class="dp-chart">
-          <div class="wrap"><canvas id="dpChart" role="img" aria-label="Tasdiqlangan sarf grafigi"></canvas></div>
-          <div class="dp-lg"><span><i style="background:#bfdbfe"></i>Sarf</span><span><i style="background:#2563eb"></i>Oxirgi davr</span><span><i class="ln"></i>O'rtacha: <b id="dpOrta" style="color:var(--ink)"></b></span></div>
-        </div>
-        {% else %}
-        <div class="dp-bosh"><svg class="dp-i"><use href="#dpi-chart"/></svg>Hozircha tasdiqlangan haftalik so'rov yo'q.</div>
-        {% endif %}
-      </div>
-
-      <div class="card">
-        <div class="dp-ch"><h3>E'tibor talab qiladi</h3>{% if dp_diqqat %}<span class="dp-cnt hot">{{ dp_diqqat|length }}</span>{% endif %}</div>
-        {% if dp_diqqat %}
-        <ul class="dp-att" id="dpAtt">
-          {% for d in dp_diqqat %}
-          <li {% if forloop.counter > 6 %}class="yashir"{% endif %}><a href="{{ d.url }}">
-            <span class="ic {% if d.tur == 'bad' %}t-red{% elif d.tur == 'warn' %}t-amber{% elif d.tur == 'info' %}t-blue{% else %}t-gray{% endif %}"><svg class="dp-i"><use href="#dpi-{{ d.ikon }}"/></svg></span>
-            <span class="tx"><span class="t1">{{ d.sarlavha }}</span><span class="t2" style="display:block">{{ d.izoh }}</span></span>
-            {% if d.belgi %}<span class="age {% if d.tur == 'bad' %}bad{% elif d.tur == 'warn' %}warn{% endif %}">{{ d.belgi }}</span>{% endif %}
-            <svg class="dp-i go"><use href="#dpi-chev"/></svg>
-          </a></li>
-          {% endfor %}
-        </ul>
-        {% if dp_diqqat|length > 6 %}<button type="button" class="dp-more" id="dpAttMore" aria-expanded="false">Yana {{ dp_diqqat|length|add:"-6" }} tasini ko'rsatish</button>{% endif %}
-        {% else %}
-        <div class="dp-bosh yaxshi"><svg class="dp-i"><use href="#dpi-check"/></svg>Hammasi joyida — e'tibor talab qiladigan holat yo'q.</div>
-        {% endif %}
-      </div>
-    </section>
-
-    {# ===== 3. Obyektlar ===== #}
-    <section class="card" id="dpObj">
-      <div class="dp-ch"><h3>Obyektlar</h3><span class="dp-cnt">{{ dp_jami }}</span><div class="r"><a href="{% url 'firmalar' %}">Barcha obyektlar →</a></div></div>
-      {% if dp_qatorlar %}
-      <div class="dp-tb">
-        <div class="dp-chips" role="group" aria-label="Holat bo'yicha filtr">
-          <button type="button" class="dp-chip" data-f="lim">Limitli <b>{{ dp_son.limitli }}</b></button>
-          <button type="button" class="dp-chip" data-f="warn">Limitga yaqin <b>{{ dp_son.yaqin }}</b></button>
-          <button type="button" class="dp-chip" data-f="bad">Oshgan <b>{{ dp_son.oshgan }}</b></button>
-          <button type="button" class="dp-chip" data-f="zan">Jarayonda <b>{{ dp_son.zanjir }}</b></button>
-          <button type="button" class="dp-chip" data-f="none">Limitsiz <b>{{ dp_son.limitsiz }}</b></button>
-          <button type="button" class="dp-chip" data-f="all">Hammasi <b>{{ dp_jami }}</b></button>
-        </div>
-        <label class="dp-find"><svg class="dp-i"><use href="#dpi-search"/></svg><input type="search" id="dpQ" placeholder="Obyekt, kod yoki firma" aria-label="Obyektlardan izlash" autocomplete="off"></label>
-      </div>
-      <div class="dp-scroll">
-        <table class="dp-tbl">
-          <thead><tr>
-            <th data-k="nom"><button type="button">Obyekt <span class="ar">↕</span></button></th>
-            <th class="num dp-hm" data-k="l"><button type="button">Limit <span class="ar">↕</span></button></th>
-            <th class="num dp-hm" data-k="s"><button type="button">Sarflangan <span class="ar">↕</span></button></th>
-            <th class="num dp-hm" data-k="q"><button type="button">Qolgan <span class="ar">↕</span></button></th>
-            <th data-k="f"><button type="button">Ishlatilgan <span class="ar">↕</span></button></th>
-            <th class="plain">Holat</th>
-          </tr></thead>
-          <tbody id="dpRows">
-            {% for r in dp_qatorlar %}
-            <tr data-h="{{ r.holat }}" data-z="{% if r.zanjir %}1{% else %}0{% endif %}" data-f="{{ r.foiz|unlocalize }}" data-l="{{ r.limit|unlocalize }}" data-s="{{ r.sarf|unlocalize }}">
-              <td><a class="dp-nm" href="{{ r.url }}" title="Limit jadvali">{{ r.nom }}</a><div class="dp-cd"><a href="{{ r.obyekt_url }}" title="Obyekt sahifasi">{{ r.kod }}</a>{% if r.firma %} · {{ r.firma }}{% endif %}</div></td>
-              <td class="num dp-hm">{{ r.limit_str }}</td>
-              <td class="num dp-hm">{{ r.sarf_str }}</td>
-              <td class="num dp-hm {% if r.manfiy %}neg{% endif %}">{{ r.qoldiq_str }}</td>
-              <td>{% if r.holat != 'none' %}<div class="dp-use"><div class="dp-meter"><span style="width:{{ r.bar }}%; background:{% if r.holat == 'bad' %}var(--bad){% elif r.holat == 'warn' %}var(--warn){% else %}var(--brand){% endif %};"></span></div><b>{{ r.foiz }}%</b></div>{% else %}<span style="color:#94a3b8">—</span>{% endif %}</td>
-              <td><div class="dp-sts"><span class="dp-st {{ r.holat }}">{{ r.holat_nom }}</span>{% if r.zanjir %}<span class="dp-st zan">{{ r.zanjir }}</span>{% endif %}</div></td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-      <div class="dp-bosh" id="dpNone" hidden><svg class="dp-i"><use href="#dpi-search"/></svg>Bu filtr bo'yicha obyekt topilmadi.</div>
-      <div class="dp-foot"><span id="dpInfo" aria-live="polite"></span><span class="sp"></span><button type="button" class="dp-btn" id="dpMore" hidden></button></div>
-      {% else %}
-      <div class="dp-bosh"><svg class="dp-i"><use href="#dpi-search"/></svg>Sizga biriktirilgan obyekt yo'q.</div>
-      {% endif %}
-    </section>
-
-    {# ===== 4. Tur bo'yicha + so'nggi harakatlar ===== #}
-    <section class="dp-g2 teng">
-      <div class="card">
-        <div class="dp-ch"><h3>Harajat turi bo'yicha</h3><span class="dp-cnt">sarf / limit</span></div>
-        <div class="dp-cats">
-          {% for k in dp_kategoriyalar %}
-          <div class="dp-cat" title="{{ k.aniq }}">
-            <div class="hd"><span class="d" style="background:{{ k.rang }}"></span><b>{{ k.nom }}</b><span class="n">{{ k.sarf_q }} / {{ k.limit_q }}</span><span class="p {{ k.daraja }}">{% if k.bor %}{{ k.pct }}%{% else %}—{% endif %}</span></div>
-            <div class="dp-meter"><span style="width:{{ k.bar }}%; background:{% if k.daraja == 'bad' %}var(--bad){% else %}{{ k.rang }}{% endif %};"></span></div>
-          </div>
-          {% endfor %}
-        </div>
-      </div>
-      <div class="card">
-        <div class="dp-ch"><h3>So'nggi harakatlar</h3><div class="r"><a href="{% url 'haftalik_tarix' %}">Haftalik tarix →</a></div></div>
-        {% if dp_harakatlar %}
-        <ul class="dp-act">
-          {% for e in dp_harakatlar %}
-          <li>
-            <span class="dot {% if e.tur == 'ok' %}t-green{% elif e.tur == 'bad' %}t-red{% elif e.tur == 'send' %}t-blue{% else %}t-gray{% endif %}"><svg class="dp-i"><use href="#dpi-{% if e.tur == 'ok' %}check{% elif e.tur == 'bad' %}x{% elif e.tur == 'send' %}send{% else %}step{% endif %}"/></svg></span>
-            <div><div class="tx"><b>{{ e.kim }}</b> {{ e.matn }} · <a href="{{ e.url }}">{{ e.obyekt }}</a></div><div class="tm">{{ e.qachon }}</div></div>
-          </li>
-          {% endfor %}
-        </ul>
-        {% else %}
-        <div class="dp-bosh"><svg class="dp-i"><use href="#dpi-clock"/></svg>Hozircha harakat yo'q.</div>
-        {% endif %}
-      </div>
-    </section>
-
-    {# ===== 5. Firmalar kesimida (faqat bir nechta firma ko'rinsa) ===== #}
-    {% if not sel_firma and dp_firmalar|length > 1 %}
-    <div class="dp-sh"><h3>Firmalar kesimida</h3><span>{{ dp_firmalar|length }} ta firma</span></div>
-    <section class="dp-firms">
-      {% for f in dp_firmalar %}
-      <a class="card dp-firm" href="?firma={{ f.id }}" title="{{ f.aniq }}">
-        <div class="nm"><span class="lo">{{ f.bosh }}</span><span>{{ f.nom }}</span></div>
-        <div class="dp-meter"><span style="width:{{ f.bar }}%; background:{% if f.daraja == 'bad' %}var(--bad){% elif f.daraja == 'warn' %}var(--warn){% else %}var(--brand){% endif %};"></span></div>
-        <div class="nums"><span>Limit <b>{{ f.limit_q }}</b></span><span>{{ f.soni }} obyekt</span><span>Sarf <b class="{{ f.daraja }}">{{ f.pct }}%</b></span></div>
-      </a>
-      {% endfor %}
-    </section>
-    {% endif %}
+    </div>
   </div>
 
-  {{ dp_hafta|json_script:"dpHafta" }}
+  <div class="quick reveal" style="animation-delay:.06s">
+    <a class="qtile" href="{% url 'firmalar' %}"><span class="qico cb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M6 21V5a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v16"/><path d="M14 9h3a1 1 0 0 1 1 1v11"/></svg></span><div class="qw"><div class="qt">Obyektlar</div><div class="qs">Ro'yxat</div></div><span class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span></a>
+    <a class="qtile" href="{% url 'ombor' %}"><span class="qico cp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/></svg></span><div class="qw"><div class="qt">Ombor</div><div class="qs">Ostatka</div></div><span class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span></a>
+    <a class="qtile" href="{% url 'prixod_list' %}"><span class="qico cg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg></span><div class="qw"><div class="qt">Prixod</div><div class="qs">Kirim</div></div><span class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span></a>
+    <a class="qtile" href="{% url 'rasxod_list' %}"><span class="qico co"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg></span><div class="qw"><div class="qt">Rasxod</div><div class="qs">Chiqim</div></div><span class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span></a>
+    <a class="qtile" href="{% url 'grafik_list' %}"><span class="qico cr"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></span><div class="qw"><div class="qt">Grafik</div><div class="qs">Ish grafigi</div></div><span class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span></a>
+  </div>
+
+  <div class="section-head reveal">Tahlil</div>
+  <div class="cols">
+    <div class="card reveal" style="animation-delay:.22s">
+      <div class="phrow"><h3 class="ph"><span class="pic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg></span>Byudjet taqsimoti</h3></div>
+      <div class="dwrap"><canvas id="catDoughnut"></canvas><div class="dctr"><b>{{ foiz_used }}%</b><span>ishlatilgan</span></div></div>
+      {% for k in kategoriyalar %}
+      <div class="cat">
+        <div class="crow">
+          <span class="nm"><span class="dot" style="background:{{ k.rang }};"></span>{{ k.nom }}</span>
+          <span class="fig">{{ k.sarf_str }} / {{ k.limit_str }}<b class="pctpill" style="{% if k.pct > 100 %}background:#fee2e2;color:#b91c1c;{% elif k.pct >= 90 %}background:#fef3c7;color:#b45309;{% else %}background:#eff6ff;color:#1d4ed8;{% endif %}">{{ k.pct }}%</b></span>
+        </div>
+        <div class="track"><span style="width:{{ k.bar }}%; background:{{ k.rang }};"></span></div>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="card reveal chartcard" style="animation-delay:.28s">
+      <div class="phrow"><h3 class="ph"><span class="pic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span>Haftalik sarf dinamikasi</h3><div class="leg"><span class="li"><span class="sw"></span>Sarflangan</span><span class="li"><span class="ln"></span>Tendensiya</span><span class="seg" id="wkSeg"><button type="button" class="on" data-m="w">Haftalik</button><button type="button" data-m="m">Oylik</button></span></div></div>
+      {% if wk_values %}<div class="chwrap"><canvas id="wkLine"></canvas></div>
+      {% else %}<div class="noch">Hozircha tasdiqlangan haftalik so'rov yo'q.</div>{% endif %}
+    </div>
+  </div>
+
+  {{ cat_values|json_script:"catData" }}
+  {{ wk_labels|json_script:"wkLabels" }}
+  {{ wk_values|json_script:"wkValues" }}
   <script src="{% static 'vendor/chart.umd.min.js' %}"></script>
   <script>
   (function(){
-    // ---------- E'tibor ro'yxati: qolganini ochish ----------
-    var att = document.getElementById('dpAtt'), attMore = document.getElementById('dpAttMore');
-    if (att && attMore) attMore.addEventListener('click', function(){
-      att.classList.add('ochiq'); attMore.setAttribute('aria-expanded', 'true'); attMore.hidden = true;
-    });
-
-    // ---------- Obyektlar jadvali: filtr / izlash / saralash / bo'lib ko'rsatish ----------
-    var tbody = document.getElementById('dpRows');
-    if (tbody) {
-      var QADAM = 10;
-      var rows = Array.prototype.slice.call(tbody.rows);
-      var chips = document.querySelectorAll('#dpObj .dp-chip');
-      var q = document.getElementById('dpQ'), info = document.getElementById('dpInfo');
-      var more = document.getElementById('dpMore'), none = document.getElementById('dpNone');
-      var heads = document.querySelectorAll('#dpObj th[data-k]');
-      var st = { f: 'all', k: 'f', yon: -1, soni: QADAM };
-      rows.forEach(function(r){
-        r._l = parseFloat(r.dataset.l) || 0; r._s = parseFloat(r.dataset.s) || 0;
-        r._f = parseFloat(r.dataset.f) || 0; r._q = r._l - r._s;
-        r._nom = (r.cells[0].textContent || '').trim().toLowerCase();
-        r._asl = (r.textContent || '').toLowerCase();   // til almashtirgichdan OLDINGI matn
-      });
-      // Boshlang'ich filtr: limitli obyekt bo'lsa — o'shalar (limitsizlar ro'yxatni to'ldirib yubormasin)
-      if (rows.some(function(r){ return r.dataset.h !== 'none'; })) st.f = 'lim';
-      function mos(r){
-        var h = r.dataset.h;
-        if (st.f === 'lim' && h === 'none') return false;
-        if ((st.f === 'warn' || st.f === 'bad' || st.f === 'none') && h !== st.f) return false;
-        if (st.f === 'zan' && r.dataset.z !== '1') return false;
-        var s = (q.value || '').trim().toLowerCase();
-        return !s || r._asl.indexOf(s) !== -1 || (r.textContent || '').toLowerCase().indexOf(s) !== -1;
-      }
-      function chiz(){
-        var tanlangan = rows.filter(mos);
-        tanlangan.sort(function(a, b){
-          var x, y;
-          if (st.k === 'nom') { x = a._nom; y = b._nom; return x < y ? -st.yon : (x > y ? st.yon : 0); }
-          x = a['_' + st.k]; y = b['_' + st.k];
-          return (x - y) * st.yon || (a._nom < b._nom ? -1 : 1);
-        });
-        rows.forEach(function(r){ r.hidden = true; });
-        tanlangan.forEach(function(r, i){ r.hidden = i >= st.soni; tbody.appendChild(r); });
-        var korinadi = Math.min(st.soni, tanlangan.length);
-        none.hidden = tanlangan.length > 0;
-        info.textContent = tanlangan.length ? (korinadi + ' / ' + tanlangan.length + ' ta obyekt') : '';
-        var qolgan = tanlangan.length - korinadi;
-        more.hidden = qolgan <= 0;
-        if (qolgan > 0) more.textContent = 'Yana ' + Math.min(qolgan, QADAM * 2) + ' tasini ko‘rsatish';
-        chips.forEach(function(c){ var on = c.dataset.f === st.f; c.classList.toggle('on', on); c.setAttribute('aria-pressed', on ? 'true' : 'false'); });
-        heads.forEach(function(h){
-          var on = h.dataset.k === st.k;
-          if (on) h.setAttribute('aria-sort', st.yon > 0 ? 'ascending' : 'descending'); else h.removeAttribute('aria-sort');
-          h.querySelector('.ar').textContent = on ? (st.yon > 0 ? '↑' : '↓') : '↕';
-        });
-      }
-      chips.forEach(function(c){ c.addEventListener('click', function(){ st.f = c.dataset.f; st.soni = QADAM; chiz(); }); });
-      heads.forEach(function(h){ h.querySelector('button').addEventListener('click', function(){
-        if (st.k === h.dataset.k) st.yon = -st.yon; else { st.k = h.dataset.k; st.yon = h.dataset.k === 'nom' ? 1 : -1; }
-        chiz();
-      }); });
-      q.addEventListener('input', function(){ st.soni = QADAM; chiz(); });
-      more.addEventListener('click', function(){ st.soni += QADAM * 2; chiz(); });
-      chiz();
+    if (typeof Chart === 'undefined') return;
+    Chart.defaults.font.family = "system-ui, 'Segoe UI', sans-serif";
+    Chart.defaults.color = '#434655';
+    function nf(n){ return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,' '); }
+    var cat = JSON.parse(document.getElementById('catData').textContent);
+    var dEl = document.getElementById('catDoughnut');
+    if (dEl && cat.some(function(v){return v>0;})) {
+      new Chart(dEl, { type:'doughnut',
+        data:{ labels:['Material',"Ish haqi",'Mashina chasti',"Ko'zda tutilmagan"], datasets:[{ data:cat, backgroundColor:['#2563eb','#3b82f6','#8b5cf6','#f59e0b'], borderColor:'#fff', borderWidth:4, spacing:1, hoverOffset:8 }]},
+        options:{ cutout:'70%', responsive:true, maintainAspectRatio:false,
+          plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:function(c){ return c.label+': '+nf(c.raw); } } } } } });
     }
-
-    // ---------- Sarf grafigi ----------
-    var el = document.getElementById('dpChart');
-    if (!el || typeof Chart === 'undefined') return;
-    var data = JSON.parse(document.getElementById('dpHafta').textContent);
-    var OY = ['Yan','Fev','Mar','Apr','May','Iyn','Iyl','Avg','Sen','Okt','Noy','Dek'];
-    function nf(n){ return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' '); }
-    function mln(v){
-      if (v >= 1e9) return (Math.round(v / 1e7) / 100).toString().replace('.', ',') + ' mlrd';
-      if (v >= 1e6) return (Math.round(v / 1e5) / 10).toString().replace('.', ',') + ' mln';
-      if (v >= 1e3) return Math.round(v / 1e3) + ' ming';
-      return String(Math.round(v));
-    }
-    function qator(rejim){
-      var lab = [], val = [], toliq = [];
-      if (rejim === 'm') {
-        var mp = {}, tartib = [];
-        data.forEach(function(p){ var k = p.d.slice(0, 7); if (!(k in mp)) { mp[k] = 0; tartib.push(k); } mp[k] += p.v; });
-        tartib.slice(-12).forEach(function(k){
-          var nom = OY[parseInt(k.slice(5), 10) - 1] + ' ' + k.slice(2, 4);
-          lab.push(nom); toliq.push(nom); val.push(mp[k]);
-        });
-      } else {
-        data.slice(-16).forEach(function(p){
-          var b = p.d.split('-'); lab.push(b[2] + '.' + b[1]); toliq.push(b[2] + '.' + b[1] + '.' + b[0] + ' haftasi'); val.push(p.v);
-        });
+    var wl = JSON.parse(document.getElementById('wkLabels').textContent);
+    var wv = JSON.parse(document.getElementById('wkValues').textContent);
+    var lEl = document.getElementById('wkLine');
+    if (lEl && wv.length) {
+      var ctx = lEl.getContext('2d');
+      var g = ctx.createLinearGradient(0,0,0,320);
+      g.addColorStop(0,'rgba(37,99,235,.28)'); g.addColorStop(.6,'rgba(37,99,235,.08)'); g.addColorStop(1,'rgba(37,99,235,0)');
+      /* Nuqta kam bo'lsa — markazlashtiramiz va kattaroq ko'rsatamiz,
+         aks holda yakka nuqta chap burchakda "yo'qolib" qoladi */
+      var kamNuqta = wv.length < 4;
+      function mln(v){
+        if (v >= 1e9) return (Math.round(v/1e7)/100) + ' mlrd';
+        if (v >= 1e6) return (Math.round(v/1e5)/10) + ' mln';
+        if (v >= 1e3) return Math.round(v/1e3) + ' ming';
+        return v;
       }
-      return { lab: lab, val: val, toliq: toliq };
-    }
-    Chart.defaults.font.family = "Inter, system-ui, 'Segoe UI', sans-serif";
-    var chart = null;
-    function grafik(rejim){
-      var d = qator(rejim), n = d.val.length;
-      var orta = n ? d.val.reduce(function(a, b){ return a + b; }, 0) / n : 0;
-      document.getElementById('dpOrta').textContent = mln(orta) + (rejim === 'm' ? ' / oy' : ' / hafta');
-      if (chart) chart.destroy();
-      chart = new Chart(el, { type: 'bar',
-        data: { labels: d.lab, datasets: [
-          { type: 'line', label: "O'rtacha", data: d.val.map(function(){ return orta; }), borderColor: '#b45309',
-            borderWidth: 1.5, borderDash: [5, 4], pointRadius: 0, pointHoverRadius: 0, order: 1 },
-          { label: 'Sarf', data: d.val, order: 2, borderRadius: 5, maxBarThickness: 44,
-            backgroundColor: d.val.map(function(_, i){ return i === n - 1 ? '#2563eb' : '#bfdbfe'; }),
-            hoverBackgroundColor: '#1d4ed8' }
+      /* Har bir nuqta ustida qora yorliqcha (badge) — summa yozilgan */
+      function roundRect(c, x, y, w, h, r){
+        c.beginPath();
+        c.moveTo(x+r, y);
+        c.arcTo(x+w, y,   x+w, y+h, r);
+        c.arcTo(x+w, y+h, x,   y+h, r);
+        c.arcTo(x,   y+h, x,   y,   r);
+        c.arcTo(x,   y,   x+w, y,   r);
+        c.closePath();
+      }
+      var badgePlugin = { id:'badges', afterDatasetsDraw:function(chart){
+        var c = chart.ctx, meta = chart.getDatasetMeta(0), data = chart.data.datasets[0].data;
+        var area = chart.chartArea;
+        c.save();
+        meta.data.forEach(function(pt, i){
+          var label = String(mln(data[i]));
+          // O'tgan haftaga nisbatan % o'zgarish (2-qator, yashil/qizil)
+          var sub = null, subUp = true;
+          // % faqat MA'NOLI bo'lganda: o'tgan hafta sezilarli va o'zgarish ±300% ichida
+          var mx0 = Math.max.apply(null, data);
+          if (i > 0 && data[i-1] > mx0 * 0.03){
+            var pch = Math.round((data[i] - data[i-1]) / data[i-1] * 100);
+            if (Math.abs(pch) <= 300 && pch !== 0){
+              subUp = pch >= 0;
+              sub = (subUp ? '↑ +' : '↓ ') + pch + '%';
+            }
+          }
+          c.font = "700 11px Inter, system-ui, sans-serif";
+          var w = c.measureText(label).width + 16;
+          if (sub){ c.font = "700 10px Inter, system-ui, sans-serif";
+                    w = Math.max(w, c.measureText(sub).width + 16); }
+          var h = sub ? 33 : 21;
+          var x = pt.x - w/2, y = pt.y - h - 9;
+          if (x < area.left + 2) x = area.left + 2;
+          if (x + w > area.right - 2) x = area.right - 2 - w;
+          if (y < area.top + 2) y = pt.y + 9;
+          c.fillStyle = '#111827';
+          roundRect(c, x, y, w, h, 7);
+          c.fill();
+          c.textAlign = 'center'; c.textBaseline = 'middle';
+          c.font = "700 11px Inter, system-ui, sans-serif";
+          c.fillStyle = '#fff';
+          c.fillText(label, x + w/2, y + (sub ? 10 : h/2 + 0.5));
+          if (sub){
+            c.font = "700 10px Inter, system-ui, sans-serif";
+            c.fillStyle = subUp ? '#4ade80' : '#f87171';
+            c.fillText(sub, x + w/2, y + 23.5);
+          }
+        });
+        c.restore();
+      }};
+      var barG = ctx.createLinearGradient(0,0,0,320);
+      barG.addColorStop(0,'#2f6fe4'); barG.addColorStop(1,'#8fb6f7');
+      var wkChart = null;
+      function chiz(lab, val){
+        /* O'rtacha sarf tendensiyasi — shu davrgacha o'rtacha */
+        var orta = [], jam = 0;
+        for (var oi = 0; oi < val.length; oi++) { jam += val[oi]; orta.push(jam / (oi + 1)); }
+        if (wkChart) wkChart.destroy();
+        wkChart = new Chart(lEl, { type:'bar',
+        plugins:[badgePlugin],
+        data:{ labels:lab, datasets:[
+          { /* USTUNLAR — sarf */
+            data:val, backgroundColor:barG, hoverBackgroundColor:'#1d4ed8',
+            borderRadius:5, maxBarThickness:52, order:2,
+            label:"Haftalik sarf"
+          },
+          { /* TENDENSIYA CHIZIG'I — to'q sariq, oq nuqtali */
+            type:'line', data:orta, label:"Tendensiya",
+            borderColor:'#f97316', borderWidth:2.5,
+            tension:.4, fill:false, order:1,
+            pointRadius:4.5, pointBackgroundColor:'#fff', pointBorderColor:'#f97316', pointBorderWidth:2.5,
+            pointHoverRadius:7
+          }
         ]},
-        options: { responsive: true, maintainAspectRatio: false, animation: { duration: 350 },
-          interaction: { mode: 'index', intersect: false },
-          plugins: { legend: { display: false },
-            tooltip: { backgroundColor: '#0b1c30', padding: 10, cornerRadius: 8, displayColors: false,
-              filter: function(c){ return c.dataset.type !== 'line'; },
-              callbacks: { title: function(it){ return it.length ? d.toliq[it[0].dataIndex] : ''; },
-                           label: function(c){ return nf(c.raw) + " so'm"; } } } },
-          scales: {
-            y: { beginAtZero: true, grace: '6%', ticks: { maxTicksLimit: 5, callback: mln, font: { size: 11 }, color: '#64748b', padding: 6 },
-                 grid: { color: '#eef2f7' }, border: { display: false } },
-            x: { grid: { display: false }, border: { color: '#e2e8f0' },
-                 ticks: { font: { size: 11 }, color: '#64748b', autoSkip: true, maxRotation: 0 } }
+        options:{ responsive:true, maintainAspectRatio:false,
+          layout:{ padding:{ top:34, right:14, left:6 } },
+          interaction:{ mode:'index', intersect:false },
+          plugins:{ legend:{display:false},
+            tooltip:{
+              backgroundColor:'#213145', titleColor:'#b4c5ff', bodyColor:'#fff',
+              padding:12, cornerRadius:8, displayColors:false,
+              titleFont:{size:12, weight:'600'}, bodyFont:{size:14, weight:'700'},
+              callbacks:{
+                title:function(items){ return items[0].label; },
+                label:function(c){ return c.dataset.label + ': ' + nf(c.raw) + " so'm"; }
+              }
+            }
+          },
+          scales:{
+            y:{ beginAtZero:true, grace:'8%',
+                title:{ display:true, text:"Summa (mln so'm)", font:{size:11}, color:'#94a3b8' },
+                ticks:{ maxTicksLimit:5, callback:mln, font:{size:11}, color:'#64748b', padding:6 },
+                grid:{ color:'#eef2f7' }, border:{ display:false, dash:[4,4] } },
+            x:{ grid:{ display:false }, border:{ display:false },
+                title:{ display:true, text:'Sana', font:{size:11}, color:'#94a3b8' },
+                ticks:{ font:{size:11}, color:'#64748b', padding:4, autoSkip:true, maxRotation:0, maxTicksLimit:16 } }
           } } });
-    }
-    grafik('w');
-    var seg = document.getElementById('dpSeg');
-    seg.querySelectorAll('button').forEach(function(b){
-      b.addEventListener('click', function(){
-        seg.querySelectorAll('button').forEach(function(x){ var on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on ? 'true' : 'false'); });
-        grafik(b.dataset.m);
+      }
+      chiz(wl, wv);
+      // Ҳафталик / Ойлик almashtirgich
+      var seg = document.getElementById('wkSeg');
+      if (seg) seg.querySelectorAll('button').forEach(function(b){
+        b.addEventListener('click', function(){
+          seg.querySelectorAll('button').forEach(function(x){ x.classList.toggle('on', x===b); });
+          if (b.dataset.m === 'w'){ chiz(wl, wv); return; }
+          var OY = {'01':'Yanvar','02':'Fevral','03':'Mart','04':'Aprel','05':'May','06':'Iyun',
+                    '07':'Iyul','08':'Avgust','09':'Sentabr','10':'Oktabr','11':'Noyabr','12':'Dekabr'};
+          var mp = {}, tartib = [];
+          wl.forEach(function(lb, i){
+            var mm = (lb.split('.')[1] || lb);
+            if (!(mm in mp)){ mp[mm] = 0; tartib.push(mm); }
+            mp[mm] += wv[i];
+          });
+          chiz(tartib.map(function(m){ return OY[m] || m; }),
+               tartib.map(function(m){ return mp[m]; }));
+        });
       });
-    });
+    }
   })();
   </script>
+
+  <div class="mcards reveal" style="animation-delay:.32s">
+    <div class="mcard"><div class="mico cb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M6 21V5a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v16"/></svg></div><div><div class="ml">Obyekt</div><div class="mn">{{ obyektlar_soni }}</div></div></div>
+    <div class="mcard"><div class="mico ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="1"/><line x1="9" y1="8" x2="10" y2="8"/><line x1="9" y1="12" x2="10" y2="12"/></svg></div><div><div class="ml">Firma</div><div class="mn">{{ firmalar_soni }}</div></div></div>
+    <div class="mcard"><div class="mico cg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div><div><div class="ml">Limitli obyekt</div><div class="mn">{{ limitli }}</div></div></div>
+    <div class="mcard"><div class="mico co"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><div><div class="ml">Limitga yaqin</div><div class="mn">{{ yaqin }}</div></div></div>
+    <div class="mcard"><div class="mico cr"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg></div><div><div class="ml">Limitdan oshgan</div><div class="mn">{{ oshgan }}</div></div></div>
+    {% if request.user.is_superuser %}<a class="mcard" href="?tab=tasdiqlar" style="color:inherit;">{% else %}<div class="mcard">{% endif %}<div class="mico cp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><div><div class="ml">Tasdiq kutmoqda</div><div class="mn">{{ pending_count }}</div></div>{% if request.user.is_superuser %}</a>{% else %}</div>{% endif %}
+  </div>
+
+  <div class="section-head reveal">Obyektlar</div>
+  <div class="card tw reveal" style="animation-delay:.36s">
+    <table>
+      <thead><tr><th>Kod</th><th>Obyekt</th><th class="num">Limit</th><th class="num">Sarflangan</th><th class="num">Qolgan</th><th>Holati</th></tr></thead>
+      <tbody>
+        {% for row in qatorlar %}
+        <tr>
+          <td><a class="lnk" href="{% url 'project_detail' row.obj.id %}" title="Obyekt sahifasi (kiritish/KPI)">{{ row.obj.code }}</a></td>
+          <td>
+            <a class="lnk" href="{% url 'limit_jadval' row.obj.id %}" title="Limit jadvali — UMUMIY | BAJARILGAN | QOLGAN | HAFTA">{{ row.obj.name }}</a>
+            <div class="mb"><span style="width:{{ row.foiz_bar }}%; background:{{ row.rang }};"></span></div>
+          </td>
+          <td class="num">{{ row.limit_str }}</td>
+          <td class="num lead">{{ row.sarf_str }}</td>
+          <td class="num">{{ row.qoldiq_str }}</td>
+          <td><span class="badge {{ row.holat_class }}">{{ row.holat }}</span></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="empty">Hozircha limitli obyekt yo'q.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
   </div>{# /pane-korish #}
+
+  {% if is_pto %}
+  {% endif %}
 
   {% if tas_show %}
   <div class="pane" id="pane-tasdiqlar" {% if active_tab != 'tasdiqlar' %}style="display:none"{% endif %}>

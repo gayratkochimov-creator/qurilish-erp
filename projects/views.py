@@ -331,70 +331,175 @@ def _farq_str(v):
 
 @login_required
 def dashboard(request):
-    from . import dash
-    from .models import GrafikTasdiq
-    from .roles import is_asosiy_admin, is_director, is_prov, is_snab
-
-    user = request.user
     firma_id = request.GET.get("firma") or ""
     if not firma_id.isdigit():      # noto'g'ri qiymat 500 bermasin
         firma_id = ""
-    obyektlar = visible_projects(user)
+    obyektlar = visible_projects(request.user).order_by("code")
     if firma_id:
         obyektlar = obyektlar.filter(firma_id=firma_id)
+    qatorlar = []
+    jami_limit = Decimal("0.00")
+    jami_mat = Decimal("0.00")
+    jami_lab = Decimal("0.00")
+    jami_mach = Decimal("0.00")
+    jami_oth = Decimal("0.00")
+    for p in obyektlar:
+        split = p.sarf_by_kind()
+        mat, lab, mach, oth = split["material"], split["labor"], split["machinery"], split["other"]
+        sarf = mat + lab + mach + oth
+        limit = p.budget_total or Decimal("0.00")
+        holat = _holat(limit, sarf)
+        foiz = float(sarf) / float(limit) * 100 if limit else 0
+        jami_limit += limit
+        jami_mat += mat
+        jami_lab += lab
+        jami_mach += mach
+        jami_oth += oth
+        qatorlar.append({
+            "obj": p,
+            "limit_str": _money(limit),
+            "sarf_str": _money(sarf),
+            "mat_str": _money(mat),
+            "lab_str": _money(lab),
+            "mach_str": _money(mach),
+            "oth_str": _money(oth),
+            "qoldiq_str": _money(limit - sarf),
+            "holat": holat,
+            "rang": RANGLAR.get(holat, "#6c757d"),
+            "holat_class": HOLAT_CLASS.get(holat, ""),
+            "foiz": round(foiz),
+            "foiz_bar": min(round(foiz), 100),
+        })
+    jami_sarf = jami_mat + jami_lab + jami_mach + jami_oth
 
-    # Tasdiqlar tabi: har rol O'Z navbatini ko'radi. Direktor navbati: haqiqiy direktor
-    # YOKI ASOSIY admin (admin1/2 emas); admin snab/proverchik navbatini ham ko'radi.
-    _dir = (is_director(user) and not user.is_superuser) or is_asosiy_admin(user)
-    _adm = is_admin(user)
-    _snb = is_snab(user)
-    _pto_f = is_pto(user)
-    _prv = is_prov(user)
+    from django.db.models import DecimalField, ExpressionWrapper, F, Sum
+    _LT = ExpressionWrapper(F("quantity") * F("unit_price"),
+                            output_field=DecimalField(max_digits=20, decimal_places=2))
+
+    _lq = visible_projects(request.user)
+    if firma_id:
+        _lq = _lq.filter(firma_id=firma_id)
+    la = _lq.aggregate(m=Sum("limit_material"), l=Sum("limit_labor"),
+                       k=Sum("limit_machinery"), o=Sum("limit_other"))
+    lim_mat = la["m"] or Decimal("0")
+    lim_lab = la["l"] or Decimal("0")
+    lim_mach = la["k"] or Decimal("0")
+    lim_oth = la["o"] or Decimal("0")
+
+    def _pct(part, whole):
+        return round(float(part) / float(whole) * 100) if whole else 0
+
+    foiz_used = _pct(jami_sarf, jami_limit)
+    foiz_bar = min(foiz_used, 100)
+
+    tot = jami_limit or Decimal("1")
+    c1 = float(lim_mat) / float(tot) * 100
+    c2 = c1 + float(lim_lab) / float(tot) * 100
+    c3 = c2 + float(lim_mach) / float(tot) * 100
+    donut = ("conic-gradient(#0a6ed1 0 %.2f%%, #5899da %.2f%% %.2f%%, "
+             "#89c3f0 %.2f%% %.2f%%, #c7d9ee %.2f%% 100%%)"
+             % (c1, c1, c2, c2, c3, c3))
+
+    kategoriyalar = [
+        {"nom": "Material", "rang": "#2563eb", "limit_str": _money(lim_mat), "sarf_str": _money(jami_mat),
+         "pct": _pct(jami_mat, lim_mat), "bar": min(_pct(jami_mat, lim_mat), 100)},
+        {"nom": "Ish haqi", "rang": "#3b82f6", "limit_str": _money(lim_lab), "sarf_str": _money(jami_lab),
+         "pct": _pct(jami_lab, lim_lab), "bar": min(_pct(jami_lab, lim_lab), 100)},
+        {"nom": "Mashina chasti", "rang": "#8b5cf6", "limit_str": _money(lim_mach), "sarf_str": _money(jami_mach),
+         "pct": _pct(jami_mach, lim_mach), "bar": min(_pct(jami_mach, lim_mach), 100)},
+        {"nom": "Ko'zda tutilmagan", "rang": "#f59e0b", "limit_str": _money(lim_oth), "sarf_str": _money(jami_oth),
+         "pct": _pct(jami_oth, lim_oth), "bar": min(_pct(jami_oth, lim_oth), 100)},
+    ]
+
+    # haftalik sarf grafigi (tasdiqlangan)
+    _cq = WeeklyRequestItem.objects.filter(
+        request__status="approved", request__project__in=visible_projects(request.user))
+    if firma_id:
+        _cq = _cq.filter(request__project__firma_id=firma_id)
+    crows = list(
+        _cq.values("request__week_start").annotate(s=Sum(_LT)).order_by("request__week_start")
+    )
+    W, H = 640, 170
+    pts, labels = [], []
+    if crows:
+        vals = [float(r["s"] or 0) for r in crows]
+        labels = [r["request__week_start"].strftime("%d.%m") for r in crows]
+        mx = max(vals) or 1
+        n = len(vals)
+        for i, v in enumerate(vals):
+            x = (i / max(n - 1, 1)) * W
+            y = H - (v / mx) * (H - 26) - 10
+            pts.append((round(x, 1), round(y, 1)))
+        if n == 1:
+            pts = [(0, pts[0][1]), (W, pts[0][1])]
+            labels = [labels[0], labels[0]]
+    line_pts = " ".join(f"{x},{y}" for x, y in pts)
+    area_pts = (f"0,{H} " + line_pts + f" {W},{H}") if pts else ""
+
+    # amaliy ko'rsatkichlar (jiddiy nazorat)
+    from .models import Firma, LimitChangeRequest
+    oshgan = sum(1 for q in qatorlar if q["holat"] == "RUXSAT KERAK")
+    yaqin = sum(1 for q in qatorlar if q["holat"] == "limitga yaqin")
+    limitli = sum(1 for q in qatorlar if q["obj"].budget_total > 0)
+    _pq = LimitChangeRequest.objects.filter(
+        status__in=LIM_JARAYON, project__in=visible_projects(request.user))
+    if firma_id:
+        _pq = _pq.filter(project__firma_id=firma_id)
+    pending_count = _pq.count()
+    qolgan_foiz = max(0, 100 - foiz_used)
+
+    # Chart.js uchun raqamli ma'lumot
+    cat_values = [float(lim_mat), float(lim_lab), float(lim_mach), float(lim_oth)]
+    wk_labels = [r["request__week_start"].strftime("%d.%m") for r in crows]
+    wk_values = [float(r["s"] or 0) for r in crows]
+
+    _tab = request.GET.get("tab")
+    if _tab == "tasdiqlar" and request.user.is_superuser:
+        active_tab = "tasdiqlar"
+    else:
+        active_tab = "korish"
+    # Tasdiqlar tabi: DIREKTOR o'z navbatini (dir) ko'radi, ADMIN o'z navbatini (adm/submitted).
+    # Superuser ikkalasini ham ko'radi (avval direktor navbati).
+    from .roles import is_director
+    from .roles import is_snab as _is_snab_f
+    # Direktor navbati: haqiqiy direktor YOKI ASOSIY admin (admin1/2 emas)
+    from .roles import is_asosiy_admin as _asosiy_f
+    _dir = (is_director(request.user) and not request.user.is_superuser)         or _asosiy_f(request.user)
+    _adm = is_admin(request.user)
+    _snb = _is_snab_f(request.user)
+    _pto_f = is_pto(request.user)
+    from .roles import is_prov as _is_prov_f
+    _prv = _is_prov_f(request.user)
     tas_lim, tas_wk, tas_lim2, tas_wk2 = [], [], [], []
     tas_lim_s, tas_lim_p2, tas_lim_pr = [], [], []
     if _prv or _adm:
-        tas_lim_pr, _x = _tasdiqlar_data("prov", user=user)
+        tas_lim_pr, _x = _tasdiqlar_data("prov", user=request.user)
     if _dir:
-        tas_lim, tas_wk = _tasdiqlar_data("dir", user=user)
+        tas_lim, tas_wk = _tasdiqlar_data("dir", user=request.user)
     if _adm:
-        tas_lim2, tas_wk2 = _tasdiqlar_data("adm", user=user)
+        tas_lim2, tas_wk2 = _tasdiqlar_data("adm", user=request.user)
     if _snb or _adm:
-        tas_lim_s, _x = _tasdiqlar_data("snab", user=user)
+        tas_lim_s, _x = _tasdiqlar_data("snab", user=request.user)
     if _pto_f:
-        tas_lim_p2, _x = _tasdiqlar_data("pto2", user=user)
+        tas_lim_p2, _x = _tasdiqlar_data("pto2", user=request.user)
     # Grafik tasdiqlash navbatlari (limit zanjiriga o'xshash)
+    from .models import GrafikTasdiq
     graf_dir, graf_adm = [], []
     if _dir:
         graf_dir = list(GrafikTasdiq.objects.filter(
-            status="dir", project__in=visible_projects(user)
+            status="dir", project__in=visible_projects(request.user)
         ).select_related("project", "yubordi"))
     if _adm:
         graf_adm = list(GrafikTasdiq.objects.filter(
-            status="adm", project__in=visible_projects(user)
+            status="adm", project__in=visible_projects(request.user)
         ).select_related("project", "yubordi", "director_by"))
     tas_show = _dir or _adm or _snb or _prv or bool(tas_lim_p2)
-    active_tab = "tasdiqlar" if (request.GET.get("tab") == "tasdiqlar" and tas_show) else "korish"
-
-    # Foydalanuvchining O'Z bosqichlari — panelda «sizning navbatingizda» deb ajratiladi
-    # (superuser uchun is_pto/is_snab ham True qaytadi — unga faqat admin bosqichi,
-    # asosiy adminga direktor bosqichi ham «o'ziniki» sanaladi)
-    lim_bosq, wk_bosq = set(), set()
-    if _adm:
-        lim_bosq.add("adm")
-        wk_bosq.add("submitted")
-    else:
-        if _snb:
-            lim_bosq.add("snab")
-        if _pto_f:
-            lim_bosq.add("pto2")
-        if _prv:
-            lim_bosq.add("prov")
-    if _dir:
-        lim_bosq.add("dir")
-        wk_bosq.add("dir")
+    from django.utils import timezone as _tz
+    _h = _tz.localtime().hour
+    greeting = "Xayrli tong" if _h < 12 else ("Xayrli kun" if _h < 18 else "Xayrli kech")
 
     kontekst = {
-        "is_pto": _pto_f,
+        "is_pto": is_pto(request.user),
         "active_tab": active_tab,
         "tas_lim": tas_lim, "tas_wk": tas_wk,          # direktor navbati
         "tas_lim2": tas_lim2, "tas_wk2": tas_wk2,      # admin navbati
@@ -405,11 +510,38 @@ def dashboard(request):
         "graf_dir": graf_dir, "graf_adm": graf_adm,    # grafik tasdiqlash navbatlari
         "tas_count": (len(tas_lim) + len(tas_wk) + len(tas_lim2) + len(tas_wk2)
                       + len(tas_lim_s) + len(tas_lim_p2) + len(tas_lim_pr) + len(graf_dir) + len(graf_adm)),
-        "firmalar": visible_firmas(user).order_by("name"),
+        "greeting": greeting,
+        "qatorlar": qatorlar,
+        "cat_values": cat_values,
+        "wk_labels": wk_labels,
+        "wk_values": wk_values,
+        "jami_limit_str": _money(jami_limit),
+        "jami_sarf_str": _money(jami_sarf),
+        "jami_mat_str": _money(jami_mat),
+        "jami_lab_str": _money(jami_lab),
+        "jami_mach_str": _money(jami_mach),
+        "jami_oth_str": _money(jami_oth),
+        "jami_qoldiq_str": _money(jami_limit - jami_sarf),
+        "soni": len(qatorlar),
+        "foiz_used": foiz_used,
+        "foiz_bar": foiz_bar,
+        "qolgan_foiz": qolgan_foiz,
+        "donut": donut,
+        "kategoriyalar": kategoriyalar,
+        "line_pts": line_pts,
+        "area_pts": area_pts,
+        "chart_w": W,
+        "chart_h": H,
+        "chart_labels": labels,
+        "obyektlar_soni": len(qatorlar),
+        "firmalar_soni": 1 if firma_id else visible_firmas(request.user).count(),
+        "limitli": limitli,
+        "oshgan": oshgan,
+        "yaqin": yaqin,
+        "pending_count": pending_count,
+        "firmalar": visible_firmas(request.user).order_by("name"),
         "sel_firma": firma_id,
     }
-    kontekst.update(dash.panel(user, obyektlar, lim_bosq=lim_bosq, wk_bosq=wk_bosq,
-                               tas_show=tas_show, admin=_adm))
     return render(request, "projects/dashboard.html", kontekst)
 
 
