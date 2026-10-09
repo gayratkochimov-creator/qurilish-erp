@@ -133,7 +133,7 @@
   <h2 style="margin:0;">{{ p.name }} — Умумий лимит ва ҳафталик лимитлар</h2>
   <span class="lim-sana" style="display:inline-flex; align-items:center; gap:7px; font-size:12.5px; color:#334155; background:#eef6ff; border:1px solid #bfdbfe; border-radius:6px; padding:4px 10px;">
     <b>Умумий лимит даври:</b>
-    {% if lim_edit_huquq %}
+    {% if lim_edit_huquq or can_edit %}
       <input type="date" id="limStart" value="{{ lim_start }}" title="Бошланиши" style="padding:3px 6px; border:1px solid #c8ccd0; border-radius:4px; font-size:12px;">
       <span>—</span>
       <input type="date" id="limEnd" value="{{ lim_end }}" title="Тугаши" style="padding:3px 6px; border:1px solid #c8ccd0; border-radius:4px; font-size:12px;">
@@ -142,7 +142,7 @@
     {% endif %}
   </span>
 </div>
-<div class="lj-sub">{% if taklif_view %}Жадвалда {% if qoralama %}қоралама{% else %}занжирдаги лимит таклифи{% endif %}: Умумий · Бажарилган · Қолган{% if can_edit %} · ҳафталик устунни шу қаторлар бўйича тўлдириб, сана бошланиши/тугашини кўрсатиб «Сақлаш» ёки «Ҳафтани ёпиш»ни босасиз{% endif %}.{% elif can_edit %}Ҳафта ичида нарх ўзгарса: қатордаги <b>х</b> тугмасини босасиз → эски нархда сўралган объёмни ёзасиз → қолгани янги нархда алоҳида қатор бўлади. Ҳамма сумма автоматик. «Ҳафтани ёпиш» — сўров директор тасдиғига юборилади.{% if is_adm %} Админ сифатида Умумий объём/нархни ҳам шу ерда тўғрилайсиз (тўғридан-тўғри қўлланади).{% else %} Умумий объём/нархни ўзгартирсангиз ёки блок/иш қўшсангиз — сақлашда <b>снабжение → ПТО → директор → админ</b> занжирига сўров кетади.{% endif %}{% elif lim_edit_huquq %}<b>Умумий</b> устундаги объём/нархни таҳрирлаб ёки «+ Блок (бўлим)» билан янги бўлим қўшиб, яшил «▶ Лимитни юбориш» тугмаси орқали занжирга жўнатишингиз мумкин. Ҳафталик устунни ПТО/админ тўлдиради.{% else %}Кўриш режими — ҳафталик устунини ПТО/админ тўлдиради.{% if lim_qulf %} Умумий лимит тасдиқланган — таҳрирлаш фақат админ рухсати билан очилади.{% endif %}{% endif %}
+<div class="lj-sub">{% if taklif_view %}Жадвалда {% if qoralama %}қоралама{% else %}занжирдаги лимит таклифи{% endif %}: Умумий · Бажарилган · Қолган{% if can_edit %} · ҳафталик устунни шу қаторлар бўйича тўлдириб, сана бошланиши/тугашини кўрсатиб «Сақлаш» ёки «Ҳафтани ёпиш»ни босасиз{% endif %}.{% elif can_edit %}Ҳафта ичида нарх ўзгарса: қатордаги <b>х</b> тугмасини босасиз → эски нархда сўралган объёмни ёзасиз → қолгани янги нархда алоҳида қатор бўлади. Ҳамма сумма автоматик. «Ҳафтани ёпиш» — сўров директор тасдиғига юборилади.{% if is_adm %} Админ сифатида Умумий объём/нархни ҳам шу ерда тўғрилайсиз (тўғридан-тўғри қўлланади).{% else %} Умумий объём/нархни ўзгартирсангиз ёки блок/иш қўшсангиз — сақлашда <b>снабжение → ПТО → директор → проверчик → админ</b> занжирига сўров кетади.{% endif %}{% elif lim_edit_huquq %}<b>Умумий</b> устундаги объём/нархни таҳрирлаб ёки «+ Блок (бўлим)» билан янги бўлим қўшиб, яшил «▶ Лимитни юбориш» тугмаси орқали занжирга жўнатишингиз мумкин. Ҳафталик устунни ПТО/админ тўлдиради.{% else %}Кўриш режими — ҳафталик устунини ПТО/админ тўлдиради.{% if lim_qulf %} Умумий лимит тасдиқланган — таҳрирлаш фақат админ рухсати билан очилади.{% endif %}{% endif %}
 {% if lim_pending %}<br><b style="color:#b45309;">⏳ Лимит сўрови занжирда — {% if taklif_edit %}ҳозир СИЗНИНГ босқичингиз: таклиф қаторларини шу жадвалда тўғрилаб «💾 Таклифни сақлаш»ни босинг, кейин кейинги босқичга юборинг.{% elif taklif_view %}жадвалда ЗАНЖИРДАГИ ТАКЛИФ кўрсатилмоқда (фақат кўриш).{% else %}у якунлангунча Умумий устуни қулф; ҳафталик иш давом этади.{% endif %}</b>{% endif %}</div>
 
 {% if lim_holat %}
@@ -187,7 +187,7 @@
   {% if qoralama.huquq %}
   <span style="margin-left:auto; display:inline-flex; gap:8px; align-items:center; flex-wrap:wrap;">
     {% if not taklif_view %}<a href="?korinish=taklif" style="border-radius:5px; padding:4px 12px; font-weight:700; background:#7c3aed; color:#fff; text-decoration:none; white-space:nowrap;">📝 Қораламани очиш →</a>{% endif %}
-    <form method="post" class="lim-amal-f" style="margin:0;" onsubmit="return confirm('Қоралама занжирга (снабжение → ПТО → директор → админ) сўров бўлиб юборилсинми?');">{% csrf_token %}<input type="hidden" name="qoralama_amal" value="send"><button type="submit" style="border:none; border-radius:5px; background:#26a269; color:#fff; padding:4px 13px; font-weight:700; font-size:12px; cursor:pointer;">▶ Лимитни юбориш</button></form>
+    <form method="post" class="lim-amal-f" style="margin:0;" onsubmit="return confirm('Қоралама занжирга (снабжение → ПТО → директор → проверчик → админ) сўров бўлиб юборилсинми?');">{% csrf_token %}<input type="hidden" name="qoralama_amal" value="send"><button type="submit" style="border:none; border-radius:5px; background:#26a269; color:#fff; padding:4px 13px; font-weight:700; font-size:12px; cursor:pointer;">▶ Лимитни юбориш</button></form>
     {% if qoralama.apply %}<form method="post" class="lim-amal-f" style="margin:0;" onsubmit="return confirm('Қоралама занжирсиз ТЎҒРИДАН лимит сифатида қўлланилсинми?');">{% csrf_token %}<input type="hidden" name="qoralama_amal" value="apply"><button type="submit" style="border:none; border-radius:5px; background:#1a5fb4; color:#fff; padding:4px 13px; font-weight:700; font-size:12px; cursor:pointer;">✓ Лимитни қўллаш</button></form>{% endif %}
     <form method="post" style="margin:0;" onsubmit="return confirm('Қоралама ўчирилсинми? Сақланган қаторлар йўқолади.');">{% csrf_token %}<input type="hidden" name="qoralama_amal" value="delete"><button type="submit" style="border:none; border-radius:5px; background:#c01c28; color:#fff; padding:4px 13px; font-weight:700; font-size:12px; cursor:pointer;">🗑 Ўчириш</button></form>
   </span>
@@ -220,7 +220,6 @@
   {% if can_edit %}
   <button class="b-green" id="btnSaqla" title="Ҳафталик — қоралама; Умумий ўзгаришлар — ҚОРАЛАМА (занжирга юборилмайди, кейин давом этасиз)">💾 Сақлаш</button>
   <button class="b-green" id="btnYopish">▶ Ҳафтани ёпиш</button>
-  <button class="b-blue" id="btnYubor" type="button">📤 Масъулга юбориш</button>
   <span id="sanaBox" style="display:flex; gap:6px; align-items:center;">
     <label>Ҳафта боши <input type="date" id="wkStart" value="{{ taklif_ws }}"></label>
     <label>охири <input type="date" id="wkEnd" value="{{ taklif_we }}"></label>
@@ -233,12 +232,12 @@
   <button class="b-blue" id="btnQoralama" type="button" title="Тугатмаган бўлсангиз — жадвал серверда қоралама бўлиб сақланади; занжирга юборилмайди, кейин шу жойидан давом этасиз">💾 Қоралама сақлаш</button>
   {% endif %}
   {% if lim_qosh_huquq %}
-  <button class="b-green" id="btnLimYubor" title="Янги блок/қаторлар снабжение → ПТО → директор → админ занжирига сўров бўлиб кетади (мавжуд қаторлар ўзгармайди)">▶ Лимитни юбориш</button>
+  <button class="b-green" id="btnLimYubor" title="Янги блок/қаторлар снабжение → ПТО → директор → проверчик → админ занжирига сўров бўлиб кетади (мавжуд қаторлар ўзгармайди)">▶ Лимитни юбориш</button>
   {% if not can_edit %}<button class="b-blue" id="btnQoralama" type="button" title="Янги қаторларни қоралама сифатида сақлаш">💾 Қоралама сақлаш</button>{% endif %}
   {% endif %}
   {% if lim_edit_huquq %}
-  <button class="b-green" id="btnLimYubor" title="{% if adm_togri %}Умумий устундаги ўзгаришлар тўғридан-тўғри қўлланади{% else %}Умумий лимит ўзгаришлари кейинги юсерга (снабжение → ПТО → директор → админ) сўров бўлиб кетади{% endif %}">▶ {% if adm_togri %}Лимитни қўллаш{% else %}Лимитни юбориш{% endif %}</button>
-  {% if adm_togri %}<button class="b-blue" id="btnLimZanjir" title="Ўзгаришлар тўғридан қўлланмайди — снабжение → ПТО → директор → админ занжирига СЎРОВ бўлиб кетади ва Тасдиқлар бўлимида кўринади">📨 Занжирга юбориш</button>{% endif %}
+  <button class="b-green" id="btnLimYubor" title="{% if adm_togri %}Умумий устундаги ўзгаришлар тўғридан-тўғри қўлланади{% else %}Умумий лимит ўзгаришлари кейинги юсерга (снабжение → ПТО → директор → проверчик → админ) сўров бўлиб кетади{% endif %}">▶ {% if adm_togri %}Лимитни қўллаш{% else %}Лимитни юбориш{% endif %}</button>
+  {% if adm_togri %}<button class="b-blue" id="btnLimZanjir" title="Ўзгаришлар тўғридан қўлланмайди — снабжение → ПТО → директор → проверчик → админ занжирига СЎРОВ бўлиб кетади ва Тасдиқлар бўлимида кўринади">📨 Занжирга юбориш</button>{% endif %}
   {% endif %}
   <input type="text" id="ljQidir" placeholder="🔍 Бўлим бўйича излаш..." style="padding:6px 10px; border:1px solid #c8ccd0; border-radius:4px; font-size:12.5px; min-width:190px;">
   <button class="b-gray" id="btnHisobot">📊 Нарх тарихи ҳисоботи</button>
@@ -249,54 +248,6 @@
   💾 Саҳифа ёпилиши (свет ўчиши)дан олдин ёзилган — <b class="t"></b> даги — САҚЛАНМАГАН ўзгаришлар қайта тикланди. <span class="qaysi">Ишончли сақлаш учун «Сақлаш»ни босинг.</span>
   <button type="button" id="ljAutoClear" style="margin-left:8px; border:1px solid #fca5a5; background:#fef2f2; color:#b91c1c; border-radius:5px; padding:2px 10px; cursor:pointer; font-size:12px;">Тикланганни бекор қилиш</button>
 </div>
-{% if nav_info %}
-<div class="noprint" style="background:#f3ecf8; border:1px solid #d3b8e0; border-radius:6px; padding:7px 12px; margin-bottom:8px; font-size:12.5px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-  <b>🔗 Кетма-кет юбориш кетмоқда</b> ({{ nav_info.step }}/{{ nav_info.n }}):
-  {% for s in nav_info.steps %}
-    {% if not forloop.first %}<span style="color:#9ca3af;">→</span>{% endif %}
-    {% if s.holat == 'ok' %}<span style="color:#15803d; font-weight:700;">{{ s.username }} ✅ тасдиқлади</span>
-    {% elif s.holat == 'joriy' %}<span style="background:#1a5fb4; color:#fff; border-radius:4px; padding:1px 8px; font-weight:700;">{{ s.username }} ⏳ кутилмоқда</span>
-    {% else %}<span style="color:#6b7280;">{{ s.username }}</span>{% endif %}
-  {% endfor %}
-  <span style="color:#6b7280;">· бошлади: {{ nav_info.boshladi }}</span>
-  {% if nav_info.menda %}
-  <form method="post" action="{% url 'limit_navbat_tasdiq' p.id %}" style="margin:0; margin-left:auto;"
-        onsubmit="return confirm('Лимитни кўриб чиқдингизми? Тасдиқлагач навбат кейинги масъулга ўтади.');">
-    {% csrf_token %}
-    <button type="submit" style="background:#26a269; color:#fff; border:none; border-radius:5px; padding:5px 16px; font-weight:700; font-size:12.5px; cursor:pointer;">✓ ТАСДИҚЛАШ (кўриб чиқдим)</button>
-  </form>
-  {% endif %}
-  {% if nav_info.orqaga_bor %}{% if nav_info.menda or nav_info.bekor_mumkin %}
-  <form method="post" action="{% url 'limit_navbat_qaytar' p.id %}" style="margin:0; display:flex; gap:5px; align-items:center;"
-        onsubmit="var s=this.querySelector('[name=sabab]'); if(!s.value.trim()){ alert('Қайтариш сабабини ёзинг.'); s.focus(); return false; } return confirm('Навбат танланган масъулга ҚАЙТАРИЛСИНМИ?');">
-    {% csrf_token %}
-    <select name="qadam" style="padding:3px 6px; border:1px solid #c8ccd0; border-radius:4px; font-size:12px;">
-      {% for s in nav_info.steps %}{% if s.holat == 'ok' %}<option value="{{ forloop.counter0 }}">{{ s.username }}{% if s.rol %} ({{ s.rol }}){% endif %}</option>{% endif %}{% endfor %}
-    </select>
-    <input type="text" name="sabab" placeholder="хато/сабаб..." style="padding:3px 8px; border:1px solid #c8ccd0; border-radius:4px; font-size:12px; width:150px;">
-    <button type="submit" class="del-btn" style="padding:3px 10px; background:#b45309;">↩ Қайтариш</button>
-  </form>
-  {% endif %}{% endif %}
-  {% if nav_info.bekor_mumkin %}
-  <form method="post" action="{% url 'limit_jadval_yuborish' p.id %}" style="margin:0;" onsubmit="return confirm('Занжир бекор қилинсинми?');">{% csrf_token %}
-    <input type="hidden" name="mode" value="navbat_bekor">
-    <button type="submit" class="del-btn" style="padding:3px 10px;">Занжирни бекор қилиш</button>
-  </form>
-  {% endif %}
-</div>
-{% endif %}
-{% if nav_tarix %}
-<div class="noprint" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:6px 12px; margin-bottom:8px; font-size:12px;">
-  <b style="color:#475569;">Юбориш жараёни тарихи:</b>
-  {% for t in nav_tarix %}
-  <div style="padding:2px 0;">
-    <span style="color:#94a3b8;">{{ t.sana|date:"d.m.Y H:i" }}</span> · {{ t.boshladi }}:
-    {% for s in t.steps %}{% if not forloop.first %} → {% endif %}{% if s.holat == 'ok' %}<span style="color:#15803d;">{{ s.username }} ✅</span>{% else %}<span style="color:#c01c28;">{{ s.username }} ✕</span>{% endif %}{% endfor %}
-    {% if t.status == 'done' %}<b style="color:#15803d;">— якунланди</b>{% else %}<b style="color:#c01c28;">— бекор қилинган</b>{% endif %}
-  </div>
-  {% endfor %}
-</div>
-{% endif %}
 <div id="wkStatus" style="display:none; border-radius:6px; padding:7px 12px; margin-bottom:8px; font-size:12.5px; align-items:center; gap:8px; flex-wrap:wrap;"></div>
 <div id="ljOk">✔ Хато йўқ</div>
 <div id="ljErr"><div class="hdr" id="ljErrHdr"></div><ul id="ljErrList"></ul></div>
@@ -334,7 +285,7 @@
     <tr><td colspan="16" style="text-align:center; color:#94a3b8; padding:26px;">
       {% if lim_pending %}Занжирдаги сўровда қаторлар йўқ (эски усул — фақат сумма).
       {% else %}Умумий лимит ҳали киритилмаган.
-      {% if lim_edit_huquq %}Пастдаги <b>«+ Янги блок (бўлим)»</b> тугмаси билан шу ерда киритинг{% if not is_adm %} — сақлашда снабжение → ПТО → директор → админ занжирига сўров кетади{% endif %}.{% endif %}{% endif %}
+      {% if lim_edit_huquq %}Пастдаги <b>«+ Янги блок (бўлим)»</b> тугмаси билан шу ерда киритинг{% if not is_adm %} — сақлашда снабжение → ПТО → директор → проверчик → админ занжирига сўров кетади{% endif %}.{% endif %}{% endif %}
     </td></tr>
   {% endif %}
   {% for g in guruhlar %}
@@ -404,26 +355,6 @@
       <button class="b-gray" style="padding:6px 14px; border:none; border-radius:4px; color:#fff; cursor:pointer;" id="mBekor">Бекор</button>
       <button class="b-green" style="padding:6px 14px; border:none; border-radius:4px; color:#fff; cursor:pointer;" id="mBol">Бўлиш</button>
     </div>
-  </div>
-</div>
-{% endif %}
-
-{% if can_edit %}
-<div class="lj-modal-bg" id="yuborBg">
-  <div class="lj-modal" style="max-width:560px; min-width:420px;">
-    <h3>📤 Лимитни юбориш</h3>
-    <div style="font-size:13px; margin-top:8px;">
-      🔗 {% for z in zanjir_ro %}{% if not forloop.first %} → {% endif %}<b>{{ z.username }}</b>{% if z.rol %} ({{ z.rol }}){% endif %}{% empty %}<span style="color:#c01c28;">Занжир учун ходим топилмади — обектга ПТО/снаб бириктиринг</span>{% endfor %}
-    </div>
-    <form method="post" action="{% url 'limit_jadval_yuborish' p.id %}">{% csrf_token %}
-      <input type="hidden" name="mode" value="navbat">
-      <label>Изоҳ (ихтиёрий)</label>
-      <input name="izoh" placeholder="масалан: шу ҳафта тугатиш керак">
-      <div class="row2">
-        <button type="button" class="b-gray" style="padding:6px 14px; border:none; border-radius:4px; color:#fff; cursor:pointer;" id="yuborBekor">Бекор</button>
-        <button type="submit" class="b-green" style="padding:6px 14px; border:none; border-radius:4px; color:#fff; cursor:pointer;">📤 Юбориш</button>
-      </div>
-    </form>
   </div>
 </div>
 {% endif %}
@@ -1500,7 +1431,7 @@
     var limBor = !!(limEdits.length || limNew.length || limDel.length);
     if (!items.length && !limBor && !sanaOzgardi){ limZanjir=false; limMode='qoralama'; alert('Камида битта қаторга объём киритинг.'); return; }
     if (limMode !== 'qoralama' && (!ADM_TOGRI || limZanjir) && limBor &&
-        !confirm('Умумий лимит ўзгаришлари СНАБЖЕНИЕ → ПТО → ДИРЕКТОР → АДМИН занжирига сўров бўлиб кетади ва Тасдиқлар бўлимида кўринади. Давом этамизми?')){ limZanjir=false; limMode='qoralama'; return; }
+        !confirm('Умумий лимит ўзгаришлари СНАБЖЕНИЕ → ПТО → ДИРЕКТОР → ПРОВЕРЧИК → АДМИН занжирига сўров бўлиб кетади ва Тасдиқлар бўлимида кўринади. Давом этамизми?')){ limZanjir=false; limMode='qoralama'; return; }
     if (limMode === 'qoralama' && limBor &&
         !confirm((QORALAMA_BOR && !TAKLIF_EDIT ? 'ДИҚҚАТ: бу объектда сақланган ҚОРАЛАМА бор — у ҳозирги жадвал ҳолати билан АЛМАШТИРИЛАДИ.\n\n' : '')+
                  'Умумий лимит ўзгаришлари ҚОРАЛАМА сифатида сақланади (занжирга юборилмайди) — кейин «📝 Қораламани очиш» орқали давом этасиз. Юбориш учун «▶ Лимитни юбориш»ни босасиз. Давом этамизми?')){ return; }
@@ -1836,14 +1767,6 @@
       }
     }
   } catch(e){}
-
-  // -------- 📤 Масъулга юбориш --------
-  var yBg = document.getElementById('yuborBg');
-  if (yBg){
-    var bYu = document.getElementById('btnYubor');
-    if (bYu) bYu.onclick = function(){ yBg.classList.add('show'); };
-    document.getElementById('yuborBekor').onclick = function(){ yBg.classList.remove('show'); };
-  }
 
   window.addEventListener('pageshow', function(e){ if (e.persisted) yuborilmoqda = false; });
 
