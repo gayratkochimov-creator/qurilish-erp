@@ -501,7 +501,7 @@
       <tbody>
         {% for row in qatorlar %}
         <tr>
-          <td><a class="lnk" href="{% url 'project_detail' row.obj.id %}" title="Obyekt sahifasi (kiritish/KPI)">{{ row.obj.code }}</a></td>
+          <td><a class="lnk" href="{% url 'limit_jadval' row.obj.id %}" title="Limit jadvali">{{ row.obj.code }}</a></td>
           <td>
             <a class="lnk" href="{% url 'limit_jadval' row.obj.id %}" title="Limit jadvali — UMUMIY | BAJARILGAN | QOLGAN | HAFTA">{{ row.obj.name }}</a>
             <div class="mb"><span style="width:{{ row.foiz_bar }}%; background:{{ row.rang }};"></span></div>

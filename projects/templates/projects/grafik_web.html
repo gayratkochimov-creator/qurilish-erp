@@ -88,7 +88,7 @@
 {% endblock %}
 
 {% block content %}
-  <a class="hint" href="{% url 'project_detail' p.id %}" style="color:var(--brand); font-weight:600; display:inline-block; margin-bottom:12px;">← {{ p.code }} — {{ p.name }}</a>
+  <a class="hint" href="{% url 'limit_jadval' p.id %}" style="color:var(--brand); font-weight:600; display:inline-block; margin-bottom:12px;">← {{ p.code }} — {{ p.name }}</a>
   {% if messages %}{% for m in messages %}<div class="msg {{ m.tags }}">{{ m }}</div>{% endfor %}{% endif %}
 
   <form method="post" action="{% url 'grafik_web' p.id %}">

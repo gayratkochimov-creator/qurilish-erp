@@ -183,15 +183,13 @@ class NarxOqimTest(TestCase):
         WeeklyRequestItem.objects.create(request=w, kind="material", name="Beton",
                                          quantity=Decimal("30"), unit_price=Decimal("900000"), bolim="Poydevor")
         self.client.force_login(self.admin)
+        # Eski obyekt sahifasi (Sirdaryo qolipi) yo'q — yagona limit jadvaliga yo'naltiradi
         r = self.client.get(reverse("project_detail", args=[self.p.id]))
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(r["Location"], reverse("limit_jadval", args=[self.p.id]))
+        r = self.client.get(reverse("limit_jadval", args=[self.p.id]))
         self.assertEqual(r.status_code, 200)
-        self.assertContains(r, "Narx farqi")
-        self.assertContains(r, "narx-yangilash")   # yangilash tugmasi (farq > 0)
-        # 30×(900−800) = 3 mln sarflangan + 70×(900−800) = 7 mln kutilayotgan → +10 mln
-        self.assertContains(r, "+10 000 000")
-        self.assertContains(r, "narx o'zgardi")
-        # Sirdaryo qolipi (o'qish jadvali — direktor ko'radi): 4 guruh sarlavhasi +
-        # oxirgi hafta ustuni + blok yakuni + JAMI + eski narx ustidan chizilgan
+        # Direktor (firma) ham shu jadvalni ko'radi; begona firma — 403
         from .models import Firma, UserProfile
         f = Firma.objects.create(name="F")
         self.p.firma = f
@@ -199,11 +197,8 @@ class NarxOqimTest(TestCase):
         d = get_user_model().objects.create_user("dir", "d@d.uz", "pw")
         UserProfile.objects.update_or_create(user=d, defaults={"role": "director", "firma": f})
         self.client.force_login(d)
-        r = self.client.get(reverse("project_detail", args=[self.p.id]))
-        self.assertEqual(r.status_code, 200)
-        for s in ("Bajarilgan ishlar", "Qolgan ishlar", "1-haftalik ish uchun material",
-                  "Blok yakuni:", "JAMI:", "narx-eski"):
-            self.assertContains(r, s)
+        self.assertEqual(self.client.get(reverse("project_detail", args=[self.p.id])).status_code, 302)
+        self.assertEqual(self.client.get(reverse("limit_jadval", args=[self.p.id])).status_code, 200)
         self.client.force_login(self.admin)
         r = self.client.get(reverse("limit_export_obj", args=[self.p.id]))
         self.assertEqual(r.status_code, 200)

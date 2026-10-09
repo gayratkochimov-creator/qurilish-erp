@@ -126,7 +126,7 @@
   .msg.error::before { content:"⛔ "; }
 </style>
 
-<a class="hint" href="{% url 'project_detail' p.id %}" style="color:var(--brand); font-weight:600; display:inline-block; margin-bottom:10px;">&larr; {{ p.code }} — {{ p.name }}</a>
+<a class="hint" href="{% url 'firmalar' %}" style="color:var(--brand); font-weight:600; display:inline-block; margin-bottom:10px;">&larr; Объектлар рўйхати</a> <span style="color:#64748b; font-size:13px;">· {{ p.code }} — {{ p.name }}</span>
 {% if messages %}{% for m in messages %}<div class="msg {{ m.tags }}">{{ m }}</div>{% endfor %}{% endif %}
 
 <div class="lj-top" style="display:flex; align-items:center; gap:18px; flex-wrap:wrap;">
@@ -244,7 +244,6 @@
   <button class="b-gray" id="btnHisobot">📊 Нарх тарихи ҳисоботи</button>
   <button class="b-gray" onclick="window.print()">Чоп этиш</button>
   <button class="b-gray" id="btnExcel" title="Тўлиқ жадвални формулали Excel қилиб юклаб олиш">⬇ Эксел</button>
-  <a href="{% url 'project_detail' p.id %}" class="b-gray" style="padding:6px 14px; border-radius:4px; color:#fff; font-size:12.5px; text-decoration:none;">⚙️ Обект саҳифаси</a>
 </div>
 <div id="ljAuto" style="display:none; background:#ecfdf5; border:1px solid #6ee7b7; border-radius:6px; padding:7px 12px; margin-bottom:8px; font-size:12.5px;">
   💾 Саҳифа ёпилиши (свет ўчиши)дан олдин ёзилган — <b class="t"></b> даги — САҚЛАНМАГАН ўзгаришлар қайта тикланди. <span class="qaysi">Ишончли сақлаш учун «Сақлаш»ни босинг.</span>

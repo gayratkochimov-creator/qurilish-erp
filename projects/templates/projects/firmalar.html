@@ -163,7 +163,7 @@
       {% if hammasi.objects %}
       <div class="grid">
         {% for o in hammasi.objects %}
-        <a class="obj" href="{% url 'project_detail' o.obj.id %}">
+        <a class="obj" href="{% url 'limit_jadval' o.obj.id %}">
           <div class="oh">
             <div class="oname">{{ o.obj.name }}</div>
             <span class="pill {{ o.status_key }}"><i></i>{{ o.status }}</span>
@@ -217,7 +217,7 @@
       {% if f.objects %}
       <div class="grid">
         {% for o in f.objects %}
-        <a class="obj" href="{% url 'project_detail' o.obj.id %}">
+        <a class="obj" href="{% url 'limit_jadval' o.obj.id %}">
           <div class="oh">
             <div class="oname">{{ o.obj.name }}</div>
             <span class="pill {{ o.status_key }}"><i></i>{{ o.status }}</span>
