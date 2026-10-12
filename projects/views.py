@@ -58,10 +58,32 @@ KINDS = ("material", "labor", "machinery", "other")
 LIM_JARAYON = ["snab", "pto2", "dir", "prov", "adm"]
 
 
-def _prov_bor(firma):
-    """Firmada proverchik (tekshiruvchi) bormi? Bo'lsa zanjir: direktor -> proverchik -> admin."""
-    from .models import UserProfile
-    return bool(firma) and UserProfile.objects.filter(role="prov", firma=firma, user__is_active=True).exists()
+def _provlar():
+    """Barcha faol proverchiklar (firmalararo — har qanday firma obyektini tekshiradi)."""
+    from django.contrib.auth import get_user_model
+    return list(get_user_model().objects.filter(is_active=True, is_superuser=False, profile__role="prov")
+                .order_by("username"))
+
+
+def _prov_bor(firma=None):
+    """Tizimda proverchik bormi? Bo'lsa zanjir: direktor -> proverchik -> admin
+    (proverchik firmaga bog'lanmagan — har qanday obyektni tekshiradi)."""
+    return bool(_provlar())
+
+
+def _provlarga_xabar(request, matn):
+    """Hamma proverchikka tizim banneri + Telegram (yuboruvchining o'ziga emas).
+    Qaytaradi: xabar matni qo'shimchasi."""
+    nomlar, tg_n = [], 0
+    for u in _provlar():
+        if u.pk == request.user.pk:
+            continue
+        _, tg = _lj_xabar_yubor(matn, u, request.user)
+        nomlar.append(u.username)
+        tg_n += 1 if tg else 0
+    if not nomlar:
+        return ""
+    return f" Proverchik(lar)ga xabar yuborildi: {', '.join(nomlar)}" + (f" (Telegram: {tg_n})." if tg_n else " (tizimda).")
 
 
 def _snab_bor(p):
@@ -1484,8 +1506,8 @@ def _limit_bosqich_egasi(req, status):
         return req.director_by or (U.objects.filter(is_active=True, profile__firma=p.firma, profile__role="director")
                                    .order_by("username").first())
     if status == "prov":
-        return req.prov_by or (U.objects.filter(is_active=True, profile__firma=p.firma, profile__role="prov")
-                               .order_by("username").first())
+        pr_ = _provlar()
+        return req.prov_by or (pr_[0] if pr_ else None)
     return None
 
 
@@ -1647,9 +1669,14 @@ def _limit_request_action_asl(request, pk):
                 req.director_by = request.user
                 req.director_at = timezone.now()
                 req.save(update_fields=["status", "director_by", "director_at"])
+                xb = ""
+                if keyingi == S.PROV:
+                    _link = request.build_absolute_uri(_lj_url(req.limit or req.project.joriy_limit(), korinish="taklif"))
+                    xb = _provlarga_xabar(request, f"📋 «{req.project.name}» limit so'rovi tekshiruvga keldi "
+                                                   f"(direktor tasdiqladi: {request.user.username}).\nJadval: {_link}")
                 messages.success(request, f"«{req.project.name}» — direktor tasdiqladi, "
                                           + ("proverchik tekshiruviga o'tdi." if keyingi == S.PROV
-                                             else "admin tasdig'iga o'tdi."))
+                                             else "admin tasdig'iga o'tdi.") + xb)
         elif a == "prov_approve":
             # PROVERCHIK bosqichi: tekshirib adminga o'tkazadi
             if not (is_prov(request.user) or is_admin(request.user)):
@@ -1740,7 +1767,8 @@ def _wk_bosqich_egasi(req, status):
     if status == "dir":
         return req.director_by or birinchi("director", True)
     if status == "prov":
-        return req.prov_by or birinchi("prov", True)
+        pr_ = _provlar()
+        return req.prov_by or (pr_[0] if pr_ else None)
     if status == "submitted":
         from django.conf import settings as _s
         return (U.objects.filter(is_active=True, is_superuser=True,
@@ -1751,6 +1779,9 @@ def _wk_bosqich_egasi(req, status):
 
 def _wk_xabar(request, req, status, matn):
     """Bosqich egasiga tizim banneri + Telegram (o'ziga yubormaydi). Natija: 'ism (Telegram ✓)' yoki ''."""
+    if status == "prov":
+        link = request.build_absolute_uri(_lj_url(req.limit or req.project.joriy_limit(), hafta=req.id))
+        return _provlarga_xabar(request, matn + f"\nJadval: {link}")
     oluvchi = _wk_bosqich_egasi(req, status)
     if oluvchi is None or oluvchi.pk == request.user.pk:
         return ""
@@ -4597,8 +4628,12 @@ def limit_jadval(request, pk):
         if ji + 1 < len(_tartib):
             k2 = _tartib[ji + 1]
             u2 = (_rol_user("snab") if k2 == "snab" else r0_.requested_by if k2 == "pto2"
-                  else _rol_user("director", True) if k2 == "dir" else _rol_user("prov", True) if k2 == "prov" else None)
-            lj_keyingi = dict(_nomlar)[k2] + (" · " + _ism(u2) if u2 else "")
+                  else _rol_user("director", True) if k2 == "dir" else None)
+            if k2 == "prov":
+                _pn = ", ".join(u.username for u in _provlar())
+                lj_keyingi = "Проверчик" + (" · " + _pn if _pn else "")
+            else:
+                lj_keyingi = dict(_nomlar)[k2] + (" · " + _ism(u2) if u2 else "")
     else:
         for k, n in _nomlar:
             lj_qadamlar.append({"nom": n, "holat": "keyin", "kim": "", "vaqt": ""})

@@ -289,7 +289,7 @@ class UserProfileForm(forms.ModelForm):
     def clean(self):
         data = super().clean()
         firma = data.get("firma")
-        if data.get("role") and not firma:
+        if data.get("role") and data.get("role") != "prov" and not firma:
             raise forms.ValidationError(
                 "Lavozim tanlangan — FIRMA ham tanlanishi shart (firma izolyatsiyasi shunga tayanadi).")
         begona = [p for p in (data.get("projects") or []) if firma and p.firma_id != firma.pk]

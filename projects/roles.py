@@ -77,8 +77,8 @@ def is_snab(user):
 
 
 def is_prov(user):
-    """Proverchik (tekshiruvchi) — limit zanjirida direktordan keyin, admindan oldin
-    tekshiradi; firma darajasida ko'radi."""
+    """Proverchik (tekshiruvchi) — limit/haftalik zanjirida direktordan keyin, admindan
+    oldin tekshiradi; BARCHA firmalar obyektlarini ko'radi (bir nechta bo'lishi mumkin)."""
     if not (user.is_authenticated and not user.is_superuser):
         return False
     r = _role(user)
@@ -124,8 +124,11 @@ def visible_projects(user, qs=None):
         qs = Project.objects.all()
     if user.is_superuser:
         return qs
+    # PROVERCHIK — firmalararo: barcha obyektlarni ko'radi va tekshiradi (2026-10-12)
+    if is_prov(user):
+        return qs
     # Direktor va BUXGALTER — firma darajasi (profil roli ustun; guruh faqat profil bo'lmaganda)
-    if is_director(user) or is_bux(user) or is_prov(user):
+    if is_director(user) or is_bux(user):
         f = user_firma(user)
         return qs.filter(firma=f) if f else qs.none()
     # PTO / Prorab / Snab — faqat biriktirilgan obyektlar; profilida firma
