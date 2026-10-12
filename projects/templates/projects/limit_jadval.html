@@ -427,7 +427,7 @@
   <div class="lh-tools">
     <div class="lj-tabs" id="ljTabs"></div>
     <div class="r">
-      <label class="lh-search" id="lhSearch"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg><input type="text" id="ljQidir" placeholder="Материал, иш ҳақи, масъул, бўлим, изоҳ…" aria-label="Жадвалдан излаш" autocomplete="off"><button type="button" class="cl" id="ljQidirCl" aria-label="Тозалаш">×</button></label>
+      <label class="lh-search" id="lhSearch"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg><input type="text" id="ljQidir" placeholder="Материал, иш ҳақи, масъул, бўлим, изоҳ…" aria-label="Жадвалдан излаш" autocomplete="off"><span id="ljQidirN" style="font-size:11.5px; color:#6B7280; white-space:nowrap;"></span><button type="button" class="cl" id="ljQidirCl" aria-label="Тозалаш">×</button></label>
       <button type="button" class="lh-btn sm" id="btnHisobot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-6"/></svg>Нарх тарихи</button>
       <button type="button" class="lh-btn sm" onclick="window.print()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>Чоп этиш</button>
       <button type="button" class="lh-btn sm" id="btnExcel" title="Тўлиқ жадвални формулали Excel қилиб юклаб олиш"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>Эксел</button>
@@ -1231,37 +1231,42 @@
   function ljQidirla(){
     var qi = document.getElementById('ljQidir');
     var q = (qi && qi.value || '').trim().toLowerCase();
+    function matn(t){
+      var ichki = Array.prototype.map.call(t.querySelectorAll('input, textarea'),
+                                           function(i){ return i.value || ''; }).join(' ');
+      return ((t.textContent || '') + ' ' + ichki).toLowerCase();
+    }
     ['ljBody', 'yangiBody', 'boshqaBody'].forEach(function(id){
       var tb = document.getElementById(id);
       if (!tb) return;
       var grp = [];
       function flush(){
         if (!grp.length) return;
-        var matn = grp.map(function(t){
-          var ichki = Array.prototype.map.call(t.querySelectorAll('input, textarea'),
-                                               function(i){ return i.value || ''; }).join(' ');
-          return (t.textContent || '') + ' ' + ichki;
-        }).join(' ').toLowerCase();
-        var okQ = !q || matn.indexOf(q) > -1;
-        // Har qator turi: ish qatorlarida data-kind, yb/ex qatorlarda select;
-        // split (bo'lak) qatorlar oldingi ish turini oladi
-        var lastKind = null, bironBor = false, dataBor = false;
+        // Блок сарлавҳаси (бўлим номи, масъул) мос келса — бутун блок кўринади;
+        // акс ҳолда ҚАТОРМА-ҚАТОР: фақат излашга мос келган қаторлар қолади
+        var sarl = grp.filter(function(t){ return t.classList.contains('block') || t.classList.contains('exhdr'); });
+        var blokOk = !q || sarl.some(function(t){ return matn(t).indexOf(q) > -1; });
+        var lastKind = null, lastOk = false, bironBor = false, dataBor = false;
         var vis = grp.map(function(t){
           var chetki = t.classList.contains('block') || t.classList.contains('exhdr') ||
-                       t.classList.contains('subtotal') || t.classList.contains('yb-addrow');
+                       t.classList.contains('subtotal') || t.classList.contains('yb-addrow') ||
+                       t.classList.contains('lim-addrow');
           if (chetki) return null;
           dataBor = true;
           var s = t.querySelector('.lim-k, .yb-k, .ex-k');
           var k = s ? s.value : (t.dataset.kind || null);
           if (!k) k = lastKind; else lastKind = k;
-          var ok = okQ && (LJ_KF === 'all' || !k || k === LJ_KF);
+          var qOk;
+          if (t.classList.contains('split')) qOk = lastOk || blokOk || matn(t).indexOf(q) > -1;   // бўлак — ўз қатори билан бирга
+          else { qOk = blokOk || matn(t).indexOf(q) > -1; lastOk = qOk; }
+          var ok = qOk && (LJ_KF === 'all' || !k || k === LJ_KF);
           if (ok) bironBor = true;
           return ok;
         });
-        if (!dataBor) bironBor = okQ;   // bo'sh blok — faqat izlashga qaraydi
+        if (!dataBor) bironBor = blokOk;   // бўш блок — фақат сарлавҳасига қаралади
         grp.forEach(function(t, i){
           if ((t.classList.contains('ish') || t.classList.contains('split')) && rowDelKey(t.dataset.key)){ t.style.display = 'none'; return; }   // ўчирилган қатор
-          t.style.display = (vis[i] === null ? (okQ && bironBor) : vis[i]) ? '' : 'none';
+          t.style.display = (vis[i] === null ? bironBor : vis[i]) ? '' : 'none';
         });
         grp = [];
       }
@@ -1271,6 +1276,16 @@
       });
       flush();
     });
+    // Натижа сони — излаш майдони ёнида
+    var cnt = document.getElementById('ljQidirN');
+    if (cnt){
+      if (!q) cnt.textContent = '';
+      else {
+        var n = 0;
+        document.querySelectorAll('#ljBody tr.ish, #yangiBody tr.extra, #boshqaBody tr.extra').forEach(function(t){ if (t.style.display !== 'none') n++; });
+        cnt.textContent = n ? (n + ' та натижа') : 'топилмади';
+      }
+    }
   }
   (function(){
     var qi = document.getElementById('ljQidir');
