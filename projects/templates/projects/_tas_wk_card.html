@@ -85,7 +85,7 @@
     {% endif %}
   </div>
   <div class="tacts">
-    <a href="{% url 'limit_jadval' w.obj.project_id %}?korinish=amaldagi" class="btn-ok" style="background:#1a5fb4; text-decoration:none; text-align:center; display:block;">📊 Жадвалда очиш</a>
+    <a href="{% url 'limit_jadval' w.obj.project_id %}?limit={{ w.obj.limit.raqam|default:1 }}&korinish=amaldagi" class="btn-ok" style="background:#1a5fb4; text-decoration:none; text-align:center; display:block;">📊 Жадвалда очиш</a>
     {% if stage == 'snab' %}
       <form method="post" action="{% url 'weekly_action' w.obj.id %}"><input type="hidden" name="action" value="snab_return"><input type="hidden" name="next" value="tasdiqlar">{% csrf_token %}<button class="btn-ok">✓ Нархланди — ПТО хулосасига</button></form>
     {% elif stage == 'pto2' %}

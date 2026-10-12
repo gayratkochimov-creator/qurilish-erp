@@ -82,6 +82,24 @@ def _limit_yubor_xabar(status):
             "Limit direktor tasdig'iga yuborildi. Direktor, so'ng admin tasdiqlagach kuchga kiradi.")
 
 
+def _lj_url(lim, **params):
+    """Limit jadvali manzili — RAQAMLI limit bilan (?limit=N&...)."""
+    url = reverse("limit_jadval", args=[lim.project_id]) + f"?limit={lim.raqam}"
+    for k, v in params.items():
+        url += f"&{k}={v}"
+    return url
+
+
+def _lj_joriy(p, request):
+    """?limit=<raqam> ko'rsatilgan limit; bo'lmasa obyektning joriy (oxirgi) limiti."""
+    r = (request.GET.get("limit") or "").strip()
+    if r.isdigit():
+        lim = p.limitlar.filter(raqam=int(r)).first()
+        if lim is not None:
+            return lim
+    return p.joriy_limit()
+
+
 def _items_by_kind(items):
     """Qatorlarni kategoriya bo'yicha yig'ish: {kind: summa}."""
     d = {k: Decimal("0.00") for k in KINDS}
@@ -91,7 +109,7 @@ def _items_by_kind(items):
     return d
 
 
-def _limit_oshish(project, qoshimcha, exclude_request_id=None):
+def _limit_oshish(lim, qoshimcha, exclude_request_id=None):
     """Berilgan qatorlar limitdan oshadimi?
 
     `qoshimcha` — {kind: summa}. Tasdiqlangan sarf hisobga olinadi
@@ -101,7 +119,7 @@ def _limit_oshish(project, qoshimcha, exclude_request_id=None):
     Limiti 0 bo'lgan (belgilanmagan) kategoriya tekshirilmaydi.
     """
     qs = WeeklyRequestItem.objects.filter(
-        request__project=project,
+        request__limit=lim,
         request__status=WeeklyRequest.Status.APPROVED,
     )
     if exclude_request_id:
@@ -111,18 +129,24 @@ def _limit_oshish(project, qoshimcha, exclude_request_id=None):
         if r["kind"] in sarf:
             sarf[r["kind"]] = r["s"] or Decimal("0.00")
 
-    lim = {
-        "material": project.limit_material or Decimal("0.00"),
-        "labor": project.limit_labor or Decimal("0.00"),
-        "machinery": project.limit_machinery or Decimal("0.00"),
-        "other": project.limit_other or Decimal("0.00"),
-    }
+    # Shu RAQAMLI limitning tur bo'yicha summasi (qatorlardan); qatorsiz eski limitda —
+    # obyekt darajasidagi raqam
+    chek = {k: Decimal("0.00") for k in KINDS}
+    for r in lim.items.values("kind").annotate(s=Sum(_LINE_TOTAL)):
+        if r["kind"] in chek:
+            chek[r["kind"]] = r["s"] or Decimal("0.00")
+    if not any(chek.values()) and lim.raqam == 1:
+        project = lim.project
+        chek = {"material": project.limit_material or Decimal("0.00"),
+                "labor": project.limit_labor or Decimal("0.00"),
+                "machinery": project.limit_machinery or Decimal("0.00"),
+                "other": project.limit_other or Decimal("0.00")}
     oshgan = []
     for k in KINDS:
         so_ralgan = qoshimcha.get(k, Decimal("0.00"))
-        if so_ralgan <= 0 or lim[k] <= 0:
+        if so_ralgan <= 0 or chek[k] <= 0:
             continue
-        qoldiq = lim[k] - sarf[k]
+        qoldiq = chek[k] - sarf[k]
         if so_ralgan > qoldiq:
             oshgan.append(
                 f"{KIND_NOMI[k]}: qoldiq {_money(max(qoldiq, Decimal('0')))}, "
@@ -132,13 +156,13 @@ def _limit_oshish(project, qoshimcha, exclude_request_id=None):
     return oshgan
 
 
-def _hafta_sana_xatosi(project, ws, we, exclude_id=None):
+def _hafta_sana_xatosi(lim, ws, we, exclude_id=None):
     """Haftalik so'rov sanalarini tekshiradi. Xato bo'lsa matn, bo'lmasa None qaytaradi."""
     if we < ws:
         return (f"Hafta oxiri ({we:%d.%m.%Y}) hafta boshidan ({ws:%d.%m.%Y}) oldin bo'lishi mumkin emas.")
     if (we - ws).days > 31:
         return (f"Davr juda uzun ({(we - ws).days + 1} kun). Haftalik so'rov 31 kundan oshmasin.")
-    qs = project.weekly_requests.filter(week_start=ws, week_end=we)
+    qs = lim.weekly_requests.filter(week_start=ws, week_end=we)
     if exclude_id:
         qs = qs.exclude(id=exclude_id)
     if qs.exists():
@@ -155,8 +179,9 @@ def _limitga_yangi_materiallar(req):
     raqamli kiritilgan obyektlarda u limitni nolga tushirib yuborardi.
     Qo'shilgan nomlar ro'yxatini qaytaradi.
     """
-    p = req.project
-    mavjud = {(li.kind, (li.name or "").strip().lower()) for li in p.limit_items.all()}
+    lim = req.limit or req.project.joriy_limit()
+    p = lim.project
+    mavjud = {(li.kind, (li.name or "").strip().lower()) for li in lim.items.all()}
     yangi, korilgan = [], set()
     for it in req.items.all():
         nom = (it.name or "").strip()
@@ -165,7 +190,7 @@ def _limitga_yangi_materiallar(req):
             continue
         korilgan.add(kalit)
         yangi.append(LimitItem(
-            project=p, kind=it.kind, name=nom, unit=it.unit or "",
+            project=p, limit=lim, kind=it.kind, name=nom, unit=it.unit or "",
             quantity=Decimal("0"), unit_price=it.unit_price or Decimal("0"),
             bolim=(it.bolim or "").strip()[:200],   # bo'lim qoldig'i to'g'ri yurishi uchun
         ))
@@ -844,10 +869,10 @@ def _hafta_jadval_guruhlar(w, lim_cache, fakt_cache):
     """Bitta haftalik so'rov uchun limit-jadval ko'rinishi:
     UMUMIY | BAJARILGAN | QOLGAN | shu hafta — bo'limlab, blok yakunlari bilan.
     lim_cache/fakt_cache — loyiha bo'yicha keshlangan xaritalar (ko'p so'rovda tez)."""
-    pid = w.project_id
+    pid = w.limit_id or w.project_id
     if pid not in lim_cache:
         lk = {}
-        for li in w.project.limit_items.all():
+        for li in (w.limit.items.all() if w.limit_id else w.project.limit_items.all()):
             k = _lj_key(li.name, li.bolim)
             d = lk.setdefault(k, {"qty": Decimal("0"), "sum": Decimal("0"),
                                   "price": li.unit_price})
@@ -855,8 +880,9 @@ def _hafta_jadval_guruhlar(w, lim_cache, fakt_cache):
             d["sum"] += li.total
         lim_cache[pid] = lk
         fk_ = {}
-        for fi in WeeklyRequestItem.objects.filter(request__project_id=pid,
-                                                   request__status="approved"):
+        for fi in WeeklyRequestItem.objects.filter(
+                **({"request__limit_id": pid} if w.limit_id else {"request__project_id": pid}),
+                request__status="approved"):
             k = _lj_key(fi.name, fi.bolim)
             d = fk_.setdefault(k, {"qty": Decimal("0"), "sum": Decimal("0")})
             d["qty"] += fi.quantity
@@ -991,17 +1017,18 @@ def limit_narx_yangilash(request, pk):
     Narx hech qachon AVTOMATIK o'zgarmaydi — bu tasdiqlash zanjirini chetlab o'tish bo'lardi.
     """
     p = _firma_yoki_403(request, get_object_or_404(Project, pk=pk))
+    lim = _lj_joriy(p, request)
     if not is_pto(request.user):
         raise PermissionDenied("Limit so'rovini faqat PTO yuboradi.")
     if request.method != "POST":
         return redirect("project_detail", pk=pk)
-    if p.limit_requests.filter(status__in=LIM_JARAYON).exists():
+    if lim.requests.filter(status__in=LIM_JARAYON).exists():
         messages.error(request, "Tasdiq kutilayotgan so'rov bor — yangi so'rov yuborib bo'lmaydi.")
         return redirect("project_detail", pk=pk)
 
     joriy = _joriy_narxlar(p)
     items, ozgardi, sums = [], [], {k: Decimal("0") for k in KINDS}
-    for li in p.limit_items.all().order_by("id"):
+    for li in lim.items.all().order_by("id"):
         narx = joriy.get(_nom_kalit(li.kind, li.name), li.unit_price)
         if narx != li.unit_price:
             ozgardi.append(f"{li.name} {_money(li.unit_price)} → {_money(narx)}")
@@ -1016,7 +1043,7 @@ def limit_narx_yangilash(request, pk):
     reason = ("Narx o'zgarishi (joriy narxda yangilash): " + "; ".join(ozgardi))[:255]
     if is_admin(request.user):
         with transaction.atomic():
-            sync_limit_items(p, items)
+            sync_limit_items(lim, items)
             p.recompute_limits()
         messages.success(request, f"Limit joriy narxda yangilandi (admin). Umumiy limit: {_money(p.budget_total)}. "
                                   f"O'zgargan: {len(ozgardi)} qator.")
@@ -1024,7 +1051,7 @@ def limit_narx_yangilash(request, pk):
         _st = _limit_boshlangich(p)
         with transaction.atomic():
             req = LimitChangeRequest.objects.create(
-                project=p,
+                project=p, limit=lim,
                 old_material=p.limit_material, old_labor=p.limit_labor,
                 old_machinery=p.limit_machinery, old_other=p.limit_other,
                 new_material=sums["material"], new_labor=sums["labor"],
@@ -1090,14 +1117,15 @@ def limit_return_pto(request, pk):
     Telegram tasdiqlash KODI bilan. Joriy limit tarkibidan «PTO xulosasi»
     bosqichida yangi so'rov ochiladi; amaldagi limit yangi tasdiqqacha o'zgarmaydi."""
     p = _firma_yoki_403(request, get_object_or_404(Project, pk=pk))
+    lim = _lj_joriy(p, request)
     if not is_admin(request.user):
         raise PermissionDenied("Limitni faqat admin qaytaradi.")
     if request.method != "POST":
         return redirect("project_detail", pk=pk)
-    if p.limit_requests.filter(status__in=LIM_JARAYON).exists():
+    if lim.requests.filter(status__in=LIM_JARAYON).exists():
         messages.error(request, "Bu obyektda tasdiq kutilayotgan so'rov bor — avval uni yakunlang.")
         return redirect("project_detail", pk=pk)
-    items = list(p.limit_items.all().order_by("id"))
+    items = list(lim.items.all().order_by("id"))
     if not items:
         messages.error(request, "Limit tarkibi bo'sh — qaytaradigan narsa yo'q.")
         return redirect("project_detail", pk=pk)
@@ -1135,7 +1163,7 @@ def limit_return_pto(request, pk):
         })
     with transaction.atomic():
         req = LimitChangeRequest.objects.create(
-            project=p,
+            project=p, limit=lim,
             old_material=p.limit_material, old_labor=p.limit_labor,
             old_machinery=p.limit_machinery, old_other=p.limit_other,
             new_material=p.limit_material, new_labor=p.limit_labor,
@@ -1231,7 +1259,7 @@ def _tasdiqlar_data(status="dir", user=None):
     lreqs = LimitChangeRequest.objects.filter(status=status)
     if _proj_qs is not None:
         lreqs = lreqs.filter(project__in=_proj_qs)
-    lreqs = (lreqs.select_related("project", "requested_by", "director_by")
+    lreqs = (lreqs.select_related("project", "limit", "requested_by", "director_by")
              .prefetch_related("proposed_items").order_by("-created_at"))
     LI_CLS = {"material": "mat", "labor": "lab", "machinery": "mach", "other": "oth"}
     lim_list = []
@@ -1240,7 +1268,7 @@ def _tasdiqlar_data(status="dir", user=None):
         # shunda «yangi» / «o'zgargan» belgilari haqiqatga mos bo'ladi
         from collections import defaultdict, deque
         joriy = defaultdict(deque)
-        for li in r.project.limit_items.all().order_by("id"):
+        for li in r.limit.items.all().order_by("id"):
             joriy[(li.kind, (li.name or "").strip().lower())].append(li)
         items = []
         for it in r.proposed_items.all():
@@ -1268,7 +1296,7 @@ def _tasdiqlar_data(status="dir", user=None):
             })
         # Limit jadvali ko'rinishi: TAKLIF (umumiy) | BAJARILGAN | QOLGAN, bo'limlab
         lfakt = {}
-        for fi in WeeklyRequestItem.objects.filter(request__project=r.project,
+        for fi in WeeklyRequestItem.objects.filter(request__limit=r.limit,
                                                    request__status="approved"):
             k = _lj_key(fi.name, fi.bolim)
             d = lfakt.setdefault(k, {"qty": Decimal("0"), "sum": Decimal("0")})
@@ -1329,18 +1357,18 @@ def _tasdiqlar_data(status="dir", user=None):
         # «YANGI» = umumiy limitda yo'q (tasdiqlangach avtomatik qo'shiladi),
         # «BOSHQA NARX» = limitdagi narxdan farq qiladi.
         limit_map = {}
-        for li in w.project.limit_items.all():
+        for li in w.limit.items.all():
             limit_map.setdefault((li.kind, (li.name or "").strip().lower()), li)
         # Limit jadvali ustunlari uchun: (nom|bo'lim) -> umumiy / bajarilgan / qolgan
         lim_key = {}
-        for li in w.project.limit_items.all():
+        for li in w.limit.items.all():
             k = _lj_key(li.name, li.bolim)
             d = lim_key.setdefault(k, {"qty": Decimal("0"), "sum": Decimal("0"),
                                        "price": li.unit_price})
             d["qty"] += li.quantity - (li.boshlangich_qty or 0)
             d["sum"] += li.total
         fakt_key = {}
-        for fi in WeeklyRequestItem.objects.filter(request__project=w.project,
+        for fi in WeeklyRequestItem.objects.filter(request__limit=w.limit,
                                                    request__status="approved"):
             k = _lj_key(fi.name, fi.bolim)
             d = fakt_key.setdefault(k, {"qty": Decimal("0"), "sum": Decimal("0")})
@@ -1425,7 +1453,7 @@ def _tasdiqlar_data(status="dir", user=None):
             "narx_farq_str": _farq_str(narx_farq), "narx_farq_pos": narx_farq > 0,
             "narx_soni": narx_soni,
             # Admin tasdiqlashdan OLDIN limitdan oshishini ko'rsin
-            "oshgan": _limit_oshish(w.project, _items_by_kind(w.items.all()),
+            "oshgan": _limit_oshish(w.limit, _items_by_kind(w.items.all()),
                                     exclude_request_id=w.id),
         })
     return lim_list, wk_list
@@ -1589,7 +1617,7 @@ def _limit_request_action_asl(request, pk):
                 oluvchi = _limit_bosqich_egasi(req, target)
                 tg = False
                 if oluvchi is not None and oluvchi.pk != request.user.pk:
-                    _link = request.build_absolute_uri(reverse("limit_jadval", args=[req.project_id]))
+                    _link = request.build_absolute_uri(_lj_url(req.limit or req.project.joriy_limit()))
                     _, tg = _lj_xabar_yubor(
                         f"↩ «{req.project.name}» limit so'rovi sizga QAYTARILDI "
                         f"({request.user.username}). Sabab: {sabab}\n"
@@ -1726,17 +1754,17 @@ def _wk_xabar(request, req, status, matn):
     oluvchi = _wk_bosqich_egasi(req, status)
     if oluvchi is None or oluvchi.pk == request.user.pk:
         return ""
-    link = request.build_absolute_uri(reverse("limit_jadval", args=[req.project_id]) + f"?hafta={req.id}")
+    link = request.build_absolute_uri(_lj_url(req.limit or req.project.joriy_limit(), hafta=req.id))
     _, tg = _lj_xabar_yubor(matn + f"\nJadval: {link}", oluvchi, request.user)
     return f" {oluvchi.username}ga xabar yuborildi" + (" (Telegram ham)." if tg else " (tizimda).")
 
 
-def _wk_qayt(request, proj_id):
+def _wk_qayt(request, req):
     if request.POST.get("next") == "tasdiqlar":
         return redirect(reverse("dashboard") + "?tab=tasdiqlar")
     if request.POST.get("next") == "jadval":
-        return redirect(reverse("limit_jadval", args=[proj_id]))
-    return redirect("project_detail", pk=proj_id)
+        return redirect(_lj_url(req.limit or req.project.joriy_limit()))
+    return redirect("project_detail", pk=req.project_id)
 
 
 @login_required
@@ -1786,13 +1814,13 @@ def _weekly_action_asl(request, pk):
                 messages.success(request, ("🔓 Hafta tahririga ruxsat berildi — jadvalda o'zgartirib "
                                            "«Сақлаш»ni bosing (bir martalik)."
                                            if req.tahrir_ruxsat else "🔒 Hafta tahriri yana yopildi."))
-            return _wk_qayt(request, proj_id)
+            return _wk_qayt(request, req)
         if action == "ack":
             # So'rov egasi «Tasdiqlandi» xabarini ko'rdi — boshqa ko'rsatilmaydi
             if req.created_by_id == u.id:
                 req.pto_notified = True
                 req.save(update_fields=["pto_notified"])
-            return _wk_qayt(request, proj_id)
+            return _wk_qayt(request, req)
         if action == "delitem":
             # Bitta qatorni so'rovdan o'chirish — har kim FAQAT O'Z bosqichida
             EGASI = {WS.SNAB: is_snab(u) or is_admin(u), WS.PTO2: is_pto(u) or is_admin(u),
@@ -1813,7 +1841,7 @@ def _weekly_action_asl(request, pk):
                 req.edited_at = timezone.now()
                 req.save(update_fields=["edited_by", "edited_at"])
                 messages.info(request, f"«{nom}» qatori so'rovdan o'chirildi.")
-            return _wk_qayt(request, proj_id)
+            return _wk_qayt(request, req)
         if action == "submit":
             # PTO qoralamani zanjirga yuboradi (snab bo'lsa — snabga, bo'lmasa to'g'ri direktorga)
             if not is_pto(u):
@@ -1846,7 +1874,7 @@ def _weekly_action_asl(request, pk):
             # DIREKTOR (yoki ASOSIY admin) tasdiqlaydi: dir → prov yoki admin
             if u.is_superuser and not is_asosiy_admin(u):
                 messages.error(request, "Direktor bosqichini HAQIQIY direktor yoki ASOSIY admin tasdiqlaydi.")
-                return _wk_qayt(request, proj_id)
+                return _wk_qayt(request, req)
             if not dir_actor:
                 raise PermissionDenied("Faqat direktor.")
             _oldinga(WS.DIR, "director_by", "director_at", "Direktor tasdiqladi")
@@ -1866,7 +1894,7 @@ def _weekly_action_asl(request, pk):
                       WS.SUBMITTED: (is_admin(u), {"draft", WS.SNAB, WS.PTO2, WS.DIR, WS.PROV})}
             if u.is_superuser and not is_asosiy_admin(u) and req.status == WS.DIR and not is_admin(u):
                 messages.error(request, "Direktor bosqichini HAQIQIY direktor yoki ASOSIY admin ko'radi.")
-                return _wk_qayt(request, proj_id)
+                return _wk_qayt(request, req)
             if is_admin(u) and req.status in WK_JARAYON:
                 ruxsat_bor, targetlar = True, {"draft", WS.SNAB, WS.PTO2, WS.DIR, WS.PROV} - {req.status}
             elif req.status in RUXSAT:
@@ -1916,8 +1944,7 @@ def _weekly_action_asl(request, pk):
                     # Loyihani ham qulflaymiz — IKKI XIL so'rov parallel tasdiqlanganda
                     # ikkalasi ham "limitga sig'adi" bo'lib qolmasin
                     Project.objects.select_for_update().get(pk=req.project_id)
-                    oshgan = _limit_oshish(
-                        req.project, _items_by_kind(req.items.all()),
+                    oshgan = _limit_oshish(req.limit or req.project.joriy_limit(), _items_by_kind(req.items.all()),
                         exclude_request_id=req.id,
                     )
                     if oshgan and request.POST.get("confirm_over") != "1":
@@ -3701,16 +3728,16 @@ def _lj_qator_dict(li):
             "note": li.note or "", "bolim": li.bolim or "", "masul": li.masul or ""}
 
 
-def _lj_qulf(p):
+def _lj_qulf(lim):
     """Умумий qulfmi: qatorli limit tasdiqlangan va admin ruxsat bermagan."""
-    return p.limit_items.exists() and not p.limit_tahrir_ruxsat
+    return lim.items.exists() and not lim.tahrir_ruxsat
 
 
-def _lj_qulf_normalla(p, items):
+def _lj_qulf_normalla(lim, items):
     """Qulf holatida QORALAMA: mavjud (asl) qatorlar BAZADAGIDEK qoladi va hech biri
     tushib qolmaydi — faqat YANGI qatorlar qo'shiladi (zanjir orqali). Qaytaradi:
     (items, sums)."""
-    asl = {li.pk: _lj_qator_dict(li) for li in p.limit_items.all().order_by("id")}
+    asl = {li.pk: _lj_qator_dict(li) for li in lim.items.all().order_by("id")}
     yangi = []
     bor = set()
     for it in items:
@@ -3727,13 +3754,14 @@ def _lj_qulf_normalla(p, items):
     return natija, sums
 
 
-def _lj_taklif_saqla(request, p, payload, qayt_kerak=True):
+def _lj_taklif_saqla(request, lim, payload, qayt_kerak=True):
     """Zanjirdagi taklif qatorlarini limit jadvalining O'ZIDAN saqlash
     (avval alohida «so'rovni tahrirlash» formasi edi)."""
+    p = lim.project
     from django.utils import timezone as _tz
-    qayt = redirect(reverse("limit_jadval", args=[p.pk]))
+    qayt = redirect(_lj_url(lim))
     # Avval HUQUQ — huquqsiz foydalanuvchi tekshiruv xabarlarini ham ko'rmaydi
-    req = p.limit_requests.filter(status__in=LIM_JARAYON + ["draft"]).order_by("-id").first()
+    req = lim.requests.filter(status__in=LIM_JARAYON + ["draft"]).order_by("-id").first()
     if req is None:
         messages.error(request, "Zanjirda limit so'rovi yo'q — sahifa yangilandi.")
         return qayt
@@ -3753,7 +3781,7 @@ def _lj_taklif_saqla(request, p, payload, qayt_kerak=True):
     if not items:
         messages.error(request, "Kamida bitta qator bo'lishi kerak — saqlanmadi.")
         return qayt
-    ozimniki = set(p.limit_items.values_list("pk", flat=True))
+    ozimniki = set(lim.items.values_list("pk", flat=True))
     for it in items:
         if it["asl_id"] not in ozimniki:
             it["asl_id"] = None
@@ -3768,8 +3796,8 @@ def _lj_taklif_saqla(request, p, payload, qayt_kerak=True):
             return qayt
         if not _lj_taklif_huquq(request.user, req):
             raise PermissionDenied("Bu bosqichda so'rovni siz tahrirlay olmaysiz.")
-        if req.status == "draft" and _lj_qulf(p):
-            items, sums = _lj_qulf_normalla(p, items)
+        if req.status == "draft" and _lj_qulf(lim):
+            items, sums = _lj_qulf_normalla(lim, items)
         req.proposed_items.all().delete()
         LimitChangeItem.objects.bulk_create(
             [LimitChangeItem(request=req, **it) for it in items])
@@ -3790,12 +3818,13 @@ def _lj_taklif_saqla(request, p, payload, qayt_kerak=True):
     return qayt if qayt_kerak else None
 
 
-def _lj_qoralama_yarat(request, p, payload):
+def _lj_qoralama_yarat(request, lim, payload):
     """Умумий tahriri tugallanmagan bo'lsa — jadvaldagi TO'LIQ ro'yxat (mavjud
     qatorlar `asl` bilan + yangi qatorlar) serverga QORALAMA bo'lib saqlanadi;
     keyin istalgan qurilmadan o'sha joyidan davom ettiriladi."""
-    qayt = redirect(reverse("limit_jadval", args=[p.pk]))
-    if p.limit_requests.filter(status__in=LIM_JARAYON).exists():
+    p = lim.project
+    qayt = redirect(_lj_url(lim))
+    if lim.requests.filter(status__in=LIM_JARAYON).exists():
         messages.error(request, "Limit so'rovi zanjirda turibdi — qoralama saqlab bo'lmaydi.")
         return qayt
     items, sums = [], {k: Decimal("0") for k in KINDS}
@@ -3810,22 +3839,23 @@ def _lj_qoralama_yarat(request, p, payload):
     if not items:
         messages.error(request, "Qoralama uchun kamida bitta qator kiriting.")
         return qayt
-    return _lj_qoralama_yoz(request, p, items, sums)
+    return _lj_qoralama_yoz(request, lim, items, sums)
 
 
-def _lj_qoralama_yoz(request, p, items, sums):
+def _lj_qoralama_yoz(request, lim, items, sums):
     """Tayyor qatorlar ro'yxatini QORALAMA bo'lib yozadi (eskisi almashadi)."""
-    qayt = redirect(reverse("limit_jadval", args=[p.pk]))
-    if _lj_qulf(p):
-        items, sums = _lj_qulf_normalla(p, items)
-    ozimniki = set(p.limit_items.values_list("pk", flat=True))
+    p = lim.project
+    qayt = redirect(_lj_url(lim))
+    if _lj_qulf(lim):
+        items, sums = _lj_qulf_normalla(lim, items)
+    ozimniki = set(lim.items.values_list("pk", flat=True))
     for it in items:
         if it["asl_id"] not in ozimniki:
             it["asl_id"] = None
     with transaction.atomic():
-        p.limit_requests.filter(status="draft").delete()
+        lim.requests.filter(status="draft").delete()
         q = LimitChangeRequest.objects.create(
-            project=p, status="draft",
+            project=p, limit=lim, status="draft",
             old_material=p.limit_material, old_labor=p.limit_labor,
             old_machinery=p.limit_machinery, old_other=p.limit_other,
             new_material=sums["material"], new_labor=sums["labor"],
@@ -3837,11 +3867,12 @@ def _lj_qoralama_yoz(request, p, items, sums):
     return qayt
 
 
-def _lj_qoralama_amal(request, p, amal):
+def _lj_qoralama_amal(request, lim, amal):
     """Qoralama bilan amal: send — zanjirga yuborish; apply — admin to'g'ridan
     qo'llaydi; delete — o'chirish."""
-    qayt = redirect(reverse("limit_jadval", args=[p.pk]))
-    q = p.limit_requests.filter(status="draft").order_by("-id").first()
+    p = lim.project
+    qayt = redirect(_lj_url(lim))
+    q = lim.requests.filter(status="draft").order_by("-id").first()
     if q is None:
         messages.error(request, "Qoralama topilmadi — sahifa yangilandi.")
         return qayt
@@ -3854,14 +3885,14 @@ def _lj_qoralama_amal(request, p, amal):
     if not q.proposed_items.exists():
         messages.error(request, "Qoralamada qator yo'q — avval qatorlarni kiritib saqlang.")
         return qayt
-    if p.limit_requests.filter(status__in=LIM_JARAYON).exists():
+    if lim.requests.filter(status__in=LIM_JARAYON).exists():
         messages.error(request, "Limit so'rovi zanjirda turibdi — avval u yakunlansin.")
         return qayt
     from django.utils import timezone as _tz
     if amal == "apply":
         if not is_admin(request.user):
             raise PermissionDenied("To'g'ridan qo'llashni faqat admin qiladi.")
-        if p.limit_items.exists() and not p.limit_tahrir_ruxsat:
+        if lim.items.exists() and not lim.tahrir_ruxsat:
             messages.error(request, "Tasdiqlangan limit qulf — avval «Таҳрирга рухсат бериш».")
             return qayt
         with transaction.atomic():
@@ -3869,9 +3900,9 @@ def _lj_qoralama_amal(request, p, amal):
             q.requested_by = q.requested_by or request.user
             q.save(update_fields=["status", "requested_by"])
             q.approve(request.user)
-            if p.limit_tahrir_ruxsat:
-                p.limit_tahrir_ruxsat = False
-                p.save(update_fields=["limit_tahrir_ruxsat"])
+            if lim.tahrir_ruxsat:
+                lim.tahrir_ruxsat = False
+                lim.save(update_fields=["tahrir_ruxsat"])
         p.refresh_from_db()
         messages.success(request, f"Умумий limit qo'llandi: {_money(p.budget_total)}.")
         return qayt
@@ -3885,9 +3916,9 @@ def _lj_qoralama_amal(request, p, amal):
             q.old_machinery, q.old_other = p.limit_machinery, p.limit_other
             q.reason = "Limit jadvalidan tahrir"
             q.save()
-            if p.limit_tahrir_ruxsat:
-                p.limit_tahrir_ruxsat = False   # ruxsat bir martalik
-                p.save(update_fields=["limit_tahrir_ruxsat"])
+            if lim.tahrir_ruxsat:
+                lim.tahrir_ruxsat = False   # ruxsat bir martalik
+                lim.save(update_fields=["tahrir_ruxsat"])
         messages.success(request, _limit_yubor_xabar(_st))
         return qayt
     messages.error(request, "Noma'lum amal.")
@@ -3904,6 +3935,7 @@ def limit_jadval(request, pk):
     from .roles import is_snab as _is_snab, is_asosiy_admin as _asosiy_adm
     p = get_object_or_404(Project, pk=pk)
     _firma_yoki_403(request, p)
+    lim = _lj_joriy(p, request)          # RAQAMLI limit (?limit=N; bo'lmasa joriy)
     can_edit = is_pto(request.user) or is_admin(request.user)
     # УМУМИЙ ustunini tahrirlash huquqi — zanjirning HAR BIR ishtirokchisi
     # (PTO/snab/direktor). LEKIN limit ADMIN TOMONIDAN TASDIQLANGACH qulflanadi:
@@ -3915,26 +3947,26 @@ def limit_jadval(request, pk):
     # Limit QATORLARI bormi. Eski usulda faqat SUMMA kiritilgan obyektlarda
     # (budget > 0, qator yo'q) qulflaydigan narsa yo'q — qatorlar shu jadvalda
     # kiritiladi va tasdiqlangach eski summa o'rnini bosadi.
-    amaldagi_bor = p.limit_items.exists()
+    amaldagi_bor = lim.items.exists()
     # Tasdiqlangan limit HAMMA uchun (admin ham) qulf — faqat admin bergan
     # «Таҳрирга рухсат» bilan ochiladi
     lim_edit_huquq = (is_admin(request.user) or zanjir_ishtirokchi) and (
-        not amaldagi_bor or p.limit_tahrir_ruxsat)
+        not amaldagi_bor or lim.tahrir_ruxsat)
     # Tasdiqlangan (qulf) limitga ham YANGI blok/qator qo'shish mumkin — faqat
     # zanjir orqali (admin ham), mavjud qatorlar tegilmaydi
     lim_qosh_huquq = (is_admin(request.user) or zanjir_ishtirokchi) and not lim_edit_huquq
 
-    haftalar = list(WeeklyRequest.objects.filter(project=p)
+    haftalar = list(WeeklyRequest.objects.filter(limit=lim)
                     .exclude(status="rejected")
                     .order_by("week_start", "id")
                     .prefetch_related("items"))
     draft = next((w for w in haftalar if w.status == "draft"), None)
 
     # Zanjirdagi limit so'rovi (taklif) — shu jadvalning o'zida ko'rinadi/tahrirlanadi
-    lim_pend_obj = p.limit_requests.filter(status__in=LIM_JARAYON).order_by("-id").first()
+    lim_pend_obj = lim.requests.filter(status__in=LIM_JARAYON).order_by("-id").first()
     # Zanjirga yuborilmagan QORALAMA (tugallanmagan kiritish) — xuddi taklif kabi ochiladi
     qoralama_obj = (None if lim_pend_obj
-                    else p.limit_requests.filter(status="draft").order_by("-id").first())
+                    else lim.requests.filter(status="draft").order_by("-id").first())
     taklif_obj = lim_pend_obj or qoralama_obj
     taklif_huquq = _lj_taklif_huquq(request.user, taklif_obj)
     taklif_bor = bool(taklif_obj) and taklif_obj.proposed_items.exists()
@@ -3949,7 +3981,7 @@ def limit_jadval(request, pk):
     _qayt_hafta = []
 
     def _qayt():
-        url = reverse("limit_jadval", args=[pk]) + _qs
+        url = _lj_url(lim) + (_qs.replace("?", "&") if _qs else "")
         if _qayt_hafta:
             url += ("&" if "?" in url else "?") + f"hafta={_qayt_hafta[0]}"
         return redirect(url)
@@ -3957,7 +3989,7 @@ def limit_jadval(request, pk):
     # ---------- POST: qoralamani saqlash / tasdiqqa yuborish ----------
     if request.method == "POST":
         if request.POST.get("qoralama_amal"):
-            return _lj_qoralama_amal(request, p, request.POST.get("qoralama_amal"))
+            return _lj_qoralama_amal(request, lim, request.POST.get("qoralama_amal"))
         try:
             payload = _json.loads(request.POST.get("payload") or "{}")
         except ValueError:
@@ -3967,18 +3999,18 @@ def limit_jadval(request, pk):
             payload = {}
         # Zanjirdagi TAKLIFni saqlash — bosqich egasi (snab/PTO xulosa/admin)
         if payload.get("action") == "req_save":
-            return _lj_taklif_saqla(request, p, payload)
+            return _lj_taklif_saqla(request, lim, payload)
         # Taklif/qoralama tahririda yashil «Сақлаш» / «Ҳафтани ёпиш»: avval taklif
         # qatorlari saqlanadi, keyin HAFTALIK (xato bo'lsa — to'xtaydi)
         if (payload.get("action") in ("save", "submit") and taklif_view and taklif_huquq
                 and isinstance(payload.get("req_items"), list)):
-            r_ = _lj_taklif_saqla(request, p, payload, qayt_kerak=False)
+            r_ = _lj_taklif_saqla(request, lim, payload, qayt_kerak=False)
             if r_ is not None:
                 return r_
         if payload.get("action") == "draft_save":
             if not (lim_edit_huquq or lim_qosh_huquq):
                 raise PermissionDenied("Умумий limitni tahrirlash huquqi yo'q.")
-            return _lj_qoralama_yarat(request, p, payload)
+            return _lj_qoralama_yarat(request, lim, payload)
         if not (can_edit or lim_edit_huquq):
             raise PermissionDenied("Bu jadvalni tahrirlash huquqi yo'q.")
         # Haftalik qatorlar/yopish — faqat PTO yoki admin
@@ -4005,7 +4037,7 @@ def limit_jadval(request, pk):
             except ValueError:
                 messages.error(request, "Hafta boshi va oxiri sanasini kiriting.")
                 return _qayt()
-            xato = _hafta_sana_xatosi(p, ws_, we_, exclude_id=(ruxsat_hafta.id if ruxsat_hafta
+            xato = _hafta_sana_xatosi(lim, ws_, we_, exclude_id=(ruxsat_hafta.id if ruxsat_hafta
                                                                 else (draft.id if draft else None)))
             if xato:
                 messages.error(request, xato)
@@ -4023,9 +4055,9 @@ def limit_jadval(request, pk):
             if ls_ and le_ and le_ < ls_:
                 messages.error(request, "Umumiy limit tugash sanasi boshlanishidan oldin bo'lmasin.")
                 return _qayt()
-            if ls_ != p.limit_start or le_ != p.limit_end:
-                p.limit_start, p.limit_end = ls_, le_
-                p.save(update_fields=["limit_start", "limit_end"])
+            if ls_ != lim.start or le_ != lim.end:
+                lim.start, lim.end = ls_, le_
+                lim.save(update_fields=["start", "end"])
                 sana_ozgardi = True
                 messages.success(request, "Umumiy limit davri saqlandi.")
 
@@ -4052,7 +4084,7 @@ def limit_jadval(request, pk):
         lim_ozgarish = bool(lim_edits or lim_new or lim_del)
         lim_ozgardi = sana_ozgardi
         if lim_ozgarish and (lim_edit_huquq or qosh_rejim):
-            if p.limit_requests.filter(status__in=LIM_JARAYON).exists():
+            if lim.requests.filter(status__in=LIM_JARAYON).exists():
                 messages.error(request, "Limit o'zgartirish so'rovi zanjirda turibdi — "
                                         "avval u yakunlansin, keyin Умумийni tahrirlaysiz.")
                 return _qayt()
@@ -4063,7 +4095,7 @@ def limit_jadval(request, pk):
         admin_zanjir = bool(payload.get("lim_zanjir")) and is_admin(request.user)
         # Eski usulda (faqat summa) TASDIQLANGAN limit ham qulf qoidasiga bo'ysunadi:
         # admin ruxsat bermagan bo'lsa, uning tahriri ham to'g'ridan emas — zanjir orqali
-        if is_admin(request.user) and limit_bor and not amaldagi_bor and not p.limit_tahrir_ruxsat:
+        if is_admin(request.user) and limit_bor and not amaldagi_bor and not lim.tahrir_ruxsat:
             admin_zanjir = True
         if qosh_rejim:
             admin_zanjir = True   # qulfdagi limitga qo'shish — admin ham zanjir orqali
@@ -4094,7 +4126,7 @@ def limit_jadval(request, pk):
             # Yashil «Сақлаш»: Умумий o'zgarishlari (joriy tarkib + tahrir + yangi) ZANJIRGA
             # EMAS — QORALAMA bo'lib saqlanadi, keyin davom ettiriladi / yuboriladi
             t_items, t_sums = [], {k: Decimal("0") for k in KINDS}
-            for li in p.limit_items.all().order_by("id"):
+            for li in lim.items.all().order_by("id"):
                 if li.id in lim_del:
                     continue
                 it = _lj_qator_dict(li)
@@ -4110,7 +4142,7 @@ def limit_jadval(request, pk):
             if not t_items:
                 messages.error(request, "Qoralama uchun kamida bitta qator kiriting.")
                 return _qayt()
-            _lj_qoralama_yoz(request, p, t_items, t_sums)
+            _lj_qoralama_yoz(request, lim, t_items, t_sums)
             lim_ozgardi = True
             if payload.get("items"):
                 # haftalik ham saqlanmoqda — o'sha ko'rinishda qolsin, lekin Умумий qayerdaligini aytamiz
@@ -4122,7 +4154,7 @@ def limit_jadval(request, pk):
             # TAKLIF -> tasdiqlash zanjiri
             t_items, t_sums = [], {k: Decimal("0") for k in KINDS}
             ozgardi_soni = 0
-            for li in p.limit_items.all().order_by("id"):
+            for li in lim.items.all().order_by("id"):
                 if li.id in lim_del:
                     ozgardi_soni += 1
                     continue
@@ -4147,7 +4179,7 @@ def limit_jadval(request, pk):
                 _st = _limit_boshlangich(p)
                 with transaction.atomic():
                     req0 = LimitChangeRequest.objects.create(
-                        project=p,
+                        project=p, limit=lim,
                         old_material=p.limit_material, old_labor=p.limit_labor,
                         old_machinery=p.limit_machinery, old_other=p.limit_other,
                         new_material=t_sums["material"], new_labor=t_sums["labor"],
@@ -4157,19 +4189,19 @@ def limit_jadval(request, pk):
                     )
                     LimitChangeItem.objects.bulk_create(
                         [LimitChangeItem(request=req0, **it) for it in t_items])
-                    if p.limit_tahrir_ruxsat:
+                    if lim.tahrir_ruxsat:
                         # Admin ruxsati BIR MARTALIK — so'rov yuborilgach yopiladi
-                        p.limit_tahrir_ruxsat = False
-                        p.save(update_fields=["limit_tahrir_ruxsat"])
+                        lim.tahrir_ruxsat = False
+                        lim.save(update_fields=["tahrir_ruxsat"])
                 messages.success(request, _limit_yubor_xabar(_st))
         elif lim_ozgarish and is_admin(request.user) and lim_edit_huquq:
             # Admin — to'g'ridan-to'g'ri qo'llanadi
-            qoladi = p.limit_items.exclude(id__in=lim_del).count() + len(yangilar)
+            qoladi = lim.items.exclude(id__in=lim_del).count() + len(yangilar)
             if qoladi == 0:
                 messages.error(request, "Kamida bitta limit qatori qolishi kerak — o'chirilmadi.")
                 return _qayt()
             with transaction.atomic():
-                for li in p.limit_items.all().order_by("id"):
+                for li in lim.items.all().order_by("id"):
                     if li.id in lim_del:
                         li.delete()
                         lim_ozgardi = True
@@ -4186,24 +4218,24 @@ def limit_jadval(request, pk):
                         # Qayta nomlangan qatorga bog'liq haftalik qatorlar ham ergashadi;
                         # shu POSTdagi (eski nomli) haftalik qatorlar ham yangi nomga o'tadi
                         yangi_nom = {k: it[k] for k in ("name", "bolim", "unit", "kind")}
-                        hafta_qatorlarini_qayta_nomla(p, eski, yangi_nom)
+                        hafta_qatorlarini_qayta_nomla(lim, eski, yangi_nom)
                         qayta_nom[_lj_key(eski["name"], eski["bolim"])] = yangi_nom
                         lim_ozgardi = True
                 if yangilar:
-                    LimitItem.objects.bulk_create([LimitItem(project=p, **{k: v for k, v in it.items() if k != "asl_id"})
+                    LimitItem.objects.bulk_create([LimitItem(project=p, limit=lim, **{k: v for k, v in it.items() if k != "asl_id"})
                                                    for it in yangilar])
                     lim_ozgardi = True
                 if lim_ozgardi:
                     p.recompute_limits()
-                    if p.limit_tahrir_ruxsat:
-                        p.limit_tahrir_ruxsat = False   # ruxsat bir martalik
-                        p.save(update_fields=["limit_tahrir_ruxsat"])
+                    if lim.tahrir_ruxsat:
+                        lim.tahrir_ruxsat = False   # ruxsat bir martalik
+                        lim.save(update_fields=["tahrir_ruxsat"])
             if lim_ozgardi:
                 messages.success(request, "Умумий limit yangilandi.")
 
         # Qoldiq (tasdiqlanganlar bo'yicha) — server tomonda qayta tekshiramiz
         qoldiq = {}
-        for li in p.limit_items.all():
+        for li in lim.items.all():
             d = qoldiq.setdefault(_lj_key(li.name, li.bolim),
                                   {"qty": Decimal("0"), "unit": li.unit, "nom": li.name})
             d["qty"] += li.quantity - (li.boshlangich_qty or 0)
@@ -4281,7 +4313,7 @@ def limit_jadval(request, pk):
         with transaction.atomic():
             if draft is None:
                 draft = WeeklyRequest.objects.create(
-                    project=p, week_start=ws_, week_end=we_,
+                    project=p, limit=lim, week_start=ws_, week_end=we_,
                     status="draft", created_by=request.user)
             else:
                 draft.week_start, draft.week_end = ws_, we_
@@ -4324,7 +4356,7 @@ def limit_jadval(request, pk):
         if amaldagi_bor:
             # Amaldagi limitdan farqi: yangi / o'zgargan / o'chirilayotgan qatorlar
             joriy = {}
-            for li in p.limit_items.all().order_by("id"):
+            for li in lim.items.all().order_by("id"):
                 joriy.setdefault(_lj_key(li.name, li.bolim),
                                  (li.name, float(li.quantity), float(li.unit_price)))
             t_keys = set()
@@ -4351,7 +4383,7 @@ def limit_jadval(request, pk):
             taklif_keys = {r["key"] for g in guruhlar for r in g["rows"]}
             guruhlar = []
     else:
-        guruhlar = _lj_guruhlar(p.limit_items.all().order_by("id"), fakt)
+        guruhlar = _lj_guruhlar(lim.items.all().order_by("id"), fakt)
 
     limit_keys = {r["key"] for g in guruhlar for r in g["rows"]} | taklif_keys
 
@@ -4460,7 +4492,7 @@ def limit_jadval(request, pk):
             _amal["id"] = r0.id
         lim_holat["amal"] = _amal
     else:
-        oxt = (p.limit_requests.filter(status="approved")
+        oxt = (lim.requests.filter(status="approved")
                .order_by("-decided_at", "-id").first())
         if oxt:
             lim_holat = {"mode": "ok",
@@ -4500,7 +4532,7 @@ def limit_jadval(request, pk):
     # Директор → Проверчик → Админ; xodimi yo'q bosqich o'tkazib yuborilsa ham qadam ko'rinadi
     _tartib = [k for k, _ in _nomlar]
     lj_qadamlar, lj_pill, lj_keyingi = [], None, ""
-    _oxt = (p.limit_requests.filter(status="approved").order_by("-decided_at", "-id").first())
+    _oxt = (lim.requests.filter(status="approved").order_by("-decided_at", "-id").first())
     if lim_pend_obj:
         r0_ = lim_pend_obj
         meta = {"pto": (_ism(r0_.requested_by), _v(r0_.created_at)),
@@ -4549,7 +4581,11 @@ def limit_jadval(request, pk):
     from .roles import is_prov as _is_prov_w, is_snab as _is_snab_w
     _wk1 = _wk_keyingi(p, "draft")
     _wk1_u = (_rol_user("snab") if _wk1 == "snab" else _dir_u if _wk1 == "dir" else _adm_u)
+    # Obyektning RAQAMLI limitlari — tablar (jami summa bilan); keyingisini faqat admin ochadi
+    limitlar = [{"raqam": l_.raqam, "nom": l_.nom, "joriy": l_.pk == lim.pk,
+                 "jami_q": _money(l_.jami())} for l_ in p.limitlar.order_by("raqam")]
     return render(request, "projects/limit_jadval.html", {
+        "lim": lim, "limitlar": limitlar,
         "lj_qadamlar": lj_qadamlar, "lj_pill": lj_pill, "lj_keyingi": lj_keyingi,
         "wk_dir_nom": _ism(_dir_u), "wk_adm_nom": _ism(_adm_u),
         "wk_keyingi": WK_BOSQICH_NOM.get(_wk1, _wk1) + (" · " + _ism(_wk1_u) if _wk1_u else ""),
@@ -4561,21 +4597,21 @@ def limit_jadval(request, pk):
         "lim_edit_huquq": lim_edit_huquq and not taklif_view,
         "lim_qosh_huquq": lim_qosh_huquq and not taklif_view and not lim_pend_obj,
         # Qoralama tahririda qulf: asl qatorlar faqat o'qiladi
-        "taklif_qulf": bool(taklif_view and qoralama_obj and _lj_qulf(p)),
+        "taklif_qulf": bool(taklif_view and qoralama_obj and _lj_qulf(lim)),
         "taklif_view": taklif_view, "taklif_edit": taklif_view and taklif_huquq,
         "taklif_json": taklif_json, "taklif_ochirilgan": taklif_ochirilgan,
         "taklif_token": _lj_taklif_token(taklif_obj) if taklif_obj else "",
         "qoralama": qoralama,
         # Admin tahriri to'g'ridan qo'llanadimi (eski summali limitda — faqat ruxsat bilan)
         "adm_togri": is_admin(request.user) and not (
-            limit_bor and not amaldagi_bor and not p.limit_tahrir_ruxsat),
+            limit_bor and not amaldagi_bor and not lim.tahrir_ruxsat),
         "taklif_sum": taklif_sum,
         "amaldagi_bor": amaldagi_bor, "eski_sum": eski_sum,
-        "lim_ruxsat": p.limit_tahrir_ruxsat,
-        "lim_start": p.limit_start.isoformat() if p.limit_start else "",
-        "lim_end": p.limit_end.isoformat() if p.limit_end else "",
+        "lim_ruxsat": lim.tahrir_ruxsat,
+        "lim_start": lim.start.isoformat() if lim.start else "",
+        "lim_end": lim.end.isoformat() if lim.end else "",
         "lim_qulf": ((zanjir_ishtirokchi or is_admin(request.user))
-                     and amaldagi_bor and not p.limit_tahrir_ruxsat),
+                     and amaldagi_bor and not lim.tahrir_ruxsat),
         "wk_dir_actor": ((is_director(request.user) and not request.user.is_superuser)
                          or _asosiy_adm(request.user)),
         "lim_holat": lim_holat,
@@ -4585,115 +4621,6 @@ def limit_jadval(request, pk):
         "draft_id": draft.id if draft else None,
         "taklif_ws": t_ws.isoformat(), "taklif_we": t_we.isoformat(),
     })
-
-
-def _lj_ruxsatli_xodimlar(p):
-    """Limit yuborish mumkin bo'lgan xodimlar: shu OBYEKTGA biriktirilgan
-    PTO/prorab/snabjeniye + shu FIRMA direktorlari + adminlar (superuser)."""
-    from django.contrib.auth import get_user_model
-    from django.db.models import Q
-    return (get_user_model().objects.filter(is_active=True)
-            .filter(Q(profile__projects=p, profile__role__in=["pto", "prorab", "snab"])
-                    | Q(profile__firma=p.firma, profile__role="director")
-                    | Q(is_superuser=True))
-            .select_related("profile").distinct())
-
-
-def _lj_toliq_matn(p, izoh, sender):
-    """BUTUN limit xabari (barcha bloklar, blok jamilari bilan) — zanjir uchun."""
-    rows = list(p.limit_items.all().order_by("id"))
-    if not rows:
-        return None
-    fakt = {}
-    for wi in WeeklyRequestItem.objects.filter(request__project=p, request__status="approved"):
-        k = _lj_key(wi.name, wi.bolim)
-        d = fakt.setdefault(k, {"qty": Decimal("0"), "sum": Decimal("0")})
-        d["qty"] += wi.quantity
-        d["sum"] += wi.total
-    from django.utils import timezone as _tz
-    satrlar = [f"📋 {p.code} — {p.name} · UMUMIY LIMIT",
-               f"Yubordi: {sender} · {_tz.localtime():%d.%m.%Y %H:%M}"]
-    if izoh:
-        satrlar.append(f"Izoh: {izoh}")
-    guruh = {}
-    for li in rows:
-        guruh.setdefault((li.bolim or "").strip(), []).append(li)
-    jt = jf = Decimal("0")
-    korilgan = set()
-    for kal in ([k for k in guruh if k] + ([""] if "" in guruh else [])):
-        bt = bf = Decimal("0")
-        satrlar.append("")
-        satrlar.append(f"— {kal or 'Bo`limsiz qatorlar'} —")
-        for li in guruh[kal]:
-            k = _lj_key(li.name, li.bolim)
-            f = fakt.get(k) if k not in korilgan else None
-            korilgan.add(k)
-            fq = f["qty"] if f else Decimal("0")
-            fs = f["sum"] if f else Decimal("0")
-            bt += li.total; bf += fs
-            satrlar.append(f"• {li.name}: qoldi {_qty(li.quantity - fq)} {li.unit} "
-                           f"({_money(li.total - fs)} so'm)")
-        jt += bt; jf += bf
-        satrlar.append(f"  Blok yakuni: {_money(bt)} · bajarilgan {_money(bf)} · "
-                       f"qoldi {_money(bt - bf)}")
-    satrlar.append("")
-    satrlar.append(f"JAMI: umumiy {_money(jt)} · bajarilgan {_money(jf)} · "
-                   f"QOLGAN {_money(jt - jf)} so'm")
-    matn = "\n".join(satrlar)
-    if len(matn) > 1750:
-        matn = matn[:1700] + "\n… (davomi tizimda)"
-    return matn
-
-
-def _lj_rol_tartib(u):
-    """Limit o'tkazish zanjiri tartibi: PTO -> Snabjeniye -> Direktor -> Admin.
-    Qolganlar (prorab, buxgalter...) oxirida."""
-    if u.is_superuser:
-        return 4
-    rol = getattr(getattr(u, "profile", None), "role", "") or ""
-    return {"pto": 1, "snab": 2, "director": 3}.get(rol, 9)
-
-
-def _lj_bolim_matn(p, bolim, izoh, sender):
-    """Bitta bo'lim limitining xabar matni (umumiy/bajarilgan/QOLGAN + JAMI)."""
-    rows = [li for li in p.limit_items.all().order_by("id")
-            if (li.bolim or "").strip() == bolim]
-    if not rows:
-        return None
-    fakt = {}
-    for wi in WeeklyRequestItem.objects.filter(request__project=p, request__status="approved"):
-        k = _lj_key(wi.name, wi.bolim)
-        d = fakt.setdefault(k, {"qty": Decimal("0"), "sum": Decimal("0")})
-        d["qty"] += wi.quantity
-        d["sum"] += wi.total
-    masul = next((li.masul for li in rows if (li.masul or "").strip()), "")
-    from django.utils import timezone as _tz
-    satrlar = [f"📋 {p.code} — {p.name}",
-               f"Bo'lim: {bolim or 'Bo`limsiz qatorlar'}" + (f" · Mas'ul: {masul}" if masul else ""),
-               f"Yubordi: {sender} · {_tz.localtime():%d.%m.%Y %H:%M}"]
-    if izoh:
-        satrlar.append(f"Izoh: {izoh}")
-    satrlar.append("")
-    jt = jf = Decimal("0")
-    korilgan = set()
-    for i, li in enumerate(rows, start=1):
-        k = _lj_key(li.name, li.bolim)
-        f = fakt.get(k) if k not in korilgan else None
-        korilgan.add(k)
-        fq = f["qty"] if f else Decimal("0")
-        fs = f["sum"] if f else Decimal("0")
-        jt += li.total; jf += fs
-        satrlar.append(
-            f"{i}. {li.name} — umumiy {_qty(li.quantity)} {li.unit}, "
-            f"bajarilgan {_qty(fq)}, QOLGAN {_qty(li.quantity - fq)} {li.unit} "
-            f"({_money(li.total - fs)} so'm)")
-    satrlar.append("")
-    satrlar.append(f"JAMI: umumiy {_money(jt)} · bajarilgan {_money(jf)} · "
-                   f"QOLGAN {_money(jt - jf)} so'm")
-    matn = "\n".join(satrlar)
-    if len(matn) > 1750:
-        matn = matn[:1700] + "\n… (davomi tizimda)"
-    return matn
 
 
 def _lj_xabar_yubor(matn, oluvchi, yubordi):
@@ -4731,6 +4658,7 @@ def limit_jadval_export(request, pk):
     Сумма=Объём*Нархи, Қолган=Умумий-Бажарилган, Блок якуни/ЖАМИ=SUM."""
     p = get_object_or_404(Project, pk=pk)
     _firma_yoki_403(request, p)
+    lim = _lj_joriy(p, request)
 
     import openpyxl
     from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
@@ -4739,7 +4667,7 @@ def limit_jadval_export(request, pk):
     from django.utils.timezone import localtime as _lt
 
     # --- BARCHA haftalar (saytdagidek); tanlangani ochiq, qolganlari YASHIRIN ---
-    haftalar = list(WeeklyRequest.objects.filter(project=p)
+    haftalar = list(WeeklyRequest.objects.filter(limit=lim)
                     .order_by("week_start", "id"))
     hid = request.GET.get("hafta") or ""
     vis_id = int(hid) if hid.isdigit() else None
@@ -4765,20 +4693,20 @@ def limit_jadval_export(request, pk):
 
     # --- fakt (tasdiqlangan haftalar) + dublikatlarga taqsimot (sahifadagidek) ---
     fakt = {}
-    for wi in (WeeklyRequestItem.objects.filter(request__project=p)
+    for wi in (WeeklyRequestItem.objects.filter(request__limit=lim)
                .exclude(request__status__in=["rejected", "draft"])):
         k = _lj_key(wi.name, wi.bolim)
         d = fakt.setdefault(k, {"qty": Decimal("0"), "sum": Decimal("0")})
         d["qty"] += wi.quantity
         d["sum"] += wi.total
     dubl = {}
-    for li in p.limit_items.all():
+    for li in lim.items.all():
         k0 = _lj_key(li.name, li.bolim)
         dubl[k0] = dubl.get(k0, 0) + 1
     rem = {k0: {"qty": v["qty"], "sum": v["sum"]} for k0, v in fakt.items()}
     korilgan = {}
     guruhlar = {}
-    for li in p.limit_items.all().order_by("id"):
+    for li in lim.items.all().order_by("id"):
         kal = (li.bolim or "").strip()
         g = guruhlar.get(kal)
         if g is None:
@@ -4838,10 +4766,10 @@ def limit_jadval_export(request, pk):
     ws["A1"] = f"{p.code} — {p.name}"
     ws["A1"].font = Font(name=AR, bold=True, size=14)
     sub = "Умумий лимит ва ҳафталик лимитлар: УМУМИЙ · БАЖАРИЛГАН · ҚОЛГАН"
-    if p.limit_start or p.limit_end:
+    if lim.start or lim.end:
         sub += (f" · Умумий лимит даври: "
-                f"{p.limit_start:%d.%m.%Y}" if p.limit_start else " · Умумий лимит даври: ...")
-        sub += f" — {p.limit_end:%d.%m.%Y}" if p.limit_end else " — ..."
+                f"{lim.start:%d.%m.%Y}" if lim.start else " · Умумий лимит даври: ...")
+        sub += f" — {lim.end:%d.%m.%Y}" if lim.end else " — ..."
     if haftalar:
         sub += (f" · {len(haftalar)} ҳафта (эскилари яширин устунларда,"
                 " «+» билан очилади)")
@@ -5003,7 +4931,7 @@ def limit_jadval_export(request, pk):
     import re as _re
     from urllib.parse import quote as _q
     sana = ""
-    ox = hafta or (WeeklyRequest.objects.filter(project=p)
+    ox = hafta or (WeeklyRequest.objects.filter(limit=lim)
                    .order_by("-week_start", "-id").first())
     if ox:
         sana = f"_{ox.week_start:%d.%m}-{ox.week_end:%d.%m.%Y}"
@@ -5023,17 +4951,38 @@ def limit_tahrir_ruxsat_toggle(request, pk):
     «Лимитни юбориш» bilan zanjirga so'rov yuboradi; so'rov yaratilgach
     ruxsat avtomatik yopiladi."""
     p = _firma_yoki_403(request, get_object_or_404(Project, pk=pk))
+    lim = _lj_joriy(p, request)
     if not is_admin(request.user):
         raise PermissionDenied("Ruxsatni faqat admin beradi.")
     if request.method == "POST":
-        p.limit_tahrir_ruxsat = not p.limit_tahrir_ruxsat
-        p.save(update_fields=["limit_tahrir_ruxsat"])
-        if p.limit_tahrir_ruxsat:
+        lim.tahrir_ruxsat = not lim.tahrir_ruxsat
+        lim.save(update_fields=["tahrir_ruxsat"])
+        if lim.tahrir_ruxsat:
             messages.success(request, "🔓 Limit tahririga ruxsat berildi — zanjir "
                                       "ishtirokchilari Умумийni tahrirlab yuborishi mumkin.")
         else:
             messages.info(request, "🔒 Limit tahriri yana yopildi.")
-    return redirect("limit_jadval", pk=pk)
+    return redirect(_lj_url(lim))
+
+
+@login_required
+def limit_yangi(request, pk):
+    """ADMIN: obyektda KEYINGI raqamli umumiy limitni ochish (bo'sh — PTO kiritadi).
+    Oldingi limitlar faol qoladi: ularga ham haftalik yoziladi."""
+    from .models import Limit
+    p = _firma_yoki_403(request, get_object_or_404(Project, pk=pk))
+    if not is_admin(request.user):
+        raise PermissionDenied("Keyingi limitni faqat admin ochadi.")
+    if request.method != "POST":
+        return redirect("limit_jadval", pk=pk)
+    oxirgi = p.joriy_limit()
+    nom = " ".join((request.POST.get("nom") or "").split())[:120]
+    with transaction.atomic():
+        raqam = (p.limitlar.order_by("-raqam").values_list("raqam", flat=True).first() or 0) + 1
+        lim = Limit.objects.create(project=p, raqam=raqam, nom=nom, created_by=request.user)
+    messages.success(request, f"{raqam}-лимит ochildi (bo'sh). PTO qatorlarni kiritib zanjirga yuboradi; "
+                              f"{oxirgi.raqam}-лимит ham faol qoladi.")
+    return redirect(_lj_url(lim))
 
 
 @login_required
@@ -5043,7 +4992,7 @@ def limit_request_action(request, pk):
     if request.POST.get("next") == "jadval" and getattr(resp, "status_code", 0) in (301, 302):
         r0 = LimitChangeRequest.objects.filter(pk=pk).first()
         if r0 is not None:
-            return redirect("limit_jadval", pk=r0.project_id)
+            return redirect(_lj_url(r0.limit or r0.project.joriy_limit()))
     return resp
 
 
@@ -5055,7 +5004,7 @@ def weekly_action(request, pk):
     resp = _weekly_action_asl(request, pk)
     if (request.POST.get("next") == "jadval" and pid
             and getattr(resp, "status_code", 0) in (301, 302)):
-        return redirect("limit_jadval", pk=pid)
+        return redirect(_lj_url(w0.limit or w0.project.joriy_limit()))
     return resp
 
 
@@ -5065,7 +5014,7 @@ def limit_request_edit(request, pk):
     tahrirlanadi (eski havolalar/xatcho'plar ishlashda davom etsin)."""
     r0 = get_object_or_404(LimitChangeRequest, pk=pk)
     _firma_yoki_403(request, r0.project)
-    return redirect("limit_jadval", pk=r0.project_id)
+    return redirect(_lj_url(r0.limit or r0.project.joriy_limit()))
 
 
 @login_required
@@ -5073,4 +5022,4 @@ def weekly_edit(request, pk):
     """Eski alohida haftalik tahrir formasi o'rniga — limit jadvali."""
     w0 = get_object_or_404(WeeklyRequest, pk=pk)
     _firma_yoki_403(request, w0.project)
-    return redirect(reverse("limit_jadval", args=[w0.project_id]) + "?korinish=amaldagi")
+    return redirect(_lj_url(w0.limit or w0.project.joriy_limit(), korinish="amaldagi"))

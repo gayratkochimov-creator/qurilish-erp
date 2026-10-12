@@ -157,6 +157,58 @@ class Project(models.Model):
         return "normal"
 
 
+class Limit(models.Model):
+    """Obyektning RAQAMLANGAN umumiy limiti (1-лимит, 2-лимит, …).
+
+    Bitta obyektda bir nechta limit bo'lishi mumkin — keyingisini faqat ADMIN ochadi
+    (2026-10-12). Har limitning o'z qatorlari (LimitItem), o'z haftaliklari va o'z
+    tasdiqlash so'rovlari bor; hammasi faol. Obyektning umumiy raqamlari
+    (Project.limit_* / sarf) — barcha limitlar yig'indisi."""
+    project = models.ForeignKey(Project, on_delete=models.CASCADE,
+                                related_name="limitlar", verbose_name="Obyekt")
+    raqam = models.PositiveIntegerField("Raqami", default=1)
+    nom = models.CharField("Nomi (ixtiyoriy)", max_length=120, blank=True)
+    # Limit TASDIQLANGACH qulf; admin shu bayroq bilan BIR MARTALIK tahrirga ruxsat beradi
+    tahrir_ruxsat = models.BooleanField("Tahririga admin ruxsati", default=False)
+    start = models.DateField("Boshlanishi", null=True, blank=True)
+    end = models.DateField("Tugashi", null=True, blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
+                                   on_delete=models.SET_NULL, related_name="+", verbose_name="Ochdi")
+    created_at = models.DateTimeField("Ochilgan", auto_now_add=True, null=True)
+
+    class Meta:
+        verbose_name = "Umumiy limit (raqamli)"
+        verbose_name_plural = "Umumiy limitlar (raqamli)"
+        unique_together = [("project", "raqam")]
+        ordering = ["project", "raqam"]
+
+    def __str__(self):
+        return f"{self.project.code} · {self.raqam}-лимит"
+
+    def jami(self):
+        """Shu limit qatorlari summasi."""
+        return (self.items.aggregate(s=Sum(_LINE_TOTAL))["s"] or Decimal("0.00"))
+
+    def sarflangan(self):
+        """Shu limitga yozilgan TASDIQLANGAN haftaliklar summasi."""
+        return (WeeklyRequestItem.objects
+                .filter(request__limit=self, request__status=WeeklyRequest.Status.APPROVED)
+                .aggregate(s=Sum(_LINE_TOTAL))["s"] or Decimal("0.00"))
+
+
+def _joriy_limit(self, yarat=True):
+    """Obyektning JORIY (eng oxirgi raqamli) limiti; yo'q bo'lsa 1-лимит yaratiladi."""
+    lim = self.limitlar.order_by("-raqam").first()
+    if lim is None and yarat:
+        lim = Limit.objects.create(project=self, raqam=1,
+                                   tahrir_ruxsat=self.limit_tahrir_ruxsat,
+                                   start=self.limit_start, end=self.limit_end)
+    return lim
+
+
+Project.joriy_limit = _joriy_limit
+
+
 class WorkSection(models.Model):
     """Obyekt ichidagi ish bo'limi / bosqich."""
 
@@ -196,6 +248,10 @@ class LimitChangeRequest(models.Model):
     project = models.ForeignKey(
         Project, on_delete=models.CASCADE,
         related_name="limit_requests", verbose_name="Obyekt",
+    )
+    limit = models.ForeignKey(
+        "Limit", null=True, blank=True, on_delete=models.CASCADE,
+        related_name="requests", verbose_name="Raqamli limit",
     )
     old_material = models.DecimalField("Eski material", max_digits=18, decimal_places=2, default=0)
     old_labor = models.DecimalField("Eski ish haqi", max_digits=18, decimal_places=2, default=0)
@@ -265,9 +321,15 @@ class LimitChangeRequest(models.Model):
     def __str__(self):
         return f"{self.project.code}: {self.old_total} → {self.new_total} ({self.get_status_display()})"
 
+    def save(self, *args, **kwargs):
+        if self.limit_id is None and self.project_id:
+            self.limit = self.project.joriy_limit()
+        super().save(*args, **kwargs)
+
     def approve(self, admin_user):
         from django.utils import timezone
         p = self.project
+        lim = self.limit or p.joriy_limit()
         # Limitni qo'llash + statusni yozish BITTA tranzaksiyada — yarim holat qolmasin
         with transaction.atomic():
             # Qulf + status qayta tekshiruvi: ikki admin bir vaqtda bossa faqat bittasi o'tadi
@@ -288,11 +350,11 @@ class LimitChangeRequest(models.Model):
                     for it in proposed
                 ]
                 if any(q["asl_id"] for q in qatorlar):
-                    limit_qatorlarini_qolla(p, qatorlar)      # jadvaldan: ID bo'yicha
+                    limit_qatorlarini_qolla(lim, qatorlar)    # jadvaldan: ID bo'yicha
                 else:
                     for q in qatorlar:
                         q.pop("asl_id")
-                    sync_limit_items(p, qatorlar)             # eski so'rovlar: nom bo'yicha
+                    sync_limit_items(lim, qatorlar)           # eski so'rovlar: nom bo'yicha
                 p.recompute_limits()
             else:
                 # Eski usul — faqat raqamli limit
@@ -333,6 +395,10 @@ class WeeklyRequest(models.Model):
     project = models.ForeignKey(
         Project, on_delete=models.CASCADE,
         related_name="weekly_requests", verbose_name="Obyekt",
+    )
+    limit = models.ForeignKey(
+        "Limit", null=True, blank=True, on_delete=models.CASCADE,
+        related_name="weekly_requests", verbose_name="Raqamli limit",
     )
     week_start = models.DateField("Hafta boshi")
     week_end = models.DateField("Hafta oxiri")
@@ -392,6 +458,11 @@ class WeeklyRequest(models.Model):
 
     def __str__(self):
         return f"{self.project.code}: {self.week_start} — {self.week_end}"
+
+    def save(self, *args, **kwargs):
+        if self.limit_id is None and self.project_id:
+            self.limit = self.project.joriy_limit()
+        super().save(*args, **kwargs)
 
     @property
     def jami(self):
@@ -477,6 +548,10 @@ class LimitItem(models.Model):
         Project, on_delete=models.CASCADE,
         related_name="limit_items", verbose_name="Obyekt",
     )
+    limit = models.ForeignKey(
+        "Limit", null=True, blank=True, on_delete=models.CASCADE,
+        related_name="items", verbose_name="Raqamli limit",
+    )
     kind = models.CharField("Turi", max_length=16, choices=Kind.choices, default=Kind.MATERIAL)
     name = models.CharField("Nomi", max_length=255)
     unit = models.CharField("O'lchov birligi", max_length=32, blank=True)
@@ -504,6 +579,11 @@ class LimitItem(models.Model):
     @property
     def total(self):
         return (self.quantity * self.unit_price).quantize(Decimal("0.01"))
+
+    def save(self, *args, **kwargs):
+        if self.limit_id is None and self.project_id:
+            self.limit = self.project.joriy_limit()
+        super().save(*args, **kwargs)
 
 
 class GrafikRow(models.Model):
@@ -603,30 +683,30 @@ class GrafikTasdiq(models.Model):
         return f"{self.project.code} grafik — {self.get_status_display()}"
 
 
-def hafta_qatorlarini_qayta_nomla(project, eski, yangi):
+def hafta_qatorlarini_qayta_nomla(lim, eski, yangi):
     """Limit qatori qayta nomlansa/boshqa bo'limga o'tsa — unga bog'liq HAFTALIK
     qatorlar ham ergashadi (bog'lanish nom+bo'lim orqali; aks holda bajarilgan/qolgan
     tarixi uziladi). `eski`/`yangi` — {name, bolim, unit, kind}."""
     if all(eski[k] == yangi[k] for k in ("name", "bolim", "unit", "kind")):
         return 0
     return (WeeklyRequestItem.objects
-            .filter(request__project=project, name=eski["name"], bolim=eski["bolim"])
+            .filter(request__limit=lim, name=eski["name"], bolim=eski["bolim"])
             .update(name=yangi["name"], bolim=yangi["bolim"],
                     unit=yangi["unit"], kind=yangi["kind"]))
 
 
-def limit_qatorlarini_qolla(project, items):
+def limit_qatorlarini_qolla(lim, items):
     """Limit jadvalidan kelgan TO'LIQ ro'yxatni qo'llaydi: `asl_id` bor qator — o'sha
     LimitItem o'rnida yangilanadi (sana/ID saqlanadi, haftalik tarixi ergashadi),
     `asl_id` yo'q — yangi qator, ro'yxatda yo'q mavjud qatorlar o'chiriladi."""
-    mavjud = {li.pk: li for li in project.limit_items.all()}
+    mavjud = {li.pk: li for li in lim.items.all()}
     MAYDON = ("kind", "name", "unit", "quantity", "unit_price", "note", "bolim", "masul",
               "boshlangich_qty", "boshlangich_sum")
     qoldi = set()
     for it in items:
         li = mavjud.get(it.get("asl_id"))
         if li is None:
-            LimitItem.objects.create(project=project, **{k: it[k] for k in MAYDON})
+            LimitItem.objects.create(project=lim.project, limit=lim, **{k: it[k] for k in MAYDON})
             continue
         qoldi.add(li.pk)
         if any(getattr(li, k) != it[k] for k in MAYDON):
@@ -634,13 +714,13 @@ def limit_qatorlarini_qolla(project, items):
             for k in MAYDON:
                 setattr(li, k, it[k])
             li.save()          # auto_now -> updated_at yangilanadi
-            hafta_qatorlarini_qayta_nomla(project, eski, {k: it[k] for k in ("name", "bolim", "unit", "kind")})
+            hafta_qatorlarini_qayta_nomla(lim, eski, {k: it[k] for k in ("name", "bolim", "unit", "kind")})
     for pk, li in mavjud.items():
         if pk not in qoldi:
             li.delete()
 
 
-def sync_limit_items(project, items):
+def sync_limit_items(lim, items):
     """Limit tarkibini yangilaydi — o'zgarmagan qatorlarning SANASI saqlanib qoladi.
 
     Avval har saqlashda hamma qator o'chirilib qayta yaratilardi; u holda
@@ -652,14 +732,14 @@ def sync_limit_items(project, items):
     from collections import defaultdict, deque
 
     mavjud = defaultdict(deque)
-    for li in project.limit_items.all().order_by("id"):
+    for li in lim.items.all().order_by("id"):
         mavjud[(li.kind, (li.name or "").strip().lower())].append(li)
 
     for it in items:
         kalit = (it["kind"], (it["name"] or "").strip().lower())
         navbat = mavjud.get(kalit)
         if not navbat:
-            LimitItem.objects.create(project=project, **it)
+            LimitItem.objects.create(project=lim.project, limit=lim, **it)
             continue
         li = navbat.popleft()
         ozgardi = (

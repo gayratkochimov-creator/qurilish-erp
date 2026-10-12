@@ -245,6 +245,16 @@
   @media (max-width:1100px) { .lh-grid { grid-template-columns:minmax(0,1fr); } }
   @media (max-width:640px) { .lh-tiles { grid-template-columns:minmax(0,1fr); } .lh-steps .mt { display:none; } .lh-search { width:100%; } .lh-tools .r { margin-left:0; } }
   @media print { .lh, .lh-tools, .turbar { display:none !important; } }
+  .lh-limtabs { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .lh-limtab { display:inline-flex; align-items:center; gap:8px; height:38px; padding:0 14px; border:1px solid var(--ln); border-radius:999px; background:#fff; color:#374151; font-size:13px; text-decoration:none; }
+  .lh-limtab b { font-weight:600; color:var(--ink); }
+  .lh-limtab .nm { color:var(--mut); font-size:12px; }
+  .lh-limtab .s { font-size:11.5px; color:var(--mut); font-variant-numeric:tabular-nums; }
+  .lh-limtab.on { border:2px solid var(--lb); background:#F3F7FD; }
+  .lh-limtab.on b { color:var(--lb); }
+  .lh-limtab.yangi { border:1px dashed #B8BFC9; background:transparent; font:inherit; font-size:13px; font-weight:500; cursor:pointer; color:#374151; }
+  .lh-limtab.yangi:hover { border-color:var(--lb); color:var(--lb); }
+  .lh-limyangi { margin:0; }
   .lh-seg { display:inline-flex; border:1px solid #D5D9E0; border-radius:8px; overflow:hidden; }
   .lh-seg button { height:32px; padding:0 12px; border:none; background:#fff; color:#374151; font:inherit; font-size:12px; font-weight:500; cursor:pointer; }
   .lh-seg button + button { border-left:1px solid #D5D9E0; }
@@ -277,8 +287,13 @@
     </div>
     <button type="button" class="lh-btn" id="lhHelpBtn" aria-expanded="false" aria-controls="lhHelp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>Жараён қандай ишлайди</button>
   </div>
+  <div class="lh-limtabs" id="lhLimTabs">
+    {% for l in limitlar %}<a class="lh-limtab {% if l.joriy %}on{% endif %}" href="?limit={{ l.raqam }}" title="{{ l.raqam }}-лимит{% if l.nom %} · {{ l.nom }}{% endif %}"><b>{{ l.raqam }}-лимит</b>{% if l.nom %}<span class="nm">{{ l.nom }}</span>{% endif %}<span class="s">{{ l.jami_q }}</span></a>{% endfor %}
+    {% if is_adm %}<form method="post" action="{% url 'limit_yangi' p.pk %}" class="lh-limyangi" onsubmit="var n=prompt('Янги лимит номи (ихтиёрий, масалан: 2-босқич / қўшимча ишлар):', ''); if (n === null) return false; this.querySelector('[name=nom]').value = n; return confirm('Объектда КЕЙИНГИ умумий лимит очилади (бўш, ПТО киритади). Олдинги лимитлар фаол қолади. Давом этамизми?');">{% csrf_token %}<input type="hidden" name="nom" value=""><button type="submit" class="lh-limtab yangi">+ Кейинги лимитни очиш</button></form>{% endif %}
+  </div>
   <div class="lh-help" id="lhHelp">
     <b>Умумий лимит.</b> Объём ва нархлар «Умумий» устунида киритилади. «Сақлаш» — қоралама (фақат сизда қолади). «Юбориш» — снабжения → ПТО хулосаси → директор → проверчик → админ занжирига сўров кетади; ҳар босқич эгаси тўғрилаб, кейингисига ўтказади ёки орқага қайтаради. Тасдиқлангач мавжуд қаторлар қулфланади — ўзгартириш учун админ рухсати керак, янги қатор қўшиш эса яна занжир орқали.<br>
+    <b>Бир нечта лимит.</b> Битта объектда бир нечта рақамланган умумий лимит бўлиши мумкин (1-лимит, 2-лимит, …) — кейингисини фақат админ очади, ҳаммаси фаол қолади: ҳар бирининг ўз қаторлари, ҳафталиклари ва занжири бор. Дашборддаги умумий рақам — барча лимитлар йиғиндиси.<br>
     <b>Ҳафталик лимит.</b> Ҳар ҳафта учун «Ҳафталик материал» устунига объём ёзилади (қолгандан ошмайди). «Сақлаш» — ҳафта қораламаси; «Юбориш» — директор → админ. Тасдиқланган ҳафта қулфланади ва «Бажарилган»га қўшилади. Ҳафта ичида нарх ўзгарса — қатордаги <b>х</b> тугмаси билан қатор бўлинади.
     {% if lim_pending %}<br><b style="color:#b45309;">⏳ Лимит сўрови занжирда — {% if taklif_edit %}ҳозир СИЗНИНГ босқичингиз: таклиф қаторларини шу жадвалда тўғрилаб «Сақлаш»ни босинг, кейин кейинги босқичга юборинг.{% elif taklif_view %}жадвалда ЗАНЖИРДАГИ ТАКЛИФ кўрсатилмоқда (фақат кўриш).{% else %}у якунлангунча Умумий устуни қулф; ҳафталик иш давом этади.{% endif %}</b>{% endif %}
   </div>
@@ -286,7 +301,7 @@
   <div class="lh-grid">
     {# ================= УМУМИЙ ЛИМИТ ================= #}
     <section class="lh-card lim">
-      <div class="hd"><span class="sq"></span><span class="ttl">Умумий лимит</span><span class="hint">Умумий · Бажарилган · Қолган устунлари</span>
+      <div class="hd"><span class="sq"></span><span class="ttl">Умумий лимит · {{ lim.raqam }}-лимит{% if lim.nom %} «{{ lim.nom }}»{% endif %}</span><span class="hint">Умумий · Бажарилган · Қолган устунлари</span>
         {% if lj_pill %}<span class="lh-pill {{ lj_pill.tur }}">{% if lj_pill.tur == 'draft' %}<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4Z"/></svg>{% elif lj_pill.tur == 'ok' %}✓ {% endif %}{{ lj_pill.matn }}</span>{% endif %}
       </div>
       <div class="bd">
@@ -353,7 +368,7 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
           {% if lim_ruxsat %}<span>Рухсат очиқ — Умумий устун таҳрирланади; сақлангач рухсат ёпилади.</span>
           {% else %}<span>Мавжуд қаторларни таҳрирлаш учун админ рухсати керак{% if lim_qosh_huquq %} · янги блок/қатор қўшиш мумкин — занжир орқали{% endif %}.</span>{% endif %}
-          {% if is_adm %}<form method="post" action="{% url 'limit_tahrir_ruxsat' p.pk %}" style="margin:0; margin-left:auto;">{% csrf_token %}<button type="submit" class="lh-btn xs" style="{% if lim_ruxsat %}color:#92400E; border-color:#F3D9A4;{% else %}color:#1E5BB8; border-color:#BFDBFE;{% endif %}">{% if lim_ruxsat %}🔒 Рухсатни ёпиш{% else %}🔓 Таҳрирга рухсат бериш{% endif %}</button></form>{% endif %}
+          {% if is_adm %}<form method="post" action="{% url 'limit_tahrir_ruxsat' p.pk %}?limit={{ lim.raqam }}" style="margin:0; margin-left:auto;">{% csrf_token %}<button type="submit" class="lh-btn xs" style="{% if lim_ruxsat %}color:#92400E; border-color:#F3D9A4;{% else %}color:#1E5BB8; border-color:#BFDBFE;{% endif %}">{% if lim_ruxsat %}🔒 Рухсатни ёпиш{% else %}🔓 Таҳрирга рухсат бериш{% endif %}</button></form>{% endif %}
         </div>
         {% endif %}
       </div>
@@ -443,7 +458,7 @@
 <div id="ljOk" class="noprint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg><b>Жадвал текширилди: хато йўқ.</b><span>Барча қаторларда бирлик, объём ва нарх тўлдирилган.</span></div>
 <div id="ljErr"><div class="hdr" id="ljErrHdr"></div><ul id="ljErrList"></ul></div>
 <div id="ljWarn"><div class="hdr" id="ljWarnHdr"></div><ul id="ljWarnList"></ul></div>
-<div class="lj-print-only">{{ p.code }} — {{ p.name }} — Умумий лимит ва ҳафталик лимитлар</div>
+<div class="lj-print-only">{{ p.code }} — {{ p.name }} — {{ lim.raqam }}-умумий лимит ва ҳафталик лимитлар</div>
 
 <datalist id="ljBolimList">{% for g in guruhlar %}{% if g.bolim %}<option value="{{ g.bolim }}"></option>{% endif %}{% endfor %}</datalist>
 
@@ -577,7 +592,7 @@
   var taklifDirty = false;                   // saqlanmagan taklif tahriri bor
   var yuborilmoqda = false;                  // forma ketayotganda avtosaqlash yozmasin
   var QAYTAR_TMPL = "{% url 'weekly_return_pto' 123456789 %}";
-  var EXPORT_URL = "{% url 'limit_jadval_export' p.pk %}";
+  var EXPORT_URL = "{% url 'limit_jadval_export' p.pk %}?limit={{ lim.raqam }}";
   var WK_ACT_TMPL = "{% url 'weekly_action' 123456789 %}";
   var CSRF_T = "{{ csrf_token }}";
   var WK_DIR_ACTOR = {{ wk_dir_actor|yesno:"true,false" }};
@@ -1300,7 +1315,7 @@
     // Тўлиқ олинган қаторлар — кўрсатиш/яшириш (ҳар объект учун эслаб қолинади)
     var tKor = document.getElementById('lhToliqKor'), tYash = document.getElementById('lhToliqYash'), tWrap = document.getElementById('jadvalWrap');
     if (tKor && tYash && tWrap){
-      var tKey = 'ljtoliq_{{ p.pk }}';
+      var tKey = 'ljtoliq_{{ p.pk }}_{{ lim.raqam }}';
       function tQoy(yashir){
         tWrap.classList.toggle('toliq-yashir', yashir);
         tKor.classList.toggle('on', !yashir); tYash.classList.toggle('on', yashir);
@@ -1889,7 +1904,7 @@
     var hid = '';
     if (sel !== 'yangi') hid = sel.slice(1);
     else if (DRAFT_ID !== null) hid = DRAFT_ID;
-    location.href = EXPORT_URL + (hid ? ('?hafta=' + hid) : '');
+    location.href = EXPORT_URL + (hid ? ('&hafta=' + hid) : '');
   };
   document.getElementById('btnHisobot').onclick = function(){
     var rows = [];
@@ -1927,7 +1942,7 @@
   };
 
   // -------- 💾 АВТОСАҚЛАШ: свет ўчса ҳам ёзилганлар йўқолмайди --------
-  var AUTO_PREF = 'ljauto_{{ p.pk }}_';
+  var AUTO_PREF = 'ljauto_{{ p.pk }}_l{{ lim.raqam }}_';
   function autoKey(){ return AUTO_PREF + sel; }
   function snapshotOl(){
     var rows = {}, lim = {};

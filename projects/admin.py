@@ -129,7 +129,7 @@ def action_approve(modeladmin, request, queryset):
 
     n, oshganlar = 0, []
     for req in queryset.filter(status=WeeklyRequest.Status.SUBMITTED):   # faqat zanjirdan o'tgan
-        oshgan = _limit_oshish(req.project, _items_by_kind(req.items.all()),
+        oshgan = _limit_oshish(req.limit or req.project.joriy_limit(), _items_by_kind(req.items.all()),
                                exclude_request_id=req.id)
         if oshgan:
             oshganlar.append(f"{req.project.code} ({req.week_start:%d.%m}): " + "; ".join(oshgan))
