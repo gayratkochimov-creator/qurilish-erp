@@ -683,6 +683,23 @@
     var q = 0; arr.forEach(function(a){ q += (a.qty||0); });
     return { qty:q, price:arr[0].price||0, izoh:arr[0].izoh||'' };
   }
+  function sanaQisqa(v, yil){
+    if (!v) return '';
+    var b = String(v).split('-');
+    if (b.length !== 3) return v;
+    return b[2] + '.' + b[1] + (yil ? '.' + b[0] : '');
+  }
+  function wkHeadYangila(){
+    var th = document.getElementById('wkHead'); if (!th) return;
+    var h = haftaTop(sel), edit = tahrirmi();
+    var raqam = h ? h.raqam : (HAFTA.length + 1);
+    var wsI = document.getElementById('wkStart'), weI = document.getElementById('wkEnd');
+    var ws = (edit && wsI && wsI.value) ? wsI.value : (h ? h.ws : ''), we = (edit && weI && weI.value) ? weI.value : (h ? h.we : '');
+    var davr = (ws && we) ? (sanaQisqa(ws) + ' – ' + sanaQisqa(we, true)) : (ws ? sanaQisqa(ws, true) : 'сана киритилмаган');
+    th.textContent = raqam + '-ҳафта · ' + davr + ' ' + (edit ? '✏️' : '🔒');
+    var pill = document.getElementById('wkPill');
+    if (pill && (!h || edit)) pill.textContent = raqam + '-ҳафта · ' + davr;
+  }
   function haftaTop(id){ for(var i=0;i<HAFTA.length;i++) if('w'+HAFTA[i].id===id) return HAFTA[i]; return null; }
   function tahrirmi(){ var h=haftaTop(sel); return CAN_EDIT && (sel==='yangi' || (h && !h.locked)); }
   function ishRows(){ return Array.prototype.slice.call(document.querySelectorAll('#ljBody tr.ish')); }
@@ -715,12 +732,12 @@
     var h = haftaTop(sel);
     var edit = tahrirmi();
     var raqam = h ? h.raqam : (HAFTA.length+1);
-    document.getElementById('wkHead').textContent = raqam+'-ҳафталик материал ' + (edit?'✏️':'🔒');
     if (edit && h){
       var ws0 = document.getElementById('wkStart'), we0 = document.getElementById('wkEnd');
       if (ws0) ws0.value = h.ws;
       if (we0) we0.value = h.we;
     }
+    wkHeadYangila();
     // ---- ҲАФТАЛИК КАРТА: ҳолат плитаси, 6 босқичли занжир, амаллар (ҳафта табига қараб) ----
     (function(){
       var pill = document.getElementById('wkPill'), tile = document.getElementById('wkTile'),
@@ -2000,7 +2017,7 @@
   };
   ['wkStart','wkEnd'].forEach(function(id){
     var el = document.getElementById(id);
-    if (el) el.addEventListener('change', autoSaqla);
+    if (el){ el.addEventListener('change', autoSaqla); el.addEventListener('input', wkHeadYangila); el.addEventListener('change', wkHeadYangila); }
   });
   // Hafta BOSHI yozilsa — TUGASHI avtomatik (+6 kun, 7 kunlik hafta)
   (function(){
@@ -2013,6 +2030,7 @@
       d.setDate(d.getDate() + 6);
       var m = String(d.getMonth()+1).padStart(2,'0'), dd = String(d.getDate()).padStart(2,'0');
       we0.value = d.getFullYear() + '-' + m + '-' + dd;
+      wkHeadYangila();
       autoSaqla();
     });
     // Umumiy limit davri: boshlanish yozilsa tugash bo'sh bo'lsa hech narsa majburlanmaydi (davr erkin)
