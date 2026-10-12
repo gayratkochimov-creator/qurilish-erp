@@ -1,6 +1,6 @@
 {% extends "base_site.html" %}
-{% block title %}Prorab so'rovi #{{ req.id }} — Qurilish ERP{% endblock %}
-{% block page_title %}Prorab so'rovi #{{ req.id }}{% endblock %}
+{% block title %}Prorab so'rovi №{{ req.raqam }} — {{ req.project.code }} — Qurilish ERP{% endblock %}
+{% block page_title %}Prorab so'rovi №{{ req.raqam }} · {{ req.project.code }}{% endblock %}
 
 {% block extra_head %}
 <style>
@@ -41,12 +41,12 @@
   </div>
   {% if req.note %}<div class="note">Izoh: {{ req.note }}</div>{% endif %}
 
-  {% if can_decide %}
-  <form method="post" action="{% url 'material_sorov_action' req.id %}">
+  {% if can_edit %}
+  <form method="post" action="{% url 'material_sorov_action' req.id %}" id="msForm">
     {% csrf_token %}
     <table class="m">
-      <thead><tr><th>Turi</th><th style="width:30%">Nomi</th><th>Birlik</th><th>Miqdor</th><th>Narxi</th><th style="text-align:right;">Summa</th><th>Prorab izohi</th></tr></thead>
-      <tbody>
+      <thead><tr><th>Turi</th><th style="width:28%">Nomi</th><th>Birlik</th><th>Miqdor</th><th>Narxi</th><th style="text-align:right;">Summa</th><th>Izoh</th><th title="O'chirish">✕</th></tr></thead>
+      <tbody id="msRows">
         {% for it in items %}
         <tr>
           <td><select class="kd" name="kind_{{ it.id }}">
@@ -60,16 +60,22 @@
           <td><input class="qt" name="qty_{{ it.id }}" value="{{ it.quantity|floatformat:'-3' }}" inputmode="decimal"></td>
           <td><input class="pr" name="price_{{ it.id }}" value="{{ it.unit_price|floatformat:'-2' }}" inputmode="decimal"></td>
           <td class="rsum">{{ it.total_str }}</td>
-          <td>{{ it.note }}</td>
+          <td><input class="nm" name="note_{{ it.id }}" value="{{ it.note }}" placeholder="izoh"></td>
+          <td style="text-align:center;"><label title="Saqlashda bu qator o'chiriladi"><input type="checkbox" name="del" value="{{ it.id }}"></label></td>
         </tr>
         {% endfor %}
       </tbody>
-      <tfoot><tr><td colspan="5" style="text-align:right;">JAMI:</td><td class="rsum">{{ jami_str }}</td><td></td></tr></tfoot>
+      <tfoot><tr><td colspan="5" style="text-align:right;">JAMI:</td><td class="rsum">{{ jami_str }}</td><td colspan="2"></td></tr></tfoot>
     </table>
-    <div class="warnmsg">PTO sifatida miqdor/nomni to'g'rilab, <b>Qabul qilish</b> yoki <b>Rad etish</b> tugmasini bosing.</div>
+    <div class="acts" style="margin-top:10px;">
+      <button type="button" class="btn" id="msAdd">+ Qator qo'shish</button>
+      <span class="note" style="margin:0;">PTO sifatida qatorlarni to'g'rilaysiz, qo'shasiz yoki ✕ bilan belgilab o'chirasiz — «Saqlash»dan keyin kuchga kiradi.</span>
+    </div>
+    {% if is_pending %}
+    <div class="warnmsg">Tekshirib bo'lgach <b>Qabul qilish</b> yoki <b>Rad etish</b> tugmasini bosing.</div>
     <div class="acts">
       <button type="submit" name="action" value="accept" class="btn ok">✓ Qabul qilish</button>
-      <button type="submit" name="action" value="save" class="btn save">O'zgarishni saqlash</button>
+      <button type="submit" name="action" value="save" class="btn save">💾 Saqlash</button>
       <a class="btn" href="{% url 'material_sorov' %}">Orqaga</a>
     </div>
     <div class="rejbox">
@@ -79,7 +85,34 @@
         <button type="submit" name="action" value="reject" class="btn bad">✕ Rad etish</button>
       </div>
     </div>
+    {% else %}
+    {% if req.status == 'rejected' and req.reject_note %}
+    <div class="rejbox" style="margin-top:16px;"><b>Rad etish sababi:</b> {{ req.reject_note }}</div>
+    {% endif %}
+    {% if req.decided_by %}<div class="note">Qaror: {{ req.decided_by.get_full_name|default:req.decided_by.username }} · {{ req.decided_at|date:"d.m.Y H:i" }}</div>{% endif %}
+    <div class="warnmsg">So'rov hal qilingan ({{ status_disp }}). Qatorlarni tahrirlab <b>Saqlash</b> mumkin; qarorni o'zgartirish uchun <b>Qayta ochish</b> — so'rov yana «PTO ko'rib chiqishida» bo'ladi.</div>
+    <div class="acts">
+      <button type="submit" name="action" value="save" class="btn save">💾 Saqlash</button>
+      <button type="submit" name="action" value="reopen" class="btn" onclick="return confirm('So\'rov qayta ochilsinmi? Qaror bekor bo\'lib, yana PTO ko\'rib chiqishiga qaytadi.');">↩ Qayta ochish</button>
+      <a class="btn" href="{% url 'material_sorov' %}">Orqaga</a>
+    </div>
+    {% endif %}
   </form>
+  <script>
+  (function(){
+    var tb = document.getElementById('msRows'), add = document.getElementById('msAdd');
+    if (!tb || !add) return;
+    add.onclick = function(){
+      var tr = document.createElement('tr');
+      tr.innerHTML = '<td><select class="kd" name="new_kind"><option value="material">Material</option><option value="labor">Ish haqi</option><option value="machinery">Mashina chasti</option><option value="other">Ko\'zda tutilmagan</option></select></td>'+
+        '<td><input class="nm" name="new_name" placeholder="nomi"></td><td><input class="un" name="new_unit" placeholder="birlik"></td>'+
+        '<td><input class="qt" name="new_quantity" inputmode="decimal" placeholder="0"></td><td><input class="pr" name="new_unit_price" inputmode="decimal" placeholder="0"></td>'+
+        '<td class="rsum">—</td><td><input class="nm" name="new_note" placeholder="izoh"></td>'+
+        '<td style="text-align:center;"><button type="button" class="btn" style="padding:4px 9px;" onclick="this.closest(\'tr\').remove()">✕</button></td>';
+      tb.appendChild(tr); tr.querySelector('.nm').focus();
+    };
+  })();
+  </script>
   {% else %}
   <table class="m">
     <thead><tr><th>Turi</th><th style="width:30%">Nomi</th><th>Birlik</th><th>Miqdor</th><th>Narxi</th><th style="text-align:right;">Summa</th><th>Izoh</th></tr></thead>

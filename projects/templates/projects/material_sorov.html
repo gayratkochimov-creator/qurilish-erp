@@ -35,10 +35,11 @@
   <div class="card">
     {% if rows %}
     <table class="g">
-      <thead><tr><th>Obyekt</th><th>Prorab</th><th>Qatorlar</th><th>Holati</th><th>Sana</th><th></th></tr></thead>
+      <thead><tr><th>№</th><th>Obyekt</th><th>Prorab</th><th>Qatorlar</th><th>Holati</th><th>Sana</th><th></th></tr></thead>
       <tbody>
         {% for r in rows %}
         <tr>
+          <td><b>№{{ r.obj.raqam }}</b></td>
           <td><b>{{ r.obj.project.code }}</b> — {{ r.obj.project.name }}</td>
           <td>{{ r.obj.created_by.get_full_name|default:r.obj.created_by.username }}</td>
           <td>{{ r.soni }}</td>

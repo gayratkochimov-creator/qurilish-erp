@@ -3468,19 +3468,24 @@ def material_sorov_korish(request, pk):
     # Prorab faqat O'ZI yaratgan so'rovni ochadi (ro'yxatdagi filtr bilan bir xil)
     if is_prorab(request.user) and req.created_by_id != request.user.id:
         raise PermissionDenied("Bu so'rov sizniki emas.")
-    pto = is_pto(request.user)
+    pto = is_pto(request.user) or request.user.is_superuser
     items = list(req.items.all())
     jami = Decimal("0")
     for it in items:
         it.price_str = _money(it.unit_price)
         it.total_str = _money(it.total)
         jami += it.total
+    pending = req.status == MaterialRequest.Status.PENDING
     return render(request, "projects/material_sorov_korish.html", {
         "req": req,
         "items": items,
         "jami_str": _money(jami),
         "status_disp": req.get_status_display(),
-        "can_decide": pto and req.status == MaterialRequest.Status.PENDING,
+        # PTO (va admin) so'rovni ISTALGAN holatda tahrirlaydi: qator qo'shadi/o'chiradi,
+        # hal qilinganini qayta ochadi; qaror tugmalari — faqat kutilayotganda
+        "can_edit": pto,
+        "can_decide": pto and pending,
+        "is_pending": pending,
     })
 
 
@@ -3498,14 +3503,31 @@ def material_sorov_action(request, pk):
         return redirect("material_sorov_korish", pk=pk)
     action = request.POST.get("action")
     S = MaterialRequest.Status
-    if req.status != S.PENDING:
-        messages.error(request, "Bu so'rov allaqachon hal qilingan.")
+    if action in ("accept", "reject") and req.status != S.PENDING:
+        messages.error(request, "Bu so'rov allaqachon hal qilingan — avval «Qayta ochish»ni bosing.")
+        return redirect("material_sorov_korish", pk=pk)
+    if action == "reopen":
+        # Hal qilingan so'rov yana PTO ko'rib chiqishiga qaytadi (tahrirlab qayta qaror)
+        req.status = S.PENDING
+        req.decided_by = None
+        req.decided_at = None
+        req.reject_note = ""
+        req.save(update_fields=["status", "decided_by", "decided_at", "reject_note"])
+        messages.info(request, "So'rov qayta ochildi — tahrirlab qabul yoki rad qilishingiz mumkin.")
         return redirect("material_sorov_korish", pk=pk)
 
-    # PTO tahriri: qatorlarni yangilash (qabul qilishdan oldin)
+    # PTO tahriri: qatorlarni yangilash / o'chirish / yangi qator (istalgan holatda)
     if action in ("accept", "save"):
+        from .models import MaterialRequestItem
         valid_kind = set(KINDS)
+        ochir = set(request.POST.getlist("del"))
         for it in req.items.all():
+            if str(it.id) in ochir:
+                if req.items.count() <= 1:
+                    messages.error(request, "Oxirgi qatorni o'chirib bo'lmaydi — o'rniga so'rovni rad eting.")
+                else:
+                    it.delete()
+                continue
             q = _to_dec(request.POST.get(f"qty_{it.id}"))
             nm = (request.POST.get(f"name_{it.id}") or "").strip()
             un = (request.POST.get(f"unit_{it.id}") or "").strip()[:32]
@@ -3522,8 +3544,30 @@ def material_sorov_action(request, pk):
                 it.kind = kd; changed = True
             if pr is not None and pr >= 0 and pr != it.unit_price:
                 it.unit_price = pr; changed = True
+            iz = (request.POST.get(f"note_{it.id}") or "").strip()[:500]
+            if iz != it.note:
+                it.note = iz; changed = True
             if changed:
-                it.save(update_fields=["quantity", "name", "unit", "kind", "unit_price"])
+                it.save(update_fields=["quantity", "name", "unit", "kind", "unit_price", "note"])
+        # Yangi qatorlar (PTO qo'shgan)
+        names = request.POST.getlist("new_name")
+        yangi = []
+        for i, nom in enumerate(names):
+            nom = (nom or "").strip()
+            q = _to_dec(request.POST.getlist("new_quantity")[i] if i < len(request.POST.getlist("new_quantity")) else None)
+            if not nom or q is None or q <= 0:
+                continue
+            def _g(k):
+                lst = request.POST.getlist(k)
+                return lst[i] if i < len(lst) else ""
+            narx = _to_dec(_g("new_unit_price")) or Decimal("0")
+            kd = _g("new_kind")
+            yangi.append(MaterialRequestItem(
+                request=req, kind=(kd if kd in valid_kind else "material"), name=nom[:255],
+                unit=_g("new_unit").strip()[:32], quantity=q, unit_price=max(narx, Decimal("0")),
+                note=_g("new_note").strip()[:500]))
+        if yangi:
+            MaterialRequestItem.objects.bulk_create(yangi)
 
     if action == "accept":
         req.status = S.ACCEPTED
@@ -3540,6 +3584,8 @@ def material_sorov_action(request, pk):
         messages.info(request, "So'rov rad etildi.")
     elif action == "save":
         messages.success(request, "O'zgarishlar saqlandi.")
+    else:
+        messages.error(request, "Noma'lum amal.")
     return redirect("material_sorov_korish", pk=pk)
 
 

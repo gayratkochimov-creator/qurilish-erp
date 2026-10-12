@@ -1012,6 +1012,8 @@ class MaterialRequest(models.Model):
         Project, on_delete=models.CASCADE,
         related_name="material_requests", verbose_name="Obyekt",
     )
+    # Obyekt bo'yicha tartib raqami (№1, №2, …) — yaratilganda beriladi
+    raqam = models.PositiveIntegerField("Raqami", default=0)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL,
         related_name="material_requests_created", verbose_name="Prorab",
@@ -1034,7 +1036,14 @@ class MaterialRequest(models.Model):
         ordering = ["-created_at"]
 
     def __str__(self):
-        return f"{self.project.code} — {self.get_status_display()} ({self.created_at:%d.%m.%Y})"
+        return f"{self.project.code} №{self.raqam} — {self.get_status_display()} ({self.created_at:%d.%m.%Y})"
+
+    def save(self, *args, **kwargs):
+        if not self.raqam and self.project_id:
+            oxirgi = (MaterialRequest.objects.filter(project_id=self.project_id)
+                      .order_by("-raqam").values_list("raqam", flat=True).first() or 0)
+            self.raqam = oxirgi + 1
+        super().save(*args, **kwargs)
 
 
 class MaterialRequestItem(models.Model):
