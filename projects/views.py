@@ -4366,7 +4366,74 @@ def limit_jadval(request, pk):
                     "vaqt": _v(qoralama_obj.edited_at or qoralama_obj.created_at),
                     "soni": qoralama_obj.proposed_items.count(),
                     "huquq": taklif_huquq, "apply": is_admin(request.user) and taklif_huquq}
+    # ---- Sahifa tepasidagi KARTALAR: zanjir qadamlari, keyingi qabul qiluvchi, holat ----
+    def _ism(u):
+        return u.username if u else ""
+
+    def _rol_user(rol, firma_boyicha=False):
+        from django.contrib.auth import get_user_model
+        qs_ = get_user_model().objects.filter(is_active=True, profile__role=rol)
+        qs_ = qs_.filter(profile__firma=p.firma) if firma_boyicha else qs_.filter(profile__projects=p)
+        return qs_.order_by("username").first()
+
+    _snab_b = _snab_bor(p)
+    _prov_b = _prov_bor(p.firma) or bool(lim_pend_obj and lim_pend_obj.prov_by_id)
+    _nomlar = [("pto", "ПТО"), ("snab", "Снабжения"), ("pto2", "ПТО хулосаси"),
+               ("dir", "Директор"), ("prov", "Проверчик"), ("adm", "Админ")]
+    _joriy_st = lim_pend_obj.status if lim_pend_obj else ""
+    _nomlar = [(k, n) for k, n in _nomlar
+               if (k != "snab" or _snab_b or _joriy_st == "snab") and (k != "prov" or _prov_b or _joriy_st == "prov")]
+    _tartib = [k for k, _ in _nomlar]
+    lj_qadamlar, lj_pill, lj_keyingi = [], None, ""
+    _oxt = (p.limit_requests.filter(status="approved").order_by("-decided_at", "-id").first())
+    if lim_pend_obj:
+        r0_ = lim_pend_obj
+        meta = {"pto": (_ism(r0_.requested_by), _v(r0_.created_at)),
+                "snab": (_ism(r0_.snab_by), _v(r0_.snab_at)),
+                "pto2": (_ism(r0_.pto2_by), _v(r0_.pto2_at)),
+                "dir": (_ism(r0_.director_by), _v(r0_.director_at)),
+                "prov": (_ism(r0_.prov_by), _v(r0_.prov_at)), "adm": ("", "")}
+        ji = _tartib.index(r0_.status) if r0_.status in _tartib else len(_tartib)
+        for i_, (k, n) in enumerate(_nomlar):
+            holat = "ok" if i_ < ji else ("joriy" if i_ == ji else "keyin")
+            kim, vaqt = meta.get(k, ("", ""))
+            lj_qadamlar.append({"nom": n, "holat": holat, "kim": kim if holat == "ok" else "",
+                                "vaqt": vaqt if holat == "ok" else ""})
+        _jnom = dict(_nomlar).get(r0_.status, r0_.get_status_display())
+        lj_pill = {"tur": "chain", "matn": "Занжирда · " + _jnom}
+        if ji + 1 < len(_tartib):
+            k2 = _tartib[ji + 1]
+            u2 = (_rol_user("snab") if k2 == "snab" else r0_.requested_by if k2 == "pto2"
+                  else _rol_user("director", True) if k2 == "dir" else _rol_user("prov", True) if k2 == "prov" else None)
+            lj_keyingi = dict(_nomlar)[k2] + (" · " + _ism(u2) if u2 else "")
+    else:
+        for k, n in _nomlar:
+            lj_qadamlar.append({"nom": n, "holat": "keyin", "kim": "", "vaqt": ""})
+        if qoralama_obj:
+            lj_qadamlar[0]["holat"] = "joriy"
+            meniki = qoralama_obj.requested_by_id == request.user.id
+            lj_pill = {"tur": "draft", "matn": "Қоралама сизда" if meniki else "Қоралама · " + _ism(qoralama_obj.requested_by)}
+        elif _oxt or limit_bor:
+            for q_ in lj_qadamlar:
+                q_["holat"] = "ok"
+            if _oxt:
+                lj_qadamlar[0]["kim"], lj_qadamlar[0]["vaqt"] = _ism(_oxt.requested_by), _v(_oxt.created_at)
+                lj_qadamlar[-1]["kim"], lj_qadamlar[-1]["vaqt"] = (_ism(_oxt.decided_by) or "admin"), _v(_oxt.decided_at)
+            lj_pill = {"tur": "ok", "matn": "Тасдиқланган"}
+        else:
+            lj_qadamlar[0]["holat"] = "joriy"
+            lj_pill = {"tur": "none", "matn": "Лимит киритилмаган"}
+        k1 = _limit_boshlangich(p)
+        u1 = _rol_user("snab") if k1 == "snab" else _rol_user("director", True)
+        lj_keyingi = ("Снабжения" if k1 == "snab" else "Директор") + (" · " + _ism(u1) if u1 else "")
+    _dir_u = _rol_user("director", True)
+    from django.conf import settings as _st_
+    from django.contrib.auth import get_user_model as _gum
+    _adm_u = (_gum().objects.filter(is_active=True, is_superuser=True,
+                                    username=getattr(_st_, "ASOSIY_ADMIN_LOGIN", "admin")).first())
     return render(request, "projects/limit_jadval.html", {
+        "lj_qadamlar": lj_qadamlar, "lj_pill": lj_pill, "lj_keyingi": lj_keyingi,
+        "wk_dir_nom": _ism(_dir_u), "wk_adm_nom": _ism(_adm_u),
         "p": p, "guruhlar": guruhlar,
         # Taklif ko'rinishida haftalik va Умумий (amaldagi) tahriri o'chiq
         "can_edit": can_edit,

@@ -124,134 +124,315 @@
   .msg.warning { background:#fffbeb; color:#92400e; border-color:#fcd34d; }
   .msg.error { background:#fef2f2; color:#991b1b; border-color:#fca5a5; border-left:5px solid #dc2626; font-size:15px; }
   .msg.error::before { content:"⛔ "; }
+  /* ===== Саҳифа тепаси — икки карта (Умумий лимит · Ҳафталик лимит) ===== */
+  .lh { --lb:#1E5BB8; --lb-soft:#F3F7FD; --lb-line:#DCE6F5; --lv:#7E3AF2; --lv-ink:#5B21B6; --lv-soft:#F8F5FE; --lv-line:#E6DCF8;
+        --ln:#E3E6EB; --ln2:#EEF0F3; --ink:#1A1D23; --mut:#6B7280; --amb:#92400E; --amb-bg:#FFFBEB; --amb-ln:#F3D9A4; --ok:#166534; --ok-bg:#ECFDF5; --ok-ln:#A7F3D0;
+        color:var(--ink); font-size:14px; line-height:1.45; display:flex; flex-direction:column; gap:16px; margin-bottom:14px; }
+  .lh-crumb { display:flex; align-items:center; gap:8px; font-size:13px; color:var(--mut); flex-wrap:wrap; }
+  .lh-crumb a { display:inline-flex; align-items:center; gap:6px; color:#4B5563; font-weight:500; }
+  .lh-crumb a:hover { color:var(--lb); }
+  .lh-head { display:flex; align-items:flex-start; gap:16px; flex-wrap:wrap; }
+  .lh-head h1 { margin:0; font-size:22px; font-weight:600; letter-spacing:-.01em; }
+  .lh-head .sub { display:flex; align-items:center; gap:10px; color:var(--mut); font-size:13px; flex-wrap:wrap; margin-top:4px; }
+  .lh-head .sub i { width:4px; height:4px; border-radius:50%; background:#CBD1D9; display:inline-block; }
+  .lh-head .sub input[type=date] { height:28px; padding:0 8px; border:1px solid #D5D9E0; border-radius:6px; font:inherit; font-size:12.5px; color:var(--ink); background:#fff; }
+  .lh-btn { display:inline-flex; align-items:center; gap:8px; height:40px; padding:0 14px; border:1px solid #D5D9E0; border-radius:8px; background:#fff; color:#374151; font:inherit; font-size:13px; font-weight:500; cursor:pointer; text-decoration:none; white-space:nowrap; }
+  .lh-btn:hover { background:#F8FAFC; border-color:#B8BFC9; }
+  .lh-btn.sm { height:36px; padding:0 12px; }
+  .lh-btn.xs { height:32px; padding:0 12px; font-size:12px; }
+  .lh-btn svg { width:15px; height:15px; flex:none; }
+  .lh-help { display:none; padding:12px 16px; border:1px solid var(--ln); border-radius:10px; background:#fff; font-size:13px; color:#374151; line-height:1.5; }
+  .lh-help.show { display:block; }
+  .lh-help b { color:var(--ink); }
+  .lh-grid { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:20px; align-items:stretch; }
+  .lh-card { background:#fff; border:1px solid var(--ln); border-top:4px solid var(--lb); border-radius:12px; overflow:hidden; display:flex; flex-direction:column; min-width:0; }
+  .lh-card.wk { border-top-color:var(--lv); }
+  .lh-card .hd { padding:14px 20px 12px; display:flex; align-items:center; gap:10px; border-bottom:1px solid var(--ln2); flex-wrap:wrap; }
+  .lh-card .hd .sq { width:10px; height:10px; border-radius:2px; background:var(--lb); flex:none; }
+  .lh-card.wk .hd .sq { background:var(--lv); }
+  .lh-card .hd .ttl { font-size:15px; font-weight:600; }
+  .lh-card .hd .hint { font-size:12px; color:var(--mut); }
+  .lh-pill { margin-left:auto; display:inline-flex; align-items:center; gap:6px; padding:3px 10px; border-radius:999px; font-size:12px; font-weight:600; white-space:nowrap; }
+  .lh-pill.draft { background:#FFF4D6; color:var(--amb); } .lh-pill.chain { background:#EDE9FE; color:var(--lv-ink); }
+  .lh-pill.ok { background:#DCFCE7; color:var(--ok); } .lh-pill.none { background:var(--ln2); color:#374151; } .lh-pill.wk { background:#F1EAFE; color:var(--lv-ink); }
+  .lh-card .bd { padding:16px 20px; display:flex; flex-direction:column; gap:14px; flex:1 1 auto; }
+  .lh-tiles { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px; }
+  .lh-tile { padding:10px 12px; border:1px solid var(--ln); border-radius:8px; display:flex; flex-direction:column; gap:4px; min-width:0; }
+  .lh-tile .tl { font-size:11px; font-weight:500; color:var(--mut); text-transform:uppercase; letter-spacing:.06em; }
+  .lh-tile b { display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:600; color:var(--ink); }
+  .lh-tile .mt { font-size:12px; color:var(--mut); }
+  .lh-tile.ok b { color:var(--ok); }
+  .lh-tile.warn { border-color:var(--amb-ln); background:var(--amb-bg); } .lh-tile.warn .tl, .lh-tile.warn b, .lh-tile.warn .mt { color:var(--amb); }
+  .lh-tile.chain { border-color:#DDD6FE; background:#F5F3FF; } .lh-tile.chain .tl, .lh-tile.chain b, .lh-tile.chain .mt { color:var(--lv-ink); }
+  .lh-tile.blue { border-color:#BFDBFE; background:#EFF6FF; } .lh-tile.blue .tl, .lh-tile.blue b, .lh-tile.blue .mt { color:#1E40AF; }
+  .lh-tile.ok2 { border-color:var(--ok-ln); background:var(--ok-bg); } .lh-tile.ok2 .tl, .lh-tile.ok2 b, .lh-tile.ok2 .mt { color:var(--ok); }
+  .lh-tile .row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .lh-tile .row label { font-size:12px; color:var(--mut); }
+  .lh-tile .row input[type=date] { width:132px; height:32px; box-sizing:border-box; padding:0 8px; border:1px solid #D5D9E0; border-radius:6px; font:inherit; font-size:13px; color:var(--ink); background:#fff; }
+  .lh-lbl { font-size:11px; font-weight:500; color:var(--mut); text-transform:uppercase; letter-spacing:.06em; }
+  .lh-steps { position:relative; display:flex; align-items:flex-start; }
+  .lh-steps:before { content:""; position:absolute; left:8%; right:8%; top:12px; height:2px; background:#D5D9E0; }
+  .lh-step { position:relative; display:flex; flex-direction:column; align-items:center; gap:5px; flex:1 1 0; min-width:0; text-align:center; }
+  .lh-step .n { width:26px; height:26px; border-radius:50%; border:2px solid #D5D9E0; box-sizing:border-box; background:#fff; color:var(--mut); display:inline-flex; align-items:center; justify-content:center; font-size:11px; font-weight:600; }
+  .lh-step .nm { font-size:11px; color:var(--mut); line-height:1.2; }
+  .lh-step .mt { font-size:10px; color:var(--mut); line-height:1.2; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .lh-step.ok .n { border-color:var(--lb); background:var(--lb); color:#fff; } .lh-step.ok .nm { color:var(--ink); font-weight:600; }
+  .lh-step.joriy .n { border-color:var(--lb); color:var(--lb); box-shadow:0 0 0 4px rgba(30,91,184,.14); } .lh-step.joriy .nm { color:var(--ink); font-weight:600; } .lh-step.joriy .mt { color:var(--lb); font-weight:600; }
+  .lh-card.wk .lh-step.ok .n { border-color:var(--lv); background:var(--lv); } .lh-card.wk .lh-step.joriy .n { border-color:var(--lv); color:var(--lv-ink); box-shadow:0 0 0 4px rgba(126,58,242,.14); } .lh-card.wk .lh-step.joriy .mt { color:var(--lv-ink); }
+  .lh-row { display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px solid var(--ln); border-radius:8px; flex-wrap:wrap; font-size:13px; }
+  .lh-row .t { font-weight:500; } .lh-row .m { font-size:12px; color:var(--mut); } .lh-row .r { margin-left:auto; display:inline-flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .lh-row svg { width:16px; height:16px; color:#4B5563; flex:none; }
+  .lh-row.warn { border-color:var(--amb-ln); background:var(--amb-bg); color:var(--amb); } .lh-row.warn .m { color:#78350F; }
+  .lh-row.chain { border-color:#DDD6FE; background:#F5F3FF; }
+  .lh-row.bad { border-color:#FCA5A5; background:#FEF2F2; color:#991B1B; }
+  .lh-note { display:flex; align-items:center; gap:8px; font-size:12px; color:#4B5563; flex-wrap:wrap; }
+  .lh-note svg { width:14px; height:14px; flex:none; }
+  .lh-note a, .lh-row a { font-weight:500; }
+  .lh-badge { display:inline-flex; align-items:center; gap:5px; padding:2px 9px; border-radius:999px; font-size:11.5px; font-weight:600; }
+  .lh-badge.warn { background:#FEF3C7; color:var(--amb); border:1px solid #FCD34D; }
+  .lh-ft { padding:14px 20px; background:var(--lb-soft); border-top:1px solid var(--lb-line); display:flex; flex-direction:column; gap:8px; }
+  .lh-card.wk .lh-ft { background:var(--lv-soft); border-top-color:var(--lv-line); }
+  .lh-ft .acts { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .lh-ft .acts form { margin:0; display:inline-flex; gap:6px; align-items:center; }
+  .lh-ft .acts select, .lh-ft .acts input[type=text] { height:34px; padding:0 8px; border:1px solid #D5D9E0; border-radius:6px; font:inherit; font-size:12.5px; background:#fff; }
+  .lh-ft .hint { font-size:12px; color:#4B5563; }
+  .lh-ft .lj-sec, .lh-ft .lj-pri, .lh-ft .lj-dng, .lh-ft .lj-ok { display:inline-flex; align-items:center; gap:8px; height:42px; padding:0 18px; border-radius:8px; font:inherit; font-size:14px; font-weight:600; cursor:pointer; text-decoration:none; white-space:nowrap; }
+  .lh-ft .lj-sec { border:1px solid var(--lb); background:#fff; color:var(--lb); } .lh-ft .lj-sec:hover { background:#EFF6FF; }
+  .lh-ft .lj-pri { border:none; background:var(--lb); color:#fff; } .lh-ft .lj-pri:hover { background:#174A96; }
+  .lh-ft .lj-pri .to { display:inline-flex; align-items:center; gap:6px; height:30px; padding:0 10px; border-radius:6px; background:#fff; color:var(--lb); font-size:12px; font-weight:600; margin-right:-12px; }
+  .lh-ft .lj-ok { border:none; background:#15803D; color:#fff; } .lh-ft .lj-ok:hover { background:#166534; }
+  .lh-ft .lj-dng { border:1px solid #FCA5A5; background:#fff; color:#B91C1C; height:36px; padding:0 14px; font-size:13px; } .lh-ft .lj-dng:hover { background:#FEF2F2; }
+  .lh-ft .lj-wrn { display:inline-flex; align-items:center; gap:6px; height:36px; padding:0 14px; border:1px solid #F3D9A4; border-radius:8px; background:#fff; color:var(--amb); font:inherit; font-size:13px; font-weight:600; cursor:pointer; }
+  .lh-card.wk .lh-ft .lj-sec { border-color:var(--lv); color:var(--lv-ink); } .lh-card.wk .lh-ft .lj-sec:hover { background:#F5F3FF; }
+  .lh-card.wk .lh-ft .lj-pri { background:var(--lv); } .lh-card.wk .lh-ft .lj-pri:hover { background:#6D28D9; } .lh-card.wk .lh-ft .lj-pri .to { color:var(--lv-ink); }
+  /* Haftalik karta ichidagi amal formalari (JS wkForma) — bir xil o'lchov */
+  #wkAmal { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  #wkAmal:empty { display:none; }
+  #wkAmal form button { height:34px !important; padding:0 14px !important; border-radius:8px !important; font-size:12.5px !important; }
+  #wkAmal form input[type=text] { height:34px; padding:0 8px !important; border-radius:6px !important; }
+  /* Ҳафта таблари — пилюлялар */
+  .lh-tools { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .lh-tools .lj-tabs { margin:0; gap:8px; }
+  .lh-tools .lj-tabs button { display:inline-flex; align-items:center; gap:6px; height:36px; padding:0 14px; border:1px solid var(--ln); border-radius:8px; background:#fff; color:var(--mut); font-size:13px; font-weight:500; }
+  .lh-tools .lj-tabs button.closed { color:var(--mut); }
+  .lh-tools .lj-tabs button.active, .lh-tools .lj-tabs button.closed.active { border:2px solid var(--lv); color:var(--lv-ink); font-weight:600; background:#fff; }
+  .lh-tools .lj-tabs button.yangi { border:1px dashed #B8BFC9; background:transparent; color:#374151; }
+  .lh-tools .lj-tabs button.yangi.active { border:2px solid var(--lv); }
+  .lh-tools .r { margin-left:auto; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .lh-search { display:flex; align-items:center; gap:8px; height:36px; padding:0 12px; border:1px solid #D5D9E0; border-radius:8px; background:#fff; box-sizing:border-box; width:320px; max-width:100%; }
+  .lh-search:focus-within { border:2px solid var(--lb); padding:0 11px; }
+  .lh-search svg { width:15px; height:15px; color:var(--lb); flex:none; }
+  .lh-search input { border:none; outline:none; background:transparent; font:inherit; font-size:13px; width:100%; color:var(--ink); padding:0; min-width:0; }
+  .lh-search .cl { width:22px; height:22px; border:none; border-radius:50%; background:var(--ln2); color:var(--mut); display:none; align-items:center; justify-content:center; cursor:pointer; flex:none; font-size:14px; line-height:1; }
+  .lh-search.bor .cl { display:inline-flex; }
+  /* Тикланган ўзгаришлар, текширув натижаси */
+  #ljAuto { display:none; align-items:flex-start; gap:12px; padding:12px 16px; border:1px solid var(--amb-ln); border-radius:10px; background:var(--amb-bg); flex-wrap:wrap; margin-bottom:12px; font-size:13px; }
+  #ljAuto .ic { width:32px; height:32px; border-radius:8px; background:#FDE68A; color:var(--amb); display:inline-flex; align-items:center; justify-content:center; flex:none; }
+  #ljAuto .tx { display:flex; flex-direction:column; gap:2px; flex:1 1 360px; min-width:0; }
+  #ljAuto .tx b { font-size:14px; font-weight:600; color:var(--amb); } #ljAuto .tx span { font-size:13px; color:#78350F; }
+  #ljOk { display:none; align-items:center; gap:8px; font-size:13px; color:var(--ok); background:transparent; padding:0; margin-bottom:10px; font-weight:400; }
+  #ljOk.show { display:flex; }
+  #ljOk b { font-weight:600; } #ljOk span { color:#4B5563; } #ljOk svg { width:16px; height:16px; flex:none; }
+  #ljErr { border:1px solid #FCA5A5; border-radius:10px; }
+  #ljErr .hdr { background:#FEF2F2; color:#991B1B; border-bottom:1px solid #FECACA; padding:8px 14px; font-size:13px; }
+  #ljErr ul { border:none; }
+  #ljWarn { border:1px solid #F3D9A4; border-radius:10px; }
+  #ljWarn .hdr { background:var(--amb-bg); color:var(--amb); border-bottom:1px solid #F3D9A4; padding:8px 14px; font-size:13px; }
+  #ljWarn ul { border:none; }
+  .turbar { margin:0 0 10px; }
+  .turbar .tchipf { height:30px; padding:0 12px; font-weight:500; font-size:13px; color:var(--ink); }
+  .turbar .tchipf.on { background:var(--lb); border-color:var(--lb); font-weight:600; }
+  @media (max-width:1100px) { .lh-grid { grid-template-columns:minmax(0,1fr); } }
+  @media (max-width:640px) { .lh-tiles { grid-template-columns:minmax(0,1fr); } .lh-steps .mt { display:none; } .lh-search { width:100%; } .lh-tools .r { margin-left:0; } }
+  @media print { .lh, .lh-tools, .turbar { display:none !important; } }
+  .lj-print-only { display:none; }
+  @media print { .lj-print-only { display:block; font-size:15px; font-weight:700; margin:0 0 6px; } }
 </style>
 
-<a class="hint" href="{% url 'firmalar' %}" style="color:var(--brand); font-weight:600; display:inline-block; margin-bottom:10px;">&larr; Объектлар рўйхати</a> <span style="color:#64748b; font-size:13px;">· {{ p.code }} — {{ p.name }}</span>
 {% if messages %}{% for m in messages %}<div class="msg {{ m.tags }}">{{ m }}</div>{% endfor %}{% endif %}
+<div class="lh noprint">
+  <div class="lh-crumb">
+    <a href="{% url 'firmalar' %}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>Объектлар рўйхати</a>
+    <span>/</span><span>{{ p.code }}</span>
+  </div>
 
-<div class="lj-top" style="display:flex; align-items:center; gap:18px; flex-wrap:wrap;">
-  <h2 style="margin:0;">{{ p.name }} — Умумий лимит ва ҳафталик лимитлар</h2>
-  <span class="lim-sana" style="display:inline-flex; align-items:center; gap:7px; font-size:12.5px; color:#334155; background:#eef6ff; border:1px solid #bfdbfe; border-radius:6px; padding:4px 10px;">
-    <b>Умумий лимит даври:</b>
-    {% if lim_edit_huquq or can_edit %}
-      <input type="date" id="limStart" value="{{ lim_start }}" title="Бошланиши" style="padding:3px 6px; border:1px solid #c8ccd0; border-radius:4px; font-size:12px;">
-      <span>—</span>
-      <input type="date" id="limEnd" value="{{ lim_end }}" title="Тугаши" style="padding:3px 6px; border:1px solid #c8ccd0; border-radius:4px; font-size:12px;">
-    {% else %}
-      <span>{% if lim_start %}{{ lim_start }}{% else %}…{% endif %} — {% if lim_end %}{{ lim_end }}{% else %}…{% endif %}</span>
-    {% endif %}
-  </span>
-</div>
-<div class="lj-sub">{% if taklif_view %}Жадвалда {% if qoralama %}қоралама{% else %}занжирдаги лимит таклифи{% endif %}: Умумий · Бажарилган · Қолган{% if can_edit %} · ҳафталик устунни шу қаторлар бўйича тўлдириб, сана бошланиши/тугашини кўрсатиб «Сақлаш» ёки «Ҳафтани ёпиш»ни босасиз{% endif %}.{% elif can_edit %}Ҳафта ичида нарх ўзгарса: қатордаги <b>х</b> тугмасини босасиз → эски нархда сўралган объёмни ёзасиз → қолгани янги нархда алоҳида қатор бўлади. Ҳамма сумма автоматик. «Ҳафтани ёпиш» — сўров директор тасдиғига юборилади.{% if is_adm %} Админ сифатида Умумий объём/нархни ҳам шу ерда тўғрилайсиз (тўғридан-тўғри қўлланади).{% else %} Умумий объём/нархни ўзгартирсангиз ёки блок/иш қўшсангиз — сақлашда <b>снабжение → ПТО → директор → проверчик → админ</b> занжирига сўров кетади.{% endif %}{% elif lim_edit_huquq %}<b>Умумий</b> устундаги объём/нархни таҳрирлаб ёки «+ Блок (бўлим)» билан янги бўлим қўшиб, яшил «▶ Лимитни юбориш» тугмаси орқали занжирга жўнатишингиз мумкин. Ҳафталик устунни ПТО/админ тўлдиради.{% else %}Кўриш режими — ҳафталик устунини ПТО/админ тўлдиради.{% if lim_qulf %} Умумий лимит тасдиқланган — таҳрирлаш фақат админ рухсати билан очилади.{% endif %}{% endif %}
-{% if lim_pending %}<br><b style="color:#b45309;">⏳ Лимит сўрови занжирда — {% if taklif_edit %}ҳозир СИЗНИНГ босқичингиз: таклиф қаторларини шу жадвалда тўғрилаб «💾 Таклифни сақлаш»ни босинг, кейин кейинги босқичга юборинг.{% elif taklif_view %}жадвалда ЗАНЖИРДАГИ ТАКЛИФ кўрсатилмоқда (фақат кўриш).{% else %}у якунлангунча Умумий устуни қулф; ҳафталик иш давом этади.{% endif %}</b>{% endif %}</div>
+  <div class="lh-head">
+    <div style="flex:1 1 480px; min-width:0;">
+      <h1>{{ p.name }}</h1>
+      <div class="sub">
+        <span>Умумий лимит ва ҳафталик лимитлар</span><i></i>
+        <span>Лимит даври:</span>
+        {% if lim_edit_huquq or can_edit %}
+          <input type="date" id="limStart" value="{{ lim_start }}" title="Бошланиши"><span>—</span><input type="date" id="limEnd" value="{{ lim_end }}" title="Тугаши">
+        {% else %}
+          <span style="color:#1A1D23;">{% if lim_start or lim_end %}{{ lim_start|default:"…" }} — {{ lim_end|default:"…" }}{% else %}белгиланмаган{% endif %}</span>
+        {% endif %}
+      </div>
+    </div>
+    <button type="button" class="lh-btn" id="lhHelpBtn" aria-expanded="false" aria-controls="lhHelp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>Жараён қандай ишлайди</button>
+  </div>
+  <div class="lh-help" id="lhHelp">
+    <b>Умумий лимит.</b> Объём ва нархлар «Умумий» устунида киритилади. «Сақлаш» — қоралама (фақат сизда қолади). «Юбориш» — снабжения → ПТО хулосаси → директор → проверчик (фирмада бўлса) → админ занжирига сўров кетади; ҳар босқич эгаси тўғрилаб, кейингисига ўтказади ёки орқага қайтаради. Тасдиқлангач мавжуд қаторлар қулфланади — ўзгартириш учун админ рухсати керак, янги қатор қўшиш эса яна занжир орқали.<br>
+    <b>Ҳафталик лимит.</b> Ҳар ҳафта учун «Ҳафталик материал» устунига объём ёзилади (қолгандан ошмайди). «Сақлаш» — ҳафта қораламаси; «Юбориш» — директор → админ. Тасдиқланган ҳафта қулфланади ва «Бажарилган»га қўшилади. Ҳафта ичида нарх ўзгарса — қатордаги <b>х</b> тугмаси билан қатор бўлинади.
+    {% if lim_pending %}<br><b style="color:#b45309;">⏳ Лимит сўрови занжирда — {% if taklif_edit %}ҳозир СИЗНИНГ босқичингиз: таклиф қаторларини шу жадвалда тўғрилаб «Сақлаш»ни босинг, кейин кейинги босқичга юборинг.{% elif taklif_view %}жадвалда ЗАНЖИРДАГИ ТАКЛИФ кўрсатилмоқда (фақат кўриш).{% else %}у якунлангунча Умумий устуни қулф; ҳафталик иш давом этади.{% endif %}</b>{% endif %}
+  </div>
 
-{% if lim_holat %}
-<div class="noprint" style="display:flex; border-radius:6px; padding:7px 12px; margin-bottom:8px; font-size:12.5px; align-items:center; gap:8px; flex-wrap:wrap; {% if lim_holat.mode == 'pending' %}background:#f5f3ff; border:1px solid #ddd6fe;{% else %}background:#f0fdf4; border:1px solid #bbf7d0;{% endif %}">
-  <b style="margin-right:4px;">УМУМИЙ ЛИМИТ ҳолати:</b>
-  {% if lim_holat.mode == 'pending' %}
-    {% for s in lim_holat.steps %}
-      {% if not forloop.first %}<span style="color:#9ca3af;">→</span>{% endif %}
-      {% if s.holat == 'ok' %}<span style="border-radius:999px; padding:2px 11px; font-weight:700; background:#dcfce7; color:#15803d; border:1px solid #86efac;">✓ {{ s.nom }}<span style="font-weight:400;">{% if s.kim %} — {{ s.kim }}{% endif %}{% if s.vaqt %} · {{ s.vaqt }}{% endif %}</span></span>
-      {% elif s.holat == 'joriy' %}<span style="border-radius:999px; padding:2px 11px; font-weight:700; background:#7c3aed; color:#fff; border:1px solid #7c3aed;">⏳ {{ s.nom }}<span style="font-weight:400;"> · кутилмоқда</span></span>
-      {% else %}<span style="border-radius:999px; padding:2px 11px; font-weight:700; background:#f1f5f9; color:#94a3b8; border:1px solid #e2e8f0;">{{ s.nom }}</span>{% endif %}
-    {% endfor %}
-    {% if lim_holat.qaytarish %}<span style="flex-basis:100%; color:#b91c1c; font-weight:600;">{{ lim_holat.qaytarish }}</span>{% endif %}
-    {% if lim_holat.amal %}
-    <span style="margin-left:auto; display:inline-flex; gap:8px; align-items:center; flex-wrap:wrap;">
-      <form method="post" class="lim-amal-f" action="{% url 'limit_request_action' lim_holat.amal.id %}" style="margin:0;">{% csrf_token %}<input type="hidden" name="next" value="jadval"><input type="hidden" name="action" value="{{ lim_holat.amal.oldinga.0 }}"><button type="submit" style="border:none; border-radius:5px; background:#26a269; color:#fff; padding:4px 13px; font-weight:700; font-size:12px; cursor:pointer;">{{ lim_holat.amal.oldinga.1 }}</button></form>
-      {% if lim_holat.amal.orqaga %}
-      <form method="post" class="lim-amal-f" action="{% url 'limit_request_action' lim_holat.amal.id %}" style="margin:0; display:inline-flex; gap:5px; align-items:center;" onsubmit="var s=this.querySelector('[name=sabab]'); if(!s.value.trim()){ alert('Қайтариш сабабини ёзинг.'); s.focus(); return false; }">{% csrf_token %}<input type="hidden" name="next" value="jadval"><input type="hidden" name="action" value="orqaga">
-        <select name="target" style="padding:3px 6px; border:1px solid #c8ccd0; border-radius:4px; font-size:12px;">{% for tg in lim_holat.amal.orqaga %}<option value="{{ tg.0 }}">{{ tg.1 }}</option>{% endfor %}</select>
-        <input type="text" name="sabab" placeholder="сабаб..." style="padding:3px 6px; border:1px solid #c8ccd0; border-radius:4px; font-size:12px; width:140px;">
-        <button type="submit" style="border:none; border-radius:5px; background:#c2410c; color:#fff; padding:4px 13px; font-weight:700; font-size:12px; cursor:pointer;">↩ Орқага қайтариш</button>
-      </form>
+  <div class="lh-grid">
+    {# ================= УМУМИЙ ЛИМИТ ================= #}
+    <section class="lh-card lim">
+      <div class="hd"><span class="sq"></span><span class="ttl">Умумий лимит</span><span class="hint">Умумий · Бажарилган · Қолган устунлари</span>
+        {% if lj_pill %}<span class="lh-pill {{ lj_pill.tur }}">{% if lj_pill.tur == 'draft' %}<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4Z"/></svg>{% elif lj_pill.tur == 'ok' %}✓ {% endif %}{{ lj_pill.matn }}</span>{% endif %}
+      </div>
+      <div class="bd">
+        <div class="lh-tiles">
+          <div class="lh-tile {% if lim_holat.mode == 'ok' %}ok{% endif %}">
+            <span class="tl">Амалдаги лимит</span>
+            {% if lim_holat.mode == 'ok' %}<b><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Тасдиқланган</b><span class="mt">{{ lim_holat.kim }}{% if lim_holat.vaqt %} · {{ lim_holat.vaqt }}{% endif %}</span>
+            {% elif amaldagi_bor or eski_sum %}<b>Мавжуд</b><span class="mt">{% if eski_sum %}эски усулда — фақат сумма{% else %}занжирда янги сўров турибди{% endif %}</span>
+            {% else %}<b style="color:#6B7280;">Киритилмаган</b><span class="mt">Умумий устунни тўлдириб юборинг</span>{% endif %}
+          </div>
+          {% if qoralama %}
+          <div class="lh-tile warn"><span class="tl">Қоралама</span><b>{{ qoralama.soni }} қатор, ҳали юборилмаган</b><span class="mt">{{ qoralama.kim|default:"—" }}{% if qoralama.vaqt %} · {{ qoralama.vaqt }}{% endif %}</span></div>
+          {% elif lim_pending %}
+          <div class="lh-tile chain"><span class="tl">Занжирда</span><b>{% for s in lj_qadamlar %}{% if s.holat == 'joriy' %}{{ s.nom }} кутилмоқда{% endif %}{% endfor %}</b><span class="mt">{% if taklif_edit %}ҳозир сизнинг босқичингиз{% elif taklif_sum %}эски усулда (фақат сумма): {{ taklif_sum }}{% else %}жадвалда таклиф кўринади{% endif %}</span></div>
+          {% elif lim_ruxsat %}
+          <div class="lh-tile warn"><span class="tl">Рухсат</span><b>🔓 Админ таҳрирга рухсат берган</b><span class="mt">Умумийни ўзгартириб «Юбориш»ни босинг (бир марталик)</span></div>
+          {% else %}
+          <div class="lh-tile"><span class="tl">Ўзгариш</span><b style="color:#6B7280;">Қоралама йўқ</b><span class="mt">{% if lim_qosh_huquq %}Янги блок/қатор қўшиш мумкин — занжир орқали{% elif lim_holat.mode == 'ok' %}Мавжуд қаторлар қулф{% else %}—{% endif %}</span></div>
+          {% endif %}
+        </div>
+
+        {% if lj_qadamlar %}
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <span class="lh-lbl">Тасдиқлаш занжири</span>
+          <div class="lh-steps">
+            {% for s in lj_qadamlar %}
+            <div class="lh-step {{ s.holat }}"><span class="n">{% if s.holat == 'ok' %}✓{% else %}{{ forloop.counter }}{% endif %}</span><span class="nm">{{ s.nom }}</span>{% if s.holat == 'joriy' %}<span class="mt">ҳозир</span>{% elif s.kim %}<span class="mt" title="{{ s.kim }}{% if s.vaqt %} · {{ s.vaqt }}{% endif %}">{{ s.kim }}</span>{% endif %}</div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+        {% if lim_holat.qaytarish %}<div class="lh-row bad"><span class="t">{{ lim_holat.qaytarish }}</span></div>{% endif %}
+
+        {% if lim_pending or qoralama and taklif_view %}
+        <div class="lh-row {% if taklif_view %}chain{% endif %}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+          {% if taklif_view %}
+            <span class="t">Жадвалда: {% if qoralama %}ҚОРАЛАМА{% else %}ЗАНЖИРДАГИ ТАКЛИФ{% endif %}</span>
+            <span class="m">{% if taklif_edit %}қаторларни тўлиқ таҳрирлайсиз (ном, бирлик, объём, нарх, қўшиш/ўчириш){% else %}фақат кўриш — таҳрир жорий босқич эгасида{% endif %}{% if amaldagi_bor and not taklif_edit %} · <span style="background:#dcfce7; color:#15803d; border-radius:4px; padding:0 5px; font-weight:700;">янги</span> / <span style="background:#fef3c7; color:#92400e; border-radius:4px; padding:0 5px; font-weight:700;">ўзгарди</span> белгилари амалдагига нисбатан{% endif %}</span>
+            {% if taklif_ochirilgan %}<span class="m" style="color:#b91c1c;">✕ Ўчирилаётган қаторлар: {% for n in taklif_ochirilgan %}{% if not forloop.first %}, {% endif %}«{{ n }}»{% endfor %}</span>{% endif %}
+            <span class="r"><a href="?korinish=amaldagi" class="lh-btn xs">Амалдаги лимит ва ҳафталик →</a></span>
+          {% else %}
+            <span class="t">Жадвалда: амалдаги лимит ва ҳафталик</span>
+            {% if taklif_sum %}<span class="m">занжирдаги сўров эски усулда (фақат сумма): <b>{{ taklif_sum }}</b></span>
+            {% else %}<span class="r"><a href="?korinish=taklif" class="lh-btn xs">Занжирдаги таклифни кўриш →</a></span>{% endif %}
+          {% endif %}
+        </div>
+        {% endif %}
+        {% if eski_sum and not taklif_view %}
+        <div class="lh-row warn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+          <span class="t">Лимит ЭСКИ усулда — фақат сумма билан киритилган</span>
+          <span class="m">{% for nom, v in eski_sum %}{% if not forloop.first %} · {% endif %}{{ nom }}: <b>{{ v }}</b>{% endfor %}. {% if lim_edit_huquq %}Пастдаги «+ Янги блок (бўлим)» билан қаторларни киритинг — тасдиқлангач эски сумма ўрнини янги рўйхат эгаллайди.{% elif lim_pending %}Қаторлар занжирдаги сўровда киритилади.{% endif %}</span>
+        </div>
+        {% endif %}
+
+        {% if lim_holat.mode == 'ok' and not taklif_view %}
+        <div class="lh-note">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          {% if lim_ruxsat %}<span>Рухсат очиқ — Умумий устун таҳрирланади; сақлангач рухсат ёпилади.</span>
+          {% else %}<span>Мавжуд қаторларни таҳрирлаш учун админ рухсати керак{% if lim_qosh_huquq %} · янги блок/қатор қўшиш мумкин — занжир орқали{% endif %}.</span>{% endif %}
+          {% if is_adm %}<form method="post" action="{% url 'limit_tahrir_ruxsat' p.pk %}" style="margin:0; margin-left:auto;">{% csrf_token %}<button type="submit" class="lh-btn xs" style="{% if lim_ruxsat %}color:#92400E; border-color:#F3D9A4;{% else %}color:#1E5BB8; border-color:#BFDBFE;{% endif %}">{% if lim_ruxsat %}🔒 Рухсатни ёпиш{% else %}🔓 Таҳрирга рухсат бериш{% endif %}</button></form>{% endif %}
+        </div>
+        {% endif %}
+      </div>
+
+      {% if taklif_edit or lim_edit_huquq or lim_qosh_huquq or qoralama.huquq or lim_holat.amal %}
+      <div class="lh-ft">
+        <div class="acts">
+          {% if taklif_edit %}<button type="button" class="lj-sec" id="btnReqSaqla" title="{% if qoralama %}Қораламани сақлаш — занжирга юборилмайди{% else %}Занжирдаги таклиф қаторларини сақлаш — босқич ўзгармайди{% endif %}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>{% if qoralama %}Сақлаш (қоралама){% else %}Таклифни сақлаш{% endif %}</button>{% endif %}
+          {% if lim_edit_huquq and not can_edit %}<button type="button" class="lj-sec" id="btnQoralama" title="Тугатмаган бўлсангиз — жадвал серверда қоралама бўлиб сақланади; кейин шу жойидан давом этасиз"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>Қоралама сақлаш</button>{% endif %}
+          {% if lim_qosh_huquq %}
+            <button type="button" class="lj-pri" id="btnLimYubor" title="Янги блок/қаторлар занжирга сўров бўлиб кетади (мавжуд қаторлар ўзгармайди)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>Лимитни юбориш{% if lj_keyingi %}<span class="to">→ {{ lj_keyingi }}</span>{% endif %}</button>
+            {% if not can_edit %}<button type="button" class="lj-sec" id="btnQoralama" title="Янги қаторларни қоралама сифатида сақлаш">Қоралама сақлаш</button>{% endif %}
+          {% endif %}
+          {% if lim_edit_huquq %}
+            <button type="button" class="{% if adm_togri %}lj-ok{% else %}lj-pri{% endif %}" id="btnLimYubor" title="{% if adm_togri %}Умумий устундаги ўзгаришлар тўғридан-тўғри қўлланади{% else %}Умумий лимит ўзгаришлари кейинги юсерга сўров бўлиб кетади{% endif %}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{% if adm_togri %}<path d="M20 6 9 17l-5-5"/>{% else %}<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>{% endif %}</svg>{% if adm_togri %}Лимитни қўллаш{% else %}Лимитни юбориш{% if lj_keyingi %}<span class="to">→ {{ lj_keyingi }}</span>{% endif %}{% endif %}</button>
+            {% if adm_togri %}<button type="button" class="lj-sec" id="btnLimZanjir" title="Ўзгаришлар тўғридан қўлланмайди — занжирга СЎРОВ бўлиб кетади ва Тасдиқлар бўлимида кўринади">📨 Занжирга юбориш</button>{% endif %}
+          {% endif %}
+          {% if qoralama.huquq %}
+            {% if not taklif_view %}<a href="?korinish=taklif" class="lj-sec">📝 Қораламани очиш →</a>{% endif %}
+            <form method="post" class="lim-amal-f" onsubmit="return confirm('Қоралама занжирга (снабжения → ПТО хулосаси → директор → проверчик → админ) сўров бўлиб юборилсинми?');">{% csrf_token %}<input type="hidden" name="qoralama_amal" value="send"><button type="submit" class="lj-pri"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>Лимитни юбориш{% if lj_keyingi %}<span class="to">→ {{ lj_keyingi }}</span>{% endif %}</button></form>
+            {% if qoralama.apply %}<form method="post" class="lim-amal-f" onsubmit="return confirm('Қоралама занжирсиз ТЎҒРИДАН лимит сифатида қўлланилсинми?');">{% csrf_token %}<input type="hidden" name="qoralama_amal" value="apply"><button type="submit" class="lj-ok">✓ Лимитни қўллаш</button></form>{% endif %}
+            <form method="post" onsubmit="return confirm('Қоралама ўчирилсинми? Сақланган қаторлар йўқолади.');">{% csrf_token %}<input type="hidden" name="qoralama_amal" value="delete"><button type="submit" class="lj-dng">🗑 Ўчириш</button></form>
+          {% endif %}
+          {% if lim_holat.amal %}
+            <form method="post" class="lim-amal-f" action="{% url 'limit_request_action' lim_holat.amal.id %}">{% csrf_token %}<input type="hidden" name="next" value="jadval"><input type="hidden" name="action" value="{{ lim_holat.amal.oldinga.0 }}"><button type="submit" class="lj-ok">{{ lim_holat.amal.oldinga.1 }}</button></form>
+            {% if lim_holat.amal.orqaga %}
+            <form method="post" class="lim-amal-f" action="{% url 'limit_request_action' lim_holat.amal.id %}" onsubmit="var s=this.querySelector('[name=sabab]'); if(!s.value.trim()){ alert('Қайтариш сабабини ёзинг.'); s.focus(); return false; }">{% csrf_token %}<input type="hidden" name="next" value="jadval"><input type="hidden" name="action" value="orqaga">
+              <select name="target">{% for tg in lim_holat.amal.orqaga %}<option value="{{ tg.0 }}">{{ tg.1 }}</option>{% endfor %}</select>
+              <input type="text" name="sabab" placeholder="сабаб..." style="width:150px;">
+              <button type="submit" class="lj-wrn">↩ Орқага қайтариш</button>
+            </form>
+            {% endif %}
+          {% endif %}
+        </div>
+        <span class="hint">{% if lim_holat.amal %}Юбориш — сўров кейинги босқичга ўтади; орқага қайтариш — танланган босқич эгасига сабаб билан қайтади.{% elif qoralama %}Сақлаш: қоралама фақат сизда қолади. Юбориш: {{ lj_keyingi|default:"кейинги босқич" }}га ўтади, шундан сўнг сиз таҳрирлай олмайсиз.{% elif adm_togri and lim_edit_huquq %}Лимитни қўллаш — ўзгаришлар занжирсиз тўғридан қўлланади; занжирга юбориш — сўров бўлиб кетади.{% elif lim_edit_huquq or lim_qosh_huquq %}Умумийдаги ўзгаришлар сақлашда {{ lj_keyingi|default:"кейинги босқич" }}га сўров бўлиб кетади; тугатмаган бўлсангиз — «Қоралама сақлаш».{% else %}Ҳафталик устунни тўлдириб, ўнгдаги картадан сақланг ёки юборинг.{% endif %}</span>
+      </div>
       {% endif %}
-    </span>
-    {% endif %}
-  {% else %}
-    <span style="border-radius:999px; padding:2px 11px; font-weight:700; background:#dcfce7; color:#15803d; border:1px solid #86efac;">✓ Тасдиқланган<span style="font-weight:400;"> — {{ lim_holat.kim }}{% if lim_holat.vaqt %} · {{ lim_holat.vaqt }}{% endif %}</span></span>
-    {% if lim_ruxsat %}<span style="border-radius:999px; padding:2px 11px; font-weight:700; background:#fef3c7; color:#92400e; border:1px solid #fcd34d;">🔓 Админ таҳрирга рухсат берган — Умумийни ўзгартириб «▶ Лимитни юбориш»ни босинг</span>
-    {% elif lim_qulf %}<span style="font-size:12px; color:#64748b;">🔒 Мавжуд қаторларни таҳрирлаш учун админ рухсати керак{% if lim_qosh_huquq %} · янги блок/қатор қўшиш мумкин — занжир орқали (ҳар бир юсердан ўтади){% endif %}</span>{% endif %}
-    {% if is_adm %}
-    <form method="post" action="{% url 'limit_tahrir_ruxsat' p.pk %}" style="margin:0; margin-left:auto;">{% csrf_token %}
-      <button type="submit" style="border:0; border-radius:7px; padding:5px 14px; font-weight:700; font-size:12px; cursor:pointer; color:#fff; background:{% if lim_ruxsat %}#b45309{% else %}#1a5fb4{% endif %};">{% if lim_ruxsat %}🔒 Рухсатни ёпиш{% else %}🔓 Таҳрирга рухсат бериш{% endif %}</button>
-    </form>
-    {% endif %}
-  {% endif %}
+    </section>
+
+    {# ================= ҲАФТАЛИК ЛИМИТ ================= #}
+    <section class="lh-card wk">
+      <div class="hd"><span class="sq"></span><span class="ttl">Ҳафталик лимит</span><span class="hint">Ҳафталик материал устунлари</span><span class="lh-pill wk" id="wkPill"></span></div>
+      <div class="bd">
+        <div class="lh-tiles">
+          <div class="lh-tile" id="sanaBox"><span class="tl">Ҳафта даври</span>
+            <div class="row"><label for="wkStart">Боши</label><input type="date" id="wkStart" value="{{ taklif_ws }}"><label for="wkEnd">Охири</label><input type="date" id="wkEnd" value="{{ taklif_we }}"></div>
+          </div>
+          <div class="lh-tile" id="wkTile"></div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:8px;"><span class="lh-lbl">Тасдиқлаш занжири</span><div class="lh-steps" id="wkSteps"></div></div>
+        <div id="wkAmal"></div>
+        <div class="lh-row">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></svg>
+          <span class="t">Олдинги ҳафталар</span><span class="m" id="wkPrev">—</span>
+          <span class="r"><a href="{% url 'haftalik_tarix' %}" style="font-size:12px;">Ҳафталар тарихи</a></span>
+        </div>
+        <div class="lh-note" id="wkNote"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg><span>Ҳафта юборилгач унинг устунлари қулфланади ва директорга ўтади.</span></div>
+      </div>
+      {% if can_edit %}
+      <div class="lh-ft">
+        <div class="acts">
+          <button type="button" class="lj-sec" id="btnSaqla" title="Ҳафталик — қоралама; Умумий ўзгаришлар — қоралама (занжирга юборилмайди)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>Сақлаш</button>
+          <button type="button" class="lj-pri" id="btnYopish" title="Ҳафтани ёпиш — сўров директор тасдиғига юборилади"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>Ҳафтани юбориш<span class="to">→ Директор{% if wk_dir_nom %} · {{ wk_dir_nom }}{% endif %}</span></button>
+        </div>
+        <span class="hint">Сақлаш: ҳафта қоралама бўлиб сизда қолади (Умумийдаги ўзгаришлар ҳам қораламага). Юбориш: ҳафта ёпилади, директор → админ тасдиқлайди.</span>
+      </div>
+      {% endif %}
+    </section>
+  </div>
+
+  <div class="lh-tools">
+    <div class="lj-tabs" id="ljTabs"></div>
+    <div class="r">
+      <label class="lh-search" id="lhSearch"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg><input type="text" id="ljQidir" placeholder="Материал, иш ҳақи, масъул, бўлим, изоҳ…" aria-label="Жадвалдан излаш" autocomplete="off"><button type="button" class="cl" id="ljQidirCl" aria-label="Тозалаш">×</button></label>
+      <button type="button" class="lh-btn sm" id="btnHisobot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-6"/></svg>Нарх тарихи</button>
+      <button type="button" class="lh-btn sm" onclick="window.print()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>Чоп этиш</button>
+      <button type="button" class="lh-btn sm" id="btnExcel" title="Тўлиқ жадвални формулали Excel қилиб юклаб олиш"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>Эксел</button>
+    </div>
+  </div>
 </div>
-{% endif %}
-{% if qoralama %}
-<div class="noprint" style="display:flex; border-radius:6px; padding:7px 12px; margin-bottom:8px; font-size:12.5px; align-items:center; gap:10px; flex-wrap:wrap; background:#fff7ed; border:1px solid #fdba74;">
-  <b>📝 ҚОРАЛАМА</b>
-  <span style="color:#6b7280;">— {{ qoralama.soni }} қатор сақланган, занжирга ҳали ЮБОРИЛМАГАН{% if qoralama.kim %} · {{ qoralama.kim }}{% endif %}{% if qoralama.vaqt %} · {{ qoralama.vaqt }}{% endif %}.{% if taklif_edit %} Давом эттириб «💾 Сақлаш (қоралама)», тугагач «▶ Лимитни юбориш».{% endif %}</span>
-  {% if qoralama.huquq %}
-  <span style="margin-left:auto; display:inline-flex; gap:8px; align-items:center; flex-wrap:wrap;">
-    {% if not taklif_view %}<a href="?korinish=taklif" style="border-radius:5px; padding:4px 12px; font-weight:700; background:#7c3aed; color:#fff; text-decoration:none; white-space:nowrap;">📝 Қораламани очиш →</a>{% endif %}
-    <form method="post" class="lim-amal-f" style="margin:0;" onsubmit="return confirm('Қоралама занжирга (снабжение → ПТО → директор → проверчик → админ) сўров бўлиб юборилсинми?');">{% csrf_token %}<input type="hidden" name="qoralama_amal" value="send"><button type="submit" style="border:none; border-radius:5px; background:#26a269; color:#fff; padding:4px 13px; font-weight:700; font-size:12px; cursor:pointer;">▶ Лимитни юбориш</button></form>
-    {% if qoralama.apply %}<form method="post" class="lim-amal-f" style="margin:0;" onsubmit="return confirm('Қоралама занжирсиз ТЎҒРИДАН лимит сифатида қўлланилсинми?');">{% csrf_token %}<input type="hidden" name="qoralama_amal" value="apply"><button type="submit" style="border:none; border-radius:5px; background:#1a5fb4; color:#fff; padding:4px 13px; font-weight:700; font-size:12px; cursor:pointer;">✓ Лимитни қўллаш</button></form>{% endif %}
-    <form method="post" style="margin:0;" onsubmit="return confirm('Қоралама ўчирилсинми? Сақланган қаторлар йўқолади.');">{% csrf_token %}<input type="hidden" name="qoralama_amal" value="delete"><button type="submit" style="border:none; border-radius:5px; background:#c01c28; color:#fff; padding:4px 13px; font-weight:700; font-size:12px; cursor:pointer;">🗑 Ўчириш</button></form>
-  </span>
-  {% endif %}
+<div id="ljAuto" class="noprint">
+  <span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg></span>
+  <div class="tx"><b>Киритган рақамларингиз қайтарилди, лекин ҳали сақланмаган</b><span><b class="t" style="font-size:13px;"></b> да саҳифа ёпилиб кетган эди — ўшанда ёзган рақамларингизни жадвалга қайтардик. Улар фақат шу компьютерда турибди. <span class="qaysi"></span></span></div>
+  <button type="button" id="ljAutoClear" class="lj-wrn" style="height:36px; padding:0 14px; border:1px solid #E5C77A; border-radius:8px; background:#fff; color:#92400E; font:inherit; font-size:13px; font-weight:500; cursor:pointer;">Керак эмас, ўчириш</button>
 </div>
-{% endif %}
-{% if lim_pending or qoralama and taklif_view %}
-<div class="noprint" style="display:flex; border-radius:6px; padding:6px 12px; margin-bottom:8px; font-size:12.5px; align-items:center; gap:10px; flex-wrap:wrap; background:#fffbeb; border:1px solid #fde68a;">
-  {% if taklif_view %}
-    <b>{% if qoralama %}📝 Жадвалда: ҚОРАЛАМА{% else %}📋 Жадвалда: ЗАНЖИРДАГИ ТАКЛИФ{% endif %}</b>
-    <span style="color:#6b7280;">{% if taklif_edit %}— қаторларни тўлиқ таҳрирлайсиз (ном, бирлик, объём, нарх, қўшиш/ўчириш){% else %}— фақат кўриш; таҳрир жорий босқич эгасида{% endif %}{% if amaldagi_bor and not taklif_edit %} · <span style="background:#dcfce7; color:#15803d; border-radius:4px; padding:0 5px; font-weight:700;">янги</span> / <span style="background:#fef3c7; color:#92400e; border-radius:4px; padding:0 5px; font-weight:700;">ўзгарди</span> — амалдаги лимитдан фарқи{% endif %}</span>
-    {% if taklif_sum %}<span style="color:#9a3412;">Сўров эски усулда юборилган (фақат сумма: <b>{{ taklif_sum }}</b>) — қаторларини шу ерда киритинг.</span>{% endif %}
-    {% if taklif_ochirilgan %}<span style="color:#b91c1c;">✕ Ўчирилаётган қаторлар: {% for n in taklif_ochirilgan %}{% if not forloop.first %}, {% endif %}«{{ n }}»{% endfor %}</span>{% endif %}
-    <a href="?korinish=amaldagi" style="margin-left:auto; border-radius:5px; padding:3px 12px; font-weight:700; background:#475569; color:#fff; text-decoration:none; white-space:nowrap;">Амалдаги лимит ва ҳафталик →</a>
-  {% else %}
-    <b>📊 Жадвалда: АМАЛДАГИ лимит ва ҳафталик</b>
-    {% if taklif_sum %}<span style="color:#6b7280;">— занжирдаги сўров эски усулда (фақат сумма): <b>{{ taklif_sum }}</b></span>
-    {% else %}<a href="?korinish=taklif" style="margin-left:auto; border-radius:5px; padding:3px 12px; font-weight:700; background:#7c3aed; color:#fff; text-decoration:none; white-space:nowrap;">📋 Занжирдаги таклифни кўриш →</a>{% endif %}
-  {% endif %}
-</div>
-{% endif %}
-{% if eski_sum and not taklif_view %}
-<div class="noprint" style="border-radius:6px; padding:7px 12px; margin-bottom:8px; font-size:12.5px; background:#fff7ed; border:1px solid #fed7aa; color:#9a3412;">
-  <b>⚠ Бу объект лимити ЭСКИ усулда — фақат сумма билан киритилган</b> ({% for nom, v in eski_sum %}{% if not forloop.first %} · {% endif %}{{ nom }}: <b>{{ v }}</b>{% endfor %}), қаторлари йўқ.
-  {% if lim_edit_huquq %}Янги қолипга ўтказиш учун пастда <b>«+ Янги блок (бўлим)»</b> билан блок ва қаторларни киритинг — занжирда тасдиқлангач эски сумма ўрнини янги рўйхат эгаллайди{% if is_adm and not adm_togri %} (админ тўғридан қўллаши учун аввал «Таҳрирга рухсат бериш» керак){% endif %}.{% elif lim_pending %}Қаторлар занжирдаги сўров тасдиқлангач пайдо бўлади.{% endif %}
-</div>
-{% endif %}
-<div class="lj-tabs" id="ljTabs"></div>
-<div class="lj-bar">
-  {% if can_edit %}
-  <button class="b-green" id="btnSaqla" title="Ҳафталик — қоралама; Умумий ўзгаришлар — ҚОРАЛАМА (занжирга юборилмайди, кейин давом этасиз)">💾 Сақлаш</button>
-  <button class="b-green" id="btnYopish">▶ Ҳафтани ёпиш</button>
-  <span id="sanaBox" style="display:flex; gap:6px; align-items:center;">
-    <label>Ҳафта боши <input type="date" id="wkStart" value="{{ taklif_ws }}"></label>
-    <label>охири <input type="date" id="wkEnd" value="{{ taklif_we }}"></label>
-  </span>
-  {% endif %}
-  {% if taklif_edit %}
-  <button class="b-green" id="btnReqSaqla" type="button" title="{% if qoralama %}Қораламани сақлаш — занжирга юборилмайди{% else %}Занжирдаги таклиф қаторларини сақлаш — босқич ўзгармайди{% endif %}">💾 {% if qoralama %}Сақлаш (қоралама){% else %}Таклифни сақлаш{% endif %}</button>
-  {% endif %}
-  {% if lim_edit_huquq and not can_edit %}
-  <button class="b-blue" id="btnQoralama" type="button" title="Тугатмаган бўлсангиз — жадвал серверда қоралама бўлиб сақланади; занжирга юборилмайди, кейин шу жойидан давом этасиз">💾 Қоралама сақлаш</button>
-  {% endif %}
-  {% if lim_qosh_huquq %}
-  <button class="b-green" id="btnLimYubor" title="Янги блок/қаторлар снабжение → ПТО → директор → проверчик → админ занжирига сўров бўлиб кетади (мавжуд қаторлар ўзгармайди)">▶ Лимитни юбориш</button>
-  {% if not can_edit %}<button class="b-blue" id="btnQoralama" type="button" title="Янги қаторларни қоралама сифатида сақлаш">💾 Қоралама сақлаш</button>{% endif %}
-  {% endif %}
-  {% if lim_edit_huquq %}
-  <button class="b-green" id="btnLimYubor" title="{% if adm_togri %}Умумий устундаги ўзгаришлар тўғридан-тўғри қўлланади{% else %}Умумий лимит ўзгаришлари кейинги юсерга (снабжение → ПТО → директор → проверчик → админ) сўров бўлиб кетади{% endif %}">▶ {% if adm_togri %}Лимитни қўллаш{% else %}Лимитни юбориш{% endif %}</button>
-  {% if adm_togri %}<button class="b-blue" id="btnLimZanjir" title="Ўзгаришлар тўғридан қўлланмайди — снабжение → ПТО → директор → проверчик → админ занжирига СЎРОВ бўлиб кетади ва Тасдиқлар бўлимида кўринади">📨 Занжирга юбориш</button>{% endif %}
-  {% endif %}
-  <input type="text" id="ljQidir" placeholder="🔍 Бўлим бўйича излаш..." style="padding:6px 10px; border:1px solid #c8ccd0; border-radius:4px; font-size:12.5px; min-width:190px;">
-  <button class="b-gray" id="btnHisobot">📊 Нарх тарихи ҳисоботи</button>
-  <button class="b-gray" onclick="window.print()">Чоп этиш</button>
-  <button class="b-gray" id="btnExcel" title="Тўлиқ жадвални формулали Excel қилиб юклаб олиш">⬇ Эксел</button>
-</div>
-<div id="ljAuto" style="display:none; background:#ecfdf5; border:1px solid #6ee7b7; border-radius:6px; padding:7px 12px; margin-bottom:8px; font-size:12.5px;">
-  💾 Саҳифа ёпилиши (свет ўчиши)дан олдин ёзилган — <b class="t"></b> даги — САҚЛАНМАГАН ўзгаришлар қайта тикланди. <span class="qaysi">Ишончли сақлаш учун «Сақлаш»ни босинг.</span>
-  <button type="button" id="ljAutoClear" style="margin-left:8px; border:1px solid #fca5a5; background:#fef2f2; color:#b91c1c; border-radius:5px; padding:2px 10px; cursor:pointer; font-size:12px;">Тикланганни бекор қилиш</button>
-</div>
-<div id="wkStatus" style="display:none; border-radius:6px; padding:7px 12px; margin-bottom:8px; font-size:12.5px; align-items:center; gap:8px; flex-wrap:wrap;"></div>
-<div id="ljOk">✔ Хато йўқ</div>
+<div id="wkStatus" style="display:none;"></div>
+<div id="ljOk" class="noprint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg><b>Жадвал текширилди: хато йўқ.</b><span>Барча қаторларда бирлик, объём ва нарх тўлдирилган.</span></div>
 <div id="ljErr"><div class="hdr" id="ljErrHdr"></div><ul id="ljErrList"></ul></div>
 <div id="ljWarn"><div class="hdr" id="ljWarnHdr"></div><ul id="ljWarnList"></ul></div>
+<div class="lj-print-only">{{ p.code }} — {{ p.name }} — Умумий лимит ва ҳафталик лимитлар</div>
 
 <datalist id="ljBolimList">{% for g in guruhlar %}{% if g.bolim %}<option value="{{ g.bolim }}"></option>{% endif %}{% endfor %}</datalist>
 
@@ -508,8 +689,8 @@
     });
     if (CAN_EDIT && DRAFT_ID===null){
       var b = document.createElement('button');
-      b.textContent = '+ Янги ҳафта ✏️';
-      b.className = (sel==='yangi'?'active':'');
+      b.textContent = '+ Янги ҳафта';
+      b.className = 'yangi ' + (sel==='yangi'?'active':'');
       b.onclick = function(){ sel='yangi'; renderAll(); chizExtralar(); autoTikla(); };
       t.appendChild(b);
     }
@@ -527,73 +708,70 @@
       if (ws0) ws0.value = h.ws;
       if (we0) we0.value = h.we;
     }
-    // ---- ZANJIR HOLATI banneri: so'rov hozir KIMDA turibdi ----
-    var st = document.getElementById('wkStatus');
-    if (st){
+    // ---- ҲАФТАЛИК КАРТА: ҳолат плитаси, тасдиқлаш занжири, амаллар (ҳафта табига қараб) ----
+    (function(){
+      var pill = document.getElementById('wkPill'), tile = document.getElementById('wkTile'),
+          stepsEl = document.getElementById('wkSteps'), amal = document.getElementById('wkAmal'),
+          prev = document.getElementById('wkPrev'), note = document.getElementById('wkNote');
+      if (!pill || !tile || !stepsEl) return;
+      function step(i, nom, holat, meta){
+        return '<div class="lh-step '+holat+'"><span class="n">'+(holat==='ok' ? '✓' : i)+'</span><span class="nm">'+esc(nom)+'</span>'+
+               (meta ? '<span class="mt" title="'+esc(meta)+'">'+esc(meta)+'</span>' : '')+'</div>';
+      }
+      function tileHtml(cls, tl, b, mt){
+        tile.className = 'lh-tile ' + cls;
+        tile.innerHTML = '<span class="tl">'+esc(tl)+'</span><b>'+b+'</b>'+(mt ? '<span class="mt">'+mt+'</span>' : '');
+      }
+      var tasdiq = HAFTA.filter(function(x){ return x.status === 'approved'; }).length;
+      var boshqa = HAFTA.length - tasdiq;
+      prev.textContent = HAFTA.length
+        ? (tasdiq + ' та тасдиқланган, қулфланган' + (boshqa ? ' · ' + boshqa + ' та жараёнда' : ''))
+        : 'ҳали ҳафта йўқ';
+      var ruxsatTugma = (h && h.status !== 'draft' && ADMIN_RAW)
+        ? wkForma(h.id, 'tahrir_ruxsat', h.ruxsat ? '🔒 Рухсатни ёпиш' : '🔓 Таҳрирга рухсат бериш', h.ruxsat ? '#b45309' : '#1E5BB8', false) : '';
+      var ruxsatMt = (h && h.ruxsat) ? ' · 🔓 админ таҳрирга рухсат берган (бир марталик) — ўзгартириб «Сақлаш»ни босинг' : '';
+      var acts = '';
       if (!h){
-        // + Янги ҳафта tabi — jarayon boshlanmagan
-        st.innerHTML = '<b style="margin-right:4px;">Ҳафталик ҳолати:</b>'+
-          '<span style="border-radius:999px; padding:2px 11px; font-weight:700; background:#fde68a; color:#92400e; border:1px solid #fbbf24;">✏️ Янги ҳафта — ҳали САҚЛАНМАГАН</span>'+
-          '<span style="color:#6b7280;">«Сақлаш» → қоралама бўлади · «Ҳафтани ёпиш» → Директор → Админ занжирига кетади</span>';
-        st.style.cssText = 'display:flex; border-radius:6px; padding:7px 12px; margin-bottom:8px; font-size:12.5px; align-items:center; gap:8px; flex-wrap:wrap; background:#fffbeb; border:1px solid #fde68a;';
+        pill.textContent = raqam + '-ҳафта · янги';
+        tileHtml('warn', 'Ҳафта ҳолати', 'Янги ҳафта, сақланмаган', 'Ўзгаришлар фақат шу браузерда — «Сақлаш» қоралама қилади');
+        stepsEl.innerHTML = step(1, 'ПТО', 'joriy', 'сиз') + step(2, 'Директор', 'keyin', '') + step(3, 'Админ', 'keyin', '');
       } else {
-        function qadam(nom, holat, kim, vaqt){
-          // holat: ok | joriy | keyin
-          var rang = holat==='ok' ? 'background:#dcfce7; color:#15803d; border:1px solid #86efac;'
-                   : holat==='joriy' ? 'background:#1a5fb4; color:#fff; border:1px solid #1a5fb4;'
-                   : 'background:#f1f5f9; color:#94a3b8; border:1px solid #e2e8f0;';
-          var belgi = holat==='ok' ? '✓ ' : (holat==='joriy' ? '⏳ ' : '');
-          var qoshimcha = (kim ? ' — '+esc(kim) : '') + (vaqt ? ' · '+esc(vaqt) : '');
-          return '<span style="border-radius:999px; padding:2px 11px; font-weight:700; '+rang+'">'+belgi+nom+
-                 (holat!=='keyin' ? '<span style="font-weight:400;">'+qoshimcha+(holat==='joriy'?' · кутилмоқда':'')+'</span>' : '')+'</span>';
-        }
-        var okra = '<span style="color:#9ca3af;">→</span>';
-        var html = '<b style="margin-right:4px;">Ҳафталик ҳолати:</b>';
-        // Admin: yopiq haftani tahrirlashga BIR MARTALIK ruxsat (har hafta uchun alohida)
-        var ruxsatTugma = (h.status !== 'draft' && ADMIN_RAW)
-          ? wkForma(h.id, 'tahrir_ruxsat', h.ruxsat ? '🔒 Рухсатни ёпиш' : '🔓 Таҳрирга рухсат бериш', h.ruxsat ? '#b45309' : '#1a5fb4', false) : '';
-        var ruxsatBelgi = h.ruxsat
-          ? '<span style="border-radius:999px; padding:2px 11px; font-weight:700; background:#fef3c7; color:#92400e; border:1px solid #fcd34d;">🔓 Админ таҳрирга рухсат берган — ўзгартириб «💾 Сақлаш»ни босинг (бир марталик)</span>' : '';
+        pill.textContent = h.raqam + '-ҳафта · ' + h.sana;
+        var kir = (h.kiritdi||'') + (h.kiritdi_at ? ' · ' + h.kiritdi_at : '');
         if (h.status === 'draft'){
-          html += qadam('ПТО (қоралама)', 'joriy', h.kiritdi, h.kiritdi_at) + okra +
-                  qadam('Директор', 'keyin') + okra + qadam('Админ', 'keyin');
-          st.style.cssText = 'display:flex; border-radius:6px; padding:7px 12px; margin-bottom:8px; font-size:12.5px; align-items:center; gap:8px; flex-wrap:wrap; background:#fffbeb; border:1px solid #fde68a;';
+          tileHtml('warn', 'Ҳафта ҳолати', 'Қоралама — ҳали юборилмаган', esc(kir) + esc(ruxsatMt));
+          stepsEl.innerHTML = step(1, 'ПТО', 'joriy', h.kiritdi||'') + step(2, 'Директор', 'keyin', '') + step(3, 'Админ', 'keyin', '');
         } else if (h.status === 'dir'){
-          html += qadam('ПТО юборди', 'ok', h.kiritdi, h.kiritdi_at) + okra +
-                  qadam('ДИРЕКТОР тасдиғида', 'joriy') + okra + qadam('Админ', 'keyin');
-          html += ruxsatBelgi;
-          html += '<span style="margin-left:auto; display:inline-flex; gap:8px; align-items:center; flex-wrap:wrap;">'+
-            (WK_DIR_ACTOR ? (wkForma(h.id, 'dir_approve', '✓ Тасдиқлаш (директор)', '#26a269', false)+
-                             wkForma(h.id, 'dir_reject', '↩ Орқага қайтариш', '#c2410c', true)) : '')+ruxsatTugma+'</span>';
-          st.style.cssText = 'display:flex; border-radius:6px; padding:7px 12px; margin-bottom:8px; font-size:12.5px; align-items:center; gap:8px; flex-wrap:wrap; background:#eff6ff; border:1px solid #bfdbfe;';
+          tileHtml('blue', 'Ҳафта ҳолати', 'Директор тасдиғида', 'ПТО юборди: ' + esc(kir) + esc(ruxsatMt));
+          stepsEl.innerHTML = step(1, 'ПТО', 'ok', h.kiritdi||'') + step(2, 'Директор', 'joriy', 'кутилмоқда') + step(3, 'Админ', 'keyin', '');
+          if (WK_DIR_ACTOR) acts += wkForma(h.id, 'dir_approve', '✓ Тасдиқлаш (директор)', '#15803D', false) +
+                                    wkForma(h.id, 'dir_reject', '↩ Орқага қайтариш', '#B45309', true);
+          acts += ruxsatTugma;
         } else if (h.status === 'submitted'){
-          html += qadam('ПТО юборди', 'ok', h.kiritdi, h.kiritdi_at) + okra +
-                  qadam('Директор', 'ok', h.dir_by, h.dir_at) + okra +
-                  qadam('АДМИН тасдиғида', 'joriy');
-          html += ruxsatBelgi;
-          if (ADMIN_RAW) html += '<span style="margin-left:auto; display:inline-flex; gap:8px; align-items:center; flex-wrap:wrap;">'+
-            wkForma(h.id, 'approve', '✓ Тасдиқлаш (админ)', '#26a269', false)+
-            wkForma(h.id, 'draft', '↩ Орқага қайтариш', '#c2410c', true)+ruxsatTugma+'</span>';
-          st.style.cssText = 'display:flex; border-radius:6px; padding:7px 12px; margin-bottom:8px; font-size:12.5px; align-items:center; gap:8px; flex-wrap:wrap; background:#eff6ff; border:1px solid #bfdbfe;';
+          tileHtml('blue', 'Ҳафта ҳолати', 'Админ тасдиғида', 'Директор тасдиқлади: ' + esc((h.dir_by||'') + (h.dir_at ? ' · ' + h.dir_at : '')) + esc(ruxsatMt));
+          stepsEl.innerHTML = step(1, 'ПТО', 'ok', h.kiritdi||'') + step(2, 'Директор', 'ok', h.dir_by||'') + step(3, 'Админ', 'joriy', 'кутилмоқда');
+          if (ADMIN_RAW) acts += wkForma(h.id, 'approve', '✓ Тасдиқлаш (админ)', '#15803D', false) +
+                                 wkForma(h.id, 'draft', '↩ Орқага қайтариш', '#B45309', true);
+          acts += ruxsatTugma;
         } else {
-          html += qadam('ПТО юборди', 'ok', h.kiritdi, h.kiritdi_at) + okra +
-                  (h.dir_by ? (qadam('Директор', 'ok', h.dir_by, h.dir_at) + okra) : '') +
-                  qadam('ТАСДИҚЛАНДИ', 'ok', h.adm_by, h.adm_at);
-          html += ruxsatBelgi;
+          tileHtml('ok2', 'Ҳафта ҳолати', '✓ Тасдиқланган', esc((h.adm_by||'admin') + (h.adm_at ? ' · ' + h.adm_at : '')) + esc(ruxsatMt));
+          stepsEl.innerHTML = step(1, 'ПТО', 'ok', h.kiritdi||'') + step(2, 'Директор', 'ok', h.dir_by||'') + step(3, 'Админ', 'ok', h.adm_by||'');
           if (ADMIN_RAW){
             // Тасдиқдан кейин яна таҳрир керак бўлса — ПТОга қайтариш (Телеграм код билан)
-            html += '<span style="margin-left:auto; display:inline-flex; gap:8px; align-items:center; flex-wrap:wrap;">'+ruxsatTugma+
-                    '<a href="'+QAYTAR_TMPL.replace('123456789', h.id)+'" '+
-                    'style="background:#b45309; color:#fff; border-radius:5px; '+
-                    'padding:4px 12px; font-weight:700; text-decoration:none; font-size:12px;" '+
-                    'title="Сўров ПТО қораламасига қайтади — таҳрирлаб қайта юборади. Телеграм код сўралади.">'+
-                    '↩ ПТОга қайтариш</a></span>';
+            acts += ruxsatTugma +
+              '<a href="'+QAYTAR_TMPL.replace('123456789', h.id)+'" class="lh-btn xs" style="color:#92400E; border-color:#F3D9A4;" '+
+              'title="Сўров ПТО қораламасига қайтади — таҳрирлаб қайта юборади. Телеграм код сўралади.">↩ ПТОга қайтариш</a>';
           }
-          st.style.cssText = 'display:flex; border-radius:6px; padding:7px 12px; margin-bottom:8px; font-size:12.5px; align-items:center; gap:8px; flex-wrap:wrap; background:#f0fdf4; border:1px solid #bbf7d0;';
         }
-        st.innerHTML = html;
       }
-    }
+      amal.innerHTML = acts;
+      if (note){
+        var ns = note.querySelector('span');
+        if (ns) ns.textContent = (h && h.ruxsat) ? 'Рухсат бир марталик: сақлангач ҳафта яна қулфланади (ҳолати ўзгармайди).'
+                                : (h && h.status !== 'draft') ? 'Ҳафта қулф — қайта таҳрир учун админ рухсати керак.'
+                                : 'Ҳафта юборилгач унинг устунлари қулфланади ва директорга ўтади.';
+      }
+    })();
     document.querySelectorAll('#ljBody tr.split').forEach(function(x){ x.remove(); });
 
     if (LIM_EDIT){
@@ -1039,6 +1217,19 @@
   (function(){
     var qi = document.getElementById('ljQidir');
     if (qi) qi.addEventListener('input', ljQidirla);
+    // Излаш майдони: тозалаш тугмаси
+    var qWrap = document.getElementById('lhSearch'), qCl = document.getElementById('ljQidirCl');
+    if (qi && qWrap){
+      var qBor = function(){ qWrap.classList.toggle('bor', !!qi.value); };
+      qi.addEventListener('input', qBor); qBor();
+      if (qCl) qCl.onclick = function(){ qi.value = ''; qBor(); ljQidirla(); qi.focus(); };
+    }
+    // «Жараён қандай ишлайди» — очиш/ёпиш
+    var hBtn = document.getElementById('lhHelpBtn'), hBox = document.getElementById('lhHelp');
+    if (hBtn && hBox) hBtn.onclick = function(){
+      var och = !hBox.classList.contains('show');
+      hBox.classList.toggle('show', och); hBtn.setAttribute('aria-expanded', och ? 'true' : 'false');
+    };
     var tbar = document.getElementById('ljTurbar');
     if (tbar) tbar.addEventListener('click', function(e){
       var b = e.target.closest('.tchipf');
@@ -1718,7 +1909,7 @@
     hisobla();
     var el = document.getElementById('ljAuto');
     if (el){
-      el.style.display='block';
+      el.style.display='flex';
       el.querySelector('.t').textContent = new Date(s.t).toLocaleString('ru-RU');
       // Qaysi tugma: Умумий (blok/qator) tiklangan bo'lsa — qoralama/limit, haftalik bo'lsa — Сақлаш
       var limTik = LIM_EDIT && (yangiBloklar.length || Object.keys(s.lim||{}).length);
