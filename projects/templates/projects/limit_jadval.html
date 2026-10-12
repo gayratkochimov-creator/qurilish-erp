@@ -245,6 +245,12 @@
   @media (max-width:1100px) { .lh-grid { grid-template-columns:minmax(0,1fr); } }
   @media (max-width:640px) { .lh-tiles { grid-template-columns:minmax(0,1fr); } .lh-steps .mt { display:none; } .lh-search { width:100%; } .lh-tools .r { margin-left:0; } }
   @media print { .lh, .lh-tools, .turbar { display:none !important; } }
+  .lh-seg { display:inline-flex; border:1px solid #D5D9E0; border-radius:8px; overflow:hidden; }
+  .lh-seg button { height:32px; padding:0 12px; border:none; background:#fff; color:#374151; font:inherit; font-size:12px; font-weight:500; cursor:pointer; }
+  .lh-seg button + button { border-left:1px solid #D5D9E0; }
+  .lh-seg button.on { background:#1E5BB8; color:#fff; font-weight:600; }
+  .lj-wrap.toliq-yashir tr.ish.toliq, .lj-wrap.toliq-yashir tr.split.toliq { display:none !important; }
+  .lh-ft .acts button:disabled { opacity:.45; cursor:not-allowed; }
   .lj-print-only { display:none; }
   @media print { .lj-print-only { display:block; font-size:15px; font-weight:700; margin:0 0 6px; } }
 </style>
@@ -313,6 +319,11 @@
         </div>
         {% endif %}
         {% if lim_holat.qaytarish %}<div class="lh-row bad"><span class="t">{{ lim_holat.qaytarish }}</span></div>{% endif %}
+        <div class="lh-row" id="lhToliq">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+          <span class="t">Тўлиқ олинган қаторлар</span><span class="m">Қолган = 0 · <b id="lhToliqN">0</b> та қатор</span>
+          <span class="r"><span class="lh-seg"><button type="button" id="lhToliqKor" class="on">Кўрсатиш</button><button type="button" id="lhToliqYash">Яшириш</button></span></span>
+        </div>
 
         {% if lim_pending or qoralama and taklif_view %}
         <div class="lh-row {% if taklif_view %}chain{% endif %}">
@@ -351,10 +362,10 @@
       <div class="lh-ft">
         <div class="acts">
           {% if taklif_edit %}<button type="button" class="lj-sec" id="btnReqSaqla" title="{% if qoralama %}Қораламани сақлаш — занжирга юборилмайди{% else %}Занжирдаги таклиф қаторларини сақлаш — босқич ўзгармайди{% endif %}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>{% if qoralama %}Сақлаш (қоралама){% else %}Таклифни сақлаш{% endif %}</button>{% endif %}
-          {% if lim_edit_huquq and not can_edit %}<button type="button" class="lj-sec" id="btnQoralama" title="Тугатмаган бўлсангиз — жадвал серверда қоралама бўлиб сақланади; кейин шу жойидан давом этасиз"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>Қоралама сақлаш</button>{% endif %}
+          {% if lim_edit_huquq %}<button type="button" class="lj-sec" id="btnQoralama" title="Тугатмаган бўлсангиз — жадвал серверда қоралама бўлиб сақланади; кейин шу жойидан давом этасиз"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>Қоралама сақлаш</button>{% endif %}
           {% if lim_qosh_huquq %}
+            <button type="button" class="lj-sec" id="btnQoralama" title="Янги қаторларни қоралама сифатида сақлаш — занжирга юборилмайди"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>Сақлаш (қоралама)</button>
             <button type="button" class="lj-pri" id="btnLimYubor" title="Янги блок/қаторлар занжирга сўров бўлиб кетади (мавжуд қаторлар ўзгармайди)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>Лимитни юбориш{% if lj_keyingi %}<span class="to">→ {{ lj_keyingi }}</span>{% endif %}</button>
-            {% if not can_edit %}<button type="button" class="lj-sec" id="btnQoralama" title="Янги қаторларни қоралама сифатида сақлаш">Қоралама сақлаш</button>{% endif %}
           {% endif %}
           {% if lim_edit_huquq %}
             <button type="button" class="{% if adm_togri %}lj-ok{% else %}lj-pri{% endif %}" id="btnLimYubor" title="{% if adm_togri %}Умумий устундаги ўзгаришлар тўғридан-тўғри қўлланади{% else %}Умумий лимит ўзгаришлари кейинги юсерга сўров бўлиб кетади{% endif %}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{% if adm_togri %}<path d="M20 6 9 17l-5-5"/>{% else %}<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>{% endif %}</svg>{% if adm_togri %}Лимитни қўллаш{% else %}Лимитни юбориш{% if lj_keyingi %}<span class="to">→ {{ lj_keyingi }}</span>{% endif %}{% endif %}</button>
@@ -407,7 +418,7 @@
           <button type="button" class="lj-sec" id="btnSaqla" title="Ҳафталик — қоралама; Умумий ўзгаришлар — қоралама (занжирга юборилмайди)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>Сақлаш</button>
           <button type="button" class="lj-pri" id="btnYopish" title="Ҳафтани ёпиш — сўров директор тасдиғига юборилади"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>Ҳафтани юбориш<span class="to">→ {{ wk_keyingi }}</span></button>
         </div>
-        <span class="hint">Сақлаш: ҳафта қоралама бўлиб сизда қолади (Умумийдаги ўзгаришлар ҳам қораламага). Юбориш: ҳафта ёпилади ва занжирга кетади — снабжения → ПТО хулосаси → директор → проверчик → админ.</span>
+        <span class="hint" id="wkFtHint">Сақлаш: ҳафта қоралама бўлиб сизда қолади (кейинги юсерга ўтмайди). Юбориш: ҳафта ёпилади ва занжирга кетади.</span>
       </div>
       {% endif %}
     </section>
@@ -1254,6 +1265,19 @@
       qi.addEventListener('input', qBor); qBor();
       if (qCl) qCl.onclick = function(){ qi.value = ''; qBor(); ljQidirla(); qi.focus(); };
     }
+    // Тўлиқ олинган қаторлар — кўрсатиш/яшириш (ҳар объект учун эслаб қолинади)
+    var tKor = document.getElementById('lhToliqKor'), tYash = document.getElementById('lhToliqYash'), tWrap = document.getElementById('jadvalWrap');
+    if (tKor && tYash && tWrap){
+      var tKey = 'ljtoliq_{{ p.pk }}';
+      function tQoy(yashir){
+        tWrap.classList.toggle('toliq-yashir', yashir);
+        tKor.classList.toggle('on', !yashir); tYash.classList.toggle('on', yashir);
+        try { localStorage.setItem(tKey, yashir ? '1' : '0'); } catch(e){}
+      }
+      tKor.onclick = function(){ tQoy(false); };
+      tYash.onclick = function(){ tQoy(true); };
+      try { tQoy(localStorage.getItem(tKey) === '1'); } catch(e){}
+    }
     // «Жараён қандай ишлайди» — очиш/ёпиш
     var hBtn = document.getElementById('lhHelpBtn'), hBox = document.getElementById('lhHelp');
     if (hBtn && hBox) hBtn.onclick = function(){
@@ -1369,11 +1393,16 @@
     var gT=0,gF=0,gL=0,gW=0;
     var sT=0,sF=0,sL=0,sW=0,nrk=0;
     var body = document.getElementById('ljBody');
+    var toliqN = 0, lastToliq = false;
     Array.prototype.forEach.call(body.rows, function(tr){
-      if (tr.classList.contains('block')){ sT=0;sF=0;sL=0;sW=0; nrk=0; return; }
+      if (tr.classList.contains('block')){ sT=0;sF=0;sL=0;sW=0; nrk=0; lastToliq = false; return; }
+      if (tr.classList.contains('split')){ tr.classList.toggle('toliq', lastToliq); return; }
       if (tr.classList.contains('ish')){
         if (rowDel(tr)) return;
         var vol=rowVol(tr), price=rowPrice(tr), fs=pf(tr.dataset.fsum), fq=pf(tr.dataset.fqty);
+        lastToliq = vol > 0 && (vol - fq) <= 0.0005;
+        tr.classList.toggle('toliq', lastToliq);
+        if (lastToliq) toliqN++;
         if (LIM_EDIT && tr.dataset.id){ var lx0 = limRow(tr); fq = pf(tr.dataset.wq) + (lx0.bq||0); fs = pf(tr.dataset.ws) + (lx0.bs||0); }
         var w = rowWeek(tr);
         // Жорий (таҳрирланаётган) ҳафта қиймати Бажарилганга ЖОНЛИ қўшилади
@@ -1484,6 +1513,7 @@
         if (xb && r) r.classList.add('row-err');
       }
     });
+    var tN = document.getElementById('lhToliqN'); if (tN) tN.textContent = toliqN;
     document.getElementById('gTotal').textContent = fmt(gT);
     document.getElementById('gFsum').textContent = fmt(gF);
     document.getElementById('gLsum').textContent = fmt(gL);
@@ -1510,11 +1540,20 @@
     if (sb) sb.style.display = edit ? 'flex' : 'none';
     var hR = haftaTop(sel), ruxsatRejim = !!(hR && hR.ruxsat && hR.status !== 'draft');
     ['btnSaqla','btnYopish'].forEach(function(id){
-      var b = document.getElementById(id); if (b) b.style.display = (edit && !(id==='btnYopish' && ruxsatRejim)) ? '' : 'none';
+      var b = document.getElementById(id); if (!b) return;
+      var mumkin = edit && !(id==='btnYopish' && ruxsatRejim);
+      b.disabled = !mumkin;
+      b.title = mumkin ? (id==='btnSaqla' ? 'Ҳафта қоралама бўлиб сизда қолади — кейинги юсерга ўтмайди' : 'Ҳафта ёпилади ва занжирга кетади')
+                       : (ruxsatRejim ? 'Рухсат режимида фақат «Сақлаш» — ҳафта ҳолати ўзгармайди' : 'Бу ҳафта қулф — янги ҳафта учун «+ Янги ҳафта» табини танланг');
     });
+    var wkHint = document.getElementById('wkFtHint');
+    if (wkHint) wkHint.textContent = edit
+      ? (ruxsatRejim ? 'Рухсат бир марталик: «Сақлаш» — ўзгаришлар ёзилади, ҳафта ҳолати ўзгармайди, рухсат ёпилади.'
+                     : 'Сақлаш: ҳафта қоралама бўлиб сизда қолади (кейинги юсерга ўтмайди). Юбориш: ҳафта ёпилади ва занжирга кетади — снабжения → ПТО хулосаси → директор → проверчик → админ.')
+      : 'Бу ҳафта қулф. Янги ҳафта киритиш учун «+ Янги ҳафта» табини танланг.';
     document.querySelectorAll('#ljBody tr.lim-addrow').forEach(function(b){ b.style.display = (LIM_EDIT || LIM_QOSH) ? '' : 'none'; });
     var bLim0 = document.getElementById('btnLimYubor');
-    if (bLim0) bLim0.style.display = LIM_EDIT ? '' : 'none';
+    if (bLim0) bLim0.style.display = (LIM_EDIT || LIM_QOSH) ? '' : 'none';
     var bLimZ0 = document.getElementById('btnLimZanjir');
     if (bLimZ0) bLimZ0.style.display = LIM_EDIT ? '' : 'none';
     hammaRaqamKengay();
