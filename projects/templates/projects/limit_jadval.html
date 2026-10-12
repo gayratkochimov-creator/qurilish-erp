@@ -289,7 +289,7 @@
   </div>
   <div class="lh-limtabs" id="lhLimTabs">
     {% for l in limitlar %}<a class="lh-limtab {% if l.joriy %}on{% endif %}" href="?limit={{ l.raqam }}" title="{{ l.raqam }}-лимит{% if l.nom %} · {{ l.nom }}{% endif %}"><b>{{ l.raqam }}-лимит</b>{% if l.nom %}<span class="nm">{{ l.nom }}</span>{% endif %}<span class="s">{{ l.jami_q }}</span></a>{% endfor %}
-    {% if is_adm %}<form method="post" action="{% url 'limit_yangi' p.pk %}" class="lh-limyangi" onsubmit="var n=prompt('Янги лимит номи (ихтиёрий, масалан: 2-босқич / қўшимча ишлар):', ''); if (n === null) return false; this.querySelector('[name=nom]').value = n; return confirm('Объектда КЕЙИНГИ умумий лимит очилади (бўш, ПТО киритади). Олдинги лимитлар фаол қолади. Давом этамизми?');">{% csrf_token %}<input type="hidden" name="nom" value=""><button type="submit" class="lh-limtab yangi">+ Кейинги лимитни очиш</button></form>{% endif %}
+    {% if is_asosiy_adm %}<a href="{% url 'limit_yangi' p.pk %}" class="lh-limtab yangi" title="Фақат асосий админ — Telegram тасдиқлаш коди билан">+ Кейинги лимитни очиш</a>{% endif %}
   </div>
   <div class="lh-help" id="lhHelp">
     <b>Умумий лимит.</b> Объём ва нархлар «Умумий» устунида киритилади. «Сақлаш» — қоралама (фақат сизда қолади). «Юбориш» — снабжения → ПТО хулосаси → директор → проверчик → админ занжирига сўров кетади; ҳар босқич эгаси тўғрилаб, кейингисига ўтказади ёки орқага қайтаради. Тасдиқлангач мавжуд қаторлар қулфланади — ўзгартириш учун админ рухсати керак, янги қатор қўшиш эса яна занжир орқали.<br>

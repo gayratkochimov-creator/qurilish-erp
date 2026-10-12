@@ -1064,7 +1064,7 @@ def limit_narx_yangilash(request, pk):
     return redirect("project_detail", pk=pk)
 
 
-def _qayt_kod_yubor(request, tur, pk, obj_nomi, sabab):
+def _qayt_kod_yubor(request, tur, pk, obj_nomi, sabab, matn=None):
     """PTOga qaytarish uchun 6 xonali tasdiqlash kodini Telegramga yuboradi.
     Kod sessiyada saqlanadi (10 daqiqa, 3 urinish)."""
     import secrets
@@ -1077,7 +1077,7 @@ def _qayt_kod_yubor(request, tur, pk, obj_nomi, sabab):
     chat = (getattr(prof, "telegram_chat_id", "") or "") if prof else ""
     chats = [chat] if chat else list(admin_chatlar())
     matn = (f"🔐 Tasdiqlash kodi: {kod}\n"
-            f"{obj_nomi} — {tur}ni PTOga qaytarish.\n"
+            + (matn or f"{obj_nomi} — {tur}ni PTOga qaytarish.") + "\n"
             f"So'radi: {request.user.username}. Kod 10 daqiqa amal qiladi.")
     yubordi = False
     for c in chats:
@@ -4585,7 +4585,7 @@ def limit_jadval(request, pk):
     limitlar = [{"raqam": l_.raqam, "nom": l_.nom, "joriy": l_.pk == lim.pk,
                  "jami_q": _money(l_.jami())} for l_ in p.limitlar.order_by("raqam")]
     return render(request, "projects/limit_jadval.html", {
-        "lim": lim, "limitlar": limitlar,
+        "lim": lim, "limitlar": limitlar, "is_asosiy_adm": _asosiy_adm(request.user),
         "lj_qadamlar": lj_qadamlar, "lj_pill": lj_pill, "lj_keyingi": lj_keyingi,
         "wk_dir_nom": _ism(_dir_u), "wk_adm_nom": _ism(_adm_u),
         "wk_keyingi": WK_BOSQICH_NOM.get(_wk1, _wk1) + (" · " + _ism(_wk1_u) if _wk1_u else ""),
@@ -4967,21 +4967,46 @@ def limit_tahrir_ruxsat_toggle(request, pk):
 
 @login_required
 def limit_yangi(request, pk):
-    """ADMIN: obyektda KEYINGI raqamli umumiy limitni ochish (bo'sh — PTO kiritadi).
-    Oldingi limitlar faol qoladi: ularga ham haftalik yoziladi."""
+    """ASOSIY ADMIN obyektda KEYINGI raqamli umumiy limitni ochadi — Telegram tasdiqlash
+    KODI bilan (xuddi PTOga qaytarish kabi). Yangi limit bo'sh — PTO kiritadi;
+    oldingi limitlar faol qoladi."""
     from .models import Limit
+    from .roles import is_asosiy_admin
     p = _firma_yoki_403(request, get_object_or_404(Project, pk=pk))
-    if not is_admin(request.user):
-        raise PermissionDenied("Keyingi limitni faqat admin ochadi.")
+    if not is_asosiy_admin(request.user):
+        raise PermissionDenied("Keyingi limitni faqat ASOSIY admin ochadi.")
+    joriy = p.joriy_limit()
+    keyingi_raqam = (p.limitlar.order_by("-raqam").values_list("raqam", flat=True).first() or 0) + 1
+    nomi = f"{p.code} — {p.name}"
+    ctx0 = {"sarlavha": f"{keyingi_raqam}-умумий лимитни очиш", "obj_nomi": nomi,
+            "action_url": reverse("limit_yangi", args=[pk]), "bekor_url": _lj_url(joriy),
+            "rejim": "limit_yangi",
+            "sub_sabab": f"Янги лимит номини (ихтиёрий, масалан «{keyingi_raqam}-босқич») ёзинг — кейин Telegram'ингизга тасдиқлаш коди юборилади. "
+                         f"Ҳозирги {joriy.raqam}-лимит фаол қолади.",
+            "label_sabab": "Янги лимит номи (ихтиёрий)", "tugma": f"Кодни олиш ва {keyingi_raqam}-лимитни очиш"}
     if request.method != "POST":
-        return redirect("limit_jadval", pk=pk)
-    oxirgi = p.joriy_limit()
-    nom = " ".join((request.POST.get("nom") or "").split())[:120]
+        return render(request, "projects/qaytarish_kod.html", dict(ctx0, sabab="", bosqich="sabab"))
+    kod = (request.POST.get("kod") or "").strip()
+    if not kod:
+        nom = " ".join((request.POST.get("sabab") or request.POST.get("nom") or "").split())[:120]
+        if not _qayt_kod_yubor(request, "limit_yangi", pk, nomi, nom,
+                               matn=f"{nomi} — {keyingi_raqam}-умумий лимитни очиш"
+                                    + (f" («{nom}»)" if nom else "") + "."):
+            messages.error(request, "Telegramga kod yuborib bo'lmadi — bot bog'lanishini tekshiring.")
+            return redirect(_lj_url(joriy))
+        return render(request, "projects/qaytarish_kod.html", dict(ctx0, sabab=nom, bosqich="kod"))
+    nom, xato = _qayt_kod_tekshir(request, "limit_yangi", pk, kod)
+    if xato:
+        messages.error(request, xato)
+        if "qaytadan" in xato:
+            return redirect(_lj_url(joriy))
+        return render(request, "projects/qaytarish_kod.html",
+                      dict(ctx0, sabab=request.POST.get("sabab", ""), bosqich="kod"))
     with transaction.atomic():
         raqam = (p.limitlar.order_by("-raqam").values_list("raqam", flat=True).first() or 0) + 1
-        lim = Limit.objects.create(project=p, raqam=raqam, nom=nom, created_by=request.user)
+        lim = Limit.objects.create(project=p, raqam=raqam, nom=nom or "", created_by=request.user)
     messages.success(request, f"{raqam}-лимит ochildi (bo'sh). PTO qatorlarni kiritib zanjirga yuboradi; "
-                              f"{oxirgi.raqam}-лимит ham faol qoladi.")
+                              f"{joriy.raqam}-лимит ham faol qoladi.")
     return redirect(_lj_url(lim))
 
 

@@ -32,19 +32,19 @@
   <div class="obj">{{ obj_nomi }}</div>
 
   {% if bosqich == 'sabab' %}
-  <div class="sub">Qaytarish sababini yozing — keyin Telegramingizga tasdiqlash kodi yuboriladi.</div>
+  <div class="sub">{{ sub_sabab|default:"Qaytarish sababini yozing — keyin Telegramingizga tasdiqlash kodi yuboriladi." }}</div>
   <form method="post" action="{{ action_url }}">
     {% csrf_token %}
-    <label>Kamchilik / qaytarish sababi</label>
-    <input type="text" name="sabab" placeholder="masalan: narxlar xato kiritilgan..." autofocus autocomplete="off">
+    <label>{{ label_sabab|default:"Kamchilik / qaytarish sababi" }}</label>
+    <input type="text" name="sabab" placeholder="{% if rejim == 'limit_yangi' %}масалан: 2-босқич / қўшимча ишлар{% else %}masalan: narxlar xato kiritilgan...{% endif %}" autofocus autocomplete="off">
     <div class="qbtns">
-      <button type="submit" class="qbtn">Kodni Telegramga yuborish</button>
+      <button type="submit" class="qbtn">{% if rejim == 'limit_yangi' %}Кодни Telegram'га юбориш{% else %}Kodni Telegramga yuborish{% endif %}</button>
       <a class="qbek" href="{{ bekor_url }}">Bekor qilish</a>
     </div>
   </form>
   {% else %}
   <div class="sub">Telegramingizga 6 xonali tasdiqlash kodi yuborildi (10 daqiqa amal qiladi).</div>
-  <div class="sabab">Sabab: {{ sabab }}</div>
+  {% if rejim == 'limit_yangi' %}{% if sabab %}<div class="sabab">Янги лимит номи: {{ sabab }}</div>{% endif %}{% else %}<div class="sabab">Sabab: {{ sabab }}</div>{% endif %}
   <form method="post" action="{{ action_url }}">
     {% csrf_token %}
     <input type="hidden" name="sabab" value="{{ sabab }}">
@@ -52,7 +52,7 @@
     <input type="text" name="kod" class="kodinp" inputmode="numeric" maxlength="6"
            placeholder="••••••" autofocus autocomplete="one-time-code">
     <div class="qbtns">
-      <button type="submit" class="qbtn">Tasdiqlash — PTOga qaytarish</button>
+      <button type="submit" class="qbtn">{% if rejim == 'limit_yangi' %}Тасдиқлаш — {{ tugma|default:"лимитни очиш" }}{% else %}Tasdiqlash — PTOga qaytarish{% endif %}</button>
       <a class="qbek" href="{{ bekor_url }}">Bekor qilish</a>
     </div>
   </form>
