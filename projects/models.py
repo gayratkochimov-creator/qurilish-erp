@@ -134,7 +134,12 @@ class Project(models.Model):
                                       item__request__status=WeeklyRequest.Status.APPROVED)
                 .values("item__kind").annotate(s=Sum("summa")))
         for r in rows:
-            d[r["item__kind"]] = r["s"] or Decimal("0.00")
+            d[r["item__kind"]] = (d.get(r["item__kind"]) or Decimal("0.00")) + (r["s"] or Decimal("0.00"))
+        # Limit qatoriga yozilgan to'lovlar (moliyalashtirish jadvali)
+        rows = (Moliya.objects.filter(limit_item__project=self)
+                .values("limit_item__kind").annotate(s=Sum("summa")))
+        for r in rows:
+            d[r["limit_item__kind"]] = (d.get(r["limit_item__kind"]) or Decimal("0.00")) + (r["s"] or Decimal("0.00"))
         return d
 
     def berildi(self):
@@ -566,6 +571,8 @@ class LimitItem(models.Model):
     # «Бажарилган» = shu + tasdiqlangan haftaliklar
     boshlangich_qty = models.DecimalField("Limitgacha bajarilgan (miqdor)", default=0, **QTY)
     boshlangich_sum = models.DecimalField("Limitgacha bajarilgan (summa)", default=0, **MONEY)
+    # Moliyalashtirish jadvalidagi «Izoh» ustuni — buxgalter yozadi (to'lov izohidan alohida)
+    moliya_izoh = models.CharField("Moliya izohi (buxgalter)", max_length=300, blank=True)
     created_at = models.DateTimeField("Qo'shilgan sana", auto_now_add=True, null=True)
     updated_at = models.DateTimeField("O'zgartirilgan sana", auto_now=True, null=True)
 
@@ -907,8 +914,15 @@ class Moliya(models.Model):
     (bugun 60%, kelasi hafta qolgani). Yozuv o'chirilmaydi — jurnal."""
 
     item = models.ForeignKey(
-        "WeeklyRequestItem", on_delete=models.CASCADE,
+        "WeeklyRequestItem", on_delete=models.CASCADE, null=True, blank=True,
         related_name="moliyalar", verbose_name="Haftalik qatori",
+    )
+    # 2026-10-12: moliyalashtirish UMUMIY LIMIT jadvali bo'yicha yuritiladi —
+    # to'lov limit qatoriga yoziladi (eski haftalik to'lovlar item orqali saqlanib qoladi
+    # va mos limit qatoriga qo'shib hisoblanadi)
+    limit_item = models.ForeignKey(
+        "LimitItem", on_delete=models.CASCADE, null=True, blank=True,
+        related_name="moliyalar", verbose_name="Limit qatori",
     )
     summa = models.DecimalField("Berilgan summa", **MONEY)
     miqdor = models.DecimalField("Berilgan miqdor", null=True, blank=True, **QTY)
@@ -925,8 +939,21 @@ class Moliya(models.Model):
         verbose_name_plural = "Moliyalashtirish (to'lovlar)"
         ordering = ["-sana", "-id"]
 
+    @property
+    def qator(self):
+        """To'lov yozilgan qator: limit qatori yoki (eski) haftalik qatori."""
+        return self.limit_item if self.limit_item_id else self.item
+
+    @property
+    def project(self):
+        q = self.qator
+        if q is None:
+            return None
+        return q.project if self.limit_item_id else q.request.project
+
     def __str__(self):
-        return f"{self.item.name}: {self.summa} ({self.sana:%d.%m.%Y})"
+        q = self.qator
+        return f"{q.name if q else '—'}: {self.summa} ({self.sana:%d.%m.%Y})"
 
 
 class Xabar(models.Model):

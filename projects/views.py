@@ -2998,132 +2998,238 @@ def moliya_kora_oladi(user):
 
 @login_required
 def moliya(request):
-    """MOLIYALASHTIRISH sahifasi (buxgalter/admin yozadi, qolganlar ko'radi):
-    tasdiqlangan haftalik qatorlari — Tasdiqlangan / Berildi / Qoldi.
-    Firma/obyekt filtri, «faqat qarzlar» rejimi, to'lov jurnali."""
-    from .models import Moliya
+    """MOLIYALASHTIRISH — UMUMIY LIMIT JADVALI bo'yicha (2026-10-12).
+    Obyekt tanlanadi → har raqamli limit to'liq jadval: Umumiy / Bajarilgan / Qolgan
+    + BERILGAN (buxgalter to'lovlari) / QOLGAN OSTATKI (limit − berilgan) / IZOH.
+    To'lov limit qatoriga yoziladi; eski haftalik to'lovlar mos qatorga qo'shiladi.
+    Obyekt tanlanmasa — obyektlar ro'yxati (limit / bajarilgan / berildi / ostatki)."""
+    from django.db.models import Q
+    from django.utils import timezone
+    from .models import Moliya, LimitItem
     if not moliya_kora_oladi(request.user):
         raise PermissionDenied("Moliyalashtirish bo'limi prorabga ko'rsatilmaydi.")
     yoza_oladi = _moliya_yoza_oladi(request.user)
-    vp = visible_projects(request.user)
+    vp_all = visible_projects(request.user)
+    vp = vp_all
     firma_id = request.GET.get("firma") or ""
     proj_id = request.GET.get("obyekt") or ""
-    faqat_qarz = request.GET.get("qarz", "1") == "1"
-    if firma_id:
-        vp = vp.filter(firma_id=firma_id)
-    items = (WeeklyRequestItem.objects
-             .filter(request__project__in=vp, request__status=WeeklyRequest.Status.APPROVED)
-             .select_related("request", "request__project", "request__project__firma")
-             .prefetch_related("moliyalar__yozdi")
-             .order_by("request__project__code", "-request__week_start", "id"))
-    if proj_id:
-        items = items.filter(request__project_id=proj_id)
-    LI_CLS = {"material": "mat", "labor": "lab", "machinery": "mach", "other": "oth"}
-    rows = []
-    jami_t = jami_b = jami_q = Decimal("0")
-    obyekt_qarz = {}
-    # TOIFA bo'yicha (material / ish haqi / mashina / boshqa) tasdiq-berildi-qoldi
-    toifa = {k: {"t": Decimal("0"), "b": Decimal("0"), "q": Decimal("0")} for k in KINDS}
-    for it in items:
-        t = it.total
-        b = it.berildi
-        q = it.qarz
-        p = it.request.project
-        tk = toifa.setdefault(it.kind, {"t": Decimal("0"), "b": Decimal("0"), "q": Decimal("0")})
-        tk["t"] += t; tk["b"] += b; tk["q"] += q
-        obyekt_qarz.setdefault(p.pk, {"p": p, "qarz": Decimal("0"), "tasdiq": Decimal("0"),
-                                      "berildi": Decimal("0")})
-        obyekt_qarz[p.pk]["qarz"] += q
-        obyekt_qarz[p.pk]["tasdiq"] += t
-        obyekt_qarz[p.pk]["berildi"] += b
-        jami_t += t; jami_b += b; jami_q += q
-        # «Faqat qarzlar» rejimida TO'LIQ to'langanlar ham ro'yxatda qoladi
-        # (yig'iq, yashil) — hafta ichida nima to'langani ko'rinib tursin
-        rows.append({
-            "toliq": q <= 0,
-            "it": it, "p": p, "w": it.request,
-            "kind_disp": it.get_kind_display(), "cls": LI_CLS.get(it.kind, "mat"),
-            "qty_str": _qty(it.quantity), "price_str": _money(it.unit_price),
-            "total_str": _money(t), "berildi_str": _money(b), "qarz_str": _money(q),
-            "berildi_qty": _qty(it.berildi_miqdor) if it.berildi_miqdor else "",
-            "foiz": int(b / t * 100) if t else 0,
-            "tolovlar": list(it.moliyalar.all()),
+    if firma_id.isdigit():
+        vp = vp.filter(firma_id=int(firma_id))
+    else:
+        firma_id = ""
+    if not proj_id.isdigit():
+        proj_id = ""
+    KCLS = {"material": "mat", "labor": "lab", "machinery": "mach", "other": "oth"}
+
+    def _dec(x):
+        return Decimal(str(x or 0))
+
+    # ---------- OBYEKTLAR RO'YXATI ----------
+    obyektlar = []
+    j_lim = j_baj = j_ber = Decimal("0")
+    for p in vp.select_related("firma").order_by("code"):
+        lim_s = p.budget_total or Decimal("0")
+        baj = p.sarflangan()
+        ber = p.berildi()
+        ost = lim_s - ber
+        j_lim += lim_s; j_baj += baj; j_ber += ber
+        obyektlar.append({
+            "p": p, "lim_str": _money(lim_s), "baj_str": _money(baj), "ber_str": _money(ber),
+            "ost_str": _money(ost), "ost_manfiy": ost < 0,
+            "foiz": int(ber / lim_s * 100) if lim_s > 0 else 0,
+            "toliq": lim_s > 0 and ost <= 0,
+            "limit_soni": p.limitlar.count(),
         })
-    obyektlar = sorted(obyekt_qarz.values(), key=lambda d: -d["qarz"])
-    for d in obyektlar:
-        d["qarz_str"] = _money(d["qarz"]); d["tasdiq_str"] = _money(d["tasdiq"])
-        d["berildi_str"] = _money(d["berildi"])
-    # HAFTALIK bo'yicha guruhlash: har hafta ostida o'z ITOGOSI (tasdiq/berildi/qoldi)
-    # + hafta ichida TOIFA bo'yicha bo'linish
-    _KN = {"material": "Material", "labor": "Ish haqi", "machinery": "Mashina", "other": "Boshqa"}
-    _KC = {"material": "mat", "labor": "lab", "machinery": "mach", "other": "oth"}
-    guruhlar = []
-    _g = None
-    for r_ in rows:
-        w_ = r_["w"]
-        if _g is None or _g["w"].pk != w_.pk:
-            _g = {"w": w_, "p": r_["p"], "rows": [], "t": Decimal("0"), "b": Decimal("0"),
-                  "q": Decimal("0"),
-                  "toifa": {k: {"t": Decimal("0"), "b": Decimal("0"), "q": Decimal("0")} for k in KINDS}}
-            guruhlar.append(_g)
-        _g["rows"].append(r_)
-        _t_, _b_, _q_ = r_["it"].total, r_["it"].berildi, r_["it"].qarz
-        _g["t"] += _t_; _g["b"] += _b_; _g["q"] += _q_
-        tk = _g["toifa"].setdefault(r_["it"].kind, {"t": Decimal("0"), "b": Decimal("0"), "q": Decimal("0")})
-        tk["t"] += _t_; tk["b"] += _b_; tk["q"] += _q_
-    # «Faqat qarzlar»: qarzi YO'Q haftalar butunlay yashiriladi (ular «Hammasi»da),
-    # qarzli hafta ichida esa to'liq to'langan qatorlar ham ko'rinib turadi
-    if faqat_qarz:
-        guruhlar = [g_ for g_ in guruhlar if g_["q"] > 0]
-    for g_ in guruhlar:
-        g_["t_str"] = _money(g_["t"]); g_["b_str"] = _money(g_["b"]); g_["q_str"] = _money(g_["q"])
-        g_["soni"] = len(g_["rows"])
-        g_["toliq_soni"] = sum(1 for r_ in g_["rows"] if r_["toliq"])
-        g_["toifa_ro"] = [
-            {"nom": _KN[k], "cls": _KC[k], "t_str": _money(v["t"]), "b_str": _money(v["b"]),
-             "q_str": _money(v["q"]), "bor": v["t"] > 0}
-            for k, v in g_["toifa"].items() if v["t"] > 0
-        ]
-    toifa_ro = [
-        {"nom": _KN[k], "cls": _KC[k], "t_str": _money(v["t"]), "b_str": _money(v["b"]),
-         "q_str": _money(v["q"]), "foiz": int(v["b"] / v["t"] * 100) if v["t"] else 0}
-        for k, v in toifa.items()
-    ]
-    # Ko'rinayotgan qatorlar bo'yicha jami (filtrga mos)
-    korin_t = sum((g_["t"] for g_ in guruhlar), Decimal("0"))
-    korin_b = sum((g_["b"] for g_ in guruhlar), Decimal("0"))
-    korin_q = sum((g_["q"] for g_ in guruhlar), Decimal("0"))
-    korin_soni = sum(g_["soni"] for g_ in guruhlar)
-    # So'nggi to'lovlar jurnali — har biri bosilib ochiladi (to'liq ma'lumot bilan)
+    jami = {"lim": _money(j_lim), "baj": _money(j_baj), "ber": _money(j_ber),
+            "ost": _money(j_lim - j_ber), "ost_manfiy": j_lim - j_ber < 0}
+
+    # ---------- TANLANGAN OBYEKT — LIMIT JADVALI ----------
+    sel_p, limit_bloklar = None, []
+    if proj_id:
+        sel_p = vp_all.filter(pk=int(proj_id)).select_related("firma").first()
+    if sel_p is not None:
+        for lim in sel_p.limitlar.order_by("raqam"):
+            # Bajarilgan = TASDIQLANGAN haftaliklar (shu limit) — nom+bo'lim kesimida
+            fakt = {}
+            boshqa_items = []   # limitda yo'q qatorlar (haftaliklardan)
+            w_items = (WeeklyRequestItem.objects
+                       .filter(request__limit=lim, request__status=WeeklyRequest.Status.APPROVED)
+                       .select_related("request").prefetch_related("moliyalar__yozdi").order_by("request__week_start", "id"))
+            for it in w_items:
+                k = _lj_key(it.name, it.bolim)
+                d = fakt.setdefault(k, {"qty": Decimal("0"), "sum": Decimal("0")})
+                d["qty"] += it.quantity; d["sum"] += it.total
+            items = list(lim.items.all().order_by("id"))
+            guruhlar = _lj_guruhlar(items, fakt)
+            li_map = {li.pk: li for li in items}
+            limit_keys = {r["key"] for g in guruhlar for r in g["rows"]}
+            # To'lovlar: limit qatoriga yozilganlar + eski haftalik to'lovlar (kalit bo'yicha,
+            # kalitning BIRINCHI qatoriga)
+            tol_li = {}
+            for m in (Moliya.objects.filter(limit_item__limit=lim).select_related("yozdi")
+                      .order_by("sana", "id")):
+                tol_li.setdefault(m.limit_item_id, []).append(m)
+            tol_key = {}
+            for it in w_items:
+                k = _lj_key(it.name, it.bolim)
+                if k in limit_keys:
+                    tol_key.setdefault(k, []).extend(it.moliyalar.all())
+                else:
+                    boshqa_items.append(it)
+            key_korildi = set()
+            l_t = l_f = l_b = Decimal("0")
+            for g in guruhlar:
+                g_t = g_f = g_b = Decimal("0")
+                for r in g["rows"]:
+                    li = li_map[r["id"]]
+                    total = li.total
+                    f_sum = _dec(r["fakt_sum"])
+                    tolovlar = list(tol_li.get(li.pk, []))
+                    if r["key"] not in key_korildi:
+                        key_korildi.add(r["key"])
+                        tolovlar += list(tol_key.get(r["key"], []))
+                    tolovlar.sort(key=lambda m: (m.sana, m.id))
+                    ber = sum((m.summa for m in tolovlar), Decimal("0"))
+                    ost = total - ber
+                    r.update({
+                        "li": li, "kind_cls": KCLS.get(r["kind"], "mat"),
+                        "kind_disp": KIND_NOMI.get(r["kind"], r["kind"]),
+                        "vol_str": _qty(li.quantity), "price_str": _money(li.unit_price), "total_str": _money(total),
+                        "fq_str": _qty(_dec(r["fakt_qty"])), "fs_str": _money(f_sum),
+                        "qq_str": _qty(li.quantity - _dec(r["fakt_qty"])), "qs_str": _money(total - f_sum),
+                        "ber_str": _money(ber), "ost_str": _money(ost), "ost_manfiy": ost < 0,
+                        "toliq": total > 0 and ost <= 0, "tolovlar": tolovlar,
+                        "foiz": min(100, int(ber / total * 100)) if total > 0 else 0,
+                        "m_izoh": li.moliya_izoh or "",
+                        "ber_bajdan_kop": ber > f_sum + Decimal("0.5"),
+                    })
+                    g_t += total; g_f += f_sum; g_b += ber
+                g.update({"t_str": _money(g_t), "f_str": _money(g_f), "b_str": _money(g_b),
+                          "o_str": _money(g_t - g_b), "o_manfiy": g_t - g_b < 0, "soni": len(g["rows"])})
+                l_t += g_t; l_f += g_f; l_b += g_b
+            # Limitda yo'q (haftalikdan kelgan) qatorlar — to'lov haftalik qatoriga (eski usul)
+            boshqa, bq_t, bq_b = [], Decimal("0"), Decimal("0")
+            for it in boshqa_items:
+                b_ = it.berildi
+                boshqa.append({"it": it, "w": it.request, "kind_cls": KCLS.get(it.kind, "mat"),
+                               "kind_disp": KIND_NOMI.get(it.kind, it.kind),
+                               "qty_str": _qty(it.quantity), "price_str": _money(it.unit_price),
+                               "total_str": _money(it.total), "ber_str": _money(b_),
+                               "ost_str": _money(it.total - b_), "toliq": it.qarz <= 0,
+                               "tolovlar": list(it.moliyalar.all())})
+                bq_t += it.total; bq_b += b_
+            limit_bloklar.append({
+                "lim": lim, "guruhlar": guruhlar, "boshqa": boshqa,
+                "bq_t_str": _money(bq_t), "bq_b_str": _money(bq_b), "bq_o_str": _money(bq_t - bq_b),
+                "t_str": _money(l_t), "f_str": _money(l_f), "b_str": _money(l_b),
+                "o_str": _money(l_t - l_b), "o_manfiy": l_t - l_b < 0,
+                "foiz": min(100, int(l_b / l_t * 100)) if l_t > 0 else 0,
+                "qator_soni": sum(len(g["rows"]) for g in guruhlar),
+                "jadval_url": _lj_url(lim),
+            })
+
+    # ---------- SO'NGGI TO'LOVLAR JURNALI ----------
     jurnal = []
-    for m_ in (Moliya.objects.filter(item__request__project__in=visible_projects(request.user))
-               .select_related("item", "item__request", "item__request__project", "yozdi")
-               .prefetch_related("item__moliyalar")
+    for m_ in (Moliya.objects
+               .filter(Q(item__request__project__in=vp_all) | Q(limit_item__project__in=vp_all))
+               .select_related("item", "item__request", "item__request__project",
+                               "limit_item", "limit_item__project", "limit_item__limit", "yozdi")
                .order_by("-created_at")[:40]):
-        it_ = m_.item
+        q = m_.qator
+        if q is None:
+            continue
+        if m_.limit_item_id:
+            p_, lim_, w_ = q.project, q.limit, None
+            tol_jami = sum((x.summa for x in q.moliyalar.all()), Decimal("0"))
+        else:
+            p_, lim_, w_ = q.request.project, q.request.limit, q.request
+            tol_jami = q.berildi
         jurnal.append({
-            "m": m_, "it": it_, "w": it_.request, "p": it_.request.project,
+            "m": m_, "q": q, "p": p_, "lim": lim_, "w": w_,
             "summa_str": _money(m_.summa),
             "miqdor_str": _qty(m_.miqdor) if m_.miqdor is not None else "",
-            "total_str": _money(it_.total), "berildi_str": _money(it_.berildi),
-            "qarz_str": _money(it_.qarz), "toliq": it_.qarz <= 0,
-            "kind_disp": it_.get_kind_display(),
-            "qty_str": _qty(it_.quantity), "price_str": _money(it_.unit_price),
-            "tolov_soni": it_.moliyalar.count(),
+            "total_str": _money(q.total), "ber_str": _money(tol_jami),
+            "ost_str": _money(q.total - tol_jami), "toliq": q.total - tol_jami <= 0,
+            "kind_disp": KIND_NOMI.get(q.kind, q.kind),
+            "qty_str": _qty(q.quantity), "price_str": _money(q.unit_price),
         })
-    from django.utils import timezone
     return render(request, "projects/moliya.html", {
-        "rows": rows, "guruhlar": guruhlar, "obyektlar": obyektlar, "jurnal": jurnal,
-        "toifa_ro": toifa_ro,
-        "korin_t": _money(korin_t), "korin_b": _money(korin_b), "korin_q": _money(korin_q),
-        "korin_soni": korin_soni,
-        "yoza_oladi": yoza_oladi,
+        "obyektlar": obyektlar, "jami": jami, "sel_p": sel_p, "limit_bloklar": limit_bloklar,
+        "jurnal": jurnal, "yoza_oladi": yoza_oladi,
         "firmalar": visible_firmas(request.user).order_by("name"),
-        "obyekt_ro": visible_projects(request.user).order_by("code"),
-        "sel_firma": firma_id, "sel_obyekt": proj_id, "faqat_qarz": faqat_qarz,
-        "jami_t": _money(jami_t), "jami_b": _money(jami_b), "jami_q": _money(jami_q),
+        "obyekt_ro": vp.order_by("code"),
+        "sel_firma": firma_id, "sel_obyekt": proj_id,
         "bugun": timezone.localdate().isoformat(),
     })
+
+
+def _moliya_li_berildi(li):
+    """Limit qatoriga BERILGAN jami: limit qatori to'lovlari + shu limitdagi tasdiqlangan
+    haftaliklarning (eski usul) shu nom+bo'limli qator to'lovlari."""
+    from .models import Moliya
+    s = Moliya.objects.filter(limit_item=li).aggregate(s=Sum("summa"))["s"] or Decimal("0")
+    for m in Moliya.objects.filter(item__request__limit_id=li.limit_id,
+                                   item__request__status=WeeklyRequest.Status.APPROVED).select_related("item"):
+        if _lj_key(m.item.name, m.item.bolim) == _lj_key(li.name, li.bolim):
+            s += m.summa
+    return s
+
+
+@login_required
+def moliya_limit_yozish(request, li_id):
+    """Buxgalter: UMUMIY LIMIT qatoriga TO'LOV yozadi (jurnal — o'chirilmaydi).
+    Chegara: limit qatori summasi − berilgan (ortiqcha to'lov yozilmaydi)."""
+    from .models import Moliya, LimitItem
+    if not _moliya_yoza_oladi(request.user):
+        raise PermissionDenied("To'lovni faqat BUXGALTER yozadi.")
+    li = get_object_or_404(LimitItem.objects.select_related("project", "limit"), pk=li_id)
+    _firma_yoki_403(request, li.project)
+    qayt = _xavfsiz_referer(request, "moliya")
+    if request.method != "POST":
+        return redirect(qayt)
+    summa = _to_dec(request.POST.get("summa"))
+    miqdor = _to_dec(request.POST.get("miqdor"))
+    izoh = " ".join((request.POST.get("izoh") or "").split())[:300]
+    try:
+        sana = datetime.date.fromisoformat(request.POST.get("sana", ""))
+    except ValueError:
+        sana = datetime.date.today()
+    if summa is None or summa <= 0 or summa > Decimal("1000000000000"):
+        messages.error(request, "Berilgan summani kiriting (0 dan katta).")
+        return redirect(qayt)
+    if miqdor is not None and (miqdor < 0 or miqdor > Decimal("1000000000")):
+        miqdor = None
+    with transaction.atomic():
+        li = LimitItem.objects.select_for_update().select_related("project", "limit").get(pk=li.pk)
+        ost = li.total - _moliya_li_berildi(li)
+        if summa > ost + Decimal("0.01"):
+            messages.error(request,
+                f"Summa qolgan ostatkidan katta: ostatki {_money(ost)}, siz {_money(summa)} yozdingiz. "
+                "Ortiqcha to'lov yozilmaydi — avval limitni oshiring.")
+            return redirect(qayt)
+        Moliya.objects.create(limit_item=li, summa=summa, miqdor=miqdor, izoh=izoh,
+                              sana=sana, yozdi=request.user)
+    qoldi = li.total - _moliya_li_berildi(li)
+    messages.success(request,
+        f"«{li.name}» — {_money(summa)} berildi deb yozildi. "
+        + ("Qator TO'LIQ moliyalashtirildi ✓" if qoldi <= 0 else f"Qolgan ostatki: {_money(qoldi)}"))
+    return redirect(qayt)
+
+
+@login_required
+def moliya_izoh(request, li_id):
+    """Buxgalter: moliyalashtirish jadvalidagi «Izoh» ustuni (limit qatori bo'yicha)."""
+    from .models import LimitItem
+    if not _moliya_yoza_oladi(request.user):
+        raise PermissionDenied("Izohni faqat BUXGALTER yozadi.")
+    li = get_object_or_404(LimitItem.objects.select_related("project"), pk=li_id)
+    _firma_yoki_403(request, li.project)
+    qayt = _xavfsiz_referer(request, "moliya")
+    if request.method == "POST":
+        li.moliya_izoh = " ".join((request.POST.get("izoh") or "").split())[:300]
+        li.save(update_fields=["moliya_izoh"])
+        messages.success(request, f"«{li.name}» — izoh saqlandi." if li.moliya_izoh else f"«{li.name}» — izoh o'chirildi.")
+    return redirect(qayt)
 
 
 @login_required

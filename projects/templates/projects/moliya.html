@@ -7,111 +7,107 @@
   .msg { border-radius:10px; padding:10px 14px; font-size:14px; margin-bottom:12px; font-weight:600; }
   .msg.success { background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; }
   .msg.error { background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; }
-  .kpi { display:grid; grid-template-columns:repeat(auto-fit, minmax(200px,1fr)); gap:12px; margin-bottom:16px; }
-  .kpi .c { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 16px; box-shadow:var(--shadow-sm); }
+  .kpi { display:grid; grid-template-columns:repeat(auto-fit, minmax(190px,1fr)); gap:12px; margin-bottom:14px; }
+  .kpi .c { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:13px 16px; box-shadow:var(--shadow-sm); border-top:3px solid #CBD5E1; }
+  .kpi .c.lim { border-top-color:#2563eb; } .kpi .c.baj { border-top-color:#1E9E5A; } .kpi .c.ber { border-top-color:#0F766E; } .kpi .c.ost { border-top-color:#E35C1E; }
   .kpi .l { font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--mut); font-weight:700; }
-  .kpi .v { font-size:22px; font-weight:800; margin-top:4px; font-variant-numeric:tabular-nums; }
-  .kpi .v.q { color:#b45309; } .kpi .v.b { color:#15803d; }
+  .kpi .v { font-size:21px; font-weight:800; margin-top:4px; font-variant-numeric:tabular-nums; }
+  .kpi .v.b { color:#0F766E; } .kpi .v.o { color:#C2410C; } .kpi .v.neg { color:#B91C1C; }
+  .kpi .s { font-size:11.5px; color:var(--mut); margin-top:3px; }
   .ffilter { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:10px 14px; margin-bottom:14px; }
-  .ffilter select { padding:7px 10px; border:1px solid var(--line); border-radius:8px; font-size:13px; }
+  .ffilter select { padding:7px 10px; border:1px solid var(--line); border-radius:8px; font-size:13px; max-width:360px; }
   .ffilter label { font-size:12.5px; font-weight:600; color:var(--mut); }
+  .ffilter .sp { flex:1; }
+  .ffilter input[type=search] { padding:7px 10px; border:1px solid var(--line); border-radius:8px; font-size:13px; width:260px; }
   .chip { font-size:12.5px; font-weight:700; padding:6px 12px; border-radius:999px; border:1px solid var(--line); background:#fff; text-decoration:none; color:#334155; }
-  .chip.on { background:#b45309; color:#fff; border-color:#b45309; }
-  .grid { display:grid; grid-template-columns: 1fr 340px; gap:16px; align-items:start; }
-  @media (max-width:1100px){ .grid { grid-template-columns:1fr; } }
-  .panel { background:var(--card); border:1px solid var(--line); border-radius:14px; box-shadow:var(--shadow-sm); overflow:hidden; }
-  .panel h3 { font-size:14.5px; font-weight:800; margin:0; padding:13px 16px; border-bottom:1px solid var(--line); }
-  table { width:100%; border-collapse:collapse; }
-  th { background:#f8fafc; font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--mut); font-weight:600; padding:8px 10px; text-align:left; border-bottom:1px solid var(--line); }
-  td { padding:9px 10px; font-size:13px; border-bottom:1px solid #f1f5f9; vertical-align:top; }
-  .num { text-align:right; font-variant-numeric:tabular-nums; }
-  .kind { display:inline-block; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:700; }
+  .chip.on { background:#1e293b; color:#fff; border-color:#1e293b; }
+  .panel { background:var(--card); border:1px solid var(--line); border-radius:14px; box-shadow:var(--shadow-sm); overflow:hidden; margin-bottom:16px; }
+  .panel h3 { font-size:14.5px; font-weight:800; margin:0; padding:13px 16px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .panel h3 .sub { font-weight:500; font-size:12.5px; color:var(--mut); }
+  .panel h3 .r { margin-left:auto; display:flex; gap:8px; align-items:center; }
+  .lnk { font-size:12.5px; font-weight:700; color:#2563eb; text-decoration:none; border:1px solid #BFDBFE; border-radius:8px; padding:5px 10px; background:#EFF6FF; }
+  .lnk:hover { background:#DBEAFE; }
+  .num { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .ctr { text-align:center; }
+  .kind { display:inline-block; padding:1px 7px; border-radius:6px; font-size:10.5px; font-weight:700; margin-right:4px; vertical-align:middle; }
   .k-mat { background:#e0f2fe; color:#075985; } .k-lab { background:#dcfce7; color:#166534; } .k-mach { background:#fef3c7; color:#92400e; } .k-oth { background:#f1f5f9; color:#475569; }
   .bar { height:6px; background:#f1f5f9; border-radius:99px; overflow:hidden; margin-top:4px; }
-  .bar i { display:block; height:100%; background:#15803d; }
-  .qarz { color:#b45309; font-weight:800; } .toliq { color:#15803d; font-weight:800; }
-  .tolov { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
-  .tolov input { padding:6px 8px; border:1px solid var(--line); border-radius:7px; font-size:12.5px; }
-  .tolov input.s { width:120px; text-align:right; } .tolov input.m { width:80px; text-align:right; }
-  .tolov input.i { width:130px; } .tolov input.d { width:135px; }
-  .tolov button { background:#15803d; color:#fff; border:0; border-radius:7px; padding:7px 12px; font-size:12.5px; font-weight:700; cursor:pointer; white-space:nowrap; }
-  .tarix { font-size:11.5px; color:var(--mut); margin-top:4px; }
-  .tarix-box { background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:6px 10px; margin-top:6px; }
-  .tarix-h { font-weight:800; color:#166534; font-size:11px; margin-bottom:3px; }
-  .tarix-row { display:flex; gap:8px; align-items:baseline; flex-wrap:wrap; padding:2px 0; border-top:1px dashed #d1fae5; }
-  .tarix-row:first-of-type { border-top:0; }
-  .tarix-dt { color:#475569; font-variant-numeric:tabular-nums; }
-  .tarix-sum { color:#15803d; font-variant-numeric:tabular-nums; }
-  .tarix-q { color:#64748b; }
-  .tarix-iz { color:#92400e; background:#fef3c7; border-radius:4px; padding:0 6px; }
-  .tarix-kim { margin-left:auto; color:#94a3b8; font-style:italic; }
-  .obj-row { display:flex; justify-content:space-between; gap:8px; padding:9px 14px; border-bottom:1px solid #f1f5f9; font-size:13px; text-decoration:none; color:inherit; }
-  .obj-row:hover { background:#fafbff; }
-  .obj-row .code { font-weight:700; }
-  .obj-row .sub { font-size:11px; color:var(--mut); }
-  .jur td { font-size:12.5px; }
-  /* To'lovlar jurnali — bosilib ochiladi */
+  .bar i { display:block; height:100%; background:#0F766E; }
+  .ost { color:#C2410C; font-weight:800; } .ost.neg { color:#B91C1C; } .toliq { color:#15803d; font-weight:800; } .ber { color:#0F766E; font-weight:800; }
+  /* ---- Limit jadvali (limit_jadval bilan bir xil ranglar) ---- */
+  .lj-scroll { overflow:auto; }
+  table.lj { width:100%; border-collapse:collapse; min-width:1100px; }
+  .lj th, .lj td { border:1px solid #D9DEE7; padding:6px 8px; font-size:12.5px; vertical-align:top; }
+  .lj thead th { color:#fff; font-weight:700; text-align:center; font-size:12px; white-space:nowrap; }
+  .lj thead th.h-main { background:#1E3A6E; }
+  .lj thead th.h-um { background:#2563eb; } .lj thead th.h-baj { background:#1E9E5A; } .lj thead th.h-qol { background:#E35C1E; }
+  .lj thead th.h-ber { background:#0F766E; } .lj thead th.h-ost { background:#B91C1C; } .lj thead th.h-iz { background:#475569; } .lj thead th.h-amal { background:#1E3A6E; }
+  .lj tr.block td { background:#fde8b0 !important; font-weight:700; }
+  .lj tr.subtotal td { background:#F8FAFC; font-weight:700; }
+  .lj tr.ish.toliq-row td { background:#F0FDF4; }
+  .lj tr.ish:hover td { background:#F8FAFF; }
+  .lj tr.ish.toliq-row:hover td { background:#DCFCE7; }
+  .lj tfoot td { background:#1e293b; color:#fff; font-weight:800; font-size:13px; }
+  .lj tfoot td.ber { color:#5EEAD4; } .lj tfoot td.ost { color:#FDBA74; } .lj tfoot td.ost.neg { color:#FCA5A5; }
+  .lj td.c-ber { background:#F0FDFA; } .lj td.c-ost { background:#FFF7ED; } .lj td.c-iz { background:#F8FAFC; min-width:140px; }
+  .lj .izoh-lim { color:#64748b; font-size:11.5px; }
+  .lj .nm { font-weight:600; }
+  .lj .sm { font-size:11px; color:var(--mut); }
+  .lj tr.bosh td { background:#FEF9C3; font-weight:700; color:#854D0E; }
+  .lj tr.limhead td { background:#EEF2F7; font-weight:800; font-size:13px; color:#1e293b; border-top:2px solid #cbd5e1; }
+  /* To'lov tarixi */
+  .tx { margin-top:3px; }
+  .tx summary { cursor:pointer; font-size:11px; color:#0F766E; list-style:none; font-weight:700; }
+  .tx summary::-webkit-details-marker { display:none; }
+  .tx-box { background:#F0FDFA; border:1px solid #99F6E4; border-radius:7px; padding:5px 8px; margin-top:4px; min-width:230px; text-align:left; }
+  .tx-row { display:flex; gap:7px; align-items:baseline; flex-wrap:wrap; padding:2px 0; border-top:1px dashed #CCFBF1; font-size:11.5px; }
+  .tx-row:first-child { border-top:0; }
+  .tx-dt { color:#475569; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .tx-sum { color:#0F766E; font-weight:800; font-variant-numeric:tabular-nums; }
+  .tx-iz { color:#92400e; background:#fef3c7; border-radius:4px; padding:0 5px; }
+  .tx-kim { margin-left:auto; color:#94a3b8; font-style:italic; white-space:nowrap; }
+  /* Formalar */
+  .tolov { display:flex; gap:5px; align-items:center; flex-wrap:wrap; }
+  .tolov input { padding:5px 7px; border:1px solid var(--line); border-radius:7px; font-size:12px; }
+  .tolov input.s { width:110px; text-align:right; } .tolov input.i { width:120px; } .tolov input.d { width:128px; }
+  .tolov button { background:#0F766E; color:#fff; border:0; border-radius:7px; padding:6px 11px; font-size:12px; font-weight:700; cursor:pointer; white-space:nowrap; }
+  .izf { display:flex; gap:4px; align-items:center; }
+  .izf input { flex:1; min-width:100px; width:100%; padding:5px 7px; border:1px solid var(--line); border-radius:7px; font-size:12px; }
+  .izf button { background:#475569; color:#fff; border:0; border-radius:7px; padding:6px 9px; font-size:12px; font-weight:700; cursor:pointer; }
+  .izf input.ozg { border-color:#F59E0B; background:#FFFBEB; }
+  .warn { color:#B45309; font-size:10.5px; font-weight:700; }
+  /* Obyektlar ro'yxati */
+  table.ob { width:100%; border-collapse:collapse; }
+  .ob th { background:#f8fafc; font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--mut); font-weight:600; padding:8px 12px; text-align:left; border-bottom:1px solid var(--line); }
+  .ob td { padding:10px 12px; font-size:13px; border-bottom:1px solid #f1f5f9; vertical-align:middle; }
+  .ob tr:hover td { background:#fafbff; }
+  .ob a.nm { font-weight:700; color:#1e293b; text-decoration:none; }
+  .ob a.nm:hover { color:#2563eb; }
+  .ob .sm { font-size:11px; color:var(--mut); }
+  .grid { display:grid; grid-template-columns:1fr 360px; gap:16px; align-items:start; }
+  @media (max-width:1100px){ .grid { grid-template-columns:1fr; } }
+  /* Jurnal */
   .jd { border-bottom:1px solid #f1f5f9; }
   .jd summary { cursor:pointer; list-style:none; padding:9px 14px; }
   .jd summary::-webkit-details-marker { display:none; }
-  .jd summary:hover { background:#fafbff; }
-  .jd[open] summary { background:#f0fdf4; }
+  .jd summary:hover { background:#fafbff; } .jd[open] summary { background:#F0FDFA; }
   .jd-top { display:flex; gap:8px; align-items:baseline; font-size:12.5px; }
-  .jd-dt { color:var(--mut); white-space:nowrap; font-size:11.5px; }
-  .jd-obj { flex:1; font-weight:600; }
-  .jd-sum { font-weight:800; color:#15803d; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .jd-dt { color:var(--mut); white-space:nowrap; font-size:11.5px; } .jd-obj { flex:1; font-weight:600; }
+  .jd-sum { font-weight:800; color:#0F766E; font-variant-numeric:tabular-nums; white-space:nowrap; }
   .jd-sub { font-size:11px; color:var(--mut); margin-top:2px; }
   .jd-body { padding:8px 14px 12px; background:#fafcfa; font-size:12.5px; }
   .jd-r { display:flex; justify-content:space-between; gap:10px; padding:3px 0; }
-  .jd-r span { color:var(--mut); white-space:nowrap; }
-  .jd-r b { text-align:right; font-weight:600; }
-  .jd-r small { color:var(--mut); }
+  .jd-r span { color:var(--mut); white-space:nowrap; } .jd-r b { text-align:right; font-weight:600; } .jd-r small { color:var(--mut); }
   .jd-hr { border:0; border-top:1px dashed #e2e8f0; margin:6px 0; }
-  /* Toifa kartalari */
-  .toifa-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(210px,1fr)); gap:12px; margin-bottom:16px; }
-  .tc { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px 14px; box-shadow:var(--shadow-sm); }
-  .tc-h { font-weight:800; font-size:13px; margin-bottom:6px; display:flex; align-items:center; gap:6px; }
-  .tc-r { display:flex; justify-content:space-between; font-size:12.5px; padding:2px 0; font-variant-numeric:tabular-nums; }
-  .tc-r span { color:var(--mut); }
-  .dot { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:4px; }
-  .dot.mat { background:#2563eb; } .dot.lab { background:#16a34a; } .dot.mach { background:#d97706; } .dot.oth { background:#64748b; }
-  tr.wsub td { background:#fbfcfe; font-size:12px; color:#475569; border-bottom:1px dashed #e2e8f0; padding:5px 10px; }
-  /* To'liq to'langan qator — yashil fon, ichi ko'rinib turadi */
-  tr.toliq-row td { background:#f0fdf4; }
-  tr.toliq-row:hover td { background:#dcfce7; }
-  .tq { display:inline-block; background:#15803d; color:#fff; border-radius:50%; width:16px; height:16px; font-size:11px; text-align:center; line-height:16px; margin-right:5px; font-weight:800; }
-  /* Haftalik guruh sarlavhasi va itogosi */
-  tr.whead td { background:#eef2f7; border-top:2px solid #cbd5e1; padding:9px 12px; }
-  .wh-nom { font-weight:800; font-size:13.5px; color:#1e293b; }
-  .wh-sub { margin-left:10px; font-size:11.5px; color:#64748b; }
-  tr.wtot td { background:#f8fafc; font-weight:700; font-size:12.5px; border-bottom:2px solid #e2e8f0; color:#334155; }
-  tr.gtot td { background:#1e293b; color:#fff; font-weight:800; font-size:13.5px; padding:11px 12px; }
-  tr.gtot td.toliq { color:#86efac; } tr.gtot td.qarz { color:#fdba74; }
+  .lj-bosh { padding:26px; text-align:center; color:#94a3b8; font-size:13px; }
+  @media print { .ffilter, .tolov, .izf button, .lnk, .jurnal-panel { display:none !important; } .lj-scroll { overflow:visible; } }
 </style>
 {% endblock %}
 
 {% block content %}
 {% if messages %}{% for m in messages %}<div class="msg {{ m.tags }}">{{ m }}</div>{% endfor %}{% endif %}
 
-<div class="kpi">
-  <div class="c"><div class="l">Tasdiqlangan (ruxsat)</div><div class="v">{{ jami_t }}</div></div>
-  <div class="c"><div class="l">Berildi (fakt)</div><div class="v b">{{ jami_b }}</div></div>
-  <div class="c"><div class="l">Berilmagan qarz</div><div class="v q">{{ jami_q }}</div></div>
-</div>
-
-<div class="toifa-grid">
-  {% for t in toifa_ro %}
-  <div class="tc">
-    <div class="tc-h"><span class="dot {{ t.cls }}"></span>{{ t.nom }}</div>
-    <div class="tc-r"><span>Tasdiqlangan</span><b>{{ t.t_str }}</b></div>
-    <div class="tc-r"><span>Berildi</span><b style="color:#15803d;">{{ t.b_str }}</b></div>
-    <div class="tc-r"><span>Qoldi</span><b class="{% if t.q_str == '0' %}toliq{% else %}qarz{% endif %}">{{ t.q_str }}</b></div>
-    <div class="bar" style="margin-top:8px;"><i style="width:{{ t.foiz }}%"></i></div>
-  </div>
-  {% endfor %}
-</div>
-
-<form method="get" class="ffilter">
+<form method="get" class="ffilter" id="mfilter">
   <label>Firma:</label>
   <select name="firma" onchange="this.form.obyekt.value=''; this.form.submit()">
     <option value="">— barcha —</option>
@@ -119,128 +115,170 @@
   </select>
   <label>Obyekt:</label>
   <select name="obyekt" onchange="this.form.submit()">
-    <option value="">— barcha —</option>
+    <option value="">— obyektni tanlang —</option>
     {% for o in obyekt_ro %}<option value="{{ o.id }}" {% if sel_obyekt == o.id|stringformat:'s' %}selected{% endif %}>{{ o.code }} — {{ o.name }}</option>{% endfor %}
   </select>
-  <input type="hidden" name="qarz" value="{% if faqat_qarz %}1{% else %}0{% endif %}">
-  <a class="chip {% if faqat_qarz %}on{% endif %}" href="?firma={{ sel_firma }}&obyekt={{ sel_obyekt }}&qarz=1">Faqat qarzlar</a>
-  <a class="chip {% if not faqat_qarz %}on{% endif %}" href="?firma={{ sel_firma }}&obyekt={{ sel_obyekt }}&qarz=0">Hammasi</a>
+  {% if sel_p %}<a class="chip" href="?firma={{ sel_firma }}">← Barcha obyektlar</a>{% endif %}
+  <span class="sp"></span>
+  {% if sel_p %}<input type="search" id="mQidir" placeholder="Qator bo'yicha qidirish: material, ish, bo'lim, izoh…" autocomplete="off"><span class="sm" id="mQidirN" style="font-size:12px;color:var(--mut);"></span>{% endif %}
 </form>
 
-<div class="grid">
-  <div class="panel">
-    <h3>{% if faqat_qarz %}Berilmagan qatorlar{% else %}Tasdiqlangan qatorlar{% endif %} ({{ korin_soni }})</h3>
-    <table>
-      <thead><tr><th>Obyekt / hafta</th><th>Qator</th><th class="num">Tasdiqlangan</th><th class="num">Berildi</th><th class="num">Qoldi</th>{% if yoza_oladi %}<th>To'lov yozish</th>{% endif %}</tr></thead>
-      <tbody>
-        {% for g in guruhlar %}
-        <tr class="whead">
-          <td colspan="{% if yoza_oladi %}6{% else %}5{% endif %}">
-            <span class="wh-nom">{{ g.p.name }}</span>
-            <span class="wh-sub">{{ g.p.code }} · {{ g.w.week_start|date:"d.m" }}–{{ g.w.week_end|date:"d.m.Y" }}{% if g.w.number %} · {{ g.w.number }}{% endif %} · {{ g.soni }} qator{% if g.toliq_soni %} · <span style="color:#15803d; font-weight:700;">✓ {{ g.toliq_soni }} ta to'liq to'langan</span>{% endif %}</span>
-          </td>
-        </tr>
-        {% for r in g.rows %}
-        <tr class="{% if r.toliq %}toliq-row{% endif %}">
-          <td style="padding-left:22px; color:var(--mut); font-size:12px;">{% if r.toliq %}<span class="tq">✓</span>{% endif %}{{ r.w.week_start|date:"d.m" }}–{{ r.w.week_end|date:"d.m" }}</td>
-          <td><span class="kind k-{{ r.cls }}">{{ r.kind_disp }}</span> {{ r.it.name }}{% if r.it.bolim %} <span style="font-size:10.5px; color:#64748b; font-weight:700;">📁 {{ r.it.bolim }}</span>{% endif %}<div style="font-size:11px; color:var(--mut);">{{ r.qty_str }} {{ r.it.unit }} × {{ r.price_str }}</div>
-            {% if r.tolovlar %}<div class="tarix tarix-box"><div class="tarix-h">💳 To'lovlar ({{ r.tolovlar|length }})</div>{% for m in r.tolovlar %}<div class="tarix-row"><span class="tarix-dt">{{ m.sana|date:"d.m.Y" }}</span><b class="tarix-sum">{{ m.summa|floatformat:"0" }}</b>{% if m.miqdor %}<span class="tarix-q">{{ m.miqdor|floatformat:"-3" }} {{ r.it.unit }}</span>{% endif %}{% if m.izoh %}<span class="tarix-iz">{{ m.izoh }}</span>{% endif %}<span class="tarix-kim">{{ m.yozdi.username|default:"—" }} · {{ m.created_at|date:"d.m H:i" }}</span></div>{% endfor %}</div>{% endif %}
-          </td>
-          <td class="num">{{ r.total_str }}</td>
-          <td class="num"><span class="{% if r.qarz_str == '0' %}toliq{% endif %}">{{ r.berildi_str }}</span>{% if r.berildi_qty %}<div style="font-size:11px; color:var(--mut);">{{ r.berildi_qty }} {{ r.it.unit }}</div>{% endif %}<div class="bar"><i style="width:{{ r.foiz }}%"></i></div></td>
-          <td class="num"><span class="{% if r.qarz_str == '0' %}toliq{% else %}qarz{% endif %}">{{ r.qarz_str }}</span></td>
-          {% if yoza_oladi %}
-          <td>
-            {% if r.qarz_str != '0' %}
-            <form method="post" action="{% url 'moliya_yozish' r.it.id %}" class="tolov">
-              {% csrf_token %}
-              <input type="number" name="summa" class="s" step="0.01" placeholder="summa" required title="Berilgan summa (so'm)">
-              <input type="number" name="miqdor" class="m" step="0.001" placeholder="{{ r.it.unit|default:'miqdor' }}" title="Berilgan miqdor (ixtiyoriy)">
-              <input type="date" name="sana" class="d" value="{{ bugun }}">
-              <input type="text" name="izoh" class="i" placeholder="izoh (kassa/karta)">
-              <button type="submit">Berildi</button>
-            </form>
-            {% else %}<span class="toliq">✓ to'liq</span>{% endif %}
-          </td>
-          {% endif %}
-        </tr>
-        {% endfor %}
-        {% for tf in g.toifa_ro %}
-        <tr class="wsub">
-          <td></td>
-          <td><span class="dot {{ tf.cls }}"></span>{{ tf.nom }} bo'yicha</td>
-          <td class="num">{{ tf.t_str }}</td>
-          <td class="num" style="color:#15803d;">{{ tf.b_str }}</td>
-          <td class="num {% if tf.q_str == '0' %}toliq{% else %}qarz{% endif %}">{{ tf.q_str }}</td>
-          {% if yoza_oladi %}<td></td>{% endif %}
-        </tr>
-        {% endfor %}
-        <tr class="wtot">
-          <td colspan="2">Hafta itogosi — {{ g.w.week_start|date:"d.m" }}–{{ g.w.week_end|date:"d.m.Y" }}</td>
-          <td class="num">{{ g.t_str }}</td>
-          <td class="num" style="color:#15803d;">{{ g.b_str }}</td>
-          <td class="num {% if g.q_str == '0' %}toliq{% else %}qarz{% endif %}">{{ g.q_str }}</td>
-          {% if yoza_oladi %}<td></td>{% endif %}
-        </tr>
-        {% empty %}
-        <tr><td colspan="{% if yoza_oladi %}6{% else %}5{% endif %}" style="text-align:center; color:#94a3b8; padding:26px;">{% if faqat_qarz %}Berilmagan qarz yo'q — hammasi moliyalashtirilgan ✓{% else %}Tasdiqlangan qatorlar yo'q.{% endif %}</td></tr>
-        {% endfor %}
-      </tbody>
-      {% if guruhlar %}
-      <tfoot>
-        <tr class="gtot">
-          <td colspan="2">UMUMIY ({{ guruhlar|length }} ta haftalik)</td>
-          <td class="num">{{ korin_t }}</td>
-          <td class="num" style="color:#15803d;">{{ korin_b }}</td>
-          <td class="num {% if korin_q == '0' %}toliq{% else %}qarz{% endif %}">{{ korin_q }}</td>
-          {% if yoza_oladi %}<td></td>{% endif %}
-        </tr>
-      </tfoot>
-      {% endif %}
-    </table>
-  </div>
+{% if sel_p %}
+{# ===================== TANLANGAN OBYEKT — TO'LIQ LIMIT JADVALI ===================== #}
+<div class="kpi">
+  {% for o in obyektlar %}{% if o.p.pk == sel_p.pk %}
+  <div class="c lim"><div class="l">Umumiy limit</div><div class="v">{{ o.lim_str }}</div><div class="s">{{ o.limit_soni }} ta limit · {{ sel_p.code }}</div></div>
+  <div class="c baj"><div class="l">Bajarilgan (tasdiqlangan haftaliklar)</div><div class="v">{{ o.baj_str }}</div></div>
+  <div class="c ber"><div class="l">Berilgan (fakt)</div><div class="v b">{{ o.ber_str }}</div><div class="bar"><i style="width:{{ o.foiz }}%"></i></div></div>
+  <div class="c ost"><div class="l">Qolgan ostatki (limit − berilgan)</div><div class="v {% if o.ost_manfiy %}neg{% elif o.toliq %}b{% else %}o{% endif %}">{{ o.ost_str }}</div>{% if o.ost_manfiy %}<div class="s warn">Berilgan limitdan oshib ketgan</div>{% elif o.toliq %}<div class="s toliq">✓ To'liq moliyalashtirildi</div>{% endif %}</div>
+  {% endif %}{% endfor %}
+</div>
 
-  <div>
-    <div class="panel" style="margin-bottom:14px;">
-      <h3>Obyektlar bo'yicha qarz</h3>
-      {% for o in obyektlar %}
-      <a class="obj-row" href="?firma={{ sel_firma }}&obyekt={{ o.p.id }}&qarz=1">
-        <div><div class="code">{{ o.p.name|truncatechars:38 }}</div><div class="sub">{{ o.p.code }}</div><div class="sub">tasdiq {{ o.tasdiq_str }} · berildi {{ o.berildi_str }}</div></div>
-        <div class="num {% if o.qarz_str == '0' %}toliq{% else %}qarz{% endif %}">{{ o.qarz_str }}</div>
-      </a>
-      {% empty %}<div style="padding:16px; color:#94a3b8; font-size:13px;">Ma'lumot yo'q.</div>{% endfor %}
-    </div>
-    <div class="panel">
-      <h3>So'nggi to'lovlar</h3>
-      <div class="jur-list">
-        {% for j in jurnal %}
-        <details class="jd">
-          <summary>
-            <div class="jd-top">
-              <span class="jd-dt">{{ j.m.created_at|date:"d.m H:i" }}</span>
-              <span class="jd-obj">{{ j.p.name|truncatechars:26 }}</span>
-              <span class="jd-sum">{{ j.summa_str }}</span>
-            </div>
-            <div class="jd-sub">{{ j.it.name|truncatechars:34 }} · {{ j.m.yozdi.username|default:"—" }}{% if j.m.izoh %} · {{ j.m.izoh|truncatechars:20 }}{% endif %}</div>
-          </summary>
-          <div class="jd-body">
-            <div class="jd-r"><span>Obyekt</span><b>{{ j.p.name }}</b> <small>({{ j.p.code }})</small></div>
-            <div class="jd-r"><span>Hafta</span><b>{{ j.w.week_start|date:"d.m" }}–{{ j.w.week_end|date:"d.m.Y" }}</b>{% if j.w.number %} <small>· {{ j.w.number }}</small>{% endif %}</div>
-            <div class="jd-r"><span>Qator</span><b>{{ j.it.name }}</b> <small>· {{ j.kind_disp }}{% if j.it.bolim %} · 📁 {{ j.it.bolim }}{% endif %}</small></div>
-            <div class="jd-r"><span>Tasdiqlangan</span><b>{{ j.qty_str }} {{ j.it.unit }} × {{ j.price_str }} = {{ j.total_str }}</b></div>
-            <hr class="jd-hr">
-            <div class="jd-r"><span>Bu to'lov</span><b style="color:#15803d;">{{ j.summa_str }}</b>{% if j.miqdor_str %} <small>· {{ j.miqdor_str }} {{ j.it.unit }}</small>{% endif %}</div>
-            <div class="jd-r"><span>To'lov sanasi</span><b>{{ j.m.sana|date:"d.m.Y" }}</b></div>
-            {% if j.m.izoh %}<div class="jd-r"><span>Izoh</span><b>{{ j.m.izoh }}</b></div>{% endif %}
-            <div class="jd-r"><span>Yozdi</span><b>{{ j.m.yozdi.username|default:"—" }}</b> <small>· {{ j.m.created_at|date:"d.m.Y H:i" }}</small></div>
-            <hr class="jd-hr">
-            <div class="jd-r"><span>Qator bo'yicha jami berildi</span><b style="color:#15803d;">{{ j.berildi_str }}</b> <small>({{ j.tolov_soni }} ta to'lov)</small></div>
-            <div class="jd-r"><span>Qoldi</span><b class="{% if j.toliq %}toliq{% else %}qarz{% endif %}">{% if j.toliq %}✓ to'liq{% else %}{{ j.qarz_str }}{% endif %}</b></div>
-          </div>
-        </details>
-        {% empty %}<div style="color:#94a3b8; padding:14px; font-size:13px;">Hali to'lov yozilmagan.</div>{% endfor %}
-      </div>
-    </div>
+{% for blok in limit_bloklar %}
+<div class="panel" data-limit="{{ blok.lim.raqam }}">
+  <h3>
+    <span>{{ blok.lim.raqam }}-limit{% if blok.lim.nom %} · {{ blok.lim.nom }}{% endif %}</span>
+    <span class="sub">{{ sel_p.name }} · {{ blok.qator_soni }} qator · limit {{ blok.t_str }} · berildi <b class="ber">{{ blok.b_str }}</b> · ostatki <b class="ost {% if blok.o_manfiy %}neg{% endif %}">{{ blok.o_str }}</b>{% if blok.lim.tahrir_ruxsat %} · 🔓 tahrirda{% endif %}</span>
+    <span class="r"><a class="lnk" href="{{ blok.jadval_url }}">Limit jadvali ↗</a></span>
+  </h3>
+  <div class="lj-scroll">
+  <table class="lj">
+    <thead>
+      <tr>
+        <th class="h-main" rowspan="2">№</th><th class="h-main" rowspan="2" style="min-width:200px;">Ish turi</th><th class="h-main" rowspan="2" style="min-width:110px;">Izoh (limit)</th><th class="h-main" rowspan="2">Birl.</th>
+        <th class="h-um" colspan="3">Umumiy</th><th class="h-baj" colspan="2">Bajarilgan</th><th class="h-qol" colspan="2">Qolgan</th>
+        <th class="h-ber" rowspan="2" style="min-width:120px;">Berilgan</th><th class="h-ost" rowspan="2" style="min-width:110px;">Qolgan ostatki</th><th class="h-iz" rowspan="2">Izoh</th>{% if yoza_oladi %}<th class="h-amal" rowspan="2">Amal (to'lov)</th>{% endif %}
+      </tr>
+      <tr>
+        <th class="h-um">Obyom</th><th class="h-um">Narxi</th><th class="h-um">Summa</th>
+        <th class="h-baj">Obyom</th><th class="h-baj">Summa</th>
+        <th class="h-qol">Obyom</th><th class="h-qol">Summa</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for g in blok.guruhlar %}
+      <tr class="block"><td></td><td colspan="{% if yoza_oladi %}14{% else %}13{% endif %}">{{ g.bolim|default:"Bo'limsiz qatorlar" }}{% if g.masul %} &nbsp;·&nbsp; Mas'ul: {{ g.masul }}{% endif %}</td></tr>
+      {% for r in g.rows %}
+      <tr class="ish {% if r.toliq %}toliq-row{% endif %}" data-q="{{ r.name|lower }} {{ g.bolim|lower }} {{ r.izoh|lower }} {{ r.m_izoh|lower }} {{ r.kind_disp|lower }}">
+        <td class="ctr">{{ r.nr }}</td>
+        <td><span class="kind k-{{ r.kind_cls }}">{{ r.kind_disp }}</span><span class="nm">{{ r.name }}</span>{% if r.sana %}<div class="sm">{{ r.sana }}</div>{% endif %}</td>
+        <td class="izoh-lim">{{ r.izoh }}</td>
+        <td class="ctr">{{ r.unit }}</td>
+        <td class="num">{{ r.vol_str }}</td><td class="num">{{ r.price_str }}</td><td class="num"><b>{{ r.total_str }}</b></td>
+        <td class="num">{{ r.fq_str }}</td><td class="num">{{ r.fs_str }}</td>
+        <td class="num">{{ r.qq_str }}</td><td class="num">{{ r.qs_str }}</td>
+        <td class="num c-ber"><span class="{% if r.toliq %}toliq{% else %}ber{% endif %}">{{ r.ber_str }}</span><div class="bar"><i style="width:{{ r.foiz }}%"></i></div>
+          {% if r.ber_bajdan_kop %}<div class="warn" title="Berilgan summa tasdiqlangan haftaliklardan ko'p">⚠ bajarilgandan ko'p</div>{% endif %}
+          {% if r.tolovlar %}<details class="tx"><summary>💳 {{ r.tolovlar|length }} ta to'lov</summary><div class="tx-box">{% for m in r.tolovlar %}<div class="tx-row"><span class="tx-dt">{{ m.sana|date:"d.m.Y" }}</span><b class="tx-sum">{{ m.summa|floatformat:"0" }}</b>{% if m.miqdor %}<span class="sm">{{ m.miqdor|floatformat:"-3" }} {{ r.unit }}</span>{% endif %}{% if m.izoh %}<span class="tx-iz">{{ m.izoh }}</span>{% endif %}{% if m.item_id %}<span class="sm" title="Haftalik qatoriga yozilgan (eski usul)">🗓</span>{% endif %}<span class="tx-kim">{{ m.yozdi.username|default:"—" }} · {{ m.created_at|date:"d.m H:i" }}</span></div>{% endfor %}</div></details>{% endif %}
+        </td>
+        <td class="num c-ost"><span class="{% if r.toliq %}toliq{% else %}ost{% if r.ost_manfiy %} neg{% endif %}{% endif %}">{% if r.toliq and not r.ost_manfiy %}✓ 0{% else %}{{ r.ost_str }}{% endif %}</span></td>
+        <td class="c-iz">{% if yoza_oladi %}<form method="post" action="{% url 'moliya_izoh' r.id %}" class="izf">{% csrf_token %}<input type="text" name="izoh" value="{{ r.m_izoh }}" maxlength="300" placeholder="izoh…" data-asl="{{ r.m_izoh }}"><button type="submit" title="Izohni saqlash">✓</button></form>{% else %}{{ r.m_izoh }}{% endif %}</td>
+        {% if yoza_oladi %}
+        <td>{% if not r.toliq %}
+          <form method="post" action="{% url 'moliya_limit_yozish' r.id %}" class="tolov">{% csrf_token %}
+            <input type="number" name="summa" class="s" step="0.01" min="0.01" placeholder="summa" required title="Berilgan summa (so'm)">
+            <input type="date" name="sana" class="d" value="{{ bugun }}">
+            <input type="text" name="izoh" class="i" placeholder="kassa/karta/avans" maxlength="300">
+            <button type="submit">Berildi</button>
+          </form>{% else %}<span class="toliq">✓ to'liq</span>{% endif %}</td>
+        {% endif %}
+      </tr>
+      {% endfor %}
+      <tr class="subtotal"><td colspan="6" style="text-align:right;">Blok yakuni:</td><td class="num">{{ g.t_str }}</td><td></td><td class="num">{{ g.f_str }}</td><td colspan="2"></td><td class="num ber">{{ g.b_str }}</td><td class="num ost {% if g.o_manfiy %}neg{% endif %}">{{ g.o_str }}</td><td></td>{% if yoza_oladi %}<td></td>{% endif %}</tr>
+    {% empty %}
+      <tr><td colspan="{% if yoza_oladi %}15{% else %}14{% endif %}" class="lj-bosh">Bu limitda hali qator yo'q — PTO limit jadvalida kiritadi.</td></tr>
+    {% endfor %}
+    {% if blok.boshqa %}
+      <tr class="bosh"><td></td><td colspan="{% if yoza_oladi %}14{% else %}13{% endif %}">Limitda yo'q ishlar (tasdiqlangan haftaliklardan) — to'lov haftalik qatoriga yoziladi</td></tr>
+      {% for b in blok.boshqa %}
+      <tr class="ish {% if b.toliq %}toliq-row{% endif %}" data-q="{{ b.it.name|lower }} {{ b.it.bolim|lower }} {{ b.it.note|lower }}">
+        <td class="ctr">—</td>
+        <td><span class="kind k-{{ b.kind_cls }}">{{ b.kind_disp }}</span><span class="nm">{{ b.it.name }}</span><div class="sm">{{ b.w.week_start|date:"d.m" }}–{{ b.w.week_end|date:"d.m.Y" }}{% if b.it.bolim %} · 📁 {{ b.it.bolim }}{% endif %}</div></td>
+        <td class="izoh-lim">{{ b.it.note }}</td><td class="ctr">{{ b.it.unit }}</td>
+        <td class="num">{{ b.qty_str }}</td><td class="num">{{ b.price_str }}</td><td class="num"><b>{{ b.total_str }}</b></td>
+        <td class="num">{{ b.qty_str }}</td><td class="num">{{ b.total_str }}</td><td class="num">0</td><td class="num">0</td>
+        <td class="num c-ber"><span class="{% if b.toliq %}toliq{% else %}ber{% endif %}">{{ b.ber_str }}</span>{% if b.tolovlar %}<details class="tx"><summary>💳 {{ b.tolovlar|length }} ta to'lov</summary><div class="tx-box">{% for m in b.tolovlar %}<div class="tx-row"><span class="tx-dt">{{ m.sana|date:"d.m.Y" }}</span><b class="tx-sum">{{ m.summa|floatformat:"0" }}</b>{% if m.izoh %}<span class="tx-iz">{{ m.izoh }}</span>{% endif %}<span class="tx-kim">{{ m.yozdi.username|default:"—" }}</span></div>{% endfor %}</div></details>{% endif %}</td>
+        <td class="num c-ost"><span class="{% if b.toliq %}toliq{% else %}ost{% endif %}">{% if b.toliq %}✓ 0{% else %}{{ b.ost_str }}{% endif %}</span></td>
+        <td class="c-iz"></td>
+        {% if yoza_oladi %}<td>{% if not b.toliq %}<form method="post" action="{% url 'moliya_yozish' b.it.id %}" class="tolov">{% csrf_token %}<input type="number" name="summa" class="s" step="0.01" min="0.01" placeholder="summa" required><input type="date" name="sana" class="d" value="{{ bugun }}"><input type="text" name="izoh" class="i" placeholder="izoh" maxlength="300"><button type="submit">Berildi</button></form>{% else %}<span class="toliq">✓ to'liq</span>{% endif %}</td>{% endif %}
+      </tr>
+      {% endfor %}
+      <tr class="subtotal"><td colspan="6" style="text-align:right;">Limitda yo'q ishlar yakuni:</td><td class="num">{{ blok.bq_t_str }}</td><td></td><td class="num">{{ blok.bq_t_str }}</td><td colspan="2"></td><td class="num ber">{{ blok.bq_b_str }}</td><td class="num ost">{{ blok.bq_o_str }}</td><td></td>{% if yoza_oladi %}<td></td>{% endif %}</tr>
+    {% endif %}
+    </tbody>
+    <tfoot>
+      <tr><td colspan="6" style="text-align:right;">{{ blok.lim.raqam }}-limit jami:</td><td class="num">{{ blok.t_str }}</td><td></td><td class="num">{{ blok.f_str }}</td><td colspan="2"></td><td class="num ber">{{ blok.b_str }}</td><td class="num ost {% if blok.o_manfiy %}neg{% endif %}">{{ blok.o_str }}</td><td></td>{% if yoza_oladi %}<td></td>{% endif %}</tr>
+    </tfoot>
+  </table>
   </div>
 </div>
+{% empty %}
+<div class="panel"><div class="lj-bosh">Bu obyektda hali limit kiritilmagan.</div></div>
+{% endfor %}
+
+{% else %}
+{# ===================== OBYEKTLAR RO'YXATI ===================== #}
+<div class="kpi">
+  <div class="c lim"><div class="l">Umumiy limit (barcha obyektlar)</div><div class="v">{{ jami.lim }}</div></div>
+  <div class="c baj"><div class="l">Bajarilgan (tasdiqlangan haftaliklar)</div><div class="v">{{ jami.baj }}</div></div>
+  <div class="c ber"><div class="l">Berilgan (fakt)</div><div class="v b">{{ jami.ber }}</div></div>
+  <div class="c ost"><div class="l">Qolgan ostatki (limit − berilgan)</div><div class="v {% if jami.ost_manfiy %}neg{% else %}o{% endif %}">{{ jami.ost }}</div></div>
+</div>
+<div class="grid">
+  <div class="panel">
+    <h3>Obyektlar bo'yicha moliyalashtirish <span class="sub">obyektni bosing — to'liq limit jadvali ochiladi</span></h3>
+    <table class="ob">
+      <thead><tr><th>Obyekt</th><th class="num">Umumiy limit</th><th class="num">Bajarilgan</th><th class="num">Berilgan</th><th class="num">Qolgan ostatki</th><th style="width:140px;">Moliyalashtirildi</th></tr></thead>
+      <tbody>
+      {% for o in obyektlar %}
+        <tr>
+          <td><a class="nm" href="?firma={{ sel_firma }}&obyekt={{ o.p.id }}">{{ o.p.name }}</a><div class="sm">{{ o.p.code }}{% if o.p.firma %} · {{ o.p.firma.name }}{% endif %} · {{ o.limit_soni }} ta limit</div></td>
+          <td class="num">{{ o.lim_str }}</td>
+          <td class="num">{{ o.baj_str }}</td>
+          <td class="num ber">{{ o.ber_str }}</td>
+          <td class="num"><span class="{% if o.toliq %}toliq{% else %}ost{% if o.ost_manfiy %} neg{% endif %}{% endif %}">{{ o.ost_str }}</span></td>
+          <td><div class="bar"><i style="width:{{ o.foiz }}%"></i></div><div class="sm">{{ o.foiz }}%</div></td>
+        </tr>
+      {% empty %}<tr><td colspan="6" class="lj-bosh">Obyekt yo'q.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="panel jurnal-panel">{% include "projects/_moliya_jurnal.html" %}</div>
+</div>
+{% endif %}
+
+{% if sel_p %}<div class="panel jurnal-panel">{% include "projects/_moliya_jurnal.html" %}</div>{% endif %}
+
+<script>
+(function(){
+  // Qidiruv: qator bo'yicha (blok sarlavhasi — ichida mos qator bo'lsa qoladi)
+  var qi = document.getElementById('mQidir'), qn = document.getElementById('mQidirN');
+  if (qi){
+    function qil(){
+      var q = (qi.value || '').trim().toLowerCase(), n = 0, jami = 0;
+      document.querySelectorAll('table.lj tbody').forEach(function(tb){
+        var grp = [], bor = false;
+        function flush(){ grp.forEach(function(t){ if (t.classList.contains('ish')) return; t.style.display = (q && !bor) ? 'none' : ''; }); grp = []; bor = false; }
+        Array.prototype.forEach.call(tb.rows, function(tr){
+          if (tr.classList.contains('block') || tr.classList.contains('bosh')){ flush(); grp.push(tr); return; }
+          if (tr.classList.contains('ish')){
+            jami++;
+            var ok = !q || (tr.dataset.q || '').indexOf(q) >= 0;
+            tr.style.display = ok ? '' : 'none'; if (ok){ n++; bor = true; }
+            grp.push(tr); return;
+          }
+          grp.push(tr);
+        });
+        flush();
+      });
+      if (qn) qn.textContent = q ? (n + ' / ' + jami + ' qator') : '';
+    }
+    qi.addEventListener('input', qil);
+  }
+  // Izoh o'zgarsa — sariq (saqlanmaganini eslatadi)
+  document.querySelectorAll('.izf input').forEach(function(inp){
+    inp.addEventListener('input', function(){ inp.classList.toggle('ozg', inp.value !== (inp.dataset.asl || '')); });
+  });
+})();
+</script>
 {% endblock %}

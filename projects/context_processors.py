@@ -69,7 +69,7 @@ def approvals(request):
         ctx["nav_moliya"] = not _prorab   # faqat prorab ko'rmaydi
         if u.is_superuser or is_bux(u):
             from decimal import Decimal
-            from django.db.models import DecimalField, ExpressionWrapper, F, Sum
+            from django.db.models import DecimalField, ExpressionWrapper, F, Q, Sum
             from .models import Moliya, WeeklyRequestItem
             _lt = ExpressionWrapper(F("quantity") * F("unit_price"),
                                     output_field=DecimalField(max_digits=20, decimal_places=2))
@@ -77,7 +77,8 @@ def approvals(request):
                    .filter(request__project__in=_vp, request__status="approved")
                    .aggregate(s=Sum(_lt))["s"] or Decimal("0"))
             ber = (Moliya.objects
-                   .filter(item__request__project__in=_vp, item__request__status="approved")
+                   .filter(Q(item__request__project__in=_vp, item__request__status="approved")
+                           | Q(limit_item__project__in=_vp))
                    .aggregate(s=Sum("summa"))["s"] or Decimal("0"))
             ctx["nav_qarz_bor"] = tas - ber > Decimal("0.5")
     except Exception:

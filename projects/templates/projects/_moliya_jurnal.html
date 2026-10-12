@@ -1,0 +1,31 @@
+<h3>So'nggi to'lovlar <span class="sub">oxirgi 40 ta · bosilib ochiladi</span></h3>
+<div class="jur-list">
+  {% for j in jurnal %}
+  <details class="jd">
+    <summary>
+      <div class="jd-top">
+        <span class="jd-dt">{{ j.m.created_at|date:"d.m H:i" }}</span>
+        <span class="jd-obj">{{ j.p.name|truncatechars:30 }}</span>
+        <span class="jd-sum">{{ j.summa_str }}</span>
+      </div>
+      <div class="jd-sub">{{ j.q.name|truncatechars:34 }} · {{ j.m.yozdi.username|default:"—" }}{% if j.m.izoh %} · {{ j.m.izoh|truncatechars:20 }}{% endif %}</div>
+    </summary>
+    <div class="jd-body">
+      <div class="jd-r"><span>Obyekt</span><b>{{ j.p.name }}</b> <small>({{ j.p.code }})</small></div>
+      {% if j.lim %}<div class="jd-r"><span>Limit</span><b>{{ j.lim.raqam }}-limit{% if j.lim.nom %} · {{ j.lim.nom }}{% endif %}</b></div>{% endif %}
+      {% if j.w %}<div class="jd-r"><span>Hafta (eski usul)</span><b>{{ j.w.week_start|date:"d.m" }}–{{ j.w.week_end|date:"d.m.Y" }}</b></div>{% endif %}
+      <div class="jd-r"><span>Qator</span><b>{{ j.q.name }}</b> <small>· {{ j.kind_disp }}{% if j.q.bolim %} · 📁 {{ j.q.bolim }}{% endif %}</small></div>
+      <div class="jd-r"><span>Qator summasi</span><b>{{ j.qty_str }} {{ j.q.unit }} × {{ j.price_str }} = {{ j.total_str }}</b></div>
+      <hr class="jd-hr">
+      <div class="jd-r"><span>Bu to'lov</span><b style="color:#0F766E;">{{ j.summa_str }}</b>{% if j.miqdor_str %} <small>· {{ j.miqdor_str }} {{ j.q.unit }}</small>{% endif %}</div>
+      <div class="jd-r"><span>To'lov sanasi</span><b>{{ j.m.sana|date:"d.m.Y" }}</b></div>
+      {% if j.m.izoh %}<div class="jd-r"><span>Izoh</span><b>{{ j.m.izoh }}</b></div>{% endif %}
+      <div class="jd-r"><span>Yozdi</span><b>{{ j.m.yozdi.username|default:"—" }}</b> <small>· {{ j.m.created_at|date:"d.m.Y H:i" }}</small></div>
+      <hr class="jd-hr">
+      <div class="jd-r"><span>Qator bo'yicha berildi</span><b style="color:#0F766E;">{{ j.ber_str }}</b></div>
+      <div class="jd-r"><span>Qolgan ostatki</span><b class="{% if j.toliq %}toliq{% else %}ost{% endif %}">{% if j.toliq %}✓ to'liq{% else %}{{ j.ost_str }}{% endif %}</b></div>
+      <div class="jd-r"><span></span><a class="lnk" href="?obyekt={{ j.p.id }}">Jadvalni ochish</a></div>
+    </div>
+  </details>
+  {% empty %}<div style="color:#94a3b8; padding:14px; font-size:13px;">Hali to'lov yozilmagan.</div>{% endfor %}
+</div>
