@@ -4376,13 +4376,10 @@ def limit_jadval(request, pk):
         qs_ = qs_.filter(profile__firma=p.firma) if firma_boyicha else qs_.filter(profile__projects=p)
         return qs_.order_by("username").first()
 
-    _snab_b = _snab_bor(p)
-    _prov_b = _prov_bor(p.firma) or bool(lim_pend_obj and lim_pend_obj.prov_by_id)
     _nomlar = [("pto", "ПТО"), ("snab", "Снабжения"), ("pto2", "ПТО хулосаси"),
                ("dir", "Директор"), ("prov", "Проверчик"), ("adm", "Админ")]
-    _joriy_st = lim_pend_obj.status if lim_pend_obj else ""
-    _nomlar = [(k, n) for k, n in _nomlar
-               if (k != "snab" or _snab_b or _joriy_st == "snab") and (k != "prov" or _prov_b or _joriy_st == "prov")]
+    # Zanjir DOIM to'liq ko'rsatiladi (foydalanuvchi talabi): ПТО → Снабжения → ПТО хулосаси →
+    # Директор → Проверчик → Админ; xodimi yo'q bosqich o'tkazib yuborilsa ham qadam ko'rinadi
     _tartib = [k for k, _ in _nomlar]
     lj_qadamlar, lj_pill, lj_keyingi = [], None, ""
     _oxt = (p.limit_requests.filter(status="approved").order_by("-decided_at", "-id").first())
