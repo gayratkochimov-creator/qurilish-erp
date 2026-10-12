@@ -837,6 +837,10 @@ class UserProfile(models.Model):
         Project, blank=True, related_name="assigned_users",
         verbose_name="Biriktirilgan obyektlar (PTO/Prorab uchun)",
     )
+    # ASOSIY proverchik — tekshirilgan so'rovni adminga o'tkazadi/qaytaradi; qolgan
+    # proverchiklar faqat tahrirlab saqlaydi (2026-10-12). Hech kim belgilanmasa — hammasi o'tkazadi.
+    prov_asosiy = models.BooleanField("Asosiy proverchik", default=False,
+                                      help_text="Faqat proverchik roli uchun: adminga o'tkazish huquqi.")
     telegram_chat_id = models.CharField(
         "Telegram chat ID (2FA)", max_length=32, blank=True, default="",
         help_text="Bo'sh bo'lsa — oddiy login/parol bilan kiradi. "

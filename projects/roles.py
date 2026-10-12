@@ -76,6 +76,18 @@ def is_snab(user):
     return user.groups.filter(name=SNAB_GROUP).exists()
 
 
+def is_asosiy_prov(user):
+    """ASOSIY proverchik — so'rovni adminga o'tkazadi/qaytaradi. Qolgan proverchiklar
+    faqat tahrirlab saqlaydi. Hech kim asosiy deb belgilanmagan bo'lsa — har bir proverchik."""
+    if not is_prov(user):
+        return False
+    prof = getattr(user, "profile", None)
+    if prof is not None and prof.prov_asosiy:
+        return True
+    from .models import UserProfile
+    return not UserProfile.objects.filter(role="prov", prov_asosiy=True, user__is_active=True).exists()
+
+
 def is_prov(user):
     """Proverchik (tekshiruvchi) — limit/haftalik zanjirida direktordan keyin, admindan
     oldin tekshiradi; BARCHA firmalar obyektlarini ko'radi (bir nechta bo'lishi mumkin)."""

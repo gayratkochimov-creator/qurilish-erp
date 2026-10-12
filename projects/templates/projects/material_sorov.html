@@ -28,6 +28,7 @@
     <div class="hint">
       {% if is_pto %}Sizning obyektlaringizga kelgan so'rovlar. Kutayotgan: <b>{{ kutayotgan }}</b>{% endif %}
       {% if is_prorab %}Siz yuborgan prorab so'rovlari{% endif %}
+      {% if is_prov %}Barcha firmalar prorab so'rovlari — faqat ko'rish (o'zgartirish PTOda){% endif %}
     </div>
     {% if is_prorab %}<a class="btn primary" href="{% url 'material_sorov_add' %}">+ Yangi so'rov</a>{% endif %}
   </div>

@@ -96,6 +96,7 @@
         <button class="btn-no">Rad etish</button>
       </form>
     {% elif stage == 'prov' %}
+      {% if prov_asosiy or request.user.is_superuser %}
       <form method="post" action="{% url 'limit_request_action' r.obj.id %}"><input type="hidden" name="action" value="prov_approve">{% csrf_token %}<button class="btn-ok">Tekshirildi — adminga</button></form>
       <form method="post" action="{% url 'limit_request_action' r.obj.id %}" class="rejform" onsubmit="var s=this.querySelector('[name=sabab]'); if(!s.value.trim()){ alert('Sababini yozing.'); s.focus(); return false; }">
         <input type="hidden" name="action" value="orqaga">{% csrf_token %}
@@ -103,6 +104,9 @@
         <input type="text" name="sabab" class="rejnote" placeholder="sabab (to'g'irlash uchun)...">
         <button class="btn-no">↩ Orqaga yuborish</button>
       </form>
+      {% else %}
+      <div class="tmeta" style="max-width:220px;">Jadvalda tekshirib, tahrirlab <b>saqlang</b>. Adminga ASOSIY proverchik o'tkazadi.</div>
+      {% endif %}
     {% else %}
       <form method="post" action="{% url 'limit_request_action' r.obj.id %}"><input type="hidden" name="action" value="approve">{% csrf_token %}<button class="btn-ok">Admin tasdiqlash</button></form>
       <form method="post" action="{% url 'limit_request_action' r.obj.id %}" class="rejform" onsubmit="var s=this.querySelector('[name=sabab]'); if(!s.value.trim()){ alert('Sababini yozing.'); s.focus(); return false; }">

@@ -93,7 +93,8 @@
     {% elif stage == 'dir' %}
       <form method="post" action="{% url 'weekly_action' w.obj.id %}"><input type="hidden" name="action" value="dir_approve"><input type="hidden" name="next" value="tasdiqlar">{% csrf_token %}<button class="btn-ok">Тасдиқлаш</button></form>
     {% elif stage == 'prov' %}
-      <form method="post" action="{% url 'weekly_action' w.obj.id %}"><input type="hidden" name="action" value="prov_approve"><input type="hidden" name="next" value="tasdiqlar">{% csrf_token %}<button class="btn-ok">✓ Текширилди — админга</button></form>
+      {% if prov_asosiy or request.user.is_superuser %}<form method="post" action="{% url 'weekly_action' w.obj.id %}"><input type="hidden" name="action" value="prov_approve"><input type="hidden" name="next" value="tasdiqlar">{% csrf_token %}<button class="btn-ok">✓ Текширилди — админга</button></form>
+      {% else %}<div class="tmeta" style="max-width:220px;">Jadvalda tekshirib saqlang. Adminga ASOSIY proverchik o'tkazadi.</div>{% endif %}
     {% else %}
       {% if w.oshgan %}
       <form method="post" action="{% url 'weekly_action' w.obj.id %}" onsubmit="return confirm('Bu so\'rov limitdan oshadi. Baribir tasdiqlaysizmi?');"><input type="hidden" name="action" value="approve"><input type="hidden" name="confirm_over" value="1"><input type="hidden" name="next" value="tasdiqlar">{% csrf_token %}<button class="btn-over">Limitdan oshsa ham tasdiqlash</button></form>
@@ -101,7 +102,8 @@
       <form method="post" action="{% url 'weekly_action' w.obj.id %}"><input type="hidden" name="action" value="approve"><input type="hidden" name="next" value="tasdiqlar">{% csrf_token %}<button class="btn-ok">Тасдиқлаш</button></form>
       {% endif %}
     {% endif %}
-    {# Орқага: ҳар босқич эгаси ЮБОРГАН босқичга ёки ПТО қораламасига қайтаради #}
+    {# Орқага: ҳар босқич эгаси ЮБОРГАН босқичга ёки ПТО қораламасига қайтаради (prov bosqichida — faqat asosiy) #}
+    {% if stage != 'prov' or prov_asosiy or request.user.is_superuser %}
     <form method="post" action="{% url 'weekly_action' w.obj.id %}" class="rejform" onsubmit="var s=this.querySelector('[name=reject_note]'); if(!s.value.trim()){ alert('Сабабини ёзинг.'); s.focus(); return false; }">
       <input type="hidden" name="action" value="orqaga"><input type="hidden" name="next" value="tasdiqlar">{% csrf_token %}
       <select name="target" class="rejnote" style="min-width:0; padding:6px;">
@@ -114,5 +116,6 @@
       <input type="text" name="reject_note" class="rejnote" placeholder="сабаби (тўғирлаш учун)...">
       <button class="btn-no">↩ Орқага юбориш</button>
     </form>
+    {% endif %}
   </div>
 </div>

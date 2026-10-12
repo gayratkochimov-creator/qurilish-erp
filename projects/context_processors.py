@@ -49,7 +49,7 @@ def approvals(request):
     from .models import LimitChangeRequest, MaterialRequest, WeeklyRequest
     # Firma/obyekt izolyatsiyasi: har kim faqat o'z navbatini ko'radi (admin=hammasi)
     _vp = visible_projects(u)
-    ctx = {"nav_is_pto": _pto, "nav_is_prorab": _prorab,
+    ctx = {"nav_is_pto": _pto, "nav_is_prorab": _prorab, "nav_is_prov": _prv,
            "nav_is_director": _dir, "nav_is_admin": _adm,
            "kod_versiya": kod_versiya()}
     # ADMIN xabarlari — o'qilmaganlari har sahifa tepasida ko'rinadi

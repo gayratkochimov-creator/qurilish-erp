@@ -284,7 +284,7 @@ class UserProfileForm(forms.ModelForm):
     """Obyektlar FAQAT profil firmasidan bo'lsin — boshqa firma obyekti biriktirilsa xato."""
     class Meta:
         model = UserProfile
-        fields = ["role", "firma", "projects"]
+        fields = ["role", "firma", "projects", "prov_asosiy"]
 
     def clean(self):
         data = super().clean()
@@ -308,7 +308,7 @@ class UserProfileInline(admin.StackedInline):
     fk_name = "user"
     verbose_name = "Lavozim va biriktirish"
     verbose_name_plural = "Lavozim va biriktirish (Direktor→firma; PTO/Prorab→obyektlar)"
-    fields = ["role", "firma", "projects"]
+    fields = ["role", "firma", "projects", "prov_asosiy"]
     autocomplete_fields = ["firma"]
     filter_horizontal = ["projects"]
 

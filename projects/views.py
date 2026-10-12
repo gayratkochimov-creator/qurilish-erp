@@ -503,7 +503,7 @@ def dashboard(request):
     _adm = is_admin(request.user)
     _snb = _is_snab_f(request.user)
     _pto_f = is_pto(request.user)
-    from .roles import is_prov as _is_prov_f
+    from .roles import is_prov as _is_prov_f, is_asosiy_prov
     _prv = _is_prov_f(request.user)
     tas_lim, tas_wk, tas_lim2, tas_wk2 = [], [], [], []
     tas_lim_s, tas_lim_p2, tas_lim_pr = [], [], []
@@ -544,6 +544,7 @@ def dashboard(request):
         "tas_lim_pr": tas_lim_pr,                      # proverchik navbati
         "tas_wk_s": tas_wk_s, "tas_wk_p2": tas_wk_p2, "tas_wk_pr": tas_wk_pr,   # haftalik zanjir navbatlari
         "is_director": _dir, "is_snab": _snb, "is_prov": _prv, "tas_show": tas_show,
+        "prov_asosiy": is_asosiy_prov(request.user),
         "graf_dir": graf_dir, "graf_adm": graf_adm,    # grafik tasdiqlash navbatlari
         "tas_count": (len(tas_lim) + len(tas_wk) + len(tas_lim2) + len(tas_wk2)
                       + len(tas_lim_s) + len(tas_lim_p2) + len(tas_lim_pr) + len(graf_dir) + len(graf_adm)
@@ -1522,7 +1523,7 @@ def _limit_request_action_asl(request, pk):
             req.pto_notified = True
             req.save(update_fields=["pto_notified"])
         return redirect("project_detail", pk=req.project_id)
-    from .roles import is_asosiy_admin, is_director, is_pto, is_snab
+    from .roles import is_asosiy_admin, is_asosiy_prov, is_director, is_pto, is_snab
     S = LimitChangeRequest.Status
     from .roles import is_prov
     if not (is_director(request.user) or is_admin(request.user)
@@ -1606,7 +1607,7 @@ def _limit_request_action_asl(request, pk):
                 S.PTO2: (lambda u: is_pto(u) or is_admin(u), {S.SNAB}),
                 S.DIR: (lambda u: (is_director(u) and not u.is_superuser)
                         or is_asosiy_admin(u), {S.PTO2}),
-                S.PROV: (lambda u: is_prov(u) or is_admin(u), {S.DIR}),
+                S.PROV: (lambda u: is_asosiy_prov(u) or is_admin(u), {S.DIR}),
                 S.ADM: (lambda u: is_admin(u), {S.DIR, S.PTO2, S.PROV}),
             }
             NOMI = {S.SNAB: "Snabjeniyega", S.PTO2: "PTOga", S.DIR: "Direktorga", S.PROV: "Proverchikga"}
@@ -1678,9 +1679,9 @@ def _limit_request_action_asl(request, pk):
                                           + ("proverchik tekshiruviga o'tdi." if keyingi == S.PROV
                                              else "admin tasdig'iga o'tdi.") + xb)
         elif a == "prov_approve":
-            # PROVERCHIK bosqichi: tekshirib adminga o'tkazadi
-            if not (is_prov(request.user) or is_admin(request.user)):
-                raise PermissionDenied("Faqat proverchik.")
+            # PROVERCHIK bosqichi: tekshirib adminga o'tkazadi — faqat ASOSIY proverchik
+            if not (is_asosiy_prov(request.user) or is_admin(request.user)):
+                raise PermissionDenied("Adminga faqat ASOSIY proverchik o'tkazadi — siz tahrirlab saqlashingiz mumkin.")
             if req.status != S.PROV:
                 messages.error(request, "Bu so'rov proverchik bosqichida emas.")
             else:
@@ -1804,7 +1805,7 @@ def _weekly_action_asl(request, pk):
     PTO yuboradi → Snabjeniye narxlaydi → PTO xulosasi → Direktor → Proverchik → Admin.
     Har bosqich egasi oldinga o'tkazadi yoki sabab bilan ORQAGA qaytaradi."""
     from django.utils import timezone
-    from .roles import is_admin, is_asosiy_admin, is_director, is_prov, is_snab
+    from .roles import is_admin, is_asosiy_admin, is_asosiy_prov, is_director, is_prov, is_snab
     req = get_object_or_404(WeeklyRequest, pk=pk)
     _firma_yoki_403(request, req.project)
     WS = WeeklyRequest.Status
@@ -1910,8 +1911,8 @@ def _weekly_action_asl(request, pk):
                 raise PermissionDenied("Faqat direktor.")
             _oldinga(WS.DIR, "director_by", "director_at", "Direktor tasdiqladi")
         elif action == "prov_approve":
-            if not (is_prov(u) or is_admin(u)):
-                raise PermissionDenied("Faqat proverchik.")
+            if not (is_asosiy_prov(u) or is_admin(u)):
+                raise PermissionDenied("Adminga faqat ASOSIY proverchik o'tkazadi.")
             _oldinga(WS.PROV, "prov_by", "prov_at", "Proverchik tekshirdi")
         elif action in ("orqaga", "dir_reject"):
             # ORQAGA: har bosqich egasi so'rovni oldingi bosqich egasiga (yoki PTO qoralamasiga)
@@ -1921,7 +1922,7 @@ def _weekly_action_asl(request, pk):
             RUXSAT = {WS.SNAB: (is_snab(u) or is_admin(u), {"draft"}),
                       WS.PTO2: (is_pto(u) or is_admin(u), {"draft", WS.SNAB}),
                       WS.DIR: (dir_actor, {"draft", WS.SNAB, WS.PTO2}),
-                      WS.PROV: (is_prov(u) or is_admin(u), {"draft", WS.DIR}),
+                      WS.PROV: (is_asosiy_prov(u) or is_admin(u), {"draft", WS.DIR}),
                       WS.SUBMITTED: (is_admin(u), {"draft", WS.SNAB, WS.PTO2, WS.DIR, WS.PROV})}
             if u.is_superuser and not is_asosiy_admin(u) and req.status == WS.DIR and not is_admin(u):
                 messages.error(request, "Direktor bosqichini HAQIQIY direktor yoki ASOSIY admin ko'radi.")
@@ -3414,6 +3415,7 @@ def material_sorov(request):
     reqs = (MaterialRequest.objects.filter(project__in=vp)
             .select_related("project", "created_by", "decided_by")
             .prefetch_related("items"))
+    from .roles import is_prov as _is_prov_ms
     prorab = is_prorab(request.user)
     pto = is_pto(request.user)
     if prorab:
@@ -3433,6 +3435,7 @@ def material_sorov(request):
         "rows": rows,
         "is_prorab": prorab,
         "is_pto": pto,
+        "is_prov": _is_prov_ms(request.user),
         "kutayotgan": sum(1 for x in rows if x["is_pending"]),
     })
 
@@ -4542,7 +4545,7 @@ def limit_jadval(request, pk):
                      # orqaga qaytarilgan bo'lsa — sababi bannerda
                      "qaytarish": (r0.decision_note or "")
                      if (r0.decision_note or "").startswith("↩") else ""}
-        from .roles import is_snab as _is_snab0, is_prov as _is_prov_u
+        from .roles import is_snab as _is_snab0, is_prov as _is_prov_u, is_asosiy_prov as _asos_prov_u
         # Shu bosqich egasi jadvalning O'ZIDA oldinga o'tkazadi yoki ORQAGA qaytaradi
         _u, _st = request.user, r0.status
         _dir_actor = (is_director(_u) and not _u.is_superuser) or _asosiy_adm(_u)
@@ -4555,7 +4558,7 @@ def limit_jadval(request, pk):
         elif _st == "dir" and _dir_actor:
             _amal = {"oldinga": ("dir_approve", "✓ Тасдиқлаш (директор)" + (" — проверчикга" if _prov_bor(p.firma) else "")),
                      "orqaga": [("pto2", "ПТОга")]}
-        elif _st == "prov" and (_is_prov_u(_u) or is_admin(_u)):
+        elif _st == "prov" and (_asos_prov_u(_u) or is_admin(_u)):
             _amal = {"oldinga": ("prov_approve", "✓ Текширилди — админга"),
                      "orqaga": [("dir", "Директорга")]}
         elif _st == "adm" and is_admin(_u):
@@ -4659,7 +4662,7 @@ def limit_jadval(request, pk):
     from django.contrib.auth import get_user_model as _gum
     _adm_u = (_gum().objects.filter(is_active=True, is_superuser=True,
                                     username=getattr(_st_, "ASOSIY_ADMIN_LOGIN", "admin")).first())
-    from .roles import is_prov as _is_prov_w, is_snab as _is_snab_w
+    from .roles import is_asosiy_prov as _is_prov_w, is_snab as _is_snab_w
     _wk1 = _wk_keyingi(p, "draft")
     _wk1_u = (_rol_user("snab") if _wk1 == "snab" else _dir_u if _wk1 == "dir" else _adm_u)
     # Obyektning RAQAMLI limitlari — tablar (jami summa bilan); keyingisini faqat admin ochadi
