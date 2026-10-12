@@ -3006,10 +3006,11 @@ def moliya(request):
     Obyekt tanlanmasa — obyektlar ro'yxati (limit / bajarilgan / berildi / ostatki)."""
     from django.db.models import Q
     from django.utils import timezone
-    from .models import Moliya, LimitItem
+    from .models import Moliya, LimitItem, MoliyaTahrirSorov
     if not moliya_kora_oladi(request.user):
         raise PermissionDenied("Moliyalashtirish bo'limi prorabga ko'rsatilmaydi.")
     yoza_oladi = _moliya_yoza_oladi(request.user)
+    is_adm = is_admin(request.user)
     vp_all = visible_projects(request.user)
     vp = vp_all
     firma_id = request.GET.get("firma") or ""
@@ -3030,10 +3031,17 @@ def moliya(request):
     j_lim = j_baj = j_ber = Decimal("0")
     j_qarz = Decimal("0")
     oxirgi_tolov = {}
-    for m in (Moliya.objects.filter(Q(item__request__project__in=vp) | Q(limit_item__project__in=vp))
+    for m in (Moliya.objects.filter(Q(item__request__project__in=vp) | Q(limit_item__project__in=vp), bekor=False)
               .select_related("item__request", "limit_item").order_by("-sana", "-id")):
         pid = m.limit_item.project_id if m.limit_item_id else m.item.request.project_id
         oxirgi_tolov.setdefault(pid, m.sana)
+    # Ochiq tahrir so'rovlari — obyekt bo'yicha soni (admin ko'radi)
+    sorov_soni = {}
+    for sr in (MoliyaTahrirSorov.objects.filter(status=MoliyaTahrirSorov.Status.SOROV)
+               .filter(Q(limit_item__project__in=vp) | Q(item__request__project__in=vp))
+               .select_related("limit_item", "item__request")):
+        pid = sr.limit_item.project_id if sr.limit_item_id else sr.item.request.project_id
+        sorov_soni[pid] = sorov_soni.get(pid, 0) + 1
     for p in vp.select_related("firma").order_by("code"):
         lim_s = p.budget_total or Decimal("0")
         baj = p.sarflangan()
@@ -3056,7 +3064,7 @@ def moliya(request):
             "foiz": min(100, int(ber / lim_s * 100)) if lim_s > 0 else 0,
             "toliq": toliq, "holat": holat, "holat_nom": holat_nom,
             "limit_soni": p.limitlar.count(),
-            "oxirgi": oxirgi_tolov.get(p.pk),
+            "oxirgi": oxirgi_tolov.get(p.pk), "sorov_soni": sorov_soni.get(p.pk, 0),
             "q": f"{p.code} {p.name} {p.firma.name if p.firma_id else ''}".lower(),
         })
     tartib = request.GET.get("tartib") or "ost"
@@ -3072,7 +3080,7 @@ def moliya(request):
             "ost": _money(j_lim - j_ber), "ost_manfiy": j_lim - j_ber < 0, "qarz": _money(j_qarz),
             "foiz": min(100, int(j_ber / j_lim * 100)) if j_lim > 0 else 0,
             "soni": len(obyektlar), "qarz_soni": sum(1 for d in obyektlar if d["holat"] == "qarz"),
-            "toliq_soni": sum(1 for d in obyektlar if d["toliq"])}
+            "toliq_soni": sum(1 for d in obyektlar if d["toliq"]), "sorov_soni": sum(sorov_soni.values())}
 
     # ---------- TANLANGAN OBYEKT — LIMIT JADVALI ----------
     sel_p, limit_bloklar = None, []
@@ -3097,7 +3105,7 @@ def moliya(request):
             # To'lovlar: limit qatoriga yozilganlar + eski haftalik to'lovlar (kalit bo'yicha,
             # kalitning BIRINCHI qatoriga)
             tol_li = {}
-            for m in (Moliya.objects.filter(limit_item__limit=lim).select_related("yozdi")
+            for m in (Moliya.objects.filter(limit_item__limit=lim).select_related("yozdi", "bekor_by", "tahrir_by")
                       .order_by("sana", "id")):
                 tol_li.setdefault(m.limit_item_id, []).append(m)
             tol_key = {}
@@ -3107,6 +3115,15 @@ def moliya(request):
                     tol_key.setdefault(k, []).extend(it.moliyalar.all())
                 else:
                     boshqa_items.append(it)
+            # Ochiq tahrir so'rovlari (pozitsiya bo'yicha)
+            sor_li, sor_it = {}, {}
+            for sr in (MoliyaTahrirSorov.objects
+                       .filter(status__in=[MoliyaTahrirSorov.Status.SOROV, MoliyaTahrirSorov.Status.RUXSAT])
+                       .filter(Q(limit_item__limit=lim) | Q(item__request__limit=lim)).select_related("soradi")):
+                if sr.limit_item_id:
+                    sor_li[sr.limit_item_id] = sr
+                else:
+                    sor_it[sr.item_id] = sr
             key_korildi = set()
             l_t = l_f = l_b = Decimal("0")
             for g in guruhlar:
@@ -3120,11 +3137,14 @@ def moliya(request):
                         key_korildi.add(r["key"])
                         tolovlar += list(tol_key.get(r["key"], []))
                     tolovlar.sort(key=lambda m: (m.sana, m.id))
-                    ber = sum((m.summa for m in tolovlar), Decimal("0"))
+                    ber = sum((m.summa for m in tolovlar if not m.bekor), Decimal("0"))
                     ost = total - ber
                     toliq_ = total > 0 and ost <= 0
                     holat = "toliq" if toliq_ else ("qisman" if ber > 0 else "yoq")
+                    sr = sor_li.get(li.pk)
                     r.update({
+                        "sorov": sr, "faol_tolov": sum(1 for m in tolovlar if not m.bekor),
+                        "sorov_url": reverse("moliya_tahrir_sorov", args=["limit", li.pk]),
                         "holat": holat, "holat_nom": {"toliq": "To'liq", "qisman": "Qisman", "yoq": "Berilmagan"}[holat],
                         "baj_qarz": _money(f_sum - ber) if f_sum - ber > Decimal("0.5") else "",
                         "tolov_json": json.dumps(_moliya_tolov_json(tolovlar), ensure_ascii=False),
@@ -3153,6 +3173,8 @@ def moliya(request):
                 toliq_ = it.qarz <= 0
                 holat = "toliq" if toliq_ else ("qisman" if b_ > 0 else "yoq")
                 boshqa.append({"it": it, "w": it.request, "kind_cls": KCLS.get(it.kind, "mat"),
+                               "sorov": sor_it.get(it.pk), "faol_tolov": sum(1 for m in tl_ if not m.bekor),
+                               "sorov_url": reverse("moliya_tahrir_sorov", args=["hafta", it.pk]),
                                "kind_disp": KIND_NOMI.get(it.kind, it.kind),
                                "qty_str": _qty(it.quantity), "price_str": _money(it.unit_price),
                                "total_str": _money(it.total), "ber_str": _money(b_),
@@ -3180,6 +3202,15 @@ def moliya(request):
             for b in bl["boshqa"]:
                 _hs["hammasi"] += 1; _hs[b["holat"]] += 1
         holat_soni = _hs
+        sorovlar = []
+        for bl in limit_bloklar:
+            for g in bl["guruhlar"]:
+                for r in g["rows"]:
+                    if r.get("sorov"):
+                        sorovlar.append({"s": r["sorov"], "nom": r["name"], "bolim": g["bolim"], "lim": bl["lim"]})
+            for b in bl["boshqa"]:
+                if b.get("sorov"):
+                    sorovlar.append({"s": b["sorov"], "nom": b["it"].name, "bolim": b["it"].bolim, "lim": bl["lim"]})
 
     # ---------- SO'NGGI TO'LOVLAR JURNALI ----------
     jurnal = []
@@ -3194,7 +3225,7 @@ def moliya(request):
             continue
         if m_.limit_item_id:
             p_, lim_, w_ = q.project, q.limit, None
-            tol_jami = sum((x.summa for x in q.moliyalar.all()), Decimal("0"))
+            tol_jami = sum((x.summa for x in q.moliyalar.all() if not x.bekor), Decimal("0"))
         else:
             p_, lim_, w_ = q.request.project, q.request.limit, q.request
             tol_jami = q.berildi
@@ -3220,6 +3251,8 @@ def moliya(request):
     return render(request, "projects/moliya.html", {
         "obyektlar": obyektlar, "jami": jami, "sel_p": sel_p, "sel_kpi": sel_kpi, "limit_bloklar": limit_bloklar,
         "holat_soni": holat_soni if sel_p is not None else None, "tartib": tartib,
+        "is_adm": is_adm, "sorovlar": sorovlar if sel_p is not None else [],
+        "amal_ustun": yoza_oladi or is_adm,
         "tolov_soni": sum(1 for _ in jurnal),
         "jurnal": jurnal, "yoza_oladi": yoza_oladi,
         "firmalar": visible_firmas(request.user).order_by("name"),
@@ -3234,11 +3267,14 @@ def _moliya_tolov_json(tolovlar):
     from django.utils.timezone import localtime as _lt
     out = []
     for m in tolovlar:
-        out.append({"sana": f"{m.sana:%d.%m.%Y}", "summa": _money(m.summa),
-                    "usul": m.get_usul_display() if m.usul else "", "izoh": m.izoh or "",
+        out.append({"id": m.pk, "sana": f"{m.sana:%d.%m.%Y}", "sana_iso": m.sana.isoformat(),
+                    "summa": _money(m.summa), "summa_raw": str(m.summa),
+                    "usul": m.get_usul_display() if m.usul else "", "usul_kod": m.usul or "", "izoh": m.izoh or "",
                     "kim": m.yozdi.username if m.yozdi_id else "—",
                     "vaqt": f"{_lt(m.created_at):%d.%m %H:%M}" if m.created_at else "",
-                    "eski": bool(m.item_id)})
+                    "eski": bool(m.item_id), "bekor": bool(m.bekor), "bekor_sabab": m.bekor_sabab or "",
+                    "asl": _money(m.asl_summa) if m.asl_summa is not None else "",
+                    "tahrir": (m.tahrir_by.username if m.tahrir_by_id else "") + (f" · {_lt(m.tahrir_at):%d.%m %H:%M}" if m.tahrir_at else "")})
     return out
 
 
@@ -3246,8 +3282,8 @@ def _moliya_li_berildi(li):
     """Limit qatoriga BERILGAN jami: limit qatori to'lovlari + shu limitdagi tasdiqlangan
     haftaliklarning (eski usul) shu nom+bo'limli qator to'lovlari."""
     from .models import Moliya
-    s = Moliya.objects.filter(limit_item=li).aggregate(s=Sum("summa"))["s"] or Decimal("0")
-    for m in Moliya.objects.filter(item__request__limit_id=li.limit_id,
+    s = Moliya.objects.filter(limit_item=li, bekor=False).aggregate(s=Sum("summa"))["s"] or Decimal("0")
+    for m in Moliya.objects.filter(item__request__limit_id=li.limit_id, bekor=False,
                                    item__request__status=WeeklyRequest.Status.APPROVED).select_related("item"):
         if _lj_key(m.item.name, m.item.bolim) == _lj_key(li.name, li.bolim):
             s += m.summa
@@ -3295,6 +3331,165 @@ def moliya_limit_yozish(request, li_id):
     messages.success(request,
         f"«{li.name}» — {_money(summa)} berildi deb yozildi. "
         + ("Qator TO'LIQ moliyalashtirildi ✓" if qoldi <= 0 else f"Qolgan ostatki: {_money(qoldi)}"))
+    return redirect(qayt)
+
+
+def _moliya_qator(tur, pk):
+    """Pozitsiya: ('limit', LimitItem.pk) yoki ('hafta', WeeklyRequestItem.pk) → (obj, project, total)."""
+    from .models import LimitItem
+    if tur == "limit":
+        li = get_object_or_404(LimitItem.objects.select_related("project", "limit"), pk=pk)
+        return li, li.project, li.total
+    it = get_object_or_404(WeeklyRequestItem.objects.select_related("request", "request__project"), pk=pk)
+    return it, it.request.project, it.total
+
+
+def _moliya_adminlarga_xabar(request, matn):
+    """Barcha faol adminlarga (superuser) tizim banneri + Telegram."""
+    from django.contrib.auth import get_user_model
+    n = 0
+    for u in get_user_model().objects.filter(is_active=True, is_superuser=True).exclude(pk=request.user.pk):
+        _lj_xabar_yubor(matn, u, request.user)
+        n += 1
+    return n
+
+
+@login_required
+def moliya_tahrir_sorov(request, tur, pk):
+    """BUXGALTER: yozilgan to'lovlarni tahrirlash uchun admindan RUXSAT so'raydi —
+    har pozitsiya uchun alohida (sabab majburiy). Ochiq so'rov bo'lsa ikkinchisi ochilmaydi."""
+    from .models import MoliyaTahrirSorov
+    if not _moliya_yoza_oladi(request.user):
+        raise PermissionDenied("Tahrir ruxsatini faqat BUXGALTER so'raydi.")
+    if tur not in ("limit", "hafta"):
+        raise PermissionDenied("Noto'g'ri pozitsiya.")
+    obj, p, total = _moliya_qator(tur, pk)
+    _firma_yoki_403(request, p)
+    qayt = _xavfsiz_referer(request, "moliya")
+    if request.method != "POST":
+        return redirect(qayt)
+    sabab = " ".join((request.POST.get("sabab") or "").split())[:300]
+    if not sabab:
+        messages.error(request, "Tahrir sababini yozing.")
+        return redirect(qayt)
+    if not obj.moliyalar.filter(bekor=False).exists():
+        messages.error(request, f"«{obj.name}» qatorida to'lov yo'q — tahrirlashga hojat yo'q.")
+        return redirect(qayt)
+    fk = {"limit_item": obj} if tur == "limit" else {"item": obj}
+    if MoliyaTahrirSorov.objects.filter(status__in=["sorov", "ruxsat"], **fk).exists():
+        messages.error(request, f"«{obj.name}» uchun ochiq so'rov allaqachon bor — admin javobini kuting.")
+        return redirect(qayt)
+    sr = MoliyaTahrirSorov.objects.create(soradi=request.user, sabab=sabab, **fk)
+    link = request.build_absolute_uri(reverse("moliya") + f"?obyekt={p.pk}")
+    n = _moliya_adminlarga_xabar(request, f"💳 Moliya: «{obj.name}» ({p.code}) to'lovlarini tahrirlashga ruxsat "
+                                          f"so'raldi. Sabab: {sabab}. So'radi: {request.user.username}.\n{link}")
+    messages.success(request, f"«{obj.name}» — tahrir ruxsati so'raldi (admin{'larga xabar ketdi' if n else 'ga'}). "
+                              "Ruxsat berilgach qatorda «Tahrirlash» tugmasi chiqadi.")
+    return redirect(qayt)
+
+
+@login_required
+def moliya_tahrir_javob(request, pk):
+    """ADMIN: tahrir so'roviga javob — ruxsat / rad (har so'rov alohida)."""
+    from django.utils import timezone
+    from .models import MoliyaTahrirSorov
+    if not is_admin(request.user):
+        raise PermissionDenied("Tahrir ruxsatini faqat ADMIN beradi.")
+    sr = get_object_or_404(MoliyaTahrirSorov.objects.select_related("soradi", "limit_item__project", "item__request__project"), pk=pk)
+    p = sr.project
+    _firma_yoki_403(request, p)
+    qayt = _xavfsiz_referer(request, "moliya")
+    if request.method != "POST":
+        return redirect(qayt)
+    amal = request.POST.get("amal")
+    izoh = " ".join((request.POST.get("izoh") or "").split())[:300]
+    if sr.status != MoliyaTahrirSorov.Status.SOROV:
+        messages.error(request, "Bu so'rovga allaqachon javob berilgan.")
+        return redirect(qayt)
+    if amal not in ("ruxsat", "rad"):
+        messages.error(request, "Amal noto'g'ri.")
+        return redirect(qayt)
+    sr.status = MoliyaTahrirSorov.Status.RUXSAT if amal == "ruxsat" else MoliyaTahrirSorov.Status.RAD
+    sr.javob_by, sr.javob_at, sr.javob_izoh = request.user, timezone.now(), izoh
+    sr.save(update_fields=["status", "javob_by", "javob_at", "javob_izoh"])
+    nom = sr.qator.name
+    if sr.soradi_id and sr.soradi_id != request.user.pk:
+        link = request.build_absolute_uri(reverse("moliya") + f"?obyekt={p.pk}")
+        _lj_xabar_yubor((f"✅ Admin «{nom}» ({p.code}) to'lovlarini tahrirlashga RUXSAT berdi — bir marta tahrirlang."
+                         if amal == "ruxsat" else f"⛔ Admin «{nom}» ({p.code}) tahrir so'rovini RAD etdi.")
+                        + (f" Izoh: {izoh}." if izoh else "") + f"\n{link}", sr.soradi, request.user)
+    messages.success(request, f"«{nom}» — " + ("tahrirga ruxsat berildi (buxgalterga xabar ketdi)." if amal == "ruxsat" else "so'rov rad etildi."))
+    return redirect(qayt)
+
+
+@login_required
+def moliya_tahrir_saqla(request, pk):
+    """BUXGALTER (ruxsat bilan, BIR MARTA): pozitsiya to'lovlarini tahrirlaydi —
+    summa/sana/usul/izoh, xato to'lovni BEKOR qiladi (o'chirilmaydi). Faol to'lovlar
+    yig'indisi qator summasidan oshmasligi kerak. So'ng ruxsat yopiladi."""
+    from django.utils import timezone
+    from .models import Moliya, MoliyaTahrirSorov
+    if not _moliya_yoza_oladi(request.user):
+        raise PermissionDenied("To'lovni faqat BUXGALTER tahrirlaydi.")
+    sr = get_object_or_404(MoliyaTahrirSorov.objects.select_related("limit_item__project", "item__request__project"), pk=pk)
+    p = sr.project
+    _firma_yoki_403(request, p)
+    qayt = _xavfsiz_referer(request, "moliya")
+    if request.method != "POST":
+        return redirect(qayt)
+    if sr.status != MoliyaTahrirSorov.Status.RUXSAT:
+        messages.error(request, "Bu pozitsiya uchun admin ruxsati yo'q (yoki allaqachon ishlatilgan).")
+        return redirect(qayt)
+    obj = sr.qator
+    total = obj.total
+    with transaction.atomic():
+        sr = MoliyaTahrirSorov.objects.select_for_update().get(pk=sr.pk)
+        if sr.status != MoliyaTahrirSorov.Status.RUXSAT:
+            messages.error(request, "Ruxsat allaqachon ishlatilgan.")
+            return redirect(qayt)
+        tolovlar = list(Moliya.objects.select_for_update().filter(bekor=False, **({"limit_item": obj} if sr.limit_item_id else {"item": obj})))
+        yangi, jami, ozg = [], Decimal("0"), 0
+        for m in tolovlar:
+            pre = f"_{m.pk}"
+            if request.POST.get("bekor" + pre):
+                sab = " ".join((request.POST.get("bekor_sabab" + pre) or "").split())[:300]
+                yangi.append((m, None, sab)); ozg += 1
+                continue
+            summa = _to_dec((request.POST.get("summa" + pre) or "").replace(" ", "").replace("\xa0", ""))
+            if summa is None or summa <= 0 or summa > Decimal("1000000000000"):
+                messages.error(request, f"«{obj.name}»: {m.sana:%d.%m.%Y} to'lovi summasi noto'g'ri.")
+                return redirect(qayt)
+            try:
+                sana = datetime.date.fromisoformat(request.POST.get("sana" + pre, ""))
+            except ValueError:
+                sana = m.sana
+            usul = request.POST.get("usul" + pre) or ""
+            if usul not in ("kassa", "karta", "avans"):
+                usul = ""
+            izoh = " ".join((request.POST.get("izoh" + pre) or "").split())[:300]
+            jami += summa
+            yangi.append((m, (summa, sana, usul, izoh), ""))
+        if jami > total + Decimal("0.01"):
+            messages.error(request, f"Faol to'lovlar yig'indisi ({_money(jami)}) qator summasidan ({_money(total)}) oshib ketdi — saqlanmadi.")
+            return redirect(qayt)
+        now = timezone.now()
+        for m, qiym, sab in yangi:
+            if qiym is None:
+                m.bekor, m.bekor_sabab, m.bekor_by, m.bekor_at = True, sab or "Buxgalter bekor qildi (admin ruxsati bilan)", request.user, now
+                m.save(update_fields=["bekor", "bekor_sabab", "bekor_by", "bekor_at"])
+                continue
+            summa, sana, usul, izoh = qiym
+            if (summa, sana, usul, izoh) == (m.summa, m.sana, m.usul or "", m.izoh or ""):
+                continue
+            if summa != m.summa and m.asl_summa is None:
+                m.asl_summa = m.summa
+            m.summa, m.sana, m.usul, m.izoh = summa, sana, usul, izoh
+            m.tahrir_by, m.tahrir_at = request.user, now
+            m.save(update_fields=["summa", "sana", "usul", "izoh", "asl_summa", "tahrir_by", "tahrir_at"])
+            ozg += 1
+        sr.status, sr.bajarildi_at = MoliyaTahrirSorov.Status.BAJARILDI, now
+        sr.save(update_fields=["status", "bajarildi_at"])
+    messages.success(request, f"«{obj.name}» — to'lovlar tahrirlandi ({ozg} ta o'zgarish). Berilgan: {_money(jami)}. Ruxsat yopildi.")
     return redirect(qayt)
 
 
@@ -3839,7 +4034,7 @@ def _hafta_qatorlarini_yangila(w, yangi, ws_, we_, user):
             reja_yarat.append(y)
     ochiriladi = [it for nav in mavjud.values() for it in nav]
     for it in ochiriladi:
-        if it.moliyalar.exists():
+        if it.moliyalar.filter(bekor=False).exists():
             return (f"«{it.name}» qatoriga to'lov yozilgan — uni o'chirib bo'lmaydi. "
                     "Avval buxgalter bilan hal qiling.")
     with transaction.atomic():

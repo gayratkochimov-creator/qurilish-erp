@@ -78,7 +78,7 @@ def approvals(request):
                    .aggregate(s=Sum(_lt))["s"] or Decimal("0"))
             ber = (Moliya.objects
                    .filter(Q(item__request__project__in=_vp, item__request__status="approved")
-                           | Q(limit_item__project__in=_vp))
+                           | Q(limit_item__project__in=_vp), bekor=False)
                    .aggregate(s=Sum("summa"))["s"] or Decimal("0"))
             ctx["nav_qarz_bor"] = tas - ber > Decimal("0.5")
     except Exception:

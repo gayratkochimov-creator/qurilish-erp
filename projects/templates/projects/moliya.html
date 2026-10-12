@@ -94,6 +94,35 @@
   .tbtn { height:30px; padding:0 10px; border-radius:7px; border:1px solid var(--teal); background:var(--teal); color:#fff; font:inherit; font-size:12px; font-weight:700; display:inline-flex; align-items:center; gap:5px; cursor:pointer; white-space:nowrap; }
   .tbtn:hover { background:#0B5F58; } .tbtn svg { width:13px; height:13px; }
   .toliq-t { color:var(--gr); font-weight:800; font-size:12.5px; white-space:nowrap; }
+  .tbtn.edit { background:#fff; color:var(--teal); }
+  .tbtn.edit:hover { background:#F0FDFA; }
+  .chip.sorov { background:#FEF3C7; color:#92400E; } .chip.ruxsat { background:#F0FDFA; color:var(--teal); border:1px solid #99F6E4; }
+  .amal-col { display:flex; flex-direction:column; align-items:center; gap:4px; }
+  .mini { display:inline-flex; gap:4px; }
+  .mini button { height:26px; padding:0 8px; border-radius:6px; border:1px solid #D7DDE6; background:#fff; font:inherit; font-size:11.5px; font-weight:700; cursor:pointer; }
+  .mini button.ok { background:var(--teal); border-color:var(--teal); color:#fff; } .mini button.no { color:#B91C1C; }
+  /* Admin: tahrir so'rovlari banneri */
+  .sorov-panel { border:1px solid #FDE68A; background:#FFFBEB; border-radius:14px; padding:12px 16px; margin-bottom:14px; }
+  .sorov-panel h3 { margin:0 0 8px; font-size:14px; color:#92400E; display:flex; align-items:center; gap:8px; }
+  .sorov-row { display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding:8px 0; border-top:1px dashed #FDE68A; font-size:13px; }
+  .sorov-row:first-of-type { border-top:0; }
+  .sorov-row .nm { font-weight:700; } .sorov-row .sb { color:#475569; flex:1 1 260px; min-width:0; }
+  .sorov-row form { display:flex; gap:6px; align-items:center; }
+  .sorov-row input { height:30px; padding:0 8px; border:1px solid #D7DDE6; border-radius:7px; font:inherit; font-size:12.5px; width:180px; }
+  /* Yon panel: tahrir rejimi */
+  .dw .ed { display:flex; flex-direction:column; gap:10px; }
+  .dw .ed .tr { border:1px solid #E6EBF1; border-radius:10px; padding:10px 12px; display:grid; grid-template-columns:1fr 1fr; gap:8px; background:#fff; }
+  .dw .ed .tr.off { opacity:.55; background:#FEF2F2; border-color:#FECACA; }
+  .dw .ed .tr .w { grid-column:1 / -1; display:flex; align-items:center; gap:8px; font-size:12px; color:#64748B; }
+  .dw .ed .tr label { font-size:11px; font-weight:700; color:#475569; display:block; margin-bottom:3px; }
+  .dw .ed .tr .inp { height:36px; font-size:13px; }
+  .dw .ed .tr select.inp { padding:0 8px; }
+  .dw .ed .bk { grid-column:1 / -1; display:flex; align-items:center; gap:8px; font-size:12.5px; }
+  .dw .ed .bk input[type=text] { flex:1; height:32px; }
+  .dw .ed-sum { display:flex; justify-content:space-between; font-size:13px; padding:8px 12px; border-radius:9px; background:#F8FAFC; border:1px solid #E6EBF1; }
+  .dw .ed-sum.bad { background:#FEF2F2; border-color:#FECACA; color:#B91C1C; font-weight:700; }
+  .dw .sor { border:1px dashed #CBD5E1; border-radius:10px; padding:10px 12px; display:flex; flex-direction:column; gap:8px; }
+  .dw .sor .inp { height:38px; font-size:13px; }
   /* Obyektlar ro'yxati */
   table.ob { width:100%; border-collapse:separate; border-spacing:0; }
   .ob th { background:#F8FAFC; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#64748B; font-weight:700; padding:10px 14px; text-align:left; border-bottom:1px solid #E2E8F0; white-space:nowrap; }
@@ -188,6 +217,21 @@
     <div class="s">{% if sel_kpi.ost_manfiy %}<b style="color:#B91C1C;">Berilgan limitdan oshib ketgan</b>{% elif sel_kpi.toliq %}<b class="toliq">✓ To'liq moliyalashtirildi</b>{% else %}limit − berilgan{% if sel_kpi.qarz %} · bajarilgan qarzi <b style="color:#B45309;">{{ sel_kpi.qarz_str }}</b>{% endif %}{% endif %}</div></div>
 </div>
 
+{% if is_adm and sorovlar %}
+<div class="sorov-panel" id="sorovPanel">
+  <h3>⏳ To'lovlarni tahrirlash so'rovlari <span class="chip sorov">{{ sorovlar|length }}</span><span class="sm" style="font-weight:500;">har pozitsiya uchun alohida ruxsat beriladi — buxgalter bir marta tahrirlaydi, so'ng ruxsat yopiladi</span></h3>
+  {% for q in sorovlar %}
+  <div class="sorov-row">
+    <span class="nm">{{ q.nom }}</span><span class="sm">{{ q.bolim|default:"—" }} · {{ q.lim.raqam }}-limit</span>
+    <span class="sb">«{{ q.s.sabab }}» <span class="sm">— {{ q.s.soradi.username|default:"—" }} · {{ q.s.created_at|date:"d.m H:i" }}</span></span>
+    {% if q.s.status == 'sorov' %}
+    <form method="post" action="{% url 'moliya_tahrir_javob' q.s.pk %}">{% csrf_token %}<input type="text" name="izoh" placeholder="izoh (ixtiyoriy)" maxlength="300"><span class="mini"><button type="submit" name="amal" value="ruxsat" class="ok">✓ Ruxsat berish</button><button type="submit" name="amal" value="rad" class="no">✕ Rad</button></span></form>
+    {% else %}<span class="chip ruxsat">✓ ruxsat berilgan · {{ q.s.javob_by.username|default:"" }} {{ q.s.javob_at|date:"d.m H:i" }} — tahrir kutilmoqda</span>{% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
 <div class="panel">
   <div class="ph">
     <span class="seg" id="limTabs" aria-label="Limitlar">
@@ -220,7 +264,7 @@
       <tr>
         <th class="h-main" rowspan="2" style="width:40px;">№</th><th class="h-main" rowspan="2" style="min-width:220px; text-align:left;">Ish turi</th><th class="h-main c-nq" rowspan="2" style="min-width:110px;">Izoh (limit)</th><th class="h-main" rowspan="2" style="width:48px;">Birl.</th>
         <th class="h-um" colspan="3">Umumiy limit</th><th class="h-baj" colspan="2">Bajarilgan</th><th class="h-qol" colspan="2">Qolgan</th>
-        <th class="h-ber" rowspan="2" style="min-width:125px;">Berilgan</th><th class="h-ost" rowspan="2" style="min-width:110px;">Qolgan ostatki</th><th class="h-hol" rowspan="2" style="width:104px;">Holat</th><th class="h-iz" rowspan="2" style="min-width:170px; text-align:left;">Izoh (buxgalter)</th>{% if yoza_oladi %}<th class="h-main" rowspan="2" style="width:92px;">Amal</th>{% endif %}
+        <th class="h-ber" rowspan="2" style="min-width:125px;">Berilgan</th><th class="h-ost" rowspan="2" style="min-width:110px;">Qolgan ostatki</th><th class="h-hol" rowspan="2" style="width:104px;">Holat</th><th class="h-iz" rowspan="2" style="min-width:170px; text-align:left;">Izoh (buxgalter)</th>{% if amal_ustun %}<th class="h-main" rowspan="2" style="width:96px;">Amal</th>{% endif %}
       </tr>
       <tr>
         <th class="h-um c-nq">Obyom</th><th class="h-um c-nq">Narxi</th><th class="h-um">Summa</th>
@@ -230,11 +274,11 @@
     </thead>
     <tbody>
     {% for g in blok.guruhlar %}
-      <tr class="block"><td></td><td colspan="{% if yoza_oladi %}15{% else %}14{% endif %}">{{ g.bolim|default:"Bo'limsiz qatorlar" }}{% if g.masul %} &nbsp;·&nbsp; Mas'ul: {{ g.masul }}{% endif %} &nbsp;·&nbsp; <span class="bx">{{ g.soni }} qator · berilgan {{ g.b_str }} / {{ g.t_str }} ({{ g.foiz }} %)</span></td></tr>
+      <tr class="block"><td></td><td colspan="{% if amal_ustun %}15{% else %}14{% endif %}">{{ g.bolim|default:"Bo'limsiz qatorlar" }}{% if g.masul %} &nbsp;·&nbsp; Mas'ul: {{ g.masul }}{% endif %} &nbsp;·&nbsp; <span class="bx">{{ g.soni }} qator · berilgan {{ g.b_str }} / {{ g.t_str }} ({{ g.foiz }} %)</span></td></tr>
       {% for r in g.rows %}
       <tr class="ish {% if r.toliq %}toliq{% endif %}" data-h="{{ r.holat }}" data-q="{{ r.name|lower }} {{ g.bolim|lower }} {{ g.masul|lower }} {{ r.izoh|lower }} {{ r.m_izoh|lower }} {{ r.kind_disp|lower }}"
           data-nom="{{ r.name }}" data-sub="{{ r.kind_disp }} · {{ g.bolim|default:'Bo‘limsiz' }}{% if g.masul %} · Mas'ul: {{ g.masul }}{% endif %} · {{ blok.lim.raqam }}-limit · {{ r.vol_str }} {{ r.unit }} × {{ r.price_str }}"
-          data-total="{{ r.total_raw }}" data-fs="{{ r.fs_raw }}" data-ber="{{ r.ber_raw }}" data-tolov='{{ r.tolov_json }}' {% if yoza_oladi %}data-action="{% url 'moliya_limit_yozish' r.id %}"{% endif %}>
+          data-total="{{ r.total_raw }}" data-fs="{{ r.fs_raw }}" data-ber="{{ r.ber_raw }}" data-tolov='{{ r.tolov_json }}' {% if yoza_oladi %}data-action="{% url 'moliya_limit_yozish' r.id %}" data-sorov-url="{{ r.sorov_url }}"{% if r.sorov %} data-sorov="{{ r.sorov.status }}" data-sorov-sabab="{{ r.sorov.sabab }}" data-saqla-url="{% url 'moliya_tahrir_saqla' r.sorov.pk %}"{% endif %}{% endif %}>
         <td class="ctr mute">{{ r.nr }}</td>
         <td><span class="kind k-{{ r.kind_cls }}">{{ r.kind_disp }}</span><span class="nm">{{ r.name }}</span>{% if r.sana %}<div class="sm" style="font-size:11px;">{{ r.sana }}</div>{% endif %}</td>
         <td class="izoh-lim c-nq">{{ r.izoh }}</td>
@@ -250,19 +294,19 @@
           <div class="iz"><span class="t {% if not r.m_izoh %}bosh{% endif %}" title="{{ r.m_izoh }}">{% if r.m_izoh %}{{ r.m_izoh }}{% else %}— izoh yo'q{% endif %}</span>{% if yoza_oladi %}<button type="button" class="pen" data-izoh aria-label="Izohni tahrirlash"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>{% endif %}</div>
           {% if yoza_oladi %}<form method="post" action="{% url 'moliya_izoh' r.id %}" class="izf">{% csrf_token %}<input type="text" name="izoh" value="{{ r.m_izoh }}" maxlength="300" placeholder="izoh…"><button type="submit" class="ok" title="Saqlash">✓</button><button type="button" class="no" data-izoh-no title="Bekor">✕</button></form>{% endif %}
         </td>
-        {% if yoza_oladi %}<td class="ctr">{% if not r.toliq %}<button type="button" class="tbtn" data-tolov><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>To'lov</button>{% else %}<span class="toliq-t">✓ to'liq</span>{% endif %}</td>{% endif %}
+        {% if amal_ustun %}<td class="ctr">{% include "projects/_moliya_amal.html" with x=r %}</td>{% endif %}
       </tr>
       {% endfor %}
-      <tr class="sub"><td></td><td colspan="5" style="text-align:right;">Blok yakuni:</td><td class="num">{{ g.t_str }}</td><td class="c-nq"></td><td class="num">{{ g.f_str }}</td><td class="c-nq"></td><td></td><td class="num ber">{{ g.b_str }}</td><td class="num ost {% if g.o_manfiy %}neg{% endif %}">{{ g.o_str }}</td><td class="ctr sm">{{ g.foiz }} %</td><td></td>{% if yoza_oladi %}<td></td>{% endif %}</tr>
+      <tr class="sub"><td></td><td colspan="5" style="text-align:right;">Blok yakuni:</td><td class="num">{{ g.t_str }}</td><td class="c-nq"></td><td class="num">{{ g.f_str }}</td><td class="c-nq"></td><td></td><td class="num ber">{{ g.b_str }}</td><td class="num ost {% if g.o_manfiy %}neg{% endif %}">{{ g.o_str }}</td><td class="ctr sm">{{ g.foiz }} %</td><td></td>{% if amal_ustun %}<td></td>{% endif %}</tr>
     {% empty %}
-      <tr><td colspan="{% if yoza_oladi %}16{% else %}15{% endif %}" class="lj-bosh">Bu limitda hali qator yo'q — PTO limit jadvalida kiritadi.</td></tr>
+      <tr><td colspan="{% if amal_ustun %}16{% else %}15{% endif %}" class="lj-bosh">Bu limitda hali qator yo'q — PTO limit jadvalida kiritadi.</td></tr>
     {% endfor %}
     {% if blok.boshqa %}
-      <tr class="bosh"><td></td><td colspan="{% if yoza_oladi %}15{% else %}14{% endif %}">Limitda yo'q ishlar (tasdiqlangan haftaliklardan) — to'lov haftalik qatoriga yoziladi</td></tr>
+      <tr class="bosh"><td></td><td colspan="{% if amal_ustun %}15{% else %}14{% endif %}">Limitda yo'q ishlar (tasdiqlangan haftaliklardan) — to'lov haftalik qatoriga yoziladi</td></tr>
       {% for b in blok.boshqa %}
       <tr class="ish {% if b.toliq %}toliq{% endif %}" data-h="{{ b.holat }}" data-q="{{ b.it.name|lower }} {{ b.it.bolim|lower }} {{ b.it.note|lower }}"
           data-nom="{{ b.it.name }}" data-sub="{{ b.kind_disp }} · limitda yo'q · hafta {{ b.w.week_start|date:'d.m' }}–{{ b.w.week_end|date:'d.m.Y' }} · {{ b.qty_str }} {{ b.it.unit }} × {{ b.price_str }}"
-          data-total="{{ b.total_raw }}" data-fs="{{ b.fs_raw }}" data-ber="{{ b.ber_raw }}" data-tolov='{{ b.tolov_json }}' {% if yoza_oladi %}data-action="{% url 'moliya_yozish' b.it.id %}"{% endif %}>
+          data-total="{{ b.total_raw }}" data-fs="{{ b.fs_raw }}" data-ber="{{ b.ber_raw }}" data-tolov='{{ b.tolov_json }}' {% if yoza_oladi %}data-action="{% url 'moliya_yozish' b.it.id %}" data-sorov-url="{{ b.sorov_url }}"{% if b.sorov %} data-sorov="{{ b.sorov.status }}" data-sorov-sabab="{{ b.sorov.sabab }}" data-saqla-url="{% url 'moliya_tahrir_saqla' b.sorov.pk %}"{% endif %}{% endif %}>
         <td class="ctr mute">—</td>
         <td><span class="kind k-{{ b.kind_cls }}">{{ b.kind_disp }}</span><span class="nm">{{ b.it.name }}</span><div class="sm" style="font-size:11px;">{{ b.w.week_start|date:"d.m" }}–{{ b.w.week_end|date:"d.m.Y" }}{% if b.it.bolim %} · 📁 {{ b.it.bolim }}{% endif %}</div></td>
         <td class="izoh-lim c-nq">{{ b.it.note }}</td><td class="ctr">{{ b.it.unit }}</td>
@@ -272,14 +316,14 @@
         <td class="num c-ost"><span class="ost-v {% if b.toliq %}g{% endif %}">{{ b.ost_str }}</span></td>
         <td class="ctr"><span class="chip {{ b.holat }}">{% if b.toliq %}✓ {% endif %}{{ b.holat_nom }}</span></td>
         <td class="iz-td"><div class="iz"><span class="t bosh">—</span></div></td>
-        {% if yoza_oladi %}<td class="ctr">{% if not b.toliq %}<button type="button" class="tbtn" data-tolov><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>To'lov</button>{% else %}<span class="toliq-t">✓ to'liq</span>{% endif %}</td>{% endif %}
+        {% if amal_ustun %}<td class="ctr">{% include "projects/_moliya_amal.html" with x=b %}</td>{% endif %}
       </tr>
       {% endfor %}
-      <tr class="sub"><td></td><td colspan="5" style="text-align:right;">Limitda yo'q ishlar yakuni:</td><td class="num">{{ blok.bq_t_str }}</td><td class="c-nq"></td><td class="num">{{ blok.bq_t_str }}</td><td class="c-nq"></td><td class="num mute">0</td><td class="num ber">{{ blok.bq_b_str }}</td><td class="num ost">{{ blok.bq_o_str }}</td><td></td><td></td>{% if yoza_oladi %}<td></td>{% endif %}</tr>
+      <tr class="sub"><td></td><td colspan="5" style="text-align:right;">Limitda yo'q ishlar yakuni:</td><td class="num">{{ blok.bq_t_str }}</td><td class="c-nq"></td><td class="num">{{ blok.bq_t_str }}</td><td class="c-nq"></td><td class="num mute">0</td><td class="num ber">{{ blok.bq_b_str }}</td><td class="num ost">{{ blok.bq_o_str }}</td><td></td><td></td>{% if amal_ustun %}<td></td>{% endif %}</tr>
     {% endif %}
     </tbody>
     <tfoot>
-      <tr><td></td><td colspan="5" style="text-align:right;">{{ blok.lim.raqam }}-limit jami ({{ blok.qator_soni }} qator):</td><td class="num">{{ blok.t_str }}</td><td class="c-nq"></td><td class="num">{{ blok.f_str }}</td><td class="c-nq"></td><td></td><td class="num ber">{{ blok.b_str }}</td><td class="num ost {% if blok.o_manfiy %}neg{% endif %}">{{ blok.o_str }}</td><td class="ctr">{{ blok.foiz }} %</td><td></td>{% if yoza_oladi %}<td></td>{% endif %}</tr>
+      <tr><td></td><td colspan="5" style="text-align:right;">{{ blok.lim.raqam }}-limit jami ({{ blok.qator_soni }} qator):</td><td class="num">{{ blok.t_str }}</td><td class="c-nq"></td><td class="num">{{ blok.f_str }}</td><td class="c-nq"></td><td></td><td class="num ber">{{ blok.b_str }}</td><td class="num ost {% if blok.o_manfiy %}neg{% endif %}">{{ blok.o_str }}</td><td class="ctr">{{ blok.foiz }} %</td><td></td>{% if amal_ustun %}<td></td>{% endif %}</tr>
     </tfoot>
   </table>
   </div>
@@ -347,14 +391,25 @@
       <div class="fld"><label for="dwIzoh">Izoh (ixtiyoriy)</label><input id="dwIzoh" name="izoh" class="inp" type="text" maxlength="300" placeholder="Masalan: ikkinchi qism, to'lovni kim oldi…"></div>
       <div class="warn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg><span>Ostatki <b id="dwWO">—</b> dan ortiq summa qabul qilinmaydi. Yozuv jurnalga tushadi va o'chirilmaydi — xato bo'lsa adminga murojaat qilinadi.</span></div>
     </form>
+    <form method="post" id="dwEdit" class="ed" style="display:none;">
+      {% csrf_token %}
+      <div class="warn" style="background:#F0FDFA; border-color:#99F6E4; color:#115E59;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg><span>Admin ruxsati bilan <b>bir martalik</b> tahrir: summa, sana, usul, izohni o'zgartiring yoki xato to'lovni <b>bekor</b> qiling (jurnalda qoladi). Saqlagach ruxsat yopiladi.</span></div>
+      <div id="dwEdRows"></div>
+      <div class="ed-sum" id="dwEdSum"><span>Faol to'lovlar yig'indisi</span><b id="dwEdJ">0</b></div>
+    </form>
     <div>
-      <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;"><b style="font-size:13.5px;">To'lov tarixi</b><span class="chip gray" id="dwHn">0 ta</span></div>
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;"><b style="font-size:13.5px;">To'lov tarixi</b><span class="chip gray" id="dwHn">0 ta</span><span id="dwSorovChip"></span></div>
       <div class="hist" id="dwHist"></div>
+      <div class="sor" id="dwSor" style="display:none; margin-top:10px;">
+        <div style="font-size:12.5px; color:#475569;">Yozilgan to'lovni o'zgartirish kerakmi? Admindan <b>shu pozitsiya</b> uchun ruxsat so'rang — sababini yozing.</div>
+        <form method="post" id="dwSorForm" style="display:flex; gap:8px;">{% csrf_token %}<input type="text" name="sabab" class="inp" placeholder="Sabab (masalan: summa xato yozildi)" maxlength="300" required><button type="submit" class="btn" style="height:38px; white-space:nowrap;">Ruxsat so'rash</button></form>
+      </div>
     </div>
   </div>
   <div class="ft">
     <button type="button" class="btn no" id="dwNo">Bekor qilish</button>
     <button type="submit" form="dwForm" class="btn primary" id="dwOk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L20 7"/></svg><span id="dwOkT">Berildi deb yozish</span></button>
+    <button type="submit" form="dwEdit" class="btn primary" id="dwEdOk" style="display:none;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L20 7"/></svg>Tahrirni saqlash</button>
   </div>
 </aside>
 {% endif %}
@@ -407,7 +462,7 @@
           <td class="num {% if o.toliq %}toliq{% elif o.ber_str != '0' %}ber{% endif %}">{{ o.ber_str }}</td>
           <td><div class="bar" style="margin:0;"><i class="{% if o.toliq %}g{% endif %}" style="width:{{ o.foiz }}%"></i></div><div class="sm" style="margin-top:4px;">{{ o.foiz }} %</div></td>
           <td class="num"><span class="{% if o.toliq %}toliq{% else %}ost{% endif %}">{{ o.ost_str }}</span></td>
-          <td><span class="chip {{ o.holat }}">{% if o.toliq %}✓ {% endif %}{{ o.holat_nom }}</span></td>
+          <td><span class="chip {{ o.holat }}">{% if o.toliq %}✓ {% endif %}{{ o.holat_nom }}</span>{% if is_adm and o.sorov_soni %} <span class="chip sorov" title="To'lovni tahrirlash so'rovlari">⏳ {{ o.sorov_soni }} ta so'rov</span>{% endif %}</td>
           <td><a class="go" href="?firma={{ sel_firma }}&obyekt={{ o.p.id }}" aria-label="Jadvalni ochish"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></td>
         </tr>
       {% empty %}<tr><td colspan="8" class="lj-bosh">Obyekt yo'q.</td></tr>{% endfor %}
@@ -510,11 +565,12 @@
       el('dwHn').textContent = list.length + ' ta';
       if (!list.length){ h.innerHTML = '<div class="h"><small style="color:#94A3B8;">Hali to\'lov yozilmagan.</small></div>'; return; }
       list.forEach(function(m){
-        var d = document.createElement('div'); d.className = 'h';
+        var d = document.createElement('div'); d.className = 'h'; if (m.bekor) d.style.cssText = 'opacity:.6;background:#FEF2F2;';
         var dd = document.createElement('div'); dd.className = 'd'; dd.textContent = m.sana.slice(0, 5);
         var mm = document.createElement('div'); mm.className = 'm';
-        var b = document.createElement('b'); b.textContent = m.summa + (m.usul ? ' · ' + m.usul : '');
-        var s = document.createElement('small'); s.textContent = (m.izoh ? m.izoh + ' · ' : '') + m.kim + (m.vaqt ? ' · ' + m.vaqt : '') + (m.eski ? ' · haftalik qatoriga' : '');
+        var b = document.createElement('b'); b.textContent = m.summa + (m.usul ? ' · ' + m.usul : ''); if (m.bekor) b.style.textDecoration = 'line-through';
+        var s = document.createElement('small'); s.textContent = (m.izoh ? m.izoh + ' · ' : '') + m.kim + (m.vaqt ? ' · ' + m.vaqt : '') + (m.eski ? ' · haftalik qatoriga' : '')
+          + (m.bekor ? ' · BEKOR' + (m.bekor_sabab ? ': ' + m.bekor_sabab : '') : '') + (m.asl ? ' · asl ' + m.asl : '') + (m.tahrir ? ' · tahrir: ' + m.tahrir : '');
         mm.appendChild(b); mm.appendChild(s); d.appendChild(dd); d.appendChild(mm); h.appendChild(d);
       });
     }
@@ -528,7 +584,38 @@
       p.className = 'prev';
       p.innerHTML = 'Yozilgandan so\'ng: berilgan <b style="color:#0F766E;">' + fmt(ber) + '</b> (' + (cur.total ? Math.min(100, Math.round(ber / cur.total * 100)) : 0) + ' %), qolgan ostatki <b style="color:#C2410C;">' + fmt(ost) + '</b>' + (ost <= 0.5 ? ' — qator <b style="color:#15803D;">to\'liq</b>.' : '.');
     }
-    function och(tr, faqatTarix){
+    function edJami(){
+      var j = 0; el('dwEdRows').querySelectorAll('.tr').forEach(function(r){
+        var bk = r.querySelector('input[type=checkbox]'); r.classList.toggle('off', bk.checked);
+        if (!bk.checked) j += num(r.querySelector('input[data-summa]').value);
+      });
+      el('dwEdJ').textContent = fmt(j) + ' / ' + fmt(cur.total);
+      el('dwEdSum').classList.toggle('bad', j > cur.total + 0.01);
+      el('dwEdOk').disabled = j > cur.total + 0.01;
+    }
+    function edChiz(list){
+      var box = el('dwEdRows'); box.innerHTML = '';
+      list.filter(function(m){ return !m.bekor; }).forEach(function(m){
+        var r = document.createElement('div'); r.className = 'tr';
+        r.innerHTML = '<div class="w">' + m.sana + ' · yozdi: ' + m.kim + (m.vaqt ? ' · ' + m.vaqt : '') + '</div>'
+          + '<div><label>Summa</label><input class="inp" data-summa type="text" inputmode="numeric" name="summa_' + m.id + '"></div>'
+          + '<div><label>Sana</label><input class="inp" type="date" name="sana_' + m.id + '"></div>'
+          + '<div><label>Usul</label><select class="inp" name="usul_' + m.id + '"><option value="">—</option><option value="kassa">Kassa</option><option value="karta">Karta</option><option value="avans">Avans</option></select></div>'
+          + '<div><label>Izoh</label><input class="inp" type="text" name="izoh_' + m.id + '" maxlength="300"></div>'
+          + '<label class="bk"><input type="checkbox" name="bekor_' + m.id + '" value="1"> <span>Bu to\'lovni bekor qilish</span><input class="inp" type="text" name="bekor_sabab_' + m.id + '" placeholder="sabab" maxlength="300" style="display:none;"></label>';
+        r.querySelector('[data-summa]').value = fmt(m.summa_raw);
+        r.querySelector('input[type=date]').value = m.sana_iso;
+        r.querySelector('select').value = m.usul_kod || '';
+        r.querySelector('input[name="izoh_' + m.id + '"]').value = m.izoh || '';
+        var bk = r.querySelector('input[type=checkbox]'), sb = r.querySelector('input[name="bekor_sabab_' + m.id + '"]');
+        bk.addEventListener('change', function(){ sb.style.display = bk.checked ? '' : 'none'; edJami(); });
+        r.querySelector('[data-summa]').addEventListener('input', function(){ var v = num(this.value); this.value = v ? fmt(v) : ''; edJami(); });
+        box.appendChild(r);
+      });
+      edJami();
+    }
+    function och(tr, rejim){
+      var faqatTarix = rejim === 'tarix', tahrir = rejim === 'tahrir';
       cur = { total: num(tr.dataset.total), fs: num(tr.dataset.fs), ber: num(tr.dataset.ber) };
       cur.ost = cur.total - cur.ber; cur.qarz = Math.max(0, cur.fs - cur.ber);
       el('dwNom').textContent = tr.dataset.nom || ''; el('dwSub').textContent = tr.dataset.sub || '';
@@ -541,16 +628,34 @@
       try { hist(JSON.parse(tr.dataset.tolov || '[]')); } catch(e){ hist([]); }
       var f = el('dwForm'); f.action = tr.dataset.action || ''; el('dwSum').value = ''; el('dwIzoh').value = '';
       f.querySelectorAll('input[name=usul]').forEach(function(r){ r.checked = false; });
-      var yozish = !!tr.dataset.action && cur.ost > 0.5 && !faqatTarix;
+      var yozish = !!tr.dataset.action && cur.ost > 0.5 && !faqatTarix && !tahrir;
       f.style.display = yozish ? '' : 'none'; el('dwOk').style.display = yozish ? '' : 'none';
-      el('dwK').textContent = yozish ? 'To\'lov yozish' : 'To\'lov tarixi';
+      el('dwK').textContent = tahrir ? 'To\'lovlarni tahrirlash (admin ruxsati)' : yozish ? 'To\'lov yozish' : 'To\'lov tarixi';
+      // Tahrir rejimi / ruxsat so'rash
+      var list = []; try { list = JSON.parse(tr.dataset.tolov || '[]'); } catch(e){}
+      var faol = list.filter(function(m){ return !m.bekor; }).length;
+      var ed = el('dwEdit'); ed.style.display = tahrir ? '' : 'none'; el('dwEdOk').style.display = tahrir ? '' : 'none';
+      if (tahrir){ ed.action = tr.dataset.saqlaUrl || ''; edChiz(list); }
+      var sc = el('dwSorovChip'); sc.innerHTML = '';
+      var sor = el('dwSor'); sor.style.display = 'none';
+      if (tr.dataset.sorov === 'sorov') sc.innerHTML = '<span class="chip sorov">⏳ ruxsat so\'ralgan: ' + (tr.dataset.sorovSabab || '') + '</span>';
+      else if (tr.dataset.sorov === 'ruxsat' && !tahrir) sc.innerHTML = '<span class="chip ruxsat">✓ admin ruxsat berdi — «Tahrirlash» tugmasi</span>';
+      else if (!tr.dataset.sorov && faol > 0 && tr.dataset.sorovUrl && !tahrir){ sor.style.display = ''; el('dwSorForm').action = tr.dataset.sorovUrl; el('dwSorForm').querySelector('input').value = ''; }
       prev();
       mo.classList.add('dw-open'); dw.setAttribute('aria-hidden', 'false');
       if (yozish) setTimeout(function(){ el('dwSum').focus(); }, 60);
     }
     function yop(){ mo.classList.remove('dw-open'); dw.setAttribute('aria-hidden', 'true'); }
-    document.querySelectorAll('[data-tolov]').forEach(function(b){ b.onclick = function(){ och(b.closest('tr'), false); }; });
-    document.querySelectorAll('[data-tarix]').forEach(function(b){ b.onclick = function(){ och(b.closest('tr'), true); }; });
+    // faqat TUGMALAR (qatorning o'zida data-tolov='[json]' atributi bor — u emas)
+    document.querySelectorAll('button[data-tolov]').forEach(function(b){ b.onclick = function(){ och(b.closest('tr'), 'tolov'); }; });
+    document.querySelectorAll('button[data-tarix]').forEach(function(b){ b.onclick = function(){ och(b.closest('tr'), 'tarix'); }; });
+    document.querySelectorAll('button[data-tahrir]').forEach(function(b){ b.onclick = function(){ och(b.closest('tr'), 'tahrir'); }; });
+    el('dwEdit').addEventListener('submit', function(e){
+      var j = 0, bad = false;
+      el('dwEdRows').querySelectorAll('.tr').forEach(function(r){ var bk = r.querySelector('input[type=checkbox]'); var i = r.querySelector('[data-summa]'); var v = num(i.value); if (!bk.checked){ if (!(v > 0)) bad = true; j += v; } i.value = String(v); });
+      if (bad || j > cur.total + 0.01){ e.preventDefault(); edJami(); return; }
+      el('dwEdOk').disabled = true;
+    });
     el('dwX').onclick = yop; el('dwNo').onclick = yop; bg.onclick = yop;
     document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && mo.classList.contains('dw-open')) yop(); });
     el('dwChips').querySelectorAll('.qchip').forEach(function(c){ c.onclick = function(){ el('dwSum').value = fmt(c.dataset.v); prev(); el('dwSum').focus(); }; });
@@ -564,7 +669,7 @@
     });
   } else {
     // buxgalter emas — tarix tugmasi qisqa ro'yxatni ochadi
-    document.querySelectorAll('[data-tarix]').forEach(function(b){
+    document.querySelectorAll('button[data-tarix]').forEach(function(b){
       b.onclick = function(){
         var tr = b.closest('tr'); var list = []; try { list = JSON.parse(tr.dataset.tolov || '[]'); } catch(e){}
         var old = tr.querySelector('.tx-list'); if (old){ old.remove(); return; }

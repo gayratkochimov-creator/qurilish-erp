@@ -130,13 +130,13 @@ class Project(models.Model):
         """Turlar bo'yicha HAQIQATDA berilgan (buxgalter to'lovlari) — fakt."""
         d = {"material": Decimal("0.00"), "labor": Decimal("0.00"),
              "machinery": Decimal("0.00"), "other": Decimal("0.00")}
-        rows = (Moliya.objects.filter(item__request__project=self,
+        rows = (Moliya.objects.filter(item__request__project=self, bekor=False,
                                       item__request__status=WeeklyRequest.Status.APPROVED)
                 .values("item__kind").annotate(s=Sum("summa")))
         for r in rows:
             d[r["item__kind"]] = (d.get(r["item__kind"]) or Decimal("0.00")) + (r["s"] or Decimal("0.00"))
         # Limit qatoriga yozilgan to'lovlar (moliyalashtirish jadvali)
-        rows = (Moliya.objects.filter(limit_item__project=self)
+        rows = (Moliya.objects.filter(limit_item__project=self, bekor=False)
                 .values("limit_item__kind").annotate(s=Sum("summa")))
         for r in rows:
             d[r["limit_item__kind"]] = (d.get(r["limit_item__kind"]) or Decimal("0.00")) + (r["s"] or Decimal("0.00"))
@@ -522,14 +522,15 @@ class WeeklyRequestItem(models.Model):
         """Buxgalter haqiqatda bergan summa (barcha to'lovlar yig'indisi)."""
         s = Decimal("0")
         for m in self.moliyalar.all():
-            s += m.summa
+            if not m.bekor:
+                s += m.summa
         return s.quantize(Decimal("0.01"))
 
     @property
     def berildi_miqdor(self):
         s = Decimal("0")
         for m in self.moliyalar.all():
-            if m.miqdor is not None:
+            if m.miqdor is not None and not m.bekor:
                 s += m.miqdor
         return s
 
@@ -935,6 +936,17 @@ class Moliya(models.Model):
         related_name="moliya_yozgan", verbose_name="Yozdi (buxgalter)",
     )
     created_at = models.DateTimeField("Yozilgan vaqt", auto_now_add=True)
+    # Admin ruxsati bilan TAHRIR (2026-10-12): asl summa saqlanadi; xato to'lov o'chirilmaydi —
+    # BEKOR qilinadi (jurnalda qoladi, hisobga olinmaydi)
+    asl_summa = models.DecimalField("Asl summa (tahrirgacha)", null=True, blank=True, **MONEY)
+    tahrir_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+                                  related_name="moliya_tahrirlagan", verbose_name="Tahrirladi")
+    tahrir_at = models.DateTimeField("Tahrir vaqti", null=True, blank=True)
+    bekor = models.BooleanField("Bekor qilingan", default=False)
+    bekor_sabab = models.CharField("Bekor sababi", max_length=300, blank=True)
+    bekor_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+                                 related_name="moliya_bekor_qilgan", verbose_name="Bekor qildi")
+    bekor_at = models.DateTimeField("Bekor vaqti", null=True, blank=True)
 
     class Meta:
         verbose_name = "Moliyalashtirish (to'lov)"
@@ -956,6 +968,58 @@ class Moliya(models.Model):
     def __str__(self):
         q = self.qator
         return f"{q.name if q else '—'}: {self.summa} ({self.sana:%d.%m.%Y})"
+
+
+class MoliyaTahrirSorov(models.Model):
+    """Buxgalter yozilgan to'lovlarni TAHRIRLASH uchun admindan ruxsat so'raydi —
+    har POZITSIYA (limit qatori yoki haftalik qatori) uchun alohida. Admin ruxsat bersa
+    buxgalter BIR MARTA tahrirlaydi (summa/sana/usul/izoh, xato to'lovni bekor qilish),
+    so'ng ruxsat yopiladi."""
+
+    class Status(models.TextChoices):
+        SOROV = "sorov", "Ruxsat so'ralgan"
+        RUXSAT = "ruxsat", "Ruxsat berilgan"
+        RAD = "rad", "Rad etilgan"
+        BAJARILDI = "bajarildi", "Tahrirlandi (yopiq)"
+
+    limit_item = models.ForeignKey("LimitItem", null=True, blank=True, on_delete=models.CASCADE,
+                                   related_name="tahrir_sorovlari", verbose_name="Limit qatori")
+    item = models.ForeignKey("WeeklyRequestItem", null=True, blank=True, on_delete=models.CASCADE,
+                             related_name="tahrir_sorovlari", verbose_name="Haftalik qatori")
+    soradi = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL,
+                               related_name="moliya_tahrir_soragan", verbose_name="So'radi (buxgalter)")
+    sabab = models.CharField("Sabab", max_length=300)
+    status = models.CharField("Holat", max_length=12, choices=Status.choices, default=Status.SOROV)
+    created_at = models.DateTimeField("So'ralgan vaqt", auto_now_add=True)
+    javob_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+                                 related_name="moliya_tahrir_javob", verbose_name="Javob berdi (admin)")
+    javob_at = models.DateTimeField("Javob vaqti", null=True, blank=True)
+    javob_izoh = models.CharField("Admin izohi", max_length=300, blank=True)
+    bajarildi_at = models.DateTimeField("Tahrirlangan vaqt", null=True, blank=True)
+
+    class Meta:
+        verbose_name = "Moliya tahrir so'rovi"
+        verbose_name_plural = "Moliya tahrir so'rovlari"
+        ordering = ["-created_at"]
+
+    @property
+    def qator(self):
+        return self.limit_item if self.limit_item_id else self.item
+
+    @property
+    def project(self):
+        q = self.qator
+        if q is None:
+            return None
+        return q.project if self.limit_item_id else q.request.project
+
+    @property
+    def ochiq(self):
+        return self.status in (self.Status.SOROV, self.Status.RUXSAT)
+
+    def __str__(self):
+        q = self.qator
+        return f"{q.name if q else '—'}: {self.get_status_display()}"
 
 
 class Xabar(models.Model):
