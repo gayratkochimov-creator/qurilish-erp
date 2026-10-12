@@ -260,6 +260,11 @@
   .lh-seg button + button { border-left:1px solid #D5D9E0; }
   .lh-seg button.on { background:#1E5BB8; color:#fff; font-weight:600; }
   .lj-wrap.toliq-yashir tr.ish.toliq, .lj-wrap.toliq-yashir tr.split.toliq { display:none !important; }
+  .lj-wrap.toliq-faqat tr.ish:not(.toliq), .lj-wrap.toliq-faqat tr.split:not(.toliq),
+  .lj-wrap.toliq-faqat tr.block.toliq-yoq, .lj-wrap.toliq-faqat tr.subtotal.toliq-yoq { display:none !important; }
+  .lj-wrap.toliq-faqat tr.ish.toliq td { background:#F0FDF4; }
+  .lj-toliq-bosh { display:none; margin:10px 0; padding:12px 14px; border:1px dashed #B8BFC9; border-radius:8px; color:#6B7280; font-size:13px; text-align:center; }
+  .lj-wrap.toliq-faqat.toliq-nol .lj-toliq-bosh { display:block; }
   .lh-ft .acts button:disabled { opacity:.45; cursor:not-allowed; }
   .lj-print-only { display:none; }
   @media print { .lj-print-only { display:block; font-size:15px; font-weight:700; margin:0 0 6px; } }
@@ -337,7 +342,7 @@
         <div class="lh-row" id="lhToliq">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
           <span class="t">Тўлиқ олинган қаторлар</span><span class="m">Қолган = 0 · <b id="lhToliqN">0</b> та қатор</span>
-          <span class="r"><span class="lh-seg"><button type="button" id="lhToliqKor" class="on">Кўрсатиш</button><button type="button" id="lhToliqYash">Яшириш</button></span></span>
+          <span class="r"><span class="lh-seg"><button type="button" id="lhToliqKor" class="on" title="Барча қаторлар">Ҳаммаси</button><button type="button" id="lhToliqYash" title="Тўлиқ олинган қаторларни яшириш">Яшириш</button><button type="button" id="lhToliqFaqat" title="Фақат тўлиқ олинган қаторлар (қолган = 0)">Фақат тўлиқ</button></span></span>
         </div>
 
         {% if lim_pending or qoralama and taklif_view %}
@@ -471,6 +476,7 @@
   <button type="button" class="tchipf" data-k="other"><span class="dotk" style="background:#c2410c;"></span>Кўзда тутилмаган</button>
 </div>
 <div class="lj-wrap" id="jadvalWrap">
+  <div class="lj-toliq-bosh">Бу лимитда ҳали тўлиқ олинган (қолган = 0) қатор йўқ.</div>
 <table class="lj" id="ljTbl">
   <thead><tr>
     <th class="g-main" rowspan="2" style="width:34px;">№</th>
@@ -1313,17 +1319,23 @@
       if (qCl) qCl.onclick = function(){ qi.value = ''; qBor(); ljQidirla(); qi.focus(); };
     }
     // Тўлиқ олинган қаторлар — кўрсатиш/яшириш (ҳар объект учун эслаб қолинади)
-    var tKor = document.getElementById('lhToliqKor'), tYash = document.getElementById('lhToliqYash'), tWrap = document.getElementById('jadvalWrap');
-    if (tKor && tYash && tWrap){
+    // Режимлар: 0 — ҳаммаси, 1 — тўлиқларни яшириш, 2 — ФАҚАТ тўлиқ олинганлар
+    var tKor = document.getElementById('lhToliqKor'), tYash = document.getElementById('lhToliqYash'),
+        tFaqat = document.getElementById('lhToliqFaqat'), tWrap = document.getElementById('jadvalWrap');
+    if (tKor && tYash && tFaqat && tWrap){
       var tKey = 'ljtoliq_{{ p.pk }}_{{ lim.raqam }}';
-      function tQoy(yashir){
-        tWrap.classList.toggle('toliq-yashir', yashir);
-        tKor.classList.toggle('on', !yashir); tYash.classList.toggle('on', yashir);
-        try { localStorage.setItem(tKey, yashir ? '1' : '0'); } catch(e){}
+      function tQoy(rejim){
+        rejim = (rejim === 1 || rejim === 2) ? rejim : 0;
+        tWrap.classList.toggle('toliq-yashir', rejim === 1);
+        tWrap.classList.toggle('toliq-faqat', rejim === 2);
+        tKor.classList.toggle('on', rejim === 0); tYash.classList.toggle('on', rejim === 1); tFaqat.classList.toggle('on', rejim === 2);
+        try { localStorage.setItem(tKey, String(rejim)); } catch(e){}
       }
-      tKor.onclick = function(){ tQoy(false); };
-      tYash.onclick = function(){ tQoy(true); };
-      try { tQoy(localStorage.getItem(tKey) === '1'); } catch(e){}
+      tKor.onclick = function(){ tQoy(0); };
+      tYash.onclick = function(){ tQoy(1); };
+      tFaqat.onclick = function(){ tQoy(2); };
+      var tR0 = 0; try { tR0 = parseInt(localStorage.getItem(tKey) || '0', 10) || 0; } catch(e){}
+      tQoy(tR0);
     }
     // «Жараён қандай ишлайди» — очиш/ёпиш
     var hBtn = document.getElementById('lhHelpBtn'), hBox = document.getElementById('lhHelp');
@@ -1561,6 +1573,17 @@
       }
     });
     var tN = document.getElementById('lhToliqN'); if (tN) tN.textContent = toliqN;
+    (function(){   // блокда тўлиқ олинган қатор йўқ бўлса — «Фақат тўлиқ» режимида блок сарлавҳаси ва якуни ҳам яширилади
+      var blk = [], bor = false;
+      function yop(){ blk.forEach(function(t){ t.classList.toggle('toliq-yoq', !bor); }); blk = []; bor = false; }
+      Array.prototype.forEach.call(body.rows, function(tr){
+        if (tr.classList.contains('block')){ yop(); blk.push(tr); return; }
+        if (tr.classList.contains('subtotal')){ blk.push(tr); return; }
+        if (tr.classList.contains('ish') && tr.classList.contains('toliq') && !rowDel(tr)) bor = true;
+      });
+      yop();
+      var wrp = document.getElementById('jadvalWrap'); if (wrp) wrp.classList.toggle('toliq-nol', toliqN === 0);
+    })();
     document.getElementById('gTotal').textContent = fmt(gT);
     document.getElementById('gFsum').textContent = fmt(gF);
     document.getElementById('gLsum').textContent = fmt(gL);
