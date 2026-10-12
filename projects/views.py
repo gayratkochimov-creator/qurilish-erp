@@ -4983,7 +4983,7 @@ def limit_yangi(request, pk):
             "rejim": "limit_yangi",
             "sub_sabab": f"Янги лимит номини (ихтиёрий, масалан «{keyingi_raqam}-босқич») ёзинг — кейин Telegram'ингизга тасдиқлаш коди юборилади. "
                          f"Ҳозирги {joriy.raqam}-лимит фаол қолади.",
-            "label_sabab": "Янги лимит номи (ихтиёрий)", "tugma": f"Кодни олиш ва {keyingi_raqam}-лимитни очиш"}
+            "label_sabab": "Янги лимит номи (ихтиёрий)", "tugma": f"{keyingi_raqam}-лимитни очиш"}
     if request.method != "POST":
         return render(request, "projects/qaytarish_kod.html", dict(ctx0, sabab="", bosqich="sabab"))
     kod = (request.POST.get("kod") or "").strip()
