@@ -405,9 +405,9 @@
       <div class="lh-ft">
         <div class="acts">
           <button type="button" class="lj-sec" id="btnSaqla" title="Ҳафталик — қоралама; Умумий ўзгаришлар — қоралама (занжирга юборилмайди)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>Сақлаш</button>
-          <button type="button" class="lj-pri" id="btnYopish" title="Ҳафтани ёпиш — сўров директор тасдиғига юборилади"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>Ҳафтани юбориш<span class="to">→ Директор{% if wk_dir_nom %} · {{ wk_dir_nom }}{% endif %}</span></button>
+          <button type="button" class="lj-pri" id="btnYopish" title="Ҳафтани ёпиш — сўров директор тасдиғига юборилади"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>Ҳафтани юбориш<span class="to">→ {{ wk_keyingi }}</span></button>
         </div>
-        <span class="hint">Сақлаш: ҳафта қоралама бўлиб сизда қолади (Умумийдаги ўзгаришлар ҳам қораламага). Юбориш: ҳафта ёпилади, директор → админ тасдиқлайди.</span>
+        <span class="hint">Сақлаш: ҳафта қоралама бўлиб сизда қолади (Умумийдаги ўзгаришлар ҳам қораламага). Юбориш: ҳафта ёпилади ва занжирга кетади — снабжения → ПТО хулосаси → директор → проверчик → админ.</span>
       </div>
       {% endif %}
     </section>
@@ -570,6 +570,8 @@
   var WK_ACT_TMPL = "{% url 'weekly_action' 123456789 %}";
   var CSRF_T = "{{ csrf_token }}";
   var WK_DIR_ACTOR = {{ wk_dir_actor|yesno:"true,false" }};
+  var WK_SNAB_ACTOR = {{ wk_snab_actor|yesno:"true,false" }};
+  var WK_PROV_ACTOR = {{ wk_prov_actor|yesno:"true,false" }};
   // Haftalik bosqich egasi uchun jadvalning o'zida amal formasi (oldinga / orqaga)
   function wkForma(id, action, label, rang, sababKerak){
     var f = '<form method="post" action="'+WK_ACT_TMPL.replace('123456789', id)+'" class="'+(sababKerak?'wk-sabab-f':'')+'" style="margin:0; display:inline-flex; gap:5px; align-items:center;">'+
@@ -708,19 +710,39 @@
       if (ws0) ws0.value = h.ws;
       if (we0) we0.value = h.we;
     }
-    // ---- ҲАФТАЛИК КАРТА: ҳолат плитаси, тасдиқлаш занжири, амаллар (ҳафта табига қараб) ----
+    // ---- ҲАФТАЛИК КАРТА: ҳолат плитаси, 6 босқичли занжир, амаллар (ҳафта табига қараб) ----
     (function(){
       var pill = document.getElementById('wkPill'), tile = document.getElementById('wkTile'),
           stepsEl = document.getElementById('wkSteps'), amal = document.getElementById('wkAmal'),
           prev = document.getElementById('wkPrev'), note = document.getElementById('wkNote');
       if (!pill || !tile || !stepsEl) return;
+      var TARTIB = ['draft','snab','pto2','dir','prov','submitted'];
+      var NOM = {draft:'ПТО', snab:'Снабжения', pto2:'ПТО хулосаси', dir:'Директор', prov:'Проверчик', submitted:'Админ'};
+      var KUT = {snab:'Снабжения нархлашида', pto2:'ПТО хулосасида', dir:'Директор тасдиғида', prov:'Проверчик текширувида', submitted:'Админ тасдиғида'};
       function step(i, nom, holat, meta){
         return '<div class="lh-step '+holat+'"><span class="n">'+(holat==='ok' ? '✓' : i)+'</span><span class="nm">'+esc(nom)+'</span>'+
                (meta ? '<span class="mt" title="'+esc(meta)+'">'+esc(meta)+'</span>' : '')+'</div>';
       }
+      function zanjir(status, meta){
+        // status: draft → 1-қадам жорий; approved → ҳаммаси ✓
+        var ji = status === 'approved' ? 99 : TARTIB.indexOf(status);
+        if (ji < 0) ji = 0;
+        return TARTIB.map(function(st, i){
+          var holat = i < ji ? 'ok' : (i === ji ? 'joriy' : 'keyin');
+          return step(i + 1, NOM[st], holat, holat === 'joriy' ? (status === 'draft' ? (meta.draft || 'ҳозир') : 'кутилмоқда') : (meta[st] || ''));
+        }).join('');
+      }
       function tileHtml(cls, tl, b, mt){
         tile.className = 'lh-tile ' + cls;
         tile.innerHTML = '<span class="tl">'+esc(tl)+'</span><b>'+b+'</b>'+(mt ? '<span class="mt">'+mt+'</span>' : '');
+      }
+      function orqagaForma(id, targetlar){
+        var opts = targetlar.map(function(t){ return '<option value="'+t+'">'+(t === 'draft' ? 'ПТО (қоралама)' : NOM[t])+'га</option>'; }).join('');
+        return '<form method="post" action="'+WK_ACT_TMPL.replace('123456789', id)+'" class="wk-sabab-f" style="margin:0; display:inline-flex; gap:5px; align-items:center;">'+
+          '<input type="hidden" name="csrfmiddlewaretoken" value="'+CSRF_T+'"><input type="hidden" name="next" value="jadval"><input type="hidden" name="action" value="orqaga">'+
+          '<select name="target" style="height:34px; padding:0 6px; border:1px solid #D5D9E0; border-radius:6px; font-size:12px;">'+opts+'</select>'+
+          '<input type="text" name="reject_note" placeholder="сабаб..." style="width:140px;">'+
+          '<button type="submit" style="border:none; border-radius:8px; background:#B45309; color:#fff; padding:0 14px; height:34px; font-weight:700; font-size:12.5px; cursor:pointer;">↩ Орқага қайтариш</button></form>';
       }
       var tasdiq = HAFTA.filter(function(x){ return x.status === 'approved'; }).length;
       var boshqa = HAFTA.length - tasdiq;
@@ -734,34 +756,42 @@
       if (!h){
         pill.textContent = raqam + '-ҳафта · янги';
         tileHtml('warn', 'Ҳафта ҳолати', 'Янги ҳафта, сақланмаган', 'Ўзгаришлар фақат шу браузерда — «Сақлаш» қоралама қилади');
-        stepsEl.innerHTML = step(1, 'ПТО', 'joriy', 'сиз') + step(2, 'Директор', 'keyin', '') + step(3, 'Админ', 'keyin', '');
+        stepsEl.innerHTML = zanjir('draft', {draft:'сиз'});
       } else {
         pill.textContent = h.raqam + '-ҳафта · ' + h.sana;
+        var meta = {draft: h.kiritdi||'', snab: h.snab_by||'', pto2: h.pto2_by||'', dir: h.dir_by||'', prov: h.prov_by||'', submitted: h.adm_by||''};
         var kir = (h.kiritdi||'') + (h.kiritdi_at ? ' · ' + h.kiritdi_at : '');
+        var qayt = (h.qaytarish ? '<br><span style="color:#B91C1C;">'+esc(h.qaytarish)+'</span>' : '');
         if (h.status === 'draft'){
-          tileHtml('warn', 'Ҳафта ҳолати', 'Қоралама — ҳали юборилмаган', esc(kir) + esc(ruxsatMt));
-          stepsEl.innerHTML = step(1, 'ПТО', 'joriy', h.kiritdi||'') + step(2, 'Директор', 'keyin', '') + step(3, 'Админ', 'keyin', '');
-        } else if (h.status === 'dir'){
-          tileHtml('blue', 'Ҳафта ҳолати', 'Директор тасдиғида', 'ПТО юборди: ' + esc(kir) + esc(ruxsatMt));
-          stepsEl.innerHTML = step(1, 'ПТО', 'ok', h.kiritdi||'') + step(2, 'Директор', 'joriy', 'кутилмоқда') + step(3, 'Админ', 'keyin', '');
-          if (WK_DIR_ACTOR) acts += wkForma(h.id, 'dir_approve', '✓ Тасдиқлаш (директор)', '#15803D', false) +
-                                    wkForma(h.id, 'dir_reject', '↩ Орқага қайтариш', '#B45309', true);
-          acts += ruxsatTugma;
-        } else if (h.status === 'submitted'){
-          tileHtml('blue', 'Ҳафта ҳолати', 'Админ тасдиғида', 'Директор тасдиқлади: ' + esc((h.dir_by||'') + (h.dir_at ? ' · ' + h.dir_at : '')) + esc(ruxsatMt));
-          stepsEl.innerHTML = step(1, 'ПТО', 'ok', h.kiritdi||'') + step(2, 'Директор', 'ok', h.dir_by||'') + step(3, 'Админ', 'joriy', 'кутилмоқда');
-          if (ADMIN_RAW) acts += wkForma(h.id, 'approve', '✓ Тасдиқлаш (админ)', '#15803D', false) +
-                                 wkForma(h.id, 'draft', '↩ Орқага қайтариш', '#B45309', true);
-          acts += ruxsatTugma;
-        } else {
+          tileHtml('warn', 'Ҳафта ҳолати', 'Қоралама — ҳали юборилмаган', esc(kir) + esc(ruxsatMt) + qayt);
+          stepsEl.innerHTML = zanjir('draft', meta);
+        } else if (h.status === 'approved'){
           tileHtml('ok2', 'Ҳафта ҳолати', '✓ Тасдиқланган', esc((h.adm_by||'admin') + (h.adm_at ? ' · ' + h.adm_at : '')) + esc(ruxsatMt));
-          stepsEl.innerHTML = step(1, 'ПТО', 'ok', h.kiritdi||'') + step(2, 'Директор', 'ok', h.dir_by||'') + step(3, 'Админ', 'ok', h.adm_by||'');
+          stepsEl.innerHTML = zanjir('approved', meta);
           if (ADMIN_RAW){
-            // Тасдиқдан кейин яна таҳрир керак бўлса — ПТОга қайтариш (Телеграм код билан)
             acts += ruxsatTugma +
               '<a href="'+QAYTAR_TMPL.replace('123456789', h.id)+'" class="lh-btn xs" style="color:#92400E; border-color:#F3D9A4;" '+
               'title="Сўров ПТО қораламасига қайтади — таҳрирлаб қайта юборади. Телеграм код сўралади.">↩ ПТОга қайтариш</a>';
           }
+        } else {
+          tileHtml('blue', 'Ҳафта ҳолати', KUT[h.status] || h.status, 'ПТО юборди: ' + esc(kir) + esc(ruxsatMt) + qayt);
+          stepsEl.innerHTML = zanjir(h.status, meta);
+          // Жорий босқич эгаси — олдинга / орқага
+          var ji = TARTIB.indexOf(h.status), orq = TARTIB.slice(0, ji);
+          if (h.status === 'snab' && (WK_SNAB_ACTOR || ADMIN_RAW)) acts += wkForma(h.id, 'snab_return', '✓ Нархланди — ПТО хулосасига', '#15803D', false);
+          else if (h.status === 'pto2' && CAN_EDIT) acts += wkForma(h.id, 'pto_send_dir', '▶ Директорга юбориш', '#15803D', false);
+          else if (h.status === 'dir' && WK_DIR_ACTOR) acts += wkForma(h.id, 'dir_approve', '✓ Тасдиқлаш (директор)', '#15803D', false);
+          else if (h.status === 'prov' && (WK_PROV_ACTOR || ADMIN_RAW)) acts += wkForma(h.id, 'prov_approve', '✓ Текширилди — админга', '#15803D', false);
+          else if (h.status === 'submitted' && ADMIN_RAW) acts += wkForma(h.id, 'approve', '✓ Тасдиқлаш (админ)', '#15803D', false);
+          var egasi = (h.status === 'snab' && WK_SNAB_ACTOR) || (h.status === 'pto2' && CAN_EDIT) || (h.status === 'dir' && WK_DIR_ACTOR) ||
+                      (h.status === 'prov' && WK_PROV_ACTOR) || ADMIN_RAW;
+          if (egasi){
+            var targ = ADMIN_RAW ? TARTIB.filter(function(t){ return t !== h.status && t !== 'submitted'; }) : orq;
+            if (h.status === 'pto2' && !ADMIN_RAW) targ = ['draft', 'snab'];
+            if (h.status === 'prov' && !ADMIN_RAW) targ = ['draft', 'dir'];
+            if (targ.length) acts += orqagaForma(h.id, targ);
+          }
+          acts += ruxsatTugma;
         }
       }
       amal.innerHTML = acts;
@@ -769,7 +799,7 @@
         var ns = note.querySelector('span');
         if (ns) ns.textContent = (h && h.ruxsat) ? 'Рухсат бир марталик: сақлангач ҳафта яна қулфланади (ҳолати ўзгармайди).'
                                 : (h && h.status !== 'draft') ? 'Ҳафта қулф — қайта таҳрир учун админ рухсати керак.'
-                                : 'Ҳафта юборилгач унинг устунлари қулфланади ва директорга ўтади.';
+                                : 'Ҳафта юборилгач унинг устунлари қулфланади ва занжирга (снабжения → ПТО хулосаси → директор → проверчик → админ) ўтади.';
       }
     })();
     document.querySelectorAll('#ljBody tr.split').forEach(function(x){ x.remove(); });
@@ -1643,7 +1673,7 @@
       payload.req_items = tq; payload.token = TAKLIF_TOKEN; taklifDirty = false;
     }
     limZanjir = false; limMode = 'qoralama';
-    if (action==='submit' && !confirm('Ҳафта ёпилади — сўров директор тасдиғига юборилади. Давом этамизми?')) return;
+    if (action==='submit' && !confirm('Ҳафта ёпилади — сўров тасдиқлаш занжирига (снабжения → ПТО хулосаси → директор → проверчик → админ) юборилади. Давом этамизми?')) return;
     // Forma ketgach kechikkan avtosaqlash eski holatni QAYTA yozib qo'ymasin
     yuborilmoqda = true; clearTimeout(autoT);
     try { localStorage.removeItem(autoKey()); } catch(e){}

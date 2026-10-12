@@ -320,9 +320,14 @@ class WeeklyRequest(models.Model):
     """Haftalik so'rov (zayavka) — umumiy limitdan ayiriladi."""
 
     class Status(models.TextChoices):
+        # Zanjir — UMUMIY LIMIT bilan bir xil (2026-10-12): PTO → snab → PTO xulosasi →
+        # direktor → proverchik → admin. Xodimi yo'q bosqich (snab/prov) o'tkazib yuboriladi.
         DRAFT = "draft", "Qoralama"
+        SNAB = "snab", "Snabjeniye ko'rigida"
+        PTO2 = "pto2", "PTO xulosasida"
         DIR = "dir", "Direktor tasdig'ida"
-        SUBMITTED = "submitted", "Admin tasdig'ida"   # direktordan o'tgan
+        PROV = "prov", "Proverchik tekshiruvida"
+        SUBMITTED = "submitted", "Admin tasdig'ida"   # direktor/proverchikdan o'tgan
         APPROVED = "approved", "Tasdiqlangan"
 
     project = models.ForeignKey(
@@ -342,11 +347,26 @@ class WeeklyRequest(models.Model):
         settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
         related_name="weekly_created", verbose_name="Kiritdi (PTO)",
     )
+    snab_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="weekly_snab", verbose_name="Snabjeniye ko'rdi",
+    )
+    snab_at = models.DateTimeField("Snabjeniye ko'rgan sana", null=True, blank=True)
+    pto2_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="weekly_pto2", verbose_name="PTO xulosasini yubordi",
+    )
+    pto2_at = models.DateTimeField("PTO xulosasi sanasi", null=True, blank=True)
     director_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
         related_name="weekly_director", verbose_name="Direktor tasdiqladi",
     )
     director_at = models.DateTimeField("Direktor tasdig'i sanasi", null=True, blank=True)
+    prov_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="weekly_prov", verbose_name="Proverchik tekshirdi",
+    )
+    prov_at = models.DateTimeField("Proverchik tekshiruvi sanasi", null=True, blank=True)
     # ADMIN bergan BIR MARTALIK ruxsat: yopiq (yuborilgan/tasdiqlangan) haftani jadvalda
     # qayta tahrirlash — har hafta uchun alohida; saqlangach o'zi yopiladi
     tahrir_ruxsat = models.BooleanField("Tahrirga admin ruxsati", default=False)

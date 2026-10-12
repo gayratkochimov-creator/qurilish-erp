@@ -128,7 +128,7 @@ def action_approve(modeladmin, request, queryset):
     from .views import _items_by_kind, _limit_oshish
 
     n, oshganlar = 0, []
-    for req in queryset.filter(status__in=[WeeklyRequest.Status.DRAFT, WeeklyRequest.Status.SUBMITTED]):
+    for req in queryset.filter(status=WeeklyRequest.Status.SUBMITTED):   # faqat zanjirdan o'tgan
         oshgan = _limit_oshish(req.project, _items_by_kind(req.items.all()),
                                exclude_request_id=req.id)
         if oshgan:

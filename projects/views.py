@@ -460,16 +460,17 @@ def dashboard(request):
     _prv = _is_prov_f(request.user)
     tas_lim, tas_wk, tas_lim2, tas_wk2 = [], [], [], []
     tas_lim_s, tas_lim_p2, tas_lim_pr = [], [], []
+    tas_wk_s, tas_wk_p2, tas_wk_pr = [], [], []
     if _prv or _adm:
-        tas_lim_pr, _x = _tasdiqlar_data("prov", user=request.user)
+        tas_lim_pr, tas_wk_pr = _tasdiqlar_data("prov", user=request.user)
     if _dir:
         tas_lim, tas_wk = _tasdiqlar_data("dir", user=request.user)
     if _adm:
         tas_lim2, tas_wk2 = _tasdiqlar_data("adm", user=request.user)
     if _snb or _adm:
-        tas_lim_s, _x = _tasdiqlar_data("snab", user=request.user)
+        tas_lim_s, tas_wk_s = _tasdiqlar_data("snab", user=request.user)
     if _pto_f:
-        tas_lim_p2, _x = _tasdiqlar_data("pto2", user=request.user)
+        tas_lim_p2, tas_wk_p2 = _tasdiqlar_data("pto2", user=request.user)
     # Grafik tasdiqlash navbatlari (limit zanjiriga o'xshash)
     from .models import GrafikTasdiq
     graf_dir, graf_adm = [], []
@@ -481,7 +482,7 @@ def dashboard(request):
         graf_adm = list(GrafikTasdiq.objects.filter(
             status="adm", project__in=visible_projects(request.user)
         ).select_related("project", "yubordi", "director_by"))
-    tas_show = _dir or _adm or _snb or _prv or bool(tas_lim_p2)
+    tas_show = _dir or _adm or _snb or _prv or bool(tas_lim_p2) or bool(tas_wk_p2)
     from django.utils import timezone as _tz
     _h = _tz.localtime().hour
     greeting = "Xayrli tong" if _h < 12 else ("Xayrli kun" if _h < 18 else "Xayrli kech")
@@ -494,10 +495,12 @@ def dashboard(request):
         "tas_lim_s": tas_lim_s,                        # snabjeniye navbati
         "tas_lim_p2": tas_lim_p2,                      # PTO xulosasi navbati
         "tas_lim_pr": tas_lim_pr,                      # proverchik navbati
+        "tas_wk_s": tas_wk_s, "tas_wk_p2": tas_wk_p2, "tas_wk_pr": tas_wk_pr,   # haftalik zanjir navbatlari
         "is_director": _dir, "is_snab": _snb, "is_prov": _prv, "tas_show": tas_show,
         "graf_dir": graf_dir, "graf_adm": graf_adm,    # grafik tasdiqlash navbatlari
         "tas_count": (len(tas_lim) + len(tas_wk) + len(tas_lim2) + len(tas_wk2)
-                      + len(tas_lim_s) + len(tas_lim_p2) + len(tas_lim_pr) + len(graf_dir) + len(graf_adm)),
+                      + len(tas_lim_s) + len(tas_lim_p2) + len(tas_lim_pr) + len(graf_dir) + len(graf_adm)
+                      + len(tas_wk_s) + len(tas_wk_p2) + len(tas_wk_pr)),
         "greeting": greeting,
         "qatorlar": qatorlar,
         "cat_values": cat_values,
@@ -770,7 +773,7 @@ def virtual_ofis(request):
     tasks = []
     _vp = visible_projects(request.user)
     lc = LimitChangeRequest.objects.filter(status__in=LIM_JARAYON, project__in=_vp).count()
-    wc = WeeklyRequest.objects.filter(status="submitted", project__in=_vp).count()
+    wc = WeeklyRequest.objects.filter(status__in=WK_JARAYON, project__in=_vp).count()
     if lc:
         tasks.append({"text": f"{lc} ta limit o'zgartirish so'rovi tasdiq kutmoqda",
                       "level": "warn", "url": _rev("tasdiqlar")})
@@ -920,6 +923,8 @@ def haftalik_tarix(request):
         "project", "project__firma", "created_by", "approved_by").prefetch_related("items")
     if holat in ("approved", "submitted", "draft"):
         qs = qs.filter(status=holat)
+    elif holat == "jarayon":
+        qs = qs.filter(status__in=WK_JARAYON)
     if firma_id:
         qs = qs.filter(project__firma_id=firma_id)
     if obj_id:
@@ -1666,19 +1671,112 @@ def _limit_request_action_asl(request, pk):
     return redirect(reverse("dashboard") + "?tab=tasdiqlar")
 
 
+# Haftalik so'rov zanjiri yordamchilari + _weekly_action_asl ning yangi boshlanishi
+# (patch skripti shu faylni views.py ga joylaydi)
+
+WK_JARAYON = ["snab", "pto2", "dir", "prov", "submitted"]   # haftalik zanjir tartibi (draft → … → approved)
+WK_BOSQICH_NOM = {"draft": "ПТО", "snab": "Снабжения", "pto2": "ПТО хулосаси", "dir": "Директор",
+                  "prov": "Проверчик", "submitted": "Админ", "approved": "Тасдиқланган"}
+
+
+def _wk_keyingi(p, joriy):
+    """Haftalik so'rovning KEYINGI bosqichi (limit zanjiri bilan bir xil qoida):
+    snab xodimi bo'lmasa snab va pto2 o'tkazib yuboriladi, proverchik bo'lmasa — prov."""
+    tartib = ["draft"] + WK_JARAYON + ["approved"]
+    i = tartib.index(joriy) if joriy in tartib else 0
+    snab_b, prov_b = _snab_bor(p), _prov_bor(p.firma)
+    for st in tartib[i + 1:]:
+        if st in ("snab", "pto2") and not snab_b:
+            continue
+        if st == "prov" and not prov_b:
+            continue
+        return st
+    return "approved"
+
+
+def _wk_bosqich_egasi(req, status):
+    """Haftalik so'rovning shu bosqichida javob beradigan foydalanuvchi."""
+    from django.contrib.auth import get_user_model
+    U = get_user_model()
+    p = req.project
+
+    def birinchi(rol, firma=False):
+        qs = U.objects.filter(is_active=True, profile__role=rol)
+        qs = qs.filter(profile__firma=p.firma) if firma else qs.filter(profile__projects=p)
+        return qs.order_by("username").first()
+
+    if status == "draft" or status == "pto2":
+        return (req.pto2_by if status == "pto2" else None) or req.created_by or birinchi("pto")
+    if status == "snab":
+        return req.snab_by or birinchi("snab")
+    if status == "dir":
+        return req.director_by or birinchi("director", True)
+    if status == "prov":
+        return req.prov_by or birinchi("prov", True)
+    if status == "submitted":
+        from django.conf import settings as _s
+        return (U.objects.filter(is_active=True, is_superuser=True,
+                                 username=getattr(_s, "ASOSIY_ADMIN_LOGIN", "admin")).first()
+                or U.objects.filter(is_active=True, is_superuser=True).order_by("username").first())
+    return None
+
+
+def _wk_xabar(request, req, status, matn):
+    """Bosqich egasiga tizim banneri + Telegram (o'ziga yubormaydi). Natija: 'ism (Telegram ✓)' yoki ''."""
+    oluvchi = _wk_bosqich_egasi(req, status)
+    if oluvchi is None or oluvchi.pk == request.user.pk:
+        return ""
+    link = request.build_absolute_uri(reverse("limit_jadval", args=[req.project_id]) + f"?hafta={req.id}")
+    _, tg = _lj_xabar_yubor(matn + f"\nJadval: {link}", oluvchi, request.user)
+    return f" {oluvchi.username}ga xabar yuborildi" + (" (Telegram ham)." if tg else " (tizimda).")
+
+
+def _wk_qayt(request, proj_id):
+    if request.POST.get("next") == "tasdiqlar":
+        return redirect(reverse("dashboard") + "?tab=tasdiqlar")
+    if request.POST.get("next") == "jadval":
+        return redirect(reverse("limit_jadval", args=[proj_id]))
+    return redirect("project_detail", pk=proj_id)
+
+
 @login_required
 def _weekly_action_asl(request, pk):
-    """Haftalik so'rov oqimi: PTO yuboradi → Direktor tasdiqlaydi → Admin tasdiqlaydi."""
-    from .roles import is_admin, is_director
+    """Haftalik so'rov oqimi — UMUMIY LIMIT zanjiri bilan bir xil:
+    PTO yuboradi → Snabjeniye narxlaydi → PTO xulosasi → Direktor → Proverchik → Admin.
+    Har bosqich egasi oldinga o'tkazadi yoki sabab bilan ORQAGA qaytaradi."""
+    from django.utils import timezone
+    from .roles import is_admin, is_asosiy_admin, is_director, is_prov, is_snab
     req = get_object_or_404(WeeklyRequest, pk=pk)
     _firma_yoki_403(request, req.project)
     WS = WeeklyRequest.Status
     proj_id = req.project_id
+    u = request.user
+    hafta_nom = f"{req.project.code} — {req.week_start:%d.%m}–{req.week_end:%d.%m} haftalik"
+    dir_actor = (is_director(u) and not u.is_superuser) or is_asosiy_admin(u)
+
+    def _oldinga(kutilgan, by_field, at_field, ok_matn):
+        """Joriy bosqichdan keyingisiga o'tkazish (imzo + keyingi egaga xabar)."""
+        if req.status != kutilgan:
+            messages.error(request, "Bu so'rov sizning bosqichingizda emas.")
+            return
+        keyingi = _wk_keyingi(req.project, req.status)
+        req.status = keyingi
+        fields = ["status"]
+        if by_field:
+            setattr(req, by_field, u)
+            setattr(req, at_field, timezone.now())
+            fields += [by_field, at_field]
+        req.save(update_fields=fields)
+        xabar = _wk_xabar(request, req, keyingi,
+                          f"📋 {hafta_nom} so'rovi sizga keldi ({WK_BOSQICH_NOM.get(keyingi, keyingi)} bosqichi). "
+                          f"Yubordi: {u.username}.")
+        messages.success(request, ok_matn + f" — {WK_BOSQICH_NOM.get(keyingi, keyingi)}ga o'tdi." + xabar)
+
     if request.method == "POST":
         action = request.POST.get("action")
         if action == "tahrir_ruxsat":
             # ADMIN: yopiq haftani jadvalda tahrirlashga BIR MARTALIK ruxsat (har hafta uchun alohida)
-            if not is_admin(request.user):
+            if not is_admin(u):
                 raise PermissionDenied("Ruxsatni faqat admin beradi.")
             if req.status == "draft":
                 messages.info(request, "Qoralama hafta allaqachon tahrirlanadi.")
@@ -1688,28 +1786,21 @@ def _weekly_action_asl(request, pk):
                 messages.success(request, ("🔓 Hafta tahririga ruxsat berildi — jadvalda o'zgartirib "
                                            "«Сақлаш»ni bosing (bir martalik)."
                                            if req.tahrir_ruxsat else "🔒 Hafta tahriri yana yopildi."))
-            return redirect("project_detail", pk=proj_id)
+            return _wk_qayt(request, proj_id)
         if action == "ack":
             # So'rov egasi «Tasdiqlandi» xabarini ko'rdi — boshqa ko'rsatilmaydi
-            if req.created_by_id == request.user.id:
+            if req.created_by_id == u.id:
                 req.pto_notified = True
                 req.save(update_fields=["pto_notified"])
-            return redirect("project_detail", pk=proj_id)
+            return _wk_qayt(request, proj_id)
         if action == "delitem":
-            # Bitta qatorni so'rovdan o'chirish — har kim FAQAT O'Z bosqichida:
-            # direktor -> dir, admin -> submitted (aks holda direktor admin
-            # navbatidagi tarkibni o'zgartirib qo'yadi).
-            if not (is_director(request.user) or is_admin(request.user)):
-                raise PermissionDenied("Qatorni faqat direktor yoki admin o'chiradi.")
-            from .roles import is_asosiy_admin as _asos0
-            _stage_ok = (req.status == WS.SUBMITTED and is_admin(request.user)) or \
-                        (req.status == WS.DIR and
-                         ((is_director(request.user) and not request.user.is_superuser)
-                          or _asos0(request.user)))
+            # Bitta qatorni so'rovdan o'chirish — har kim FAQAT O'Z bosqichida
+            EGASI = {WS.SNAB: is_snab(u) or is_admin(u), WS.PTO2: is_pto(u) or is_admin(u),
+                     WS.DIR: dir_actor, WS.PROV: is_prov(u) or is_admin(u), WS.SUBMITTED: is_admin(u)}
             it = req.items.filter(id=request.POST.get("item_id")).first()
-            if req.status == WeeklyRequest.Status.APPROVED:
+            if req.status == WS.APPROVED:
                 messages.error(request, "Tasdiqlangan so'rov qatorini o'chirib bo'lmaydi.")
-            elif not _stage_ok:
+            elif not EGASI.get(req.status):
                 messages.error(request, "Bu so'rov sizning bosqichingizda emas.")
             elif it is None:
                 messages.error(request, "Qator topilmadi.")
@@ -1718,71 +1809,89 @@ def _weekly_action_asl(request, pk):
             else:
                 nom = it.name
                 it.delete()
-                from django.utils import timezone as _tz3
-                req.edited_by = request.user
-                req.edited_at = _tz3.now()
+                req.edited_by = u
+                req.edited_at = timezone.now()
                 req.save(update_fields=["edited_by", "edited_at"])
                 messages.info(request, f"«{nom}» qatori so'rovdan o'chirildi.")
-            if request.POST.get("next") == "tasdiqlar":
-                return redirect(reverse("dashboard") + "?tab=tasdiqlar")
-            return redirect("project_detail", pk=proj_id)
+            return _wk_qayt(request, proj_id)
         if action == "submit":
-            # PTO qoralamani DIREKTORga yuboradi — shundan keyingina tasdiqlar zanjiriga tushadi
-            if not is_pto(request.user):
+            # PTO qoralamani zanjirga yuboradi (snab bo'lsa — snabga, bo'lmasa to'g'ri direktorga)
+            if not is_pto(u):
                 raise PermissionDenied("Faqat PTO yuboradi.")
             if req.status != WS.DRAFT:
                 messages.error(request, "Faqat qoralama holatidagi so'rov yuboriladi.")
             else:
-                req.status = WS.DIR
-                req.save(update_fields=["status"])
-                messages.success(request, "So'rov direktor tasdig'iga yuborildi.")
+                _oldinga(WS.DRAFT, None, None, "So'rov yuborildi")
         elif action == "recall":
-            # PTO yuborilganini qaytarib oladi (direktor hali ko'rmagan bo'lsa)
-            if not is_pto(request.user):
+            # PTO yuborilganini qaytarib oladi — faqat BIRINCHI bosqichda, hali hech kim imzolamagan bo'lsa
+            if not is_pto(u):
                 raise PermissionDenied("Faqat PTO.")
-            if req.status != WS.DIR:
-                messages.error(request, "Faqat direktor tasdig'idagi so'rov qaytarib olinadi.")
+            if req.status != _wk_keyingi(req.project, "draft") or req.snab_by_id or req.director_by_id:
+                messages.error(request, "Faqat hali ko'rib chiqilmagan (birinchi bosqichdagi) so'rov qaytarib olinadi.")
             else:
                 req.status = WS.DRAFT
                 req.save(update_fields=["status"])
                 messages.info(request, "So'rov qoralamaga qaytarib olindi.")
+        elif action == "snab_return":
+            # SNABJENIYE narxlab PTO xulosasiga o'tkazadi
+            if not (is_snab(u) or is_admin(u)):
+                raise PermissionDenied("Faqat snabjeniye.")
+            _oldinga(WS.SNAB, "snab_by", "snab_at", "Snabjeniye ko'rdi")
+        elif action == "pto_send_dir":
+            # PTO XULOSASI → direktor
+            if not (is_pto(u) or is_admin(u)):
+                raise PermissionDenied("Faqat PTO.")
+            _oldinga(WS.PTO2, "pto2_by", "pto2_at", "PTO xulosasi berildi")
         elif action == "dir_approve":
-            # DIREKTOR (yoki ASOSIY admin) tasdiqlaydi: dir → submitted
-            from .roles import is_asosiy_admin as _asos
-            if request.user.is_superuser and not _asos(request.user):
-                messages.error(request, "Direktor bosqichini HAQIQIY direktor yoki "
-                                        "ASOSIY admin tasdiqlaydi.")
-                return redirect(reverse("dashboard") + "?tab=tasdiqlar")
-            if not (is_director(request.user) or _asos(request.user)):
+            # DIREKTOR (yoki ASOSIY admin) tasdiqlaydi: dir → prov yoki admin
+            if u.is_superuser and not is_asosiy_admin(u):
+                messages.error(request, "Direktor bosqichini HAQIQIY direktor yoki ASOSIY admin tasdiqlaydi.")
+                return _wk_qayt(request, proj_id)
+            if not dir_actor:
                 raise PermissionDenied("Faqat direktor.")
-            if req.status != WS.DIR:
-                messages.error(request, "Bu so'rov direktor bosqichida emas.")
-            else:
-                from django.utils import timezone
-                req.status = WS.SUBMITTED
-                req.director_by = request.user
-                req.director_at = timezone.now()
-                req.save(update_fields=["status", "director_by", "director_at"])
-                messages.success(request, "Direktor tasdiqladi — admin tasdig'iga o'tdi.")
-        elif action == "dir_reject":
-            from .roles import is_asosiy_admin as _asos2
-            if request.user.is_superuser and not _asos2(request.user):
+            _oldinga(WS.DIR, "director_by", "director_at", "Direktor tasdiqladi")
+        elif action == "prov_approve":
+            if not (is_prov(u) or is_admin(u)):
+                raise PermissionDenied("Faqat proverchik.")
+            _oldinga(WS.PROV, "prov_by", "prov_at", "Proverchik tekshirdi")
+        elif action in ("orqaga", "dir_reject"):
+            # ORQAGA: har bosqich egasi so'rovni oldingi bosqich egasiga (yoki PTO qoralamasiga)
+            # sabab bilan qaytaradi; admin — istalgan bosqichdan istalganiga. dir_reject = eski nom.
+            sabab = " ".join((request.POST.get("sabab") or request.POST.get("reject_note") or "").split())[:300]
+            target = request.POST.get("target") or ("draft" if action == "dir_reject" else "")
+            RUXSAT = {WS.SNAB: (is_snab(u) or is_admin(u), {"draft"}),
+                      WS.PTO2: (is_pto(u) or is_admin(u), {"draft", WS.SNAB}),
+                      WS.DIR: (dir_actor, {"draft", WS.SNAB, WS.PTO2}),
+                      WS.PROV: (is_prov(u) or is_admin(u), {"draft", WS.DIR}),
+                      WS.SUBMITTED: (is_admin(u), {"draft", WS.SNAB, WS.PTO2, WS.DIR, WS.PROV})}
+            if u.is_superuser and not is_asosiy_admin(u) and req.status == WS.DIR and not is_admin(u):
                 messages.error(request, "Direktor bosqichini HAQIQIY direktor yoki ASOSIY admin ko'radi.")
-                return redirect(reverse("dashboard") + "?tab=tasdiqlar")
-            if not (is_director(request.user) or _asos2(request.user)):
-                raise PermissionDenied("Faqat direktor.")
-            izoh = (request.POST.get("reject_note") or request.POST.get("decision_note") or "").strip()
-            if req.status != WS.DIR:
-                messages.error(request, "Bu so'rov direktor bosqichida emas.")
-            elif not izoh:
-                messages.error(request, "Rad etish sababini yozing.")
+                return _wk_qayt(request, proj_id)
+            if is_admin(u) and req.status in WK_JARAYON:
+                ruxsat_bor, targetlar = True, {"draft", WS.SNAB, WS.PTO2, WS.DIR, WS.PROV} - {req.status}
+            elif req.status in RUXSAT:
+                ruxsat_bor, targetlar = RUXSAT[req.status]
             else:
-                req.status = WS.DRAFT
-                req.reject_note = izoh[:500]
-                req.save(update_fields=["status", "reject_note"])
-                messages.info(request, f"Direktor rad etdi — PTO qoralamasiga qaytdi. Sabab: {izoh}")
+                ruxsat_bor, targetlar = None, set()
+            if ruxsat_bor is None:
+                messages.error(request, "Bu bosqichdan orqaga qaytarib bo'lmaydi.")
+            elif not ruxsat_bor:
+                raise PermissionDenied("Bu bosqichda qaytarish huquqi yo'q.")
+            elif target not in targetlar:
+                messages.error(request, "Qaytariladigan bosqich noto'g'ri.")
+            elif not sabab:
+                messages.error(request, "Qaytarish sababini yozing.")
+            else:
+                req.status = target
+                req.reject_note = (f"↩ ORQAGA QAYTARILDI ({u.username}): {sabab}")[:500]
+                req.edited_by = u
+                req.edited_at = timezone.now()
+                req.save(update_fields=["status", "reject_note", "edited_by", "edited_at"])
+                xabar = _wk_xabar(request, req, target,
+                                  f"↩ {hafta_nom} so'rovi sizga QAYTARILDI ({u.username}). Sabab: {sabab}")
+                messages.info(request, f"↩ So'rov {WK_BOSQICH_NOM.get(target, target)}ga qaytarildi (sabab: {sabab})." + xabar)
         elif action in ("approve", "draft"):
-            if not is_admin(request.user):
+            if not is_admin(u):
                 raise PermissionDenied("Haftalik limitni tasdiqlash/bekor qilish — faqat asosiy admin.")
             if action == "approve":
                 from django.utils import timezone
@@ -1871,7 +1980,7 @@ def _weekly_action_asl(request, pk):
                     "Tasdiqlangan so'rovni o'chirib bo'lmaydi. Avval admin uni "
                     "«Qoralamaga qaytarish» orqali bekor qilsin, so'ng o'chirish mumkin.",
                 )
-            elif req.status in (WeeklyRequest.Status.DIR, WeeklyRequest.Status.SUBMITTED):
+            elif req.status in WK_JARAYON:
                 messages.error(request, "Yuborilgan so'rovni avval «Qaytarib olish» qiling, so'ng o'chirasiz.")
             else:
                 from .models import Moliya as _M2
@@ -1998,7 +2107,8 @@ def _obj_limit_wb(p):
     from openpyxl.utils import get_column_letter
 
     KIND = dict(KIND_NOMI)
-    STATUS = {"draft": "Qoralama", "dir": "Direktor tasdig'ida",
+    STATUS = {"draft": "Qoralama", "snab": "Snabjeniye ko'rigida", "pto2": "PTO xulosasida",
+              "dir": "Direktor tasdig'ida", "prov": "Proverchik tekshiruvida",
               "submitted": "Admin tasdig'ida", "approved": "Tasdiqlangan"}
 
     hdr_font = Font(bold=True, color="FFFFFF", size=11)
@@ -3122,7 +3232,8 @@ def weekly_export(request, pk):
     from django.utils.timezone import localtime as _lt
 
     KIND = dict(KIND_NOMI)
-    STATUS = {"draft": "Qoralama", "dir": "Direktor tasdig'ida",
+    STATUS = {"draft": "Qoralama", "snab": "Snabjeniye ko'rigida", "pto2": "PTO xulosasida",
+              "dir": "Direktor tasdig'ida", "prov": "Proverchik tekshiruvida",
               "submitted": "Admin tasdig'ida", "approved": "Tasdiqlangan"}
 
     hdr_font = Font(bold=True, color="FFFFFF", size=11)
@@ -4180,10 +4291,13 @@ def limit_jadval(request, pk):
                 it.request = draft
             WeeklyRequestItem.objects.bulk_create(yangi_items)
             if payload.get("action") == "submit":
-                draft.status = WeeklyRequest.Status.DIR
+                draft.status = _wk_keyingi(p, "draft")
                 draft.save(update_fields=["status"])
         if payload.get("action") == "submit":
-            messages.success(request, "Hafta yopildi — so'rov direktor tasdig'iga yuborildi.")
+            _xb = _wk_xabar(request, draft, draft.status,
+                            f"📋 {p.code} — {draft.week_start:%d.%m}–{draft.week_end:%d.%m} haftalik so'rovi "
+                            f"sizga keldi ({WK_BOSQICH_NOM.get(draft.status, draft.status)} bosqichi). Yubordi: {request.user.username}.")
+            messages.success(request, f"Hafta yopildi — so'rov {WK_BOSQICH_NOM.get(draft.status, draft.status)}ga yuborildi." + _xb)
         else:
             messages.success(request, f"Qoralama saqlandi ({len(yangi_items)} qator).")
         return _qayt()
@@ -4266,10 +4380,14 @@ def limit_jadval(request, pk):
             # Zanjir holati banneri uchun imzolar
             "kiritdi": w.created_by.username if w.created_by_id else "",
             "kiritdi_at": f"{_lt0(w.created_at):%d.%m %H:%M}" if w.created_at else "",
+            "snab_by": w.snab_by.username if w.snab_by_id else "",
+            "pto2_by": w.pto2_by.username if w.pto2_by_id else "",
             "dir_by": w.director_by.username if w.director_by_id else "",
             "dir_at": f"{_lt0(w.director_at):%d.%m %H:%M}" if w.director_at else "",
+            "prov_by": w.prov_by.username if w.prov_by_id else "",
             "adm_by": w.approved_by.username if w.approved_by_id else "",
             "adm_at": f"{_lt0(w.approved_at):%d.%m %H:%M}" if w.approved_at else "",
+            "qaytarish": (w.reject_note or "") if (w.reject_note or "").startswith("↩") and w.status != "approved" else "",
         })
 
     # Yangi hafta uchun taklif sanalar
@@ -4428,9 +4546,15 @@ def limit_jadval(request, pk):
     from django.contrib.auth import get_user_model as _gum
     _adm_u = (_gum().objects.filter(is_active=True, is_superuser=True,
                                     username=getattr(_st_, "ASOSIY_ADMIN_LOGIN", "admin")).first())
+    from .roles import is_prov as _is_prov_w, is_snab as _is_snab_w
+    _wk1 = _wk_keyingi(p, "draft")
+    _wk1_u = (_rol_user("snab") if _wk1 == "snab" else _dir_u if _wk1 == "dir" else _adm_u)
     return render(request, "projects/limit_jadval.html", {
         "lj_qadamlar": lj_qadamlar, "lj_pill": lj_pill, "lj_keyingi": lj_keyingi,
         "wk_dir_nom": _ism(_dir_u), "wk_adm_nom": _ism(_adm_u),
+        "wk_keyingi": WK_BOSQICH_NOM.get(_wk1, _wk1) + (" · " + _ism(_wk1_u) if _wk1_u else ""),
+        "wk_snab_actor": _is_snab_w(request.user) and not request.user.is_superuser,
+        "wk_prov_actor": _is_prov_w(request.user) and not request.user.is_superuser,
         "p": p, "guruhlar": guruhlar,
         # Taklif ko'rinishida haftalik va Умумий (amaldagi) tahriri o'chiq
         "can_edit": can_edit,
@@ -4622,8 +4746,8 @@ def limit_jadval_export(request, pk):
     if haftalar:
         if vis_id not in {w.pk for w in haftalar}:
             vis_id = haftalar[-1].pk    # tanlanmagan bo'lsa — eng oxirgi hafta ochiq
-    HOLAT = {"draft": "қоралама", "dir": "директорда",
-             "submitted": "админда", "approved": "тасдиқланган"}
+    HOLAT = {"draft": "қоралама", "snab": "снабженияда", "pto2": "ПТО хулосасида", "dir": "директорда",
+             "prov": "проверчикда", "submitted": "админда", "approved": "тасдиқланган"}
     # Ustun tartibi: ҚОЛГАН ... [eski haftalar — YASHIRIN] ... [tanlangan hafta]
     raqam = {w.pk: i + 1 for i, w in enumerate(haftalar)}   # xronologik raqam
     haftalar = ([w for w in haftalar if w.pk != vis_id]

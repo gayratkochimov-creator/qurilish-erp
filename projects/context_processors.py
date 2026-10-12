@@ -39,11 +39,13 @@ def approvals(request):
     u = getattr(request, "user", None)
     if not (u and u.is_authenticated):
         return {}
-    from .roles import is_admin, is_director, is_prorab, is_pto, visible_projects
+    from .roles import is_admin, is_director, is_prorab, is_pto, is_prov, is_snab, visible_projects
     _dir = is_director(u)
     _adm = is_admin(u)
     _pto = is_pto(u)
     _prorab = is_prorab(u)
+    _snb = is_snab(u) and not _adm
+    _prv = is_prov(u) and not _adm
     from .models import LimitChangeRequest, MaterialRequest, WeeklyRequest
     # Firma/obyekt izolyatsiyasi: har kim faqat o'z navbatini ko'radi (admin=hammasi)
     _vp = visible_projects(u)
@@ -84,9 +86,18 @@ def approvals(request):
     if _pto:
         ctx["pending_mat"] = MaterialRequest.objects.filter(
             project__in=_vp, status="pending").count()
-    if not (_dir or _adm):
+    if not (_dir or _adm or _snb or _prv or _pto):
         return ctx
     lc = wc = 0
+    if _snb:
+        lc += LimitChangeRequest.objects.filter(status="snab", project__in=_vp).count()
+        wc += WeeklyRequest.objects.filter(status="snab", project__in=_vp).count()
+    if _pto and not _adm:
+        lc += LimitChangeRequest.objects.filter(status="pto2", project__in=_vp).count()
+        wc += WeeklyRequest.objects.filter(status="pto2", project__in=_vp).count()
+    if _prv:
+        lc += LimitChangeRequest.objects.filter(status="prov", project__in=_vp).count()
+        wc += WeeklyRequest.objects.filter(status="prov", project__in=_vp).count()
     if _dir:
         lc += LimitChangeRequest.objects.filter(status="dir", project__in=_vp).count()
         wc += WeeklyRequest.objects.filter(status="dir", project__in=_vp).count()

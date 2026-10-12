@@ -525,21 +525,29 @@
   {% if tas_show %}
   <div class="pane" id="pane-tasdiqlar" {% if active_tab != 'tasdiqlar' %}style="display:none"{% endif %}>
 
-    {% if tas_lim_s %}
+    {% if tas_lim_s or tas_wk_s %}
     {# ===== SNABJENIYE NAVBATI (narxlash) ===== #}
     <div class="stage-head snab">Snabjeniye ko'rigida <span class="sh-note">— narxlarni ko'rib chiqib PTOga qaytariladi</span></div>
-    <div class="sec">
+    {% if tas_lim_s %}<div class="sec">
       <h3>Limit so'rovlari <span class="c">{{ tas_lim_s|length }}</span></h3>
       {% for r in tas_lim_s %}{% include "projects/_tas_lim_card.html" with r=r stage='snab' %}{% endfor %}
-    </div>
+    </div>{% endif %}
+    {% if tas_wk_s %}<div class="sec">
+      <h3>Haftalik so'rovlar <span class="c">{{ tas_wk_s|length }}</span></h3>
+      {% for w in tas_wk_s %}{% include "projects/_tas_wk_card.html" with w=w stage='snab' %}{% endfor %}
+    </div>{% endif %}
     {% endif %}
-    {% if tas_lim_p2 %}
+    {% if tas_lim_p2 or tas_wk_p2 %}
     {# ===== PTO XULOSASI NAVBATI ===== #}
     <div class="stage-head pto2">PTO xulosasida <span class="sh-note">— snabjeniyedan qaytgan, yakuniy xulosa berib direktorga yuboriladi</span></div>
-    <div class="sec">
+    {% if tas_lim_p2 %}<div class="sec">
       <h3>Limit so'rovlari <span class="c">{{ tas_lim_p2|length }}</span></h3>
       {% for r in tas_lim_p2 %}{% include "projects/_tas_lim_card.html" with r=r stage='pto2' %}{% endfor %}
-    </div>
+    </div>{% endif %}
+    {% if tas_wk_p2 %}<div class="sec">
+      <h3>Haftalik so'rovlar <span class="c">{{ tas_wk_p2|length }}</span></h3>
+      {% for w in tas_wk_p2 %}{% include "projects/_tas_wk_card.html" with w=w stage='pto2' %}{% endfor %}
+    </div>{% endif %}
     {% endif %}
 
     {% if is_director %}
@@ -568,6 +576,10 @@
       <h3>Limit o'zgartirish so'rovlari {% if tas_lim_pr %}<span class="c">{{ tas_lim_pr|length }}</span>{% endif %}</h3>
       {% for r in tas_lim_pr %}{% include "projects/_tas_lim_card.html" with r=r stage='prov' %}{% empty %}<div class="tempty">Proverchik tekshiruvini kutayotgan limit so'rovi yo'q.</div>{% endfor %}
     </div>
+    {% if tas_wk_pr %}<div class="sec">
+      <h3>Haftalik so'rovlar <span class="c">{{ tas_wk_pr|length }}</span></h3>
+      {% for w in tas_wk_pr %}{% include "projects/_tas_wk_card.html" with w=w stage='prov' %}{% endfor %}
+    </div>{% endif %}
     {% endif %}
 
     {% if request.user.is_superuser %}

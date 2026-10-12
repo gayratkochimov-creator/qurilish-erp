@@ -77,7 +77,8 @@
         <span class="fl">Holati</span>
         <select name="holat" onchange="this.form.submit()">
           <option value="approved" {% if holat == 'approved' %}selected{% endif %}>Tasdiqlangan</option>
-          <option value="submitted" {% if holat == 'submitted' %}selected{% endif %}>Adminga yuborilgan</option>
+          <option value="jarayon" {% if holat == 'jarayon' %}selected{% endif %}>Zanjirda (tasdiq kutmoqda)</option>
+          <option value="submitted" {% if holat == 'submitted' %}selected{% endif %}>Admin tasdig'ida</option>
           <option value="draft" {% if holat == 'draft' %}selected{% endif %}>Qoralama</option>
           <option value="all" {% if holat == 'all' %}selected{% endif %}>Barchasi</option>
         </select>
