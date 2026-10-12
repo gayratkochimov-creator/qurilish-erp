@@ -4,281 +4,576 @@
 
 {% block extra_head %}
 <style>
+  .mo { --teal:#0F766E; --or:#C2410C; --gr:#15803D; }
   .msg { border-radius:10px; padding:10px 14px; font-size:14px; margin-bottom:12px; font-weight:600; }
   .msg.success { background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; }
   .msg.error { background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; }
-  .kpi { display:grid; grid-template-columns:repeat(auto-fit, minmax(190px,1fr)); gap:12px; margin-bottom:14px; }
-  .kpi .c { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:13px 16px; box-shadow:var(--shadow-sm); border-top:3px solid #CBD5E1; }
-  .kpi .c.lim { border-top-color:#2563eb; } .kpi .c.baj { border-top-color:#1E9E5A; } .kpi .c.ber { border-top-color:#0F766E; } .kpi .c.ost { border-top-color:#E35C1E; }
-  .kpi .l { font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--mut); font-weight:700; }
-  .kpi .v { font-size:21px; font-weight:800; margin-top:4px; font-variant-numeric:tabular-nums; }
-  .kpi .v.b { color:#0F766E; } .kpi .v.o { color:#C2410C; } .kpi .v.neg { color:#B91C1C; }
-  .kpi .s { font-size:11.5px; color:var(--mut); margin-top:3px; }
-  .ffilter { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:10px 14px; margin-bottom:14px; }
-  .ffilter select { padding:7px 10px; border:1px solid var(--line); border-radius:8px; font-size:13px; max-width:360px; }
-  .ffilter label { font-size:12.5px; font-weight:600; color:var(--mut); }
-  .ffilter .sp { flex:1; }
-  .ffilter input[type=search] { padding:7px 10px; border:1px solid var(--line); border-radius:8px; font-size:13px; width:260px; }
-  .chip { font-size:12.5px; font-weight:700; padding:6px 12px; border-radius:999px; border:1px solid var(--line); background:#fff; text-decoration:none; color:#334155; }
-  .chip.on { background:#1e293b; color:#fff; border-color:#1e293b; }
-  .panel { background:var(--card); border:1px solid var(--line); border-radius:14px; box-shadow:var(--shadow-sm); overflow:hidden; margin-bottom:16px; }
-  .panel h3 { font-size:14.5px; font-weight:800; margin:0; padding:13px 16px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
-  .panel h3 .sub { font-weight:500; font-size:12.5px; color:var(--mut); }
-  .panel h3 .r { margin-left:auto; display:flex; gap:8px; align-items:center; }
-  .lnk { font-size:12.5px; font-weight:700; color:#2563eb; text-decoration:none; border:1px solid #BFDBFE; border-radius:8px; padding:5px 10px; background:#EFF6FF; }
-  .lnk:hover { background:#DBEAFE; }
-  .num { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
-  .ctr { text-align:center; }
-  .kind { display:inline-block; padding:1px 7px; border-radius:6px; font-size:10.5px; font-weight:700; margin-right:4px; vertical-align:middle; }
-  .k-mat { background:#e0f2fe; color:#075985; } .k-lab { background:#dcfce7; color:#166534; } .k-mach { background:#fef3c7; color:#92400e; } .k-oth { background:#f1f5f9; color:#475569; }
-  .bar { height:6px; background:#f1f5f9; border-radius:99px; overflow:hidden; margin-top:4px; }
-  .bar i { display:block; height:100%; background:#0F766E; }
-  .ost { color:#C2410C; font-weight:800; } .ost.neg { color:#B91C1C; } .toliq { color:#15803d; font-weight:800; } .ber { color:#0F766E; font-weight:800; }
-  /* ---- Limit jadvali (limit_jadval bilan bir xil ranglar) ---- */
-  .lj-scroll { overflow:auto; }
-  table.lj { width:100%; border-collapse:collapse; min-width:1100px; }
-  .lj th, .lj td { border:1px solid #D9DEE7; padding:6px 8px; font-size:12.5px; vertical-align:top; }
-  .lj thead th { color:#fff; font-weight:700; text-align:center; font-size:12px; white-space:nowrap; }
-  .lj thead th.h-main { background:#1E3A6E; }
-  .lj thead th.h-um { background:#2563eb; } .lj thead th.h-baj { background:#1E9E5A; } .lj thead th.h-qol { background:#E35C1E; }
-  .lj thead th.h-ber { background:#0F766E; } .lj thead th.h-ost { background:#B91C1C; } .lj thead th.h-iz { background:#475569; } .lj thead th.h-amal { background:#1E3A6E; }
-  .lj tr.block td { background:#fde8b0 !important; font-weight:700; }
-  .lj tr.subtotal td { background:#F8FAFC; font-weight:700; }
-  .lj tr.ish.toliq-row td { background:#F0FDF4; }
+  .mo .num { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .mo .ctr { text-align:center; }
+  .mo .sm { font-size:11.5px; color:#64748B; }
+  /* Sarlavha */
+  .mo-head { display:flex; align-items:flex-start; gap:16px; flex-wrap:wrap; margin-bottom:14px; }
+  .mo-head h2 { margin:0; font-size:21px; font-weight:700; letter-spacing:-.01em; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .mo-head .sub { color:#64748B; font-size:13px; margin-top:4px; }
+  .mo-crumb { font-size:12.5px; color:#64748B; margin-bottom:6px; } .mo-crumb a { color:#64748B; text-decoration:none; } .mo-crumb a:hover { color:#2563EB; }
+  .btn { height:36px; padding:0 14px; border-radius:8px; border:1px solid #D7DDE6; background:#fff; color:#0F172A; font:inherit; font-size:13px; font-weight:600; display:inline-flex; align-items:center; gap:8px; cursor:pointer; text-decoration:none; }
+  .btn:hover { background:#F8FAFC; border-color:#94A3B8; }
+  .btn.primary { background:var(--teal); border-color:var(--teal); color:#fff; } .btn.primary:hover { background:#0B5F58; }
+  .btn svg { width:16px; height:16px; }
+  /* KPI */
+  .kpi { display:grid; grid-template-columns:repeat(auto-fit, minmax(200px,1fr)); gap:12px; margin-bottom:14px; }
+  .kpi .c { background:#fff; border:1px solid #E2E8F0; border-radius:12px; padding:13px 16px; box-shadow:var(--shadow-sm); border-top:3px solid #CBD5E1; }
+  .kpi .c.lim { border-top-color:#2563eb; } .kpi .c.baj { border-top-color:#1E9E5A; } .kpi .c.ber { border-top-color:var(--teal); } .kpi .c.ost { border-top-color:#E35C1E; }
+  .kpi .l { font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:#64748B; font-weight:700; }
+  .kpi .v { font-size:23px; font-weight:800; margin-top:4px; font-variant-numeric:tabular-nums; }
+  .kpi .v.b { color:var(--teal); } .kpi .v.o { color:var(--or); } .kpi .v.neg { color:#B91C1C; } .kpi .v.g { color:var(--gr); }
+  .kpi .s { font-size:12px; color:#64748B; margin-top:3px; }
+  .bar { height:5px; background:#E6EBF1; border-radius:99px; overflow:hidden; margin-top:5px; } .bar i { display:block; height:100%; background:var(--teal); border-radius:99px; }
+  .bar i.g { background:var(--gr); } .bar i.y { background:#D97706; }
+  /* Chiplar / segment */
+  .chip { display:inline-flex; align-items:center; gap:5px; height:22px; padding:0 9px; border-radius:999px; font-size:11.5px; font-weight:700; white-space:nowrap; }
+  .chip.toliq { background:#DCFCE7; color:var(--gr); } .chip.qisman { background:#FEF3C7; color:#92400E; } .chip.yoq { background:#F1F5F9; color:#475569; }
+  .chip.qarz { background:#FEF3C7; color:#92400E; } .chip.ok { background:#DCFCE7; color:var(--gr); } .chip.kod { background:#EFF6FF; color:#1D4ED8; } .chip.gray { background:#F1F5F9; color:#475569; }
+  .seg { display:inline-flex; border:1px solid #D7DDE6; border-radius:8px; overflow:hidden; background:#fff; }
+  .seg button, .seg a { height:34px; padding:0 12px; border:0; background:transparent; font:inherit; font-size:12.5px; font-weight:500; color:#334155; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:6px; }
+  .seg button + button, .seg a + a { border-left:1px solid #E6EBF1; }
+  .seg .on { background:#0B1C30; color:#fff; font-weight:600; }
+  .fchip { height:30px; padding:0 11px; border-radius:999px; border:1px solid #D7DDE6; background:#fff; font:inherit; font-size:12.5px; font-weight:500; color:#334155; display:inline-flex; align-items:center; gap:6px; cursor:pointer; text-decoration:none; }
+  .fchip b { font-weight:700; color:#0F172A; } .fchip .dot { width:8px; height:8px; border-radius:50%; display:inline-block; }
+  .fchip.on { background:#EFF6FF; border-color:#2563EB; color:#1D4ED8; } .fchip.on b { color:#1D4ED8; }
+  .sel { height:34px; padding:0 10px; border:1px solid #D7DDE6; border-radius:8px; background:#fff; font:inherit; font-size:13px; color:#0F172A; max-width:340px; }
+  .srch { display:flex; align-items:center; gap:8px; height:34px; padding:0 12px; border:1px solid #D7DDE6; border-radius:8px; background:#fff; color:#64748B; width:300px; max-width:100%; }
+  .srch input { border:0; background:transparent; font:inherit; font-size:13px; flex:1; outline:none; color:#0F172A; min-width:0; }
+  .srch svg { width:15px; height:15px; flex:none; }
+  /* Panel */
+  .panel { background:#fff; border:1px solid #E2E8F0; border-radius:14px; box-shadow:var(--shadow-sm); overflow:hidden; margin-bottom:16px; }
+  .panel .ph { display:flex; align-items:center; gap:10px; padding:12px 16px; border-bottom:1px solid #E2E8F0; flex-wrap:wrap; }
+  .panel .ph b.t { font-size:14px; } .panel .ph .r { margin-left:auto; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .lnk { font-size:12.5px; font-weight:700; color:#2563eb; text-decoration:none; border:1px solid #BFDBFE; border-radius:8px; padding:5px 10px; background:#EFF6FF; } .lnk:hover { background:#DBEAFE; }
+  /* Limit jadvali */
+  .lj-scroll { overflow-x:auto; }
+  table.lj { width:100%; border-collapse:separate; border-spacing:0; min-width:1120px; }
+  .lj th { position:sticky; top:0; z-index:2; color:#fff; font-weight:600; font-size:11.5px; text-align:center; padding:7px 8px; white-space:nowrap; border-right:1px solid rgba(255,255,255,.18); }
+  .lj thead tr:first-child th { border-bottom:1px solid rgba(255,255,255,.18); }
+  .lj th.h-main { background:#1E3A6E; } .lj th.h-um { background:#2563eb; } .lj th.h-baj { background:#1E9E5A; } .lj th.h-qol { background:#E35C1E; }
+  .lj th.h-ber { background:var(--teal); } .lj th.h-ost { background:#B91C1C; } .lj th.h-hol { background:#334155; } .lj th.h-iz { background:#475569; }
+  .lj td { padding:4px 10px; height:44px; border-bottom:1px solid #EEF1F5; border-right:1px solid #F1F4F8; vertical-align:middle; font-size:13px; }
+  .lj tr.block td { height:34px; background:#FFF4D6; font-weight:700; color:#7C4A03; font-size:12.5px; }
+  .lj tr.block td .bx { font-weight:500; color:#9A6A1C; }
+  .lj tr.sub td { height:38px; background:#F8FAFC; font-weight:700; color:#334155; }
+  .lj tr.bosh td { height:34px; background:#FEF9C3; font-weight:700; color:#854D0E; font-size:12.5px; }
   .lj tr.ish:hover td { background:#F8FAFF; }
-  .lj tr.ish.toliq-row:hover td { background:#DCFCE7; }
-  .lj tfoot td { background:#1e293b; color:#fff; font-weight:800; font-size:13px; }
+  .lj tr.ish.toliq td { background:#F2FBF5; } .lj tr.ish.toliq:hover td { background:#DCFCE7; }
+  .lj td.c-ber { background:#F0FBF9; } .lj td.c-ost { background:#FFF7F0; }
+  .lj tfoot td { background:#0B1C30; color:#fff; font-weight:800; font-size:13px; height:46px; border:0; }
   .lj tfoot td.ber { color:#5EEAD4; } .lj tfoot td.ost { color:#FDBA74; } .lj tfoot td.ost.neg { color:#FCA5A5; }
-  .lj td.c-ber { background:#F0FDFA; } .lj td.c-ost { background:#FFF7ED; } .lj td.c-iz { background:#F8FAFC; min-width:140px; }
-  .lj .izoh-lim { color:#64748b; font-size:11.5px; }
-  .lj .nm { font-weight:600; }
-  .lj .sm { font-size:11px; color:var(--mut); }
-  .lj tr.bosh td { background:#FEF9C3; font-weight:700; color:#854D0E; }
-  .lj tr.limhead td { background:#EEF2F7; font-weight:800; font-size:13px; color:#1e293b; border-top:2px solid #cbd5e1; }
-  /* To'lov tarixi */
-  .tx { margin-top:3px; }
-  .tx summary { cursor:pointer; font-size:11px; color:#0F766E; list-style:none; font-weight:700; }
-  .tx summary::-webkit-details-marker { display:none; }
-  .tx-box { background:#F0FDFA; border:1px solid #99F6E4; border-radius:7px; padding:5px 8px; margin-top:4px; min-width:230px; text-align:left; }
-  .tx-row { display:flex; gap:7px; align-items:baseline; flex-wrap:wrap; padding:2px 0; border-top:1px dashed #CCFBF1; font-size:11.5px; }
-  .tx-row:first-child { border-top:0; }
-  .tx-dt { color:#475569; font-variant-numeric:tabular-nums; white-space:nowrap; }
-  .tx-sum { color:#0F766E; font-weight:800; font-variant-numeric:tabular-nums; }
-  .tx-iz { color:#92400e; background:#fef3c7; border-radius:4px; padding:0 5px; }
-  .tx-kim { margin-left:auto; color:#94a3b8; font-style:italic; white-space:nowrap; }
-  /* Formalar */
-  .tolov { display:flex; gap:5px; align-items:center; flex-wrap:wrap; }
-  .tolov input { padding:5px 7px; border:1px solid var(--line); border-radius:7px; font-size:12px; }
-  .tolov input.s { width:110px; text-align:right; } .tolov input.i { width:120px; } .tolov input.d { width:128px; }
-  .tolov button { background:#0F766E; color:#fff; border:0; border-radius:7px; padding:6px 11px; font-size:12px; font-weight:700; cursor:pointer; white-space:nowrap; }
-  .izf { display:flex; gap:4px; align-items:center; }
-  .izf input { flex:1; min-width:100px; width:100%; padding:5px 7px; border:1px solid var(--line); border-radius:7px; font-size:12px; }
-  .izf button { background:#475569; color:#fff; border:0; border-radius:7px; padding:6px 9px; font-size:12px; font-weight:700; cursor:pointer; }
-  .izf input.ozg { border-color:#F59E0B; background:#FFFBEB; }
-  .warn { color:#B45309; font-size:10.5px; font-weight:700; }
+  .lj .nm { font-weight:600; } .lj .kind { display:inline-block; padding:1px 7px; border-radius:5px; font-size:10.5px; font-weight:700; margin-right:6px; vertical-align:middle; }
+  .k-mat { background:#E0EEFF; color:#1E4FA3; } .k-lab { background:#DDF5E6; color:#14683B; } .k-mach { background:#FDEBC8; color:#8A4B06; } .k-oth { background:#F1F5F9; color:#475569; }
+  .lj .izoh-lim { color:#64748B; font-size:12px; max-width:220px; }
+  .lj .ber-v { font-weight:700; color:var(--teal); } .lj .ber-v.g { color:var(--gr); } .lj .ber-v.z { color:#94A3B8; }
+  .lj .ost-v { font-weight:700; color:var(--or); } .lj .ost-v.g { color:var(--gr); } .lj .ost-v.neg { color:#B91C1C; }
+  .lj .bv { display:flex; justify-content:flex-end; align-items:baseline; gap:8px; }
+  .lj .tx { font-size:10.5px; color:var(--teal); background:none; border:0; padding:0; cursor:pointer; font-weight:600; font-family:inherit; white-space:nowrap; }
+  .lj .tx:hover { text-decoration:underline; }
+  .lj .warn { color:#B45309; font-size:10.5px; font-weight:700; }
+  .lj .mute { color:#94A3B8; }
+  /* Ixcham ko'rinish — narx/obyom ustunlari yashirinadi */
+  .lj-wrap.ixcham .lj .c-nq { display:none; }
+  /* Izoh (buxgalter) — matn + qalamcha, bosilganda forma */
+  .iz { display:flex; align-items:center; gap:6px; min-width:160px; }
+  .iz .t { color:#475569; font-size:12.5px; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:220px; }
+  .iz .t.bosh { color:#B8C0CC; }
+  .iz .pen { opacity:0; width:24px; height:24px; border-radius:5px; border:0; background:transparent; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; color:#64748B; flex:none; }
+  tr:hover .iz .pen { opacity:1; } .iz .pen:hover { background:#E2E8F0; color:#0F172A; } .iz .pen svg { width:13px; height:13px; }
+  .izf { display:none; gap:4px; align-items:center; }
+  .izf input { flex:1; min-width:120px; width:100%; padding:5px 7px; border:1px solid #CBD5E1; border-radius:7px; font-size:12px; font-family:inherit; }
+  .izf button { height:28px; min-width:28px; border:0; border-radius:7px; font:inherit; font-size:12px; font-weight:700; cursor:pointer; }
+  .izf .ok { background:#475569; color:#fff; } .izf .no { background:#E2E8F0; color:#334155; }
+  td.iz-td.edit .iz { display:none; } td.iz-td.edit .izf { display:flex; }
+  /* Amal */
+  .tbtn { height:30px; padding:0 10px; border-radius:7px; border:1px solid var(--teal); background:var(--teal); color:#fff; font:inherit; font-size:12px; font-weight:700; display:inline-flex; align-items:center; gap:5px; cursor:pointer; white-space:nowrap; }
+  .tbtn:hover { background:#0B5F58; } .tbtn svg { width:13px; height:13px; }
+  .toliq-t { color:var(--gr); font-weight:800; font-size:12.5px; white-space:nowrap; }
   /* Obyektlar ro'yxati */
-  table.ob { width:100%; border-collapse:collapse; }
-  .ob th { background:#f8fafc; font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--mut); font-weight:600; padding:8px 12px; text-align:left; border-bottom:1px solid var(--line); }
-  .ob td { padding:10px 12px; font-size:13px; border-bottom:1px solid #f1f5f9; vertical-align:middle; }
-  .ob tr:hover td { background:#fafbff; }
-  .ob a.nm { font-weight:700; color:#1e293b; text-decoration:none; }
-  .ob a.nm:hover { color:#2563eb; }
-  .ob .sm { font-size:11px; color:var(--mut); }
-  .grid { display:grid; grid-template-columns:1fr 360px; gap:16px; align-items:start; }
-  @media (max-width:1100px){ .grid { grid-template-columns:1fr; } }
+  table.ob { width:100%; border-collapse:separate; border-spacing:0; }
+  .ob th { background:#F8FAFC; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#64748B; font-weight:700; padding:10px 14px; text-align:left; border-bottom:1px solid #E2E8F0; white-space:nowrap; }
+  .ob td { padding:11px 14px; border-bottom:1px solid #EEF1F5; vertical-align:middle; font-size:13px; }
+  .ob tr:hover td { background:#F8FAFF; } .ob tr.toliq td { background:#F2FBF5; }
+  .ob a.nm { font-weight:700; color:#0F172A; text-decoration:none; } .ob a.nm:hover { color:#2563EB; }
+  .ob .go { width:32px; height:32px; border-radius:8px; border:1px solid #D7DDE6; background:#fff; display:inline-flex; align-items:center; justify-content:center; color:#334155; text-decoration:none; }
+  .ob .go:hover { background:#EFF6FF; border-color:#2563EB; color:#1D4ED8; } .ob .go svg { width:16px; height:16px; }
+  .ob tfoot td { background:#0B1C30; color:#fff; font-weight:800; border:0; height:44px; } .ob tfoot td.ber { color:#5EEAD4; } .ob tfoot td.ost { color:#FDBA74; }
+  .grid { display:grid; grid-template-columns:minmax(0,1fr) 360px; gap:16px; align-items:start; }
+  @media (max-width:1150px){ .grid { grid-template-columns:1fr; } }
+  .rey { display:flex; flex-direction:column; gap:10px; padding:12px 16px 14px; }
+  .rey .r { display:flex; justify-content:space-between; font-size:12.5px; gap:8px; } .rey .r a { color:#0F172A; text-decoration:none; } .rey .r a:hover { color:#2563EB; } .rey .r b { color:#B45309; font-variant-numeric:tabular-nums; }
   /* Jurnal */
-  .jd { border-bottom:1px solid #f1f5f9; }
-  .jd summary { cursor:pointer; list-style:none; padding:9px 14px; }
-  .jd summary::-webkit-details-marker { display:none; }
+  .jd { border-bottom:1px solid #f1f5f9; } .jd summary { cursor:pointer; list-style:none; padding:9px 14px; } .jd summary::-webkit-details-marker { display:none; }
   .jd summary:hover { background:#fafbff; } .jd[open] summary { background:#F0FDFA; }
-  .jd-top { display:flex; gap:8px; align-items:baseline; font-size:12.5px; }
-  .jd-dt { color:var(--mut); white-space:nowrap; font-size:11.5px; } .jd-obj { flex:1; font-weight:600; }
-  .jd-sum { font-weight:800; color:#0F766E; font-variant-numeric:tabular-nums; white-space:nowrap; }
-  .jd-sub { font-size:11px; color:var(--mut); margin-top:2px; }
-  .jd-body { padding:8px 14px 12px; background:#fafcfa; font-size:12.5px; }
-  .jd-r { display:flex; justify-content:space-between; gap:10px; padding:3px 0; }
-  .jd-r span { color:var(--mut); white-space:nowrap; } .jd-r b { text-align:right; font-weight:600; } .jd-r small { color:var(--mut); }
-  .jd-hr { border:0; border-top:1px dashed #e2e8f0; margin:6px 0; }
+  .jd-top { display:flex; gap:8px; align-items:baseline; font-size:12.5px; } .jd-dt { color:#64748B; white-space:nowrap; font-size:11.5px; } .jd-obj { flex:1; font-weight:600; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .jd-sum { font-weight:800; color:var(--teal); font-variant-numeric:tabular-nums; white-space:nowrap; } .jd-sub { font-size:11px; color:#64748B; margin-top:2px; }
+  .jd-body { padding:8px 14px 12px; background:#fafcfa; font-size:12.5px; } .jd-r { display:flex; justify-content:space-between; gap:10px; padding:3px 0; }
+  .jd-r span { color:#64748B; white-space:nowrap; } .jd-r b { text-align:right; font-weight:600; } .jd-r small { color:#64748B; } .jd-hr { border:0; border-top:1px dashed #e2e8f0; margin:6px 0; }
+  .toliq { color:var(--gr); font-weight:800; } .ost { color:var(--or); font-weight:800; } .ber { color:var(--teal); font-weight:800; }
   .lj-bosh { padding:26px; text-align:center; color:#94a3b8; font-size:13px; }
-  @media print { .ffilter, .tolov, .izf button, .lnk, .jurnal-panel { display:none !important; } .lj-scroll { overflow:visible; } }
+  .qoida { padding:12px 16px 14px; } .qoida ul { margin:6px 0 0; padding-left:18px; color:#475569; font-size:12.5px; line-height:1.6; }
+  /* ---- Yon panel: to'lov yozish ---- */
+  .dw-bg { position:fixed; inset:0; background:rgba(11,28,48,.42); z-index:900; display:none; }
+  .dw { position:fixed; top:0; right:0; bottom:0; width:520px; max-width:100vw; background:#fff; box-shadow:-12px 0 40px rgba(11,28,48,.25); z-index:901; display:none; flex-direction:column; transform:translateX(100%); transition:transform .22s ease; }
+  .mo.dw-open .dw-bg { display:block; } .mo.dw-open .dw { display:flex; transform:none; }
+  .dw .hd { display:flex; align-items:flex-start; gap:12px; padding:18px 22px 14px; border-bottom:1px solid #E2E8F0; }
+  .dw .hd .k { font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--teal); }
+  .dw .hd h3 { margin:4px 0 0; font-size:17px; font-weight:800; } .dw .hd .s { font-size:12.5px; color:#64748B; margin-top:3px; }
+  .dw .x { width:34px; height:34px; border-radius:8px; border:1px solid #D7DDE6; background:#fff; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; color:#334155; flex:none; }
+  .dw .bd { flex:1; overflow-y:auto; padding:16px 22px; display:flex; flex-direction:column; gap:16px; }
+  .dw .st { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .dw .st div { display:flex; flex-direction:column; gap:2px; padding:9px 12px; border-radius:9px; background:#F8FAFC; border:1px solid #E6EBF1; }
+  .dw .st span { font-size:10.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:#64748B; } .dw .st b { font-size:15px; font-variant-numeric:tabular-nums; }
+  .dw .st div.b { background:#F0FDFA; border-color:#99F6E4; } .dw .st div.b span, .dw .st div.b b { color:var(--teal); }
+  .dw .st div.o { background:#FFF7ED; border-color:#FED7AA; } .dw .st div.o span, .dw .st div.o b { color:var(--or); }
+  .dw .fld { display:flex; flex-direction:column; gap:6px; } .dw .fld label { font-size:12px; font-weight:700; color:#475569; }
+  .dw .inp { height:42px; border:1px solid #CBD5E1; border-radius:9px; padding:0 12px; font:inherit; font-size:14px; color:#0F172A; background:#fff; width:100%; }
+  .dw .inp:focus { outline:2px solid var(--teal); outline-offset:-1px; border-color:var(--teal); }
+  .dw .big { position:relative; } .dw .big .inp { height:52px; font-size:22px; font-weight:800; padding-right:60px; font-variant-numeric:tabular-nums; }
+  .dw .big .u { position:absolute; right:14px; top:50%; transform:translateY(-50%); color:#64748B; font-weight:700; }
+  .qchip { height:32px; padding:0 12px; border-radius:999px; border:1px solid #CBD5E1; background:#fff; font:inherit; font-size:12.5px; font-weight:500; color:#334155; display:inline-flex; align-items:center; gap:6px; cursor:pointer; }
+  .qchip b { font-weight:800; color:#0F172A; font-variant-numeric:tabular-nums; } .qchip.on { background:#F0FDFA; border-color:var(--teal); color:var(--teal); } .qchip.on b { color:var(--teal); }
+  .dw .segm { display:flex; border:1px solid #CBD5E1; border-radius:9px; overflow:hidden; }
+  .dw .segm label { flex:1; height:40px; display:inline-flex; align-items:center; justify-content:center; gap:6px; font-size:13px; font-weight:500; color:#334155; cursor:pointer; background:#fff; }
+  .dw .segm label + label { border-left:1px solid #E6EBF1; } .dw .segm input { position:absolute; opacity:0; width:0; height:0; }
+  .dw .segm input:checked + label { background:#0B1C30; color:#fff; font-weight:700; }
+  .dw .prev { font-size:12.5px; color:#475569; } .dw .prev.bad { color:#B91C1C; font-weight:700; }
+  .dw .warn { display:flex; gap:10px; align-items:flex-start; padding:10px 12px; border-radius:9px; background:#FFFBEB; border:1px solid #FDE68A; color:#92400E; font-size:12.5px; }
+  .dw .warn svg { width:16px; height:16px; flex:none; margin-top:1px; }
+  .dw .hist { display:flex; flex-direction:column; border:1px solid #E6EBF1; border-radius:10px; overflow:hidden; }
+  .dw .hist .h { display:flex; align-items:center; gap:12px; padding:9px 12px; background:#fff; border-top:1px solid #F1F5F9; } .dw .hist .h:first-child { border-top:0; }
+  .dw .hist .d { width:34px; height:34px; border-radius:8px; background:#F0FDFA; color:var(--teal); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:11px; flex:none; }
+  .dw .hist .m { flex:1; min-width:0; } .dw .hist .m b { font-size:13px; } .dw .hist .m small { display:block; font-size:11.5px; color:#64748B; }
+  .dw .ft { display:flex; gap:10px; padding:14px 22px; border-top:1px solid #E2E8F0; background:#F8FAFC; }
+  .dw .ft .btn { height:40px; justify-content:center; } .dw .ft .btn.primary { flex:2; } .dw .ft .btn.no { flex:1; }
+  @media print { .dw, .dw-bg, .btn, .fchip, .srch, .seg, .tbtn, .pen, .jurnal-panel { display:none !important; } .lj-scroll { overflow:visible; } }
 </style>
 {% endblock %}
 
 {% block content %}
+<div class="mo" id="mo">
 {% if messages %}{% for m in messages %}<div class="msg {{ m.tags }}">{{ m }}</div>{% endfor %}{% endif %}
 
-<form method="get" class="ffilter" id="mfilter">
-  <label>Firma:</label>
-  <select name="firma" onchange="this.form.obyekt.value=''; this.form.submit()">
-    <option value="">— barcha —</option>
-    {% for f in firmalar %}<option value="{{ f.id }}" {% if sel_firma == f.id|stringformat:'s' %}selected{% endif %}>{{ f.name }}</option>{% endfor %}
-  </select>
-  <label>Obyekt:</label>
-  <select name="obyekt" onchange="this.form.submit()">
-    <option value="">— obyektni tanlang —</option>
-    {% for o in obyekt_ro %}<option value="{{ o.id }}" {% if sel_obyekt == o.id|stringformat:'s' %}selected{% endif %}>{{ o.code }} — {{ o.name }}</option>{% endfor %}
-  </select>
-  {% if sel_p %}<a class="chip" href="?firma={{ sel_firma }}">← Barcha obyektlar</a>{% endif %}
-  <span class="sp"></span>
-  {% if sel_p %}<input type="search" id="mQidir" placeholder="Qator bo'yicha qidirish: material, ish, bo'lim, izoh…" autocomplete="off"><span class="sm" id="mQidirN" style="font-size:12px;color:var(--mut);"></span>{% endif %}
-</form>
-
 {% if sel_p %}
-{# ===================== TANLANGAN OBYEKT — TO'LIQ LIMIT JADVALI ===================== #}
-<div class="kpi">
-  {% for o in obyektlar %}{% if o.p.pk == sel_p.pk %}
-  <div class="c lim"><div class="l">Umumiy limit</div><div class="v">{{ o.lim_str }}</div><div class="s">{{ o.limit_soni }} ta limit · {{ sel_p.code }}</div></div>
-  <div class="c baj"><div class="l">Bajarilgan (tasdiqlangan haftaliklar)</div><div class="v">{{ o.baj_str }}</div></div>
-  <div class="c ber"><div class="l">Berilgan (fakt)</div><div class="v b">{{ o.ber_str }}</div><div class="bar"><i style="width:{{ o.foiz }}%"></i></div></div>
-  <div class="c ost"><div class="l">Qolgan ostatki (limit − berilgan)</div><div class="v {% if o.ost_manfiy %}neg{% elif o.toliq %}b{% else %}o{% endif %}">{{ o.ost_str }}</div>{% if o.ost_manfiy %}<div class="s warn">Berilgan limitdan oshib ketgan</div>{% elif o.toliq %}<div class="s toliq">✓ To'liq moliyalashtirildi</div>{% endif %}</div>
-  {% endif %}{% endfor %}
+{# ============================ OBYEKT — TO'LIQ LIMIT JADVALI ============================ #}
+<div class="mo-crumb"><a href="{% url 'moliya' %}?firma={{ sel_firma }}">Moliyalashtirish</a> &nbsp;/&nbsp; <b style="color:#0F172A">{{ sel_p.code }}</b></div>
+<div class="mo-head">
+  <div style="flex:1 1 420px; min-width:0;">
+    <h2>{{ sel_p.name }} <span class="chip kod">{{ sel_p.code }}</span>{% if sel_p.firma %}<span class="chip gray">Firma: {{ sel_p.firma.name }}</span>{% endif %}</h2>
+    <div class="sub">Moliyalashtirish umumiy limit jadvali bo'yicha · {{ sel_kpi.limit_soni }} ta limit{% if sel_kpi.oxirgi %} · oxirgi to'lov: {{ sel_kpi.oxirgi|date:"d.m.Y" }}{% endif %}</div>
+  </div>
+  <div style="display:flex; gap:8px; flex-wrap:wrap;">
+    <form method="get" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+      <select name="obyekt" class="sel" onchange="this.form.submit()" aria-label="Obyekt">
+        {% for o in obyekt_ro %}<option value="{{ o.id }}" {% if sel_obyekt == o.id|stringformat:'s' %}selected{% endif %}>{{ o.code }} — {{ o.name }}</option>{% endfor %}
+      </select>
+      <input type="hidden" name="firma" value="{{ sel_firma }}">
+    </form>
+    <a class="btn" href="{% url 'moliya' %}?firma={{ sel_firma }}">← Barcha obyektlar</a>
+    <a class="btn" href="{% url 'limit_jadval' sel_p.pk %}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3h7v7M21 3l-9 9M19 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5"/></svg>Limit jadvali</a>
+    <button type="button" class="btn" onclick="window.print()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v7H6z"/></svg>Chop etish</button>
+  </div>
 </div>
 
-{% for blok in limit_bloklar %}
-<div class="panel" data-limit="{{ blok.lim.raqam }}">
-  <h3>
-    <span>{{ blok.lim.raqam }}-limit{% if blok.lim.nom %} · {{ blok.lim.nom }}{% endif %}</span>
-    <span class="sub">{{ sel_p.name }} · {{ blok.qator_soni }} qator · limit {{ blok.t_str }} · berildi <b class="ber">{{ blok.b_str }}</b> · ostatki <b class="ost {% if blok.o_manfiy %}neg{% endif %}">{{ blok.o_str }}</b>{% if blok.lim.tahrir_ruxsat %} · 🔓 tahrirda{% endif %}</span>
+<div class="kpi">
+  <div class="c lim"><div class="l">Umumiy limit</div><div class="v">{{ sel_kpi.lim_str }}</div><div class="s">{{ holat_soni.hammasi }} qator · {{ sel_kpi.limit_soni }} ta limit</div></div>
+  <div class="c baj"><div class="l">Bajarilgan</div><div class="v">{{ sel_kpi.baj_str }}</div><div class="s">tasdiqlangan haftaliklar</div></div>
+  <div class="c ber"><div class="l">Berilgan (fakt)</div><div class="v b">{{ sel_kpi.ber_str }}</div><div class="bar" style="margin-top:8px;"><i style="width:{{ sel_kpi.foiz }}%"></i></div><div class="s">limitning {{ sel_kpi.foiz }} % i · {{ tolov_soni }} ta to'lov</div></div>
+  <div class="c ost"><div class="l">Qolgan ostatki</div><div class="v {% if sel_kpi.ost_manfiy %}neg{% elif sel_kpi.toliq %}g{% else %}o{% endif %}">{{ sel_kpi.ost_str }}</div>
+    <div class="s">{% if sel_kpi.ost_manfiy %}<b style="color:#B91C1C;">Berilgan limitdan oshib ketgan</b>{% elif sel_kpi.toliq %}<b class="toliq">✓ To'liq moliyalashtirildi</b>{% else %}limit − berilgan{% if sel_kpi.qarz %} · bajarilgan qarzi <b style="color:#B45309;">{{ sel_kpi.qarz_str }}</b>{% endif %}{% endif %}</div></div>
+</div>
+
+<div class="panel">
+  <div class="ph">
+    <span class="seg" id="limTabs" aria-label="Limitlar">
+      {% for blok in limit_bloklar %}<button type="button" data-lim="{{ blok.lim.raqam }}" {% if forloop.first %}class="on"{% endif %}>{{ blok.lim.raqam }}-limit · {{ blok.t_str }}</button>{% endfor %}
+      {% if limit_bloklar|length > 1 %}<button type="button" data-lim="all">Hammasi</button>{% endif %}
+    </span>
+    <span style="width:1px; height:24px; background:#E2E8F0;"></span>
+    <div style="display:flex; gap:6px; flex-wrap:wrap;" id="holatChips" aria-label="Holat bo'yicha">
+      <button type="button" class="fchip on" data-h="">Hammasi <b>{{ holat_soni.hammasi }}</b></button>
+      <button type="button" class="fchip" data-h="yoq"><span class="dot" style="background:#94A3B8;"></span>Berilmagan <b>{{ holat_soni.yoq }}</b></button>
+      <button type="button" class="fchip" data-h="qisman"><span class="dot" style="background:#D97706;"></span>Qisman <b>{{ holat_soni.qisman }}</b></button>
+      <button type="button" class="fchip" data-h="toliq"><span class="dot" style="background:#15803D;"></span>To'liq <b>{{ holat_soni.toliq }}</b></button>
+    </div>
+    <div class="r">
+      <label class="srch"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" id="mQidir" placeholder="Qator, bo'lim, mas'ul, izoh…" autocomplete="off"><span class="sm" id="mQidirN"></span></label>
+      <span class="seg" id="korinish" aria-label="Ko'rinish"><button type="button" class="on" data-k="toliq">To'liq</button><button type="button" data-k="ixcham">Ixcham</button></span>
+    </div>
+  </div>
+
+  {% for blok in limit_bloklar %}
+  <div class="lim-blok" data-lim="{{ blok.lim.raqam }}" {% if not forloop.first %}hidden{% endif %}>
+  <div class="ph" style="background:#F8FAFC;">
+    <b class="t">{{ blok.lim.raqam }}-limit{% if blok.lim.nom %} · {{ blok.lim.nom }}{% endif %}</b>
+    <span class="sm">{{ blok.qator_soni }} qator · limit {{ blok.t_str }} · berildi <b class="ber">{{ blok.b_str }}</b> ({{ blok.foiz }} %) · ostatki <b class="ost {% if blok.o_manfiy %}neg{% endif %}">{{ blok.o_str }}</b>{% if blok.lim.tahrir_ruxsat %} · 🔓 tahrirda{% endif %}</span>
     <span class="r"><a class="lnk" href="{{ blok.jadval_url }}">Limit jadvali ↗</a></span>
-  </h3>
-  <div class="lj-scroll">
+  </div>
+  <div class="lj-scroll lj-wrap">
   <table class="lj">
     <thead>
       <tr>
-        <th class="h-main" rowspan="2">№</th><th class="h-main" rowspan="2" style="min-width:200px;">Ish turi</th><th class="h-main" rowspan="2" style="min-width:110px;">Izoh (limit)</th><th class="h-main" rowspan="2">Birl.</th>
-        <th class="h-um" colspan="3">Umumiy</th><th class="h-baj" colspan="2">Bajarilgan</th><th class="h-qol" colspan="2">Qolgan</th>
-        <th class="h-ber" rowspan="2" style="min-width:120px;">Berilgan</th><th class="h-ost" rowspan="2" style="min-width:110px;">Qolgan ostatki</th><th class="h-iz" rowspan="2">Izoh</th>{% if yoza_oladi %}<th class="h-amal" rowspan="2">Amal (to'lov)</th>{% endif %}
+        <th class="h-main" rowspan="2" style="width:40px;">№</th><th class="h-main" rowspan="2" style="min-width:220px; text-align:left;">Ish turi</th><th class="h-main c-nq" rowspan="2" style="min-width:110px;">Izoh (limit)</th><th class="h-main" rowspan="2" style="width:48px;">Birl.</th>
+        <th class="h-um" colspan="3">Umumiy limit</th><th class="h-baj" colspan="2">Bajarilgan</th><th class="h-qol" colspan="2">Qolgan</th>
+        <th class="h-ber" rowspan="2" style="min-width:125px;">Berilgan</th><th class="h-ost" rowspan="2" style="min-width:110px;">Qolgan ostatki</th><th class="h-hol" rowspan="2" style="width:104px;">Holat</th><th class="h-iz" rowspan="2" style="min-width:170px; text-align:left;">Izoh (buxgalter)</th>{% if yoza_oladi %}<th class="h-main" rowspan="2" style="width:92px;">Amal</th>{% endif %}
       </tr>
       <tr>
-        <th class="h-um">Obyom</th><th class="h-um">Narxi</th><th class="h-um">Summa</th>
-        <th class="h-baj">Obyom</th><th class="h-baj">Summa</th>
-        <th class="h-qol">Obyom</th><th class="h-qol">Summa</th>
+        <th class="h-um c-nq">Obyom</th><th class="h-um c-nq">Narxi</th><th class="h-um">Summa</th>
+        <th class="h-baj c-nq">Obyom</th><th class="h-baj">Summa</th>
+        <th class="h-qol c-nq">Obyom</th><th class="h-qol">Summa</th>
       </tr>
     </thead>
     <tbody>
     {% for g in blok.guruhlar %}
-      <tr class="block"><td></td><td colspan="{% if yoza_oladi %}14{% else %}13{% endif %}">{{ g.bolim|default:"Bo'limsiz qatorlar" }}{% if g.masul %} &nbsp;·&nbsp; Mas'ul: {{ g.masul }}{% endif %}</td></tr>
+      <tr class="block"><td></td><td colspan="{% if yoza_oladi %}15{% else %}14{% endif %}">{{ g.bolim|default:"Bo'limsiz qatorlar" }}{% if g.masul %} &nbsp;·&nbsp; Mas'ul: {{ g.masul }}{% endif %} &nbsp;·&nbsp; <span class="bx">{{ g.soni }} qator · berilgan {{ g.b_str }} / {{ g.t_str }} ({{ g.foiz }} %)</span></td></tr>
       {% for r in g.rows %}
-      <tr class="ish {% if r.toliq %}toliq-row{% endif %}" data-q="{{ r.name|lower }} {{ g.bolim|lower }} {{ r.izoh|lower }} {{ r.m_izoh|lower }} {{ r.kind_disp|lower }}">
-        <td class="ctr">{{ r.nr }}</td>
-        <td><span class="kind k-{{ r.kind_cls }}">{{ r.kind_disp }}</span><span class="nm">{{ r.name }}</span>{% if r.sana %}<div class="sm">{{ r.sana }}</div>{% endif %}</td>
-        <td class="izoh-lim">{{ r.izoh }}</td>
+      <tr class="ish {% if r.toliq %}toliq{% endif %}" data-h="{{ r.holat }}" data-q="{{ r.name|lower }} {{ g.bolim|lower }} {{ g.masul|lower }} {{ r.izoh|lower }} {{ r.m_izoh|lower }} {{ r.kind_disp|lower }}"
+          data-nom="{{ r.name }}" data-sub="{{ r.kind_disp }} · {{ g.bolim|default:'Bo‘limsiz' }}{% if g.masul %} · Mas'ul: {{ g.masul }}{% endif %} · {{ blok.lim.raqam }}-limit · {{ r.vol_str }} {{ r.unit }} × {{ r.price_str }}"
+          data-total="{{ r.total_raw }}" data-fs="{{ r.fs_raw }}" data-ber="{{ r.ber_raw }}" data-tolov='{{ r.tolov_json }}' {% if yoza_oladi %}data-action="{% url 'moliya_limit_yozish' r.id %}"{% endif %}>
+        <td class="ctr mute">{{ r.nr }}</td>
+        <td><span class="kind k-{{ r.kind_cls }}">{{ r.kind_disp }}</span><span class="nm">{{ r.name }}</span>{% if r.sana %}<div class="sm" style="font-size:11px;">{{ r.sana }}</div>{% endif %}</td>
+        <td class="izoh-lim c-nq">{{ r.izoh }}</td>
         <td class="ctr">{{ r.unit }}</td>
-        <td class="num">{{ r.vol_str }}</td><td class="num">{{ r.price_str }}</td><td class="num"><b>{{ r.total_str }}</b></td>
-        <td class="num">{{ r.fq_str }}</td><td class="num">{{ r.fs_str }}</td>
-        <td class="num">{{ r.qq_str }}</td><td class="num">{{ r.qs_str }}</td>
-        <td class="num c-ber"><span class="{% if r.toliq %}toliq{% else %}ber{% endif %}">{{ r.ber_str }}</span><div class="bar"><i style="width:{{ r.foiz }}%"></i></div>
-          {% if r.ber_bajdan_kop %}<div class="warn" title="Berilgan summa tasdiqlangan haftaliklardan ko'p">⚠ bajarilgandan ko'p</div>{% endif %}
-          {% if r.tolovlar %}<details class="tx"><summary>💳 {{ r.tolovlar|length }} ta to'lov</summary><div class="tx-box">{% for m in r.tolovlar %}<div class="tx-row"><span class="tx-dt">{{ m.sana|date:"d.m.Y" }}</span><b class="tx-sum">{{ m.summa|floatformat:"0" }}</b>{% if m.miqdor %}<span class="sm">{{ m.miqdor|floatformat:"-3" }} {{ r.unit }}</span>{% endif %}{% if m.izoh %}<span class="tx-iz">{{ m.izoh }}</span>{% endif %}{% if m.item_id %}<span class="sm" title="Haftalik qatoriga yozilgan (eski usul)">🗓</span>{% endif %}<span class="tx-kim">{{ m.yozdi.username|default:"—" }} · {{ m.created_at|date:"d.m H:i" }}</span></div>{% endfor %}</div></details>{% endif %}
+        <td class="num c-nq">{{ r.vol_str }}</td><td class="num c-nq">{{ r.price_str }}</td><td class="num" style="font-weight:600;">{{ r.total_str }}</td>
+        <td class="num c-nq">{{ r.fq_str }}</td><td class="num">{{ r.fs_str }}</td>
+        <td class="num c-nq {% if r.qq_str == '0' %}mute{% endif %}">{{ r.qq_str }}</td><td class="num {% if r.qs_str == '0' %}mute{% endif %}">{{ r.qs_str }}</td>
+        <td class="num c-ber"><div class="bv">{% if r.tolovlar %}<button type="button" class="tx" data-tarix title="To'lov tarixi">{{ r.tolovlar|length }} ta to'lov</button>{% endif %}<span class="ber-v {% if r.toliq %}g{% elif r.ber_str == '0' %}z{% endif %}">{{ r.ber_str }}</span></div><div class="bar"><i class="{% if r.toliq %}g{% endif %}" style="width:{{ r.foiz }}%"></i></div>
+          {% if r.ber_bajdan_kop %}<div class="warn" title="Berilgan summa tasdiqlangan haftaliklardan ko'p">⚠ bajarilgandan ko'p</div>{% endif %}</td>
+        <td class="num c-ost"><span class="ost-v {% if r.toliq and not r.ost_manfiy %}g{% elif r.ost_manfiy %}neg{% endif %}">{{ r.ost_str }}</span>{% if r.baj_qarz and not r.toliq %}<div class="sm" style="font-size:10.5px;" title="Bajarilgan, lekin berilmagan">qarz {{ r.baj_qarz }}</div>{% endif %}</td>
+        <td class="ctr"><span class="chip {{ r.holat }}">{% if r.toliq %}✓ {% endif %}{{ r.holat_nom }}</span></td>
+        <td class="iz-td">
+          <div class="iz"><span class="t {% if not r.m_izoh %}bosh{% endif %}" title="{{ r.m_izoh }}">{% if r.m_izoh %}{{ r.m_izoh }}{% else %}— izoh yo'q{% endif %}</span>{% if yoza_oladi %}<button type="button" class="pen" data-izoh aria-label="Izohni tahrirlash"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>{% endif %}</div>
+          {% if yoza_oladi %}<form method="post" action="{% url 'moliya_izoh' r.id %}" class="izf">{% csrf_token %}<input type="text" name="izoh" value="{{ r.m_izoh }}" maxlength="300" placeholder="izoh…"><button type="submit" class="ok" title="Saqlash">✓</button><button type="button" class="no" data-izoh-no title="Bekor">✕</button></form>{% endif %}
         </td>
-        <td class="num c-ost"><span class="{% if r.toliq %}toliq{% else %}ost{% if r.ost_manfiy %} neg{% endif %}{% endif %}">{% if r.toliq and not r.ost_manfiy %}✓ 0{% else %}{{ r.ost_str }}{% endif %}</span></td>
-        <td class="c-iz">{% if yoza_oladi %}<form method="post" action="{% url 'moliya_izoh' r.id %}" class="izf">{% csrf_token %}<input type="text" name="izoh" value="{{ r.m_izoh }}" maxlength="300" placeholder="izoh…" data-asl="{{ r.m_izoh }}"><button type="submit" title="Izohni saqlash">✓</button></form>{% else %}{{ r.m_izoh }}{% endif %}</td>
-        {% if yoza_oladi %}
-        <td>{% if not r.toliq %}
-          <form method="post" action="{% url 'moliya_limit_yozish' r.id %}" class="tolov">{% csrf_token %}
-            <input type="number" name="summa" class="s" step="0.01" min="0.01" placeholder="summa" required title="Berilgan summa (so'm)">
-            <input type="date" name="sana" class="d" value="{{ bugun }}">
-            <input type="text" name="izoh" class="i" placeholder="kassa/karta/avans" maxlength="300">
-            <button type="submit">Berildi</button>
-          </form>{% else %}<span class="toliq">✓ to'liq</span>{% endif %}</td>
-        {% endif %}
+        {% if yoza_oladi %}<td class="ctr">{% if not r.toliq %}<button type="button" class="tbtn" data-tolov><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>To'lov</button>{% else %}<span class="toliq-t">✓ to'liq</span>{% endif %}</td>{% endif %}
       </tr>
       {% endfor %}
-      <tr class="subtotal"><td colspan="6" style="text-align:right;">Blok yakuni:</td><td class="num">{{ g.t_str }}</td><td></td><td class="num">{{ g.f_str }}</td><td colspan="2"></td><td class="num ber">{{ g.b_str }}</td><td class="num ost {% if g.o_manfiy %}neg{% endif %}">{{ g.o_str }}</td><td></td>{% if yoza_oladi %}<td></td>{% endif %}</tr>
+      <tr class="sub"><td></td><td colspan="5" style="text-align:right;">Blok yakuni:</td><td class="num">{{ g.t_str }}</td><td class="c-nq"></td><td class="num">{{ g.f_str }}</td><td class="c-nq"></td><td></td><td class="num ber">{{ g.b_str }}</td><td class="num ost {% if g.o_manfiy %}neg{% endif %}">{{ g.o_str }}</td><td class="ctr sm">{{ g.foiz }} %</td><td></td>{% if yoza_oladi %}<td></td>{% endif %}</tr>
     {% empty %}
-      <tr><td colspan="{% if yoza_oladi %}15{% else %}14{% endif %}" class="lj-bosh">Bu limitda hali qator yo'q — PTO limit jadvalida kiritadi.</td></tr>
+      <tr><td colspan="{% if yoza_oladi %}16{% else %}15{% endif %}" class="lj-bosh">Bu limitda hali qator yo'q — PTO limit jadvalida kiritadi.</td></tr>
     {% endfor %}
     {% if blok.boshqa %}
-      <tr class="bosh"><td></td><td colspan="{% if yoza_oladi %}14{% else %}13{% endif %}">Limitda yo'q ishlar (tasdiqlangan haftaliklardan) — to'lov haftalik qatoriga yoziladi</td></tr>
+      <tr class="bosh"><td></td><td colspan="{% if yoza_oladi %}15{% else %}14{% endif %}">Limitda yo'q ishlar (tasdiqlangan haftaliklardan) — to'lov haftalik qatoriga yoziladi</td></tr>
       {% for b in blok.boshqa %}
-      <tr class="ish {% if b.toliq %}toliq-row{% endif %}" data-q="{{ b.it.name|lower }} {{ b.it.bolim|lower }} {{ b.it.note|lower }}">
-        <td class="ctr">—</td>
-        <td><span class="kind k-{{ b.kind_cls }}">{{ b.kind_disp }}</span><span class="nm">{{ b.it.name }}</span><div class="sm">{{ b.w.week_start|date:"d.m" }}–{{ b.w.week_end|date:"d.m.Y" }}{% if b.it.bolim %} · 📁 {{ b.it.bolim }}{% endif %}</div></td>
-        <td class="izoh-lim">{{ b.it.note }}</td><td class="ctr">{{ b.it.unit }}</td>
-        <td class="num">{{ b.qty_str }}</td><td class="num">{{ b.price_str }}</td><td class="num"><b>{{ b.total_str }}</b></td>
-        <td class="num">{{ b.qty_str }}</td><td class="num">{{ b.total_str }}</td><td class="num">0</td><td class="num">0</td>
-        <td class="num c-ber"><span class="{% if b.toliq %}toliq{% else %}ber{% endif %}">{{ b.ber_str }}</span>{% if b.tolovlar %}<details class="tx"><summary>💳 {{ b.tolovlar|length }} ta to'lov</summary><div class="tx-box">{% for m in b.tolovlar %}<div class="tx-row"><span class="tx-dt">{{ m.sana|date:"d.m.Y" }}</span><b class="tx-sum">{{ m.summa|floatformat:"0" }}</b>{% if m.izoh %}<span class="tx-iz">{{ m.izoh }}</span>{% endif %}<span class="tx-kim">{{ m.yozdi.username|default:"—" }}</span></div>{% endfor %}</div></details>{% endif %}</td>
-        <td class="num c-ost"><span class="{% if b.toliq %}toliq{% else %}ost{% endif %}">{% if b.toliq %}✓ 0{% else %}{{ b.ost_str }}{% endif %}</span></td>
-        <td class="c-iz"></td>
-        {% if yoza_oladi %}<td>{% if not b.toliq %}<form method="post" action="{% url 'moliya_yozish' b.it.id %}" class="tolov">{% csrf_token %}<input type="number" name="summa" class="s" step="0.01" min="0.01" placeholder="summa" required><input type="date" name="sana" class="d" value="{{ bugun }}"><input type="text" name="izoh" class="i" placeholder="izoh" maxlength="300"><button type="submit">Berildi</button></form>{% else %}<span class="toliq">✓ to'liq</span>{% endif %}</td>{% endif %}
+      <tr class="ish {% if b.toliq %}toliq{% endif %}" data-h="{{ b.holat }}" data-q="{{ b.it.name|lower }} {{ b.it.bolim|lower }} {{ b.it.note|lower }}"
+          data-nom="{{ b.it.name }}" data-sub="{{ b.kind_disp }} · limitda yo'q · hafta {{ b.w.week_start|date:'d.m' }}–{{ b.w.week_end|date:'d.m.Y' }} · {{ b.qty_str }} {{ b.it.unit }} × {{ b.price_str }}"
+          data-total="{{ b.total_raw }}" data-fs="{{ b.fs_raw }}" data-ber="{{ b.ber_raw }}" data-tolov='{{ b.tolov_json }}' {% if yoza_oladi %}data-action="{% url 'moliya_yozish' b.it.id %}"{% endif %}>
+        <td class="ctr mute">—</td>
+        <td><span class="kind k-{{ b.kind_cls }}">{{ b.kind_disp }}</span><span class="nm">{{ b.it.name }}</span><div class="sm" style="font-size:11px;">{{ b.w.week_start|date:"d.m" }}–{{ b.w.week_end|date:"d.m.Y" }}{% if b.it.bolim %} · 📁 {{ b.it.bolim }}{% endif %}</div></td>
+        <td class="izoh-lim c-nq">{{ b.it.note }}</td><td class="ctr">{{ b.it.unit }}</td>
+        <td class="num c-nq">{{ b.qty_str }}</td><td class="num c-nq">{{ b.price_str }}</td><td class="num" style="font-weight:600;">{{ b.total_str }}</td>
+        <td class="num c-nq">{{ b.qty_str }}</td><td class="num">{{ b.total_str }}</td><td class="num c-nq mute">0</td><td class="num mute">0</td>
+        <td class="num c-ber"><div class="bv">{% if b.tolovlar %}<button type="button" class="tx" data-tarix title="To'lov tarixi">{{ b.tolovlar|length }} ta to'lov</button>{% endif %}<span class="ber-v {% if b.toliq %}g{% elif b.ber_str == '0' %}z{% endif %}">{{ b.ber_str }}</span></div><div class="bar"><i class="{% if b.toliq %}g{% endif %}" style="width:{{ b.foiz }}%"></i></div></td>
+        <td class="num c-ost"><span class="ost-v {% if b.toliq %}g{% endif %}">{{ b.ost_str }}</span></td>
+        <td class="ctr"><span class="chip {{ b.holat }}">{% if b.toliq %}✓ {% endif %}{{ b.holat_nom }}</span></td>
+        <td class="iz-td"><div class="iz"><span class="t bosh">—</span></div></td>
+        {% if yoza_oladi %}<td class="ctr">{% if not b.toliq %}<button type="button" class="tbtn" data-tolov><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>To'lov</button>{% else %}<span class="toliq-t">✓ to'liq</span>{% endif %}</td>{% endif %}
       </tr>
       {% endfor %}
-      <tr class="subtotal"><td colspan="6" style="text-align:right;">Limitda yo'q ishlar yakuni:</td><td class="num">{{ blok.bq_t_str }}</td><td></td><td class="num">{{ blok.bq_t_str }}</td><td colspan="2"></td><td class="num ber">{{ blok.bq_b_str }}</td><td class="num ost">{{ blok.bq_o_str }}</td><td></td>{% if yoza_oladi %}<td></td>{% endif %}</tr>
+      <tr class="sub"><td></td><td colspan="5" style="text-align:right;">Limitda yo'q ishlar yakuni:</td><td class="num">{{ blok.bq_t_str }}</td><td class="c-nq"></td><td class="num">{{ blok.bq_t_str }}</td><td class="c-nq"></td><td class="num mute">0</td><td class="num ber">{{ blok.bq_b_str }}</td><td class="num ost">{{ blok.bq_o_str }}</td><td></td><td></td>{% if yoza_oladi %}<td></td>{% endif %}</tr>
     {% endif %}
     </tbody>
     <tfoot>
-      <tr><td colspan="6" style="text-align:right;">{{ blok.lim.raqam }}-limit jami:</td><td class="num">{{ blok.t_str }}</td><td></td><td class="num">{{ blok.f_str }}</td><td colspan="2"></td><td class="num ber">{{ blok.b_str }}</td><td class="num ost {% if blok.o_manfiy %}neg{% endif %}">{{ blok.o_str }}</td><td></td>{% if yoza_oladi %}<td></td>{% endif %}</tr>
+      <tr><td></td><td colspan="5" style="text-align:right;">{{ blok.lim.raqam }}-limit jami ({{ blok.qator_soni }} qator):</td><td class="num">{{ blok.t_str }}</td><td class="c-nq"></td><td class="num">{{ blok.f_str }}</td><td class="c-nq"></td><td></td><td class="num ber">{{ blok.b_str }}</td><td class="num ost {% if blok.o_manfiy %}neg{% endif %}">{{ blok.o_str }}</td><td class="ctr">{{ blok.foiz }} %</td><td></td>{% if yoza_oladi %}<td></td>{% endif %}</tr>
     </tfoot>
   </table>
   </div>
-</div>
-{% empty %}
-<div class="panel"><div class="lj-bosh">Bu obyektda hali limit kiritilmagan.</div></div>
-{% endfor %}
-
-{% else %}
-{# ===================== OBYEKTLAR RO'YXATI ===================== #}
-<div class="kpi">
-  <div class="c lim"><div class="l">Umumiy limit (barcha obyektlar)</div><div class="v">{{ jami.lim }}</div></div>
-  <div class="c baj"><div class="l">Bajarilgan (tasdiqlangan haftaliklar)</div><div class="v">{{ jami.baj }}</div></div>
-  <div class="c ber"><div class="l">Berilgan (fakt)</div><div class="v b">{{ jami.ber }}</div></div>
-  <div class="c ost"><div class="l">Qolgan ostatki (limit − berilgan)</div><div class="v {% if jami.ost_manfiy %}neg{% else %}o{% endif %}">{{ jami.ost }}</div></div>
-</div>
-<div class="grid">
-  <div class="panel">
-    <h3>Obyektlar bo'yicha moliyalashtirish <span class="sub">obyektni bosing — to'liq limit jadvali ochiladi</span></h3>
-    <table class="ob">
-      <thead><tr><th>Obyekt</th><th class="num">Umumiy limit</th><th class="num">Bajarilgan</th><th class="num">Berilgan</th><th class="num">Qolgan ostatki</th><th style="width:140px;">Moliyalashtirildi</th></tr></thead>
-      <tbody>
-      {% for o in obyektlar %}
-        <tr>
-          <td><a class="nm" href="?firma={{ sel_firma }}&obyekt={{ o.p.id }}">{{ o.p.name }}</a><div class="sm">{{ o.p.code }}{% if o.p.firma %} · {{ o.p.firma.name }}{% endif %} · {{ o.limit_soni }} ta limit</div></td>
-          <td class="num">{{ o.lim_str }}</td>
-          <td class="num">{{ o.baj_str }}</td>
-          <td class="num ber">{{ o.ber_str }}</td>
-          <td class="num"><span class="{% if o.toliq %}toliq{% else %}ost{% if o.ost_manfiy %} neg{% endif %}{% endif %}">{{ o.ost_str }}</span></td>
-          <td><div class="bar"><i style="width:{{ o.foiz }}%"></i></div><div class="sm">{{ o.foiz }}%</div></td>
-        </tr>
-      {% empty %}<tr><td colspan="6" class="lj-bosh">Obyekt yo'q.</td></tr>{% endfor %}
-      </tbody>
-    </table>
   </div>
-  <div class="panel jurnal-panel">{% include "projects/_moliya_jurnal.html" %}</div>
+  {% empty %}
+  <div class="lj-bosh">Bu obyektda hali limit kiritilmagan.</div>
+  {% endfor %}
 </div>
+
+<div class="grid" style="grid-template-columns:repeat(auto-fit, minmax(380px,1fr));">
+  <div class="panel jurnal-panel" style="margin:0;">{% include "projects/_moliya_jurnal.html" %}</div>
+  <div class="panel qoida" style="margin:0;">
+    <b style="font-size:14px;">Qanday hisoblanadi</b>
+    <ul>
+      <li><b class="ber">Berilgan</b> — qatorga yozilgan barcha to'lovlar yig'indisi; har to'lov jurnalda alohida, o'chirilmaydi.</li>
+      <li><b class="ost">Qolgan ostatki</b> = umumiy limit summasi − berilgan. Ostatkidan ortiq to'lov yozib bo'lmaydi.</li>
+      <li><b>Holat:</b> Berilmagan → Qisman → To'liq (ostatki 0). Bajarilgandan ko'p berilsa qator ogohlantirish bilan belgilanadi.</li>
+      <li><b>Izoh</b> ustuni — buxgalterning qator bo'yicha eslatmasi (qalamcha bosilganda joyida tahrirlanadi).</li>
+    </ul>
+  </div>
+</div>
+
+{% if yoza_oladi %}
+{# ---- Yon panel: to'lov yozish ---- #}
+<div class="dw-bg" id="dwBg"></div>
+<aside class="dw" id="dw" aria-label="To'lov yozish" aria-hidden="true">
+  <div class="hd">
+    <div style="flex:1; min-width:0;">
+      <div class="k" id="dwK">To'lov yozish</div>
+      <h3 id="dwNom">—</h3>
+      <div class="s" id="dwSub"></div>
+    </div>
+    <button type="button" class="x" id="dwX" aria-label="Yopish"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+  </div>
+  <div class="bd">
+    <div class="st">
+      <div><span>Limit summasi</span><b id="dwT">—</b></div>
+      <div><span>Bajarilgan</span><b id="dwF">—</b></div>
+      <div class="b"><span id="dwBl">Berilgan</span><b id="dwB">—</b></div>
+      <div class="o"><span>Qolgan ostatki</span><b id="dwO">—</b></div>
+    </div>
+    <div class="bar" style="height:8px; margin-top:-6px;"><i id="dwBar" style="width:0%"></i></div>
+    <form method="post" id="dwForm" style="display:flex; flex-direction:column; gap:16px;">
+      {% csrf_token %}
+      <div class="fld">
+        <label for="dwSum">Beriladigan summa (so'm)</label>
+        <div class="big"><input id="dwSum" name="summa" class="inp" type="text" inputmode="numeric" autocomplete="off" required><span class="u">so'm</span></div>
+        <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:2px;" id="dwChips" aria-label="Tez tanlash">
+          <button type="button" class="qchip" data-k="ost">Qolgani <b></b></button>
+          <button type="button" class="qchip" data-k="50">50 % <b></b></button>
+          <button type="button" class="qchip" data-k="25">25 % <b></b></button>
+          <button type="button" class="qchip" data-k="qarz">Bajarilgan − berilgan <b></b></button>
+        </div>
+        <div class="prev" id="dwPrev"></div>
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+        <div class="fld"><label for="dwSana">To'lov sanasi</label><input id="dwSana" name="sana" class="inp" type="date" value="{{ bugun }}"></div>
+        <div class="fld"><label>To'lov usuli</label>
+          <div class="segm" role="group" aria-label="To'lov usuli" style="position:relative;">
+            <input type="radio" name="usul" value="kassa" id="usK"><label for="usK">Kassa</label>
+            <input type="radio" name="usul" value="karta" id="usR"><label for="usR">Karta</label>
+            <input type="radio" name="usul" value="avans" id="usA"><label for="usA">Avans</label>
+          </div></div>
+      </div>
+      <div class="fld"><label for="dwIzoh">Izoh (ixtiyoriy)</label><input id="dwIzoh" name="izoh" class="inp" type="text" maxlength="300" placeholder="Masalan: ikkinchi qism, to'lovni kim oldi…"></div>
+      <div class="warn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg><span>Ostatki <b id="dwWO">—</b> dan ortiq summa qabul qilinmaydi. Yozuv jurnalga tushadi va o'chirilmaydi — xato bo'lsa adminga murojaat qilinadi.</span></div>
+    </form>
+    <div>
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;"><b style="font-size:13.5px;">To'lov tarixi</b><span class="chip gray" id="dwHn">0 ta</span></div>
+      <div class="hist" id="dwHist"></div>
+    </div>
+  </div>
+  <div class="ft">
+    <button type="button" class="btn no" id="dwNo">Bekor qilish</button>
+    <button type="submit" form="dwForm" class="btn primary" id="dwOk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L20 7"/></svg><span id="dwOkT">Berildi deb yozish</span></button>
+  </div>
+</aside>
 {% endif %}
 
-{% if sel_p %}<div class="panel jurnal-panel">{% include "projects/_moliya_jurnal.html" %}</div>{% endif %}
+{% else %}
+{# ============================ OBYEKTLAR RO'YXATI ============================ #}
+<div class="mo-head">
+  <div style="flex:1 1 420px;">
+    <h2>Obyektlar bo'yicha moliyalashtirish</h2>
+    <div class="sub">Umumiy limit jadvali asosida · obyektni bosing — to'liq jadval ochiladi</div>
+  </div>
+</div>
+<div class="kpi">
+  <div class="c lim"><div class="l">Umumiy limit</div><div class="v">{{ jami.lim }}</div><div class="s">{{ jami.soni }} obyekt</div></div>
+  <div class="c baj"><div class="l">Bajarilgan</div><div class="v">{{ jami.baj }}</div><div class="s">tasdiqlangan haftaliklar</div></div>
+  <div class="c ber"><div class="l">Berilgan (fakt)</div><div class="v b">{{ jami.ber }}</div><div class="bar" style="margin-top:8px;"><i style="width:{{ jami.foiz }}%"></i></div><div class="s">limitning {{ jami.foiz }} % i</div></div>
+  <div class="c ost"><div class="l">Qolgan ostatki</div><div class="v {% if jami.ost_manfiy %}neg{% else %}o{% endif %}">{{ jami.ost }}</div><div class="s">shundan bajarilgan qarzi <b style="color:#B45309;">{{ jami.qarz }}</b></div></div>
+</div>
+
+<div class="grid">
+  <div class="panel" style="margin:0;">
+    <form method="get" class="ph" id="obFilter">
+      <select name="firma" class="sel" onchange="this.form.submit()" aria-label="Firma">
+        <option value="">Barcha firmalar</option>
+        {% for f in firmalar %}<option value="{{ f.id }}" {% if sel_firma == f.id|stringformat:'s' %}selected{% endif %}>{{ f.name }}</option>{% endfor %}
+      </select>
+      <div style="display:flex; gap:6px; flex-wrap:wrap;" id="obChips" aria-label="Holat">
+        <button type="button" class="fchip on" data-h="">Hammasi <b>{{ jami.soni }}</b></button>
+        <button type="button" class="fchip" data-h="qarz"><span class="dot" style="background:#D97706;"></span>Qarzi bor <b>{{ jami.qarz_soni }}</b></button>
+        <button type="button" class="fchip" data-h="toliq"><span class="dot" style="background:#15803D;"></span>To'liq <b>{{ jami.toliq_soni }}</b></button>
+      </div>
+      <div class="r">
+        <label class="srch" style="width:240px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" id="obQidir" placeholder="Obyekt kodi yoki nomi" autocomplete="off"></label>
+        <select name="tartib" class="sel" onchange="this.form.submit()" aria-label="Tartib">
+          <option value="ost" {% if tartib == 'ost' %}selected{% endif %}>Ostatki bo'yicha ↓</option>
+          <option value="qarz" {% if tartib == 'qarz' %}selected{% endif %}>Qarz bo'yicha ↓</option>
+          <option value="kod" {% if tartib == 'kod' %}selected{% endif %}>Kod bo'yicha</option>
+        </select>
+      </div>
+    </form>
+    <div style="overflow-x:auto;">
+    <table class="ob">
+      <thead><tr><th style="min-width:250px;">Obyekt</th><th class="num">Umumiy limit</th><th class="num">Bajarilgan</th><th class="num">Berilgan</th><th style="width:140px;">Moliyalashtirildi</th><th class="num">Qolgan ostatki</th><th>Holat</th><th style="width:48px;"></th></tr></thead>
+      <tbody>
+      {% for o in obyektlar %}
+        <tr class="{% if o.toliq %}toliq{% endif %}" data-h="{{ o.holat }}" data-q="{{ o.q }}">
+          <td><a class="nm" href="?firma={{ sel_firma }}&obyekt={{ o.p.id }}">{{ o.p.name }}</a><div class="sm">{{ o.p.code }}{% if o.p.firma %} · {{ o.p.firma.name }}{% endif %} · {{ o.limit_soni }} ta limit{% if o.oxirgi %} · oxirgi to'lov {{ o.oxirgi|date:"d.m" }}{% else %} · to'lov yo'q{% endif %}</div></td>
+          <td class="num">{{ o.lim_str }}</td>
+          <td class="num {% if o.baj_str == '0' %}mute{% endif %}">{{ o.baj_str }}</td>
+          <td class="num {% if o.toliq %}toliq{% elif o.ber_str != '0' %}ber{% endif %}">{{ o.ber_str }}</td>
+          <td><div class="bar" style="margin:0;"><i class="{% if o.toliq %}g{% endif %}" style="width:{{ o.foiz }}%"></i></div><div class="sm" style="margin-top:4px;">{{ o.foiz }} %</div></td>
+          <td class="num"><span class="{% if o.toliq %}toliq{% else %}ost{% endif %}">{{ o.ost_str }}</span></td>
+          <td><span class="chip {{ o.holat }}">{% if o.toliq %}✓ {% endif %}{{ o.holat_nom }}</span></td>
+          <td><a class="go" href="?firma={{ sel_firma }}&obyekt={{ o.p.id }}" aria-label="Jadvalni ochish"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></td>
+        </tr>
+      {% empty %}<tr><td colspan="8" class="lj-bosh">Obyekt yo'q.</td></tr>{% endfor %}
+      </tbody>
+      {% if obyektlar %}<tfoot><tr><td style="padding-left:14px;">Jami · {{ jami.soni }} obyekt</td><td class="num">{{ jami.lim }}</td><td class="num">{{ jami.baj }}</td><td class="num ber">{{ jami.ber }}</td><td>{{ jami.foiz }} %</td><td class="num ost">{{ jami.ost }}</td><td colspan="2"></td></tr></tfoot>{% endif %}
+    </table>
+    </div>
+  </div>
+  <div style="display:flex; flex-direction:column; gap:16px;">
+    <div class="panel" style="margin:0;">
+      <div class="ph"><b class="t">Bajarilgan, lekin berilmagan</b><span class="sm">eng kattadan</span></div>
+      {% if reyting %}<div class="rey">{% for d in reyting %}<div><div class="r"><a href="?firma={{ sel_firma }}&obyekt={{ d.p.id }}">{{ d.p.code }} {{ d.p.name|truncatechars:28 }}</a><b>{{ d.qarz_str }}</b></div><div class="bar" style="margin-top:4px;"><i class="y" style="width:{{ d.qarz_foiz }}%"></i></div></div>{% endfor %}</div>
+      {% else %}<div class="lj-bosh" style="padding:16px;">Qarz yo'q — bajarilganlar berilgan ✓</div>{% endif %}
+    </div>
+    <div class="panel jurnal-panel" style="margin:0;">{% include "projects/_moliya_jurnal.html" %}</div>
+  </div>
+</div>
+{% endif %}
+</div>
 
 <script>
 (function(){
-  // Qidiruv: qator bo'yicha (blok sarlavhasi — ichida mos qator bo'lsa qoladi)
-  var qi = document.getElementById('mQidir'), qn = document.getElementById('mQidirN');
-  if (qi){
-    function qil(){
-      var q = (qi.value || '').trim().toLowerCase(), n = 0, jami = 0;
-      document.querySelectorAll('table.lj tbody').forEach(function(tb){
-        var grp = [], bor = false;
-        function flush(){ grp.forEach(function(t){ if (t.classList.contains('ish')) return; t.style.display = (q && !bor) ? 'none' : ''; }); grp = []; bor = false; }
-        Array.prototype.forEach.call(tb.rows, function(tr){
-          if (tr.classList.contains('block') || tr.classList.contains('bosh')){ flush(); grp.push(tr); return; }
-          if (tr.classList.contains('ish')){
-            jami++;
-            var ok = !q || (tr.dataset.q || '').indexOf(q) >= 0;
-            tr.style.display = ok ? '' : 'none'; if (ok){ n++; bor = true; }
-            grp.push(tr); return;
-          }
-          grp.push(tr);
-        });
-        flush();
+  var mo = document.getElementById('mo');
+  function fmt(n){ n = Math.round(Number(n) || 0); return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' '); }
+  function num(s){ return Number(String(s || '0').replace(/\s/g, '').replace(',', '.')) || 0; }
+
+  // ---------- Obyektlar ro'yxati: holat + qidiruv ----------
+  var obQ = document.getElementById('obQidir'), obChips = document.getElementById('obChips');
+  if (obQ || obChips){
+    var obH = '';
+    function obFiltr(){
+      var q = (obQ && obQ.value || '').trim().toLowerCase();
+      document.querySelectorAll('table.ob tbody tr[data-h]').forEach(function(tr){
+        var ok = (!obH || tr.dataset.h === obH) && (!q || (tr.dataset.q || '').indexOf(q) >= 0);
+        tr.style.display = ok ? '' : 'none';
       });
-      if (qn) qn.textContent = q ? (n + ' / ' + jami + ' qator') : '';
     }
-    qi.addEventListener('input', qil);
+    if (obQ) obQ.addEventListener('input', obFiltr);
+    if (obChips) obChips.querySelectorAll('.fchip').forEach(function(b){ b.onclick = function(){ obChips.querySelectorAll('.fchip').forEach(function(x){ x.classList.remove('on'); }); b.classList.add('on'); obH = b.dataset.h || ''; obFiltr(); }; });
   }
-  // Izoh o'zgarsa — sariq (saqlanmaganini eslatadi)
-  document.querySelectorAll('.izf input').forEach(function(inp){
-    inp.addEventListener('input', function(){ inp.classList.toggle('ozg', inp.value !== (inp.dataset.asl || '')); });
+
+  // ---------- Obyekt jadvali: limit tablari, holat, qidiruv, ko'rinish ----------
+  var limTabs = document.getElementById('limTabs');
+  if (limTabs){
+    limTabs.querySelectorAll('button').forEach(function(b){
+      b.onclick = function(){
+        limTabs.querySelectorAll('button').forEach(function(x){ x.classList.remove('on'); }); b.classList.add('on');
+        var k = b.dataset.lim;
+        document.querySelectorAll('.lim-blok').forEach(function(bl){ bl.hidden = !(k === 'all' || bl.dataset.lim === k); });
+      };
+    });
+  }
+  var qi = document.getElementById('mQidir'), qn = document.getElementById('mQidirN'), hChips = document.getElementById('holatChips');
+  var holat = '';
+  function qil(){
+    var q = (qi && qi.value || '').trim().toLowerCase(), n = 0, jami = 0;
+    document.querySelectorAll('table.lj tbody').forEach(function(tb){
+      var grp = [], bor = false;
+      function flush(){ grp.forEach(function(t){ if (t.classList.contains('ish')) return; t.style.display = ((q || holat) && !bor) ? 'none' : ''; }); grp = []; bor = false; }
+      Array.prototype.forEach.call(tb.rows, function(tr){
+        if (tr.classList.contains('block') || tr.classList.contains('bosh')){ flush(); grp.push(tr); return; }
+        if (tr.classList.contains('ish')){
+          jami++;
+          var ok = (!q || (tr.dataset.q || '').indexOf(q) >= 0) && (!holat || tr.dataset.h === holat);
+          tr.style.display = ok ? '' : 'none'; if (ok){ n++; bor = true; }
+          grp.push(tr); return;
+        }
+        grp.push(tr);
+      });
+      flush();
+    });
+    if (qn) qn.textContent = (q || holat) ? (n + ' / ' + jami) : '';
+  }
+  if (qi) qi.addEventListener('input', qil);
+  if (hChips) hChips.querySelectorAll('.fchip').forEach(function(b){ b.onclick = function(){ hChips.querySelectorAll('.fchip').forEach(function(x){ x.classList.remove('on'); }); b.classList.add('on'); holat = b.dataset.h || ''; qil(); }; });
+  var kor = document.getElementById('korinish');
+  if (kor){
+    var kKey = 'moliya_korinish';
+    function kQoy(k){ document.querySelectorAll('.lj-wrap').forEach(function(w){ w.classList.toggle('ixcham', k === 'ixcham'); }); kor.querySelectorAll('button').forEach(function(x){ x.classList.toggle('on', x.dataset.k === k); }); try { localStorage.setItem(kKey, k); } catch(e){} }
+    kor.querySelectorAll('button').forEach(function(b){ b.onclick = function(){ kQoy(b.dataset.k); }; });
+    try { kQoy(localStorage.getItem(kKey) === 'ixcham' ? 'ixcham' : 'toliq'); } catch(e){}
+  }
+
+  // ---------- Izoh: qalamcha → forma ----------
+  document.querySelectorAll('[data-izoh]').forEach(function(b){
+    b.onclick = function(){ var td = b.closest('td'); td.classList.add('edit'); var i = td.querySelector('input'); if (i){ i.focus(); i.select(); } };
   });
+  document.querySelectorAll('[data-izoh-no]').forEach(function(b){
+    b.onclick = function(){ var td = b.closest('td'); var i = td.querySelector('input'); if (i) i.value = i.defaultValue; td.classList.remove('edit'); };
+  });
+  document.querySelectorAll('.izf input').forEach(function(i){ i.addEventListener('keydown', function(e){ if (e.key === 'Escape'){ i.value = i.defaultValue; i.closest('td').classList.remove('edit'); } }); });
+
+  // ---------- Yon panel ----------
+  var dw = document.getElementById('dw'), bg = document.getElementById('dwBg');
+  if (dw){
+    var cur = null;
+    var el = function(id){ return document.getElementById(id); };
+    function hist(list){
+      var h = el('dwHist'); h.innerHTML = '';
+      el('dwHn').textContent = list.length + ' ta';
+      if (!list.length){ h.innerHTML = '<div class="h"><small style="color:#94A3B8;">Hali to\'lov yozilmagan.</small></div>'; return; }
+      list.forEach(function(m){
+        var d = document.createElement('div'); d.className = 'h';
+        var dd = document.createElement('div'); dd.className = 'd'; dd.textContent = m.sana.slice(0, 5);
+        var mm = document.createElement('div'); mm.className = 'm';
+        var b = document.createElement('b'); b.textContent = m.summa + (m.usul ? ' · ' + m.usul : '');
+        var s = document.createElement('small'); s.textContent = (m.izoh ? m.izoh + ' · ' : '') + m.kim + (m.vaqt ? ' · ' + m.vaqt : '') + (m.eski ? ' · haftalik qatoriga' : '');
+        mm.appendChild(b); mm.appendChild(s); d.appendChild(dd); d.appendChild(mm); h.appendChild(d);
+      });
+    }
+    function prev(){
+      if (!cur) return;
+      var v = num(el('dwSum').value), ber = cur.ber + v, ost = cur.total - ber, p = el('dwPrev');
+      el('dwOkT').textContent = 'Berildi deb yozish' + (v > 0 ? ' · ' + fmt(v) : '');
+      el('dwChips').querySelectorAll('.qchip').forEach(function(c){ c.classList.toggle('on', v > 0 && Math.abs(num(c.dataset.v) - v) < 0.5); });
+      if (v <= 0){ p.className = 'prev'; p.textContent = ''; return; }
+      if (v > cur.ost + 0.01){ p.className = 'prev bad'; p.textContent = 'Ostatkidan ortiq: ' + fmt(cur.ost) + ' dan ko\'p yozib bo\'lmaydi.'; return; }
+      p.className = 'prev';
+      p.innerHTML = 'Yozilgandan so\'ng: berilgan <b style="color:#0F766E;">' + fmt(ber) + '</b> (' + (cur.total ? Math.min(100, Math.round(ber / cur.total * 100)) : 0) + ' %), qolgan ostatki <b style="color:#C2410C;">' + fmt(ost) + '</b>' + (ost <= 0.5 ? ' — qator <b style="color:#15803D;">to\'liq</b>.' : '.');
+    }
+    function och(tr, faqatTarix){
+      cur = { total: num(tr.dataset.total), fs: num(tr.dataset.fs), ber: num(tr.dataset.ber) };
+      cur.ost = cur.total - cur.ber; cur.qarz = Math.max(0, cur.fs - cur.ber);
+      el('dwNom').textContent = tr.dataset.nom || ''; el('dwSub').textContent = tr.dataset.sub || '';
+      el('dwT').textContent = fmt(cur.total); el('dwF').textContent = fmt(cur.fs); el('dwB').textContent = fmt(cur.ber);
+      el('dwBl').textContent = 'Berilgan · ' + (cur.total ? Math.min(100, Math.round(cur.ber / cur.total * 100)) : 0) + ' %';
+      el('dwO').textContent = fmt(cur.ost); el('dwWO').textContent = fmt(cur.ost);
+      el('dwBar').style.width = (cur.total ? Math.min(100, cur.ber / cur.total * 100) : 0) + '%';
+      var ch = { ost: cur.ost, '50': Math.round(cur.ost / 2), '25': Math.round(cur.ost / 4), qarz: cur.qarz };
+      el('dwChips').querySelectorAll('.qchip').forEach(function(c){ var v = ch[c.dataset.k]; c.dataset.v = v; c.querySelector('b').textContent = fmt(v); c.style.display = (v > 0 && (c.dataset.k !== 'qarz' || v <= cur.ost + 0.5)) ? '' : 'none'; c.classList.remove('on'); });
+      try { hist(JSON.parse(tr.dataset.tolov || '[]')); } catch(e){ hist([]); }
+      var f = el('dwForm'); f.action = tr.dataset.action || ''; el('dwSum').value = ''; el('dwIzoh').value = '';
+      f.querySelectorAll('input[name=usul]').forEach(function(r){ r.checked = false; });
+      var yozish = !!tr.dataset.action && cur.ost > 0.5 && !faqatTarix;
+      f.style.display = yozish ? '' : 'none'; el('dwOk').style.display = yozish ? '' : 'none';
+      el('dwK').textContent = yozish ? 'To\'lov yozish' : 'To\'lov tarixi';
+      prev();
+      mo.classList.add('dw-open'); dw.setAttribute('aria-hidden', 'false');
+      if (yozish) setTimeout(function(){ el('dwSum').focus(); }, 60);
+    }
+    function yop(){ mo.classList.remove('dw-open'); dw.setAttribute('aria-hidden', 'true'); }
+    document.querySelectorAll('[data-tolov]').forEach(function(b){ b.onclick = function(){ och(b.closest('tr'), false); }; });
+    document.querySelectorAll('[data-tarix]').forEach(function(b){ b.onclick = function(){ och(b.closest('tr'), true); }; });
+    el('dwX').onclick = yop; el('dwNo').onclick = yop; bg.onclick = yop;
+    document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && mo.classList.contains('dw-open')) yop(); });
+    el('dwChips').querySelectorAll('.qchip').forEach(function(c){ c.onclick = function(){ el('dwSum').value = fmt(c.dataset.v); prev(); el('dwSum').focus(); }; });
+    el('dwSum').addEventListener('input', function(){ var v = num(this.value); this.value = v ? fmt(v) : ''; prev(); });
+    el('dwForm').addEventListener('submit', function(e){
+      var v = num(el('dwSum').value);
+      if (!(v > 0)){ e.preventDefault(); el('dwSum').focus(); return; }
+      if (cur && v > cur.ost + 0.01){ e.preventDefault(); prev(); el('dwSum').focus(); return; }
+      el('dwSum').value = String(v);   // serverga bo'shliqsiz
+      el('dwOk').disabled = true;
+    });
+  } else {
+    // buxgalter emas — tarix tugmasi qisqa ro'yxatni ochadi
+    document.querySelectorAll('[data-tarix]').forEach(function(b){
+      b.onclick = function(){
+        var tr = b.closest('tr'); var list = []; try { list = JSON.parse(tr.dataset.tolov || '[]'); } catch(e){}
+        var old = tr.querySelector('.tx-list'); if (old){ old.remove(); return; }
+        var d = document.createElement('div'); d.className = 'tx-list'; d.style.cssText = 'font-size:11px;color:#475569;margin-top:4px;text-align:left;';
+        list.forEach(function(m){ var r = document.createElement('div'); r.textContent = m.sana + ' · ' + m.summa + (m.usul ? ' · ' + m.usul : '') + (m.izoh ? ' · ' + m.izoh : '') + ' · ' + m.kim; d.appendChild(r); });
+        b.parentNode.appendChild(d);
+      };
+    });
+  }
 })();
 </script>
 {% endblock %}

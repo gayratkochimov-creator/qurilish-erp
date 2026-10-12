@@ -1,5 +1,6 @@
 import datetime
 import io
+import json
 from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
@@ -3027,21 +3028,51 @@ def moliya(request):
     # ---------- OBYEKTLAR RO'YXATI ----------
     obyektlar = []
     j_lim = j_baj = j_ber = Decimal("0")
+    j_qarz = Decimal("0")
+    oxirgi_tolov = {}
+    for m in (Moliya.objects.filter(Q(item__request__project__in=vp) | Q(limit_item__project__in=vp))
+              .select_related("item__request", "limit_item").order_by("-sana", "-id")):
+        pid = m.limit_item.project_id if m.limit_item_id else m.item.request.project_id
+        oxirgi_tolov.setdefault(pid, m.sana)
     for p in vp.select_related("firma").order_by("code"):
         lim_s = p.budget_total or Decimal("0")
         baj = p.sarflangan()
         ber = p.berildi()
         ost = lim_s - ber
-        j_lim += lim_s; j_baj += baj; j_ber += ber
+        qarz = baj - ber if baj > ber else Decimal("0")
+        j_lim += lim_s; j_baj += baj; j_ber += ber; j_qarz += qarz
+        toliq = lim_s > 0 and ost <= 0
+        if toliq:
+            holat, holat_nom = "toliq", "To'liq"
+        elif qarz > Decimal("0.5"):
+            holat, holat_nom = "qarz", "Qarz " + _money(qarz)
+        elif ber <= 0:
+            holat, holat_nom = "yoq", "Boshlanmagan"
+        else:
+            holat, holat_nom = "ok", "Bajarilgani berilgan"
         obyektlar.append({
             "p": p, "lim_str": _money(lim_s), "baj_str": _money(baj), "ber_str": _money(ber),
-            "ost_str": _money(ost), "ost_manfiy": ost < 0,
-            "foiz": int(ber / lim_s * 100) if lim_s > 0 else 0,
-            "toliq": lim_s > 0 and ost <= 0,
+            "ost_str": _money(ost), "ost_manfiy": ost < 0, "qarz": qarz, "qarz_str": _money(qarz),
+            "foiz": min(100, int(ber / lim_s * 100)) if lim_s > 0 else 0,
+            "toliq": toliq, "holat": holat, "holat_nom": holat_nom,
             "limit_soni": p.limitlar.count(),
+            "oxirgi": oxirgi_tolov.get(p.pk),
+            "q": f"{p.code} {p.name} {p.firma.name if p.firma_id else ''}".lower(),
         })
+    tartib = request.GET.get("tartib") or "ost"
+    if tartib == "qarz":
+        obyektlar.sort(key=lambda d: -d["qarz"])
+    elif tartib == "ost":
+        obyektlar.sort(key=lambda d: -(Decimal(d["ost_str"].replace(" ", "") or 0)))
+    reyting = sorted([d for d in obyektlar if d["qarz"] > 0], key=lambda d: -d["qarz"])[:5]
+    r_max = reyting[0]["qarz"] if reyting else Decimal("1")
+    for d in reyting:
+        d["qarz_foiz"] = int(d["qarz"] / r_max * 100) if r_max else 0
     jami = {"lim": _money(j_lim), "baj": _money(j_baj), "ber": _money(j_ber),
-            "ost": _money(j_lim - j_ber), "ost_manfiy": j_lim - j_ber < 0}
+            "ost": _money(j_lim - j_ber), "ost_manfiy": j_lim - j_ber < 0, "qarz": _money(j_qarz),
+            "foiz": min(100, int(j_ber / j_lim * 100)) if j_lim > 0 else 0,
+            "soni": len(obyektlar), "qarz_soni": sum(1 for d in obyektlar if d["holat"] == "qarz"),
+            "toliq_soni": sum(1 for d in obyektlar if d["toliq"])}
 
     # ---------- TANLANGAN OBYEKT — LIMIT JADVALI ----------
     sel_p, limit_bloklar = None, []
@@ -3091,7 +3122,13 @@ def moliya(request):
                     tolovlar.sort(key=lambda m: (m.sana, m.id))
                     ber = sum((m.summa for m in tolovlar), Decimal("0"))
                     ost = total - ber
+                    toliq_ = total > 0 and ost <= 0
+                    holat = "toliq" if toliq_ else ("qisman" if ber > 0 else "yoq")
                     r.update({
+                        "holat": holat, "holat_nom": {"toliq": "To'liq", "qisman": "Qisman", "yoq": "Berilmagan"}[holat],
+                        "baj_qarz": _money(f_sum - ber) if f_sum - ber > Decimal("0.5") else "",
+                        "tolov_json": json.dumps(_moliya_tolov_json(tolovlar), ensure_ascii=False),
+                        "ber_raw": str(ber), "total_raw": str(total), "fs_raw": str(f_sum),
                         "li": li, "kind_cls": KCLS.get(r["kind"], "mat"),
                         "kind_disp": KIND_NOMI.get(r["kind"], r["kind"]),
                         "vol_str": _qty(li.quantity), "price_str": _money(li.unit_price), "total_str": _money(total),
@@ -3105,18 +3142,25 @@ def moliya(request):
                     })
                     g_t += total; g_f += f_sum; g_b += ber
                 g.update({"t_str": _money(g_t), "f_str": _money(g_f), "b_str": _money(g_b),
-                          "o_str": _money(g_t - g_b), "o_manfiy": g_t - g_b < 0, "soni": len(g["rows"])})
+                          "o_str": _money(g_t - g_b), "o_manfiy": g_t - g_b < 0, "soni": len(g["rows"]),
+                          "foiz": min(100, int(g_b / g_t * 100)) if g_t > 0 else 0})
                 l_t += g_t; l_f += g_f; l_b += g_b
             # Limitda yo'q (haftalikdan kelgan) qatorlar — to'lov haftalik qatoriga (eski usul)
             boshqa, bq_t, bq_b = [], Decimal("0"), Decimal("0")
             for it in boshqa_items:
                 b_ = it.berildi
+                tl_ = list(it.moliyalar.all())
+                toliq_ = it.qarz <= 0
+                holat = "toliq" if toliq_ else ("qisman" if b_ > 0 else "yoq")
                 boshqa.append({"it": it, "w": it.request, "kind_cls": KCLS.get(it.kind, "mat"),
                                "kind_disp": KIND_NOMI.get(it.kind, it.kind),
                                "qty_str": _qty(it.quantity), "price_str": _money(it.unit_price),
                                "total_str": _money(it.total), "ber_str": _money(b_),
-                               "ost_str": _money(it.total - b_), "toliq": it.qarz <= 0,
-                               "tolovlar": list(it.moliyalar.all())})
+                               "ost_str": _money(it.total - b_), "toliq": toliq_,
+                               "holat": holat, "holat_nom": {"toliq": "To'liq", "qisman": "Qisman", "yoq": "Berilmagan"}[holat],
+                               "foiz": min(100, int(b_ / it.total * 100)) if it.total > 0 else 0,
+                               "tolovlar": tl_, "tolov_json": json.dumps(_moliya_tolov_json(tl_), ensure_ascii=False),
+                               "ber_raw": str(b_), "total_raw": str(it.total), "fs_raw": str(it.total)})
                 bq_t += it.total; bq_b += b_
             limit_bloklar.append({
                 "lim": lim, "guruhlar": guruhlar, "boshqa": boshqa,
@@ -3127,11 +3171,21 @@ def moliya(request):
                 "qator_soni": sum(len(g["rows"]) for g in guruhlar),
                 "jadval_url": _lj_url(lim),
             })
+        # Holat bo'yicha sonlar (filtr chiplari) — barcha limitlar bo'yicha
+        _hs = {"hammasi": 0, "yoq": 0, "qisman": 0, "toliq": 0}
+        for bl in limit_bloklar:
+            for g in bl["guruhlar"]:
+                for r in g["rows"]:
+                    _hs["hammasi"] += 1; _hs[r["holat"]] += 1
+            for b in bl["boshqa"]:
+                _hs["hammasi"] += 1; _hs[b["holat"]] += 1
+        holat_soni = _hs
 
     # ---------- SO'NGGI TO'LOVLAR JURNALI ----------
     jurnal = []
+    _jp = [sel_p] if sel_p is not None else vp_all
     for m_ in (Moliya.objects
-               .filter(Q(item__request__project__in=vp_all) | Q(limit_item__project__in=vp_all))
+               .filter(Q(item__request__project__in=_jp) | Q(limit_item__project__in=_jp))
                .select_related("item", "item__request", "item__request__project",
                                "limit_item", "limit_item__project", "limit_item__limit", "yozdi")
                .order_by("-created_at")[:40]):
@@ -3152,15 +3206,40 @@ def moliya(request):
             "ost_str": _money(q.total - tol_jami), "toliq": q.total - tol_jami <= 0,
             "kind_disp": KIND_NOMI.get(q.kind, q.kind),
             "qty_str": _qty(q.quantity), "price_str": _money(q.unit_price),
+            "usul": m_.get_usul_display() if m_.usul else "",
         })
+    sel_kpi = next((d for d in obyektlar if sel_p is not None and d["p"].pk == sel_p.pk), None)
+    if sel_p is not None and sel_kpi is None:
+        # tanlangan obyekt firma filtridan tashqarida — alohida hisoblash
+        lim_s = sel_p.budget_total or Decimal("0"); baj = sel_p.sarflangan(); ber = sel_p.berildi()
+        qarz = baj - ber if baj > ber else Decimal("0")
+        sel_kpi = {"lim_str": _money(lim_s), "baj_str": _money(baj), "ber_str": _money(ber), "ost_str": _money(lim_s - ber),
+                   "ost_manfiy": lim_s - ber < 0, "qarz_str": _money(qarz), "qarz": qarz,
+                   "foiz": min(100, int(ber / lim_s * 100)) if lim_s > 0 else 0, "toliq": lim_s > 0 and lim_s - ber <= 0,
+                   "limit_soni": sel_p.limitlar.count(), "oxirgi": None}
     return render(request, "projects/moliya.html", {
-        "obyektlar": obyektlar, "jami": jami, "sel_p": sel_p, "limit_bloklar": limit_bloklar,
+        "obyektlar": obyektlar, "jami": jami, "sel_p": sel_p, "sel_kpi": sel_kpi, "limit_bloklar": limit_bloklar,
+        "holat_soni": holat_soni if sel_p is not None else None, "tartib": tartib,
+        "tolov_soni": sum(1 for _ in jurnal),
         "jurnal": jurnal, "yoza_oladi": yoza_oladi,
         "firmalar": visible_firmas(request.user).order_by("name"),
         "obyekt_ro": vp.order_by("code"),
         "sel_firma": firma_id, "sel_obyekt": proj_id,
         "bugun": timezone.localdate().isoformat(),
     })
+
+
+def _moliya_tolov_json(tolovlar):
+    """Yon panel (JS) uchun to'lov tarixi."""
+    from django.utils.timezone import localtime as _lt
+    out = []
+    for m in tolovlar:
+        out.append({"sana": f"{m.sana:%d.%m.%Y}", "summa": _money(m.summa),
+                    "usul": m.get_usul_display() if m.usul else "", "izoh": m.izoh or "",
+                    "kim": m.yozdi.username if m.yozdi_id else "—",
+                    "vaqt": f"{_lt(m.created_at):%d.%m %H:%M}" if m.created_at else "",
+                    "eski": bool(m.item_id)})
+    return out
 
 
 def _moliya_li_berildi(li):
@@ -3187,9 +3266,12 @@ def moliya_limit_yozish(request, li_id):
     qayt = _xavfsiz_referer(request, "moliya")
     if request.method != "POST":
         return redirect(qayt)
-    summa = _to_dec(request.POST.get("summa"))
+    summa = _to_dec((request.POST.get("summa") or "").replace(" ", "").replace("\xa0", ""))
     miqdor = _to_dec(request.POST.get("miqdor"))
     izoh = " ".join((request.POST.get("izoh") or "").split())[:300]
+    usul = request.POST.get("usul") or ""
+    if usul not in ("kassa", "karta", "avans"):
+        usul = ""
     try:
         sana = datetime.date.fromisoformat(request.POST.get("sana", ""))
     except ValueError:
@@ -3207,7 +3289,7 @@ def moliya_limit_yozish(request, li_id):
                 f"Summa qolgan ostatkidan katta: ostatki {_money(ost)}, siz {_money(summa)} yozdingiz. "
                 "Ortiqcha to'lov yozilmaydi — avval limitni oshiring.")
             return redirect(qayt)
-        Moliya.objects.create(limit_item=li, summa=summa, miqdor=miqdor, izoh=izoh,
+        Moliya.objects.create(limit_item=li, summa=summa, miqdor=miqdor, izoh=izoh, usul=usul,
                               sana=sana, yozdi=request.user)
     qoldi = li.total - _moliya_li_berildi(li)
     messages.success(request,
@@ -3246,9 +3328,12 @@ def moliya_yozish(request, item_id):
     if it.request.status != WeeklyRequest.Status.APPROVED:
         messages.error(request, "Faqat TASDIQLANGAN haftalik qatoriga to'lov yoziladi.")
         return redirect("moliya")
-    summa = _to_dec(request.POST.get("summa"))
+    summa = _to_dec((request.POST.get("summa") or "").replace(" ", "").replace("\xa0", ""))
     miqdor = _to_dec(request.POST.get("miqdor"))
     izoh = " ".join((request.POST.get("izoh") or "").split())[:300]
+    usul = request.POST.get("usul") or ""
+    if usul not in ("kassa", "karta", "avans"):
+        usul = ""
     try:
         sana = datetime.date.fromisoformat(request.POST.get("sana", ""))
     except ValueError:
@@ -3272,7 +3357,7 @@ def moliya_yozish(request, item_id):
                 f"Summa qarzdan katta: qarz {_money(qarz)}, siz {_money(summa)} yozdingiz. "
                 "Ortiqcha to'lov yozilmaydi.")
             return redirect(_xavfsiz_referer(request, "moliya"))
-        Moliya.objects.create(item=it, summa=summa, miqdor=miqdor, izoh=izoh,
+        Moliya.objects.create(item=it, summa=summa, miqdor=miqdor, izoh=izoh, usul=usul,
                               sana=sana, yozdi=request.user)
     qoldi = it.qarz
     messages.success(request,

@@ -8,7 +8,7 @@
         <span class="jd-obj">{{ j.p.name|truncatechars:30 }}</span>
         <span class="jd-sum">{{ j.summa_str }}</span>
       </div>
-      <div class="jd-sub">{{ j.q.name|truncatechars:34 }} · {{ j.m.yozdi.username|default:"—" }}{% if j.m.izoh %} · {{ j.m.izoh|truncatechars:20 }}{% endif %}</div>
+      <div class="jd-sub">{{ j.q.name|truncatechars:34 }}{% if j.usul %} · {{ j.usul|lower }}{% endif %} · {{ j.m.yozdi.username|default:"—" }}{% if j.m.izoh %} · {{ j.m.izoh|truncatechars:20 }}{% endif %}</div>
     </summary>
     <div class="jd-body">
       <div class="jd-r"><span>Obyekt</span><b>{{ j.p.name }}</b> <small>({{ j.p.code }})</small></div>
@@ -18,7 +18,7 @@
       <div class="jd-r"><span>Qator summasi</span><b>{{ j.qty_str }} {{ j.q.unit }} × {{ j.price_str }} = {{ j.total_str }}</b></div>
       <hr class="jd-hr">
       <div class="jd-r"><span>Bu to'lov</span><b style="color:#0F766E;">{{ j.summa_str }}</b>{% if j.miqdor_str %} <small>· {{ j.miqdor_str }} {{ j.q.unit }}</small>{% endif %}</div>
-      <div class="jd-r"><span>To'lov sanasi</span><b>{{ j.m.sana|date:"d.m.Y" }}</b></div>
+      <div class="jd-r"><span>To'lov sanasi</span><b>{{ j.m.sana|date:"d.m.Y" }}</b>{% if j.usul %} <small>· {{ j.usul }}</small>{% endif %}</div>
       {% if j.m.izoh %}<div class="jd-r"><span>Izoh</span><b>{{ j.m.izoh }}</b></div>{% endif %}
       <div class="jd-r"><span>Yozdi</span><b>{{ j.m.yozdi.username|default:"—" }}</b> <small>· {{ j.m.created_at|date:"d.m.Y H:i" }}</small></div>
       <hr class="jd-hr">

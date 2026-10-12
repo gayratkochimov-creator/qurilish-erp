@@ -926,6 +926,8 @@ class Moliya(models.Model):
     )
     summa = models.DecimalField("Berilgan summa", **MONEY)
     miqdor = models.DecimalField("Berilgan miqdor", null=True, blank=True, **QTY)
+    USUL = (("kassa", "Kassa"), ("karta", "Karta"), ("avans", "Avans"))
+    usul = models.CharField("To'lov usuli", max_length=10, choices=USUL, blank=True)
     izoh = models.CharField("Izoh (kassa/karta/avans...)", max_length=300, blank=True)
     sana = models.DateField("To'lov sanasi")
     yozdi = models.ForeignKey(
