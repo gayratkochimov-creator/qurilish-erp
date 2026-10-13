@@ -678,7 +678,12 @@
     ta.addEventListener('blur', function(){ ta.style.display = 'none'; wiBelgi(btn, ta); });
     ta.addEventListener('input', function(){ wiBelgi(btn, ta); });
   }
-  function izohKengay(el){ if (!el || el.tagName!=='TEXTAREA') return; el.style.height='auto'; el.style.height=(el.scrollHeight+2)+'px'; }
+  function izohKengay(el){ if (!el || el.tagName!=='TEXTAREA') return; var h0 = el.style.height; el.style.height='auto'; if (!el.scrollHeight){ el.style.height = h0; return; } el.style.height=(el.scrollHeight+2)+'px'; }
+  // Saqlash/yuklashdan keyin, qator ko'rinish rejimi yoki qidiruv o'zgarganda — barcha nom/izoh kataklari qayta o'lchanadi
+  // (yashirin paytda o'lchangan katak 1 qatorli bo'lib qoladi)
+  function nomKengayHammasi(){ document.querySelectorAll('#ljBody textarea, #yangiBody textarea, #boshqaBody textarea').forEach(function(t){ if (t.offsetParent !== null) izohKengay(t); }); }
+  window.addEventListener('load', nomKengayHammasi);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(nomKengayHammasi);
   // Katta summa yozilsa raqam katagi YONGA kengayadi (qiymat ko'rinib turadi)
   function raqamKengay(el){
     if (!el || el.type !== 'number') return;
@@ -1310,6 +1315,7 @@
         cnt.textContent = n ? (n + ' та натижа') : 'топилмади';
       }
     }
+    nomKengayHammasi();
   }
   (function(){
     var qi = document.getElementById('ljQidir');
@@ -1333,6 +1339,7 @@
         tWrap.classList.toggle('toliq-faqat', rejim === 2);
         tKor.classList.toggle('on', rejim === 0); tYash.classList.toggle('on', rejim === 1); tFaqat.classList.toggle('on', rejim === 2);
         try { localStorage.setItem(tKey, String(rejim)); } catch(e){}
+        nomKengayHammasi();
       }
       tKor.onclick = function(){ tQoy(0); };
       tYash.onclick = function(){ tQoy(1); };
@@ -2029,7 +2036,7 @@
     }
     // MUHIM: renderAll o'zi extralar/bolaklarni joriy haftadan qayta o'rnatadi,
     // shuning uchun snapshot AVVAL render, KEYIN ustiga qo'yiladi
-    renderAll();
+    renderAll(); requestAnimationFrame(nomKengayHammasi);
     extralar = s.extralar || [];
     if (LIM_EDIT) yangiBloklar = s.yangiBloklar || [];
     else if (TAKLIF_EDIT){ if (s.token === TAKLIF_TOKEN && (s.yangiBloklar||[]).length) yangiBloklar = s.yangiBloklar; }
@@ -2108,7 +2115,7 @@
 
   window.addEventListener('pageshow', function(e){ if (e.persisted) yuborilmoqda = false; });
 
-  renderAll();
+  renderAll(); requestAnimationFrame(nomKengayHammasi); setTimeout(nomKengayHammasi, 300);
   autoTikla();
 })();
 </script>
