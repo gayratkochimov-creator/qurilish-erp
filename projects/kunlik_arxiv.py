@@ -97,16 +97,49 @@ def kunlik_yubor():
             pass
 
 
+# Ish vaqti (08:00–19:00) ichida arxiv YIG'ILMAYDI — bitta worker sekinlashib qolmasin:
+# birinchi tashrif ish vaqtida kelsa, fon oqimi 19:00 gacha kutib turadi (2026-10-13 — tezlik)
+ISH_BOSHI, ISH_OXIRI = 8, 19
+_KUTMOQDA = False
+
+
+def _kutib_yubor(bugun):
+    """19:00 gacha kutadi (har daqiqada tekshiradi), so'ng yuboradi. Worker qayta
+    ishga tushsa — sana belgilanmagani uchun keyingi tashrif yana navbatga qo'yadi."""
+    import time as _t
+    global _KUTMOQDA
+    try:
+        while True:
+            now = timezone.localtime()
+            if now.strftime("%Y-%m-%d") != bugun:      # kun o'tib ketdi — bugungisi keyingi tashrifda
+                return
+            if not (ISH_BOSHI <= now.hour < ISH_OXIRI):
+                break
+            _t.sleep(60)
+        if _oxirgi_sana() == bugun:                    # boshqa oqim allaqachon yubordi
+            return
+        _saqla(bugun)
+        kunlik_yubor()
+    finally:
+        _KUTMOQDA = False
+
+
 class KunlikArxivMiddleware:
-    """Kunning birinchi so'rovida kunlik arxivni fon oqimida yuboradi."""
+    """Kunning birinchi so'rovida kunlik arxivni fon oqimida yuboradi — ish vaqtidan tashqarida."""
 
     def __init__(self, get_response):
         self.get_response = get_response
 
     def __call__(self, request):
+        global _KUTMOQDA
         if not settings.DEBUG:  # faqat serverda (lokal sinovda emas)
-            bugun = timezone.localtime().strftime("%Y-%m-%d")
-            if _oxirgi_sana() != bugun:
-                _saqla(bugun)  # poyga bo'lmasin — avval belgilab qo'yamiz
-                threading.Thread(target=kunlik_yubor, daemon=True).start()
+            now = timezone.localtime()
+            bugun = now.strftime("%Y-%m-%d")
+            if _oxirgi_sana() != bugun and not _KUTMOQDA:
+                if ISH_BOSHI <= now.hour < ISH_OXIRI:
+                    _KUTMOQDA = True
+                    threading.Thread(target=_kutib_yubor, args=(bugun,), daemon=True).start()
+                else:
+                    _saqla(bugun)  # poyga bo'lmasin — avval belgilab qo'yamiz
+                    threading.Thread(target=kunlik_yubor, daemon=True).start()
         return self.get_response(request)

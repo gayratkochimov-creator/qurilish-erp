@@ -13,6 +13,20 @@ from django.core.exceptions import PermissionDenied
 
 from projects.models import Firma, Project, WorkSection
 from projects.roles import is_pto, is_snab, user_firma, visible_firmas, visible_projects
+
+
+def _fonda(fn, *args):
+    """Arxiv botga yuborish (matn + rasmlar) FON OQIMIDA — sahifa Telegram'ni kutmaydi.
+    Tranzaksiya ichida chaqirilsa commit'dan keyin boshlanadi (2026-10-13 — tezlik)."""
+    import threading
+    from django.db import transaction
+
+    def ish():
+        try:
+            fn(*args)
+        except Exception:
+            pass
+    transaction.on_commit(lambda: threading.Thread(target=ish, daemon=True).start())
 from . import services
 
 
@@ -453,7 +467,7 @@ def prixod_action(request, pk):
                     messages.info(request, f"Prixod #{r.id} — prorab RAD etdi: {sabab}")
                     try:
                         from .telegram_arxiv import arxiv_prixod_rad
-                        arxiv_prixod_rad(r)
+                        _fonda(arxiv_prixod_rad, r)
                     except Exception:
                         pass
                 return redirect("prixod_list")
@@ -492,7 +506,7 @@ def prixod_action(request, pk):
                 # Arxiv botga (admin + obyekt snabjeniyechilari) — xato bo'lsa jim
                 try:
                     from .telegram_arxiv import arxiv_prixod
-                    arxiv_prixod(r)
+                    _fonda(arxiv_prixod, r)
                 except Exception:
                     pass
             elif a == "unpost":
@@ -688,7 +702,7 @@ def rasxod_action(request, pk):
                         f"Rasxod #{x.id} — prorab miqdorni tasdiqladi, ombordan chiqarildi.")
                     try:
                         from .telegram_arxiv import arxiv_rasxod
-                        arxiv_rasxod(x)
+                        _fonda(arxiv_rasxod, x)
                     except Exception:
                         pass
             elif a == "post":
@@ -701,7 +715,7 @@ def rasxod_action(request, pk):
                 # Arxiv botga (admin + obyekt snabjeniyechilari) — xato bo'lsa jim
                 try:
                     from .telegram_arxiv import arxiv_rasxod
-                    arxiv_rasxod(x)
+                    _fonda(arxiv_rasxod, x)
                 except Exception:
                     pass
             elif a == "unpost":

@@ -127,6 +127,17 @@ def tg_send(chat_id, text):
     return _api_json("sendMessage", {"chat_id": chat_id, "text": text})
 
 
+def tg_send_fon(chat_id, text):
+    """Xabarni FON OQIMIDA yuboradi — sahifa Telegram'ni (15 s × 3 urinish) kutmaydi.
+    Natija: yuborishga qo'yildi (True) / chat yo'q (False). Xato bo'lsa logga tushadi.
+    (2026-10-13 — tezlik: bildirishnomalar so'rovni ushlab turmasin)"""
+    import threading
+    if not chat_id:
+        return False
+    threading.Thread(target=tg_send, args=(chat_id, text), daemon=True).start()
+    return True
+
+
 _BOT_USERNAME = None
 
 

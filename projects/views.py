@@ -379,8 +379,10 @@ def dashboard(request):
     jami_lab = Decimal("0.00")
     jami_mach = Decimal("0.00")
     jami_oth = Decimal("0.00")
+    from .models import obyekt_yigindilar
+    _Y = obyekt_yigindilar(obyektlar)
     for p in obyektlar:
-        split = p.sarf_by_kind()
+        split = _Y[p.pk]["kind"]
         mat, lab, mach, oth = split["material"], split["labor"], split["machinery"], split["other"]
         sarf = mat + lab + mach + oth
         limit = p.budget_total or Decimal("0.00")
@@ -592,13 +594,15 @@ def firmalar(request):
     all_objs = []
     tot_limit = Decimal("0")
     tot_sarf = Decimal("0")
+    from .models import obyekt_yigindilar as _oy
+    _Yf = _oy(visible_projects(request.user))
     for f in visible_firmas(request.user).order_by("name"):
         objs = []
         f_limit = Decimal("0")
         f_sarf = Decimal("0")
         for pr in visible_projects(request.user).filter(firma=f).order_by("code"):
             bt = pr.budget_total
-            srf = pr.sarflangan()
+            srf = _Yf.get(pr.pk, {}).get("sarf", Decimal("0"))
             f_limit += bt
             f_sarf += srf
             foiz = round(float(srf) / float(bt) * 100) if bt else 0
@@ -804,11 +808,14 @@ def virtual_ofis(request):
 
     # 1) Limit nazoratchisi
     tasks = []
-    for p in visible_projects(request.user).select_related("firma"):
+    from .models import obyekt_yigindilar as _oy2
+    _vp0 = visible_projects(request.user)
+    _Ya = _oy2(_vp0)
+    for p in _vp0.select_related("firma"):
         lim = p.budget_total
         if lim <= 0:
             continue
-        sarf = p.sarflangan()
+        sarf = _Ya[p.pk]["sarf"]
         if sarf > lim:
             tasks.append({"text": f"{p.code} — {p.name}: limitdan oshgan ({_money(sarf)} / {_money(lim)})",
                           "level": "bad", "url": _u_obj(p.id)})
@@ -862,10 +869,10 @@ def virtual_ofis(request):
     KAT = [("Material", "limit_material", "material"), ("Ish haqi", "limit_labor", "labor"),
            ("Mashina chasti", "limit_machinery", "machinery"),
            ("Ko'zda tutilmagan", "limit_other", "other")]
-    for p in visible_projects(request.user):
+    for p in _vp0:
         if p.budget_total <= 0:
             continue
-        split = p.sarf_by_kind()
+        split = _Ya[p.pk]["kind"]
         for nom, lf, key in KAT:
             klim = getattr(p, lf) or Decimal("0")
             ksarf = split[key]
@@ -3042,10 +3049,12 @@ def moliya(request):
                .select_related("limit_item", "item__request")):
         pid = sr.limit_item.project_id if sr.limit_item_id else sr.item.request.project_id
         sorov_soni[pid] = sorov_soni.get(pid, 0) + 1
+    from .models import obyekt_yigindilar
+    _Y = obyekt_yigindilar(vp)
     for p in vp.select_related("firma").order_by("code"):
         lim_s = p.budget_total or Decimal("0")
-        baj = p.sarflangan()
-        ber = p.berildi()
+        baj = _Y[p.pk]["sarf"]
+        ber = _Y[p.pk]["ber"]
         ost = lim_s - ber
         qarz = baj - ber if baj > ber else Decimal("0")
         j_lim += lim_s; j_baj += baj; j_ber += ber; j_qarz += qarz
@@ -3063,7 +3072,7 @@ def moliya(request):
             "ost_str": _money(ost), "ost_manfiy": ost < 0, "qarz": qarz, "qarz_str": _money(qarz),
             "foiz": min(100, int(ber / lim_s * 100)) if lim_s > 0 else 0,
             "toliq": toliq, "holat": holat, "holat_nom": holat_nom,
-            "limit_soni": p.limitlar.count(),
+            "limit_soni": _Y[p.pk]["lim_soni"],
             "oxirgi": oxirgi_tolov.get(p.pk), "sorov_soni": sorov_soni.get(p.pk, 0),
             "q": f"{p.code} {p.name} {p.firma.name if p.firma_id else ''}".lower(),
         })
@@ -3598,7 +3607,7 @@ def xabar_yuborish(request):
         bot_yoq = []
         try:
             from django.utils import timezone as _tz
-            from .auth2fa import tg_send
+            from .auth2fa import tg_send_fon as tg_send
             belgi = {"oddiy": "📩", "muhim": "❗", "shoshilinch": "🚨"}[muhimlik]
             muh_nom = {"oddiy": "Oddiy", "muhim": "MUHIM", "shoshilinch": "SHOSHILINCH"}[muhimlik]
             vaqt = _tz.localtime().strftime("%d.%m.%Y %H:%M")
@@ -5100,12 +5109,12 @@ def _lj_xabar_yubor(matn, oluvchi, yubordi):
     x.kimga.add(oluvchi)
     tg = False
     try:
-        from .auth2fa import tg_send
+        from .auth2fa import tg_send_fon
         prof = getattr(oluvchi, "profile", None)
         chat = (getattr(prof, "telegram_chat_id", "") or "").strip() if prof else ""
         if chat:
-            tg = bool(tg_send(chat, "❗ " + matn +
-                              "\n\nTizimga kirib «O'qidim» tugmasini bosing."))
+            tg = bool(tg_send_fon(chat, "❗ " + matn +
+                                  "\n\nTizimga kirib «O'qidim» tugmasini bosing."))
     except Exception:
         pass
     return x, tg

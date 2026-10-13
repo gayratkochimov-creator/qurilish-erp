@@ -4,7 +4,7 @@ projects/models.py
 from decimal import Decimal
 from django.conf import settings
 from django.db import models, transaction
-from django.db.models import DecimalField, ExpressionWrapper, F, Sum
+from django.db.models import Count, DecimalField, ExpressionWrapper, F, Sum
 
 MONEY = dict(max_digits=18, decimal_places=2)
 QTY = dict(max_digits=18, decimal_places=3)
@@ -1174,3 +1174,35 @@ class MaterialRequestItem(models.Model):
     @property
     def total(self):
         return ((self.quantity or Decimal("0")) * (self.unit_price or Decimal("0"))).quantize(Decimal("0.01"))
+
+
+def obyekt_yigindilar(projects):
+    """Bir nechta obyekt uchun BITTA yurishda: sarflangan (tur bo'yicha ham), berilgan (fakt),
+    limitlar soni. N+1 o'rniga 3 ta guruhlangan so'rov. Natija: {project_id: {...}}.
+    (2026-10-13 — dashboard/moliya tezligi)"""
+    ids = [p.pk if hasattr(p, "pk") else int(p) for p in projects]
+    nol = Decimal("0.00")
+
+    def bosh():
+        return {"sarf": nol, "kind": {"material": nol, "labor": nol, "machinery": nol, "other": nol},
+                "ber": nol, "lim_soni": 0}
+    out = {i: bosh() for i in ids}
+    if not ids:
+        return out
+    for r in (WeeklyRequestItem.objects
+              .filter(request__project_id__in=ids, request__status=WeeklyRequest.Status.APPROVED)
+              .values("request__project_id", "kind").annotate(s=Sum(_LINE_TOTAL))):
+        d = out.setdefault(r["request__project_id"], bosh())
+        v = r["s"] or nol
+        d["kind"][r["kind"]] = d["kind"].get(r["kind"], nol) + v
+        d["sarf"] += v
+    for r in (Moliya.objects.filter(item__request__project_id__in=ids, bekor=False,
+                                    item__request__status=WeeklyRequest.Status.APPROVED)
+              .values("item__request__project_id").annotate(s=Sum("summa"))):
+        out.setdefault(r["item__request__project_id"], bosh())["ber"] += r["s"] or nol
+    for r in (Moliya.objects.filter(limit_item__project_id__in=ids, bekor=False)
+              .values("limit_item__project_id").annotate(s=Sum("summa"))):
+        out.setdefault(r["limit_item__project_id"], bosh())["ber"] += r["s"] or nol
+    for r in Limit.objects.filter(project_id__in=ids).values("project_id").annotate(n=Count("id")):
+        out.setdefault(r["project_id"], bosh())["lim_soni"] = r["n"]
+    return out
