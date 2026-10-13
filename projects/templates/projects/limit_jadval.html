@@ -55,6 +55,7 @@
   .lj input.tx { text-align:left; width:100%; min-width:90px; }
   .lj textarea.wkin { display:block; width:100%; min-width:60px; box-sizing:border-box; padding:2px 5px; border:1px solid #c8ccd0; border-radius:3px; text-align:left; font-size:12px; background:#fffde7; font-family:inherit; line-height:1.25; min-height:21px; resize:none; overflow:hidden; }
   .lj textarea.wkin:focus { outline:2px solid #1a5fb4; background:#fff; }
+  .lj textarea.lim-n, .lj textarea.yb-n { font-size:12.5px; min-width:150px; white-space:pre-wrap; word-break:break-word; }
   .lj input.kichik { width:56px; text-align:center; }
   .lj select.ksel { font-size:11px; padding:2px; border:1px solid #c8ccd0; border-radius:4px; margin-top:2px; }
   /* ✂ faqat qator ustiga kelganda ko'rinadi — jadval toza turadi */
@@ -873,7 +874,8 @@
         var x = limRow(tr);
         vol = x.vol; price = x.price;
         tr.style.display = x.del ? 'none' : '';
-        tr.cells[1].innerHTML = '<input class="wkin tx lim-n" value="'+esc(x.name)+'" placeholder="иш номи..." title="'+(tr.dataset.sana ? 'Киритилган: '+esc(tr.dataset.sana) : '')+'">'+KSEL;
+        tr.cells[1].innerHTML = '<textarea class="wkin tx lim-n" rows="1" placeholder="иш номи..." title="'+(tr.dataset.sana ? 'Киритилган: '+esc(tr.dataset.sana) : '')+'">'+esc(x.name)+'</textarea>'+KSEL;
+        izohKengay(tr.cells[1].querySelector('.lim-n'));
         var ksel = tr.querySelector('.lim-k'); ksel.value = x.kind || 'material';
         turChipUla(tr, ksel, x);
         tr.cells[3].innerHTML = '<input class="wkin kichik lim-u" value="'+esc(x.unit)+'" placeholder="бирл.">';
@@ -1042,7 +1044,7 @@
         }
         var liveQ = wEdit ? (x.wq||0) : 0, liveS = wEdit ? (x.wq||0)*((x.wp||0)||(x.price||0)) : 0;
         r.innerHTML = '<td class="ctr"></td>'+
-          '<td><input class="wkin tx yb-n" value="'+esc(x.name||'')+'" placeholder="иш номи..."'+(x.sana ? ' title="Киритилган: '+esc(x.sana)+'"' : '')+'>'+
+          '<td><textarea class="wkin tx yb-n" rows="1" placeholder="иш номи..."'+(x.sana ? ' title="Киритилган: '+esc(x.sana)+'"' : '')+'>'+esc(x.name||'')+'</textarea>'+
           (x.sana ? '<span style="font-size:10px; color:#94a3b8; white-space:nowrap; margin-left:4px;">'+esc(x.sana)+'</span>' : '')+
           '<select class="ksel yb-k"><option value="material">Материал</option><option value="labor">Иш ҳақи</option><option value="machinery">Машина части</option><option value="other">Кўзда тутилмаган</option></select></td>'+
           '<td><textarea class="wkin tx yb-i" rows="1" placeholder="изоҳ...">'+esc(x.izoh||'')+'</textarea></td>'+
@@ -1117,6 +1119,7 @@
           });
         });
         blokTrs.push(r);
+        izohKengay(r.querySelector('.yb-n'));
         izohKengay(r.querySelector('.yb-i'));
         izohKengay(r.querySelector('.yb-wi'));
         return r;
@@ -1631,8 +1634,12 @@
     autoSaqla();
   }
 
+  document.getElementById('ljBody').addEventListener('keydown', function(e){
+    if (e.key === 'Enter' && (e.target.classList.contains('lim-n') || e.target.classList.contains('yb-n'))) e.preventDefault();
+  });
   document.getElementById('ljBody').addEventListener('input', function(e){
     var c = e.target.classList;
+    if (c.contains('lim-n') || c.contains('yb-n')){ if (e.target.value.indexOf('\n') >= 0) e.target.value = e.target.value.replace(/\n/g, ' '); izohKengay(e.target); }
     if (c.contains('in-i') || c.contains('ex-i') || c.contains('lim-i')) izohKengay(e.target);
     var tr = e.target.closest('tr.ish');
     if (tr && LIM_EDIT && tr.dataset.id){
