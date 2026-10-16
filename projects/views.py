@@ -977,7 +977,7 @@ def haftalik_tarix(request):
 
     qs = WeeklyRequest.objects.filter(
         project__in=visible_projects(request.user)).select_related(
-        "project", "project__firma", "created_by", "approved_by").prefetch_related("items")
+        "project", "project__firma", "limit", "created_by", "approved_by").prefetch_related("items")
     if holat in ("approved", "submitted", "draft"):
         qs = qs.filter(status=holat)
     elif holat == "jarayon":
@@ -1113,7 +1113,7 @@ def _qayt_kod_yubor(request, tur, pk, obj_nomi, sabab, matn=None):
     yubordi = False
     for c in chats:
         try:
-            if tg_send(c, matn):
+            if tg_send(c, matn, timeout=8, urinish=2):   # foydalanuvchi kutib turibdi — uzoq osilmasin
                 yubordi = True
         except Exception:
             pass
@@ -1290,8 +1290,9 @@ def _tasdiqlar_data(status="dir", user=None):
     lreqs = LimitChangeRequest.objects.filter(status=status)
     if _proj_qs is not None:
         lreqs = lreqs.filter(project__in=_proj_qs)
-    lreqs = (lreqs.select_related("project", "limit", "requested_by", "director_by")
-             .prefetch_related("proposed_items").order_by("-created_at"))
+    lreqs = (lreqs.select_related("project", "project__firma", "limit", "requested_by", "director_by",
+                                  "snab_by", "pto2_by", "prov_by", "decided_by")
+             .prefetch_related("proposed_items", "limit__items").order_by("-created_at"))
     LI_CLS = {"material": "mat", "labor": "lab", "machinery": "mach", "other": "oth"}
     lim_list = []
     for r in lreqs:
@@ -1299,7 +1300,7 @@ def _tasdiqlar_data(status="dir", user=None):
         # shunda «yangi» / «o'zgargan» belgilari haqiqatga mos bo'ladi
         from collections import defaultdict, deque
         joriy = defaultdict(deque)
-        for li in r.limit.items.all().order_by("id"):
+        for li in sorted(r.limit.items.all(), key=lambda x: x.id):   # prefetch'dan (order_by yangi so'rov ochardi)
             joriy[(li.kind, (li.name or "").strip().lower())].append(li)
         items = []
         for it in r.proposed_items.all():
@@ -1380,8 +1381,9 @@ def _tasdiqlar_data(status="dir", user=None):
     wreqs = WeeklyRequest.objects.filter(status=wk_status)
     if _proj_qs is not None:
         wreqs = wreqs.filter(project__in=_proj_qs)
-    wreqs = (wreqs.select_related("project", "created_by", "director_by")
-             .prefetch_related("items").order_by("-week_start"))
+    wreqs = (wreqs.select_related("project", "project__firma", "limit", "created_by", "director_by",
+                                  "snab_by", "pto2_by", "prov_by", "approved_by")
+             .prefetch_related("items", "limit__items").order_by("-week_start"))
     wk_list = []
     for w in wreqs:
         # Qatorlar — umumiy limit tarkibi bilan solishtiriladi.

@@ -122,9 +122,10 @@ def _api_json(method, payload, timeout=15, urinish=3):
     return False
 
 
-def tg_send(chat_id, text):
-    """Matnli xabar. Muvaffaqiyat bo'lsa True."""
-    return _api_json("sendMessage", {"chat_id": chat_id, "text": text})
+def tg_send(chat_id, text, timeout=15, urinish=3):
+    """Matnli xabar. Muvaffaqiyat bo'lsa True. Interaktiv (foydalanuvchi kutayotgan) kodlar
+    uchun timeout=8, urinish=2 beriladi."""
+    return _api_json("sendMessage", {"chat_id": chat_id, "text": text}, timeout=timeout, urinish=urinish)
 
 
 def tg_send_fon(chat_id, text):
@@ -243,6 +244,7 @@ def kirish(request):
                 f"🔐 Qurilish ERP — kirish kodi: {kod}\n"
                 f"Amal qilish muddati: 3 daqiqa.\n"
                 f"Agar bu siz bo'lmasangiz — parolingizni o'zgartiring!",
+                timeout=8, urinish=2,
             )
             if not yubordi:
                 xato = ("Telegramga kod yuborilmadi (bot yoki internet muammosi). "

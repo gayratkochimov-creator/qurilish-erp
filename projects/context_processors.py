@@ -89,21 +89,22 @@ def approvals(request):
             project__in=_vp, status="pending").count()
     if not (_dir or _adm or _snb or _prv or _pto):
         return ctx
-    lc = wc = 0
+    # Rolga tegishli bosqichlar — 10 ta count() o'rniga 2 ta guruhli so'rov (2026-10-16 — tezlik)
+    l_st, w_st = [], []
     if _snb:
-        lc += LimitChangeRequest.objects.filter(status="snab", project__in=_vp).count()
-        wc += WeeklyRequest.objects.filter(status="snab", project__in=_vp).count()
+        l_st.append("snab"); w_st.append("snab")
     if _pto and not _adm:
-        lc += LimitChangeRequest.objects.filter(status="pto2", project__in=_vp).count()
-        wc += WeeklyRequest.objects.filter(status="pto2", project__in=_vp).count()
+        l_st.append("pto2"); w_st.append("pto2")
     if _prv:
-        lc += LimitChangeRequest.objects.filter(status="prov", project__in=_vp).count()
-        wc += WeeklyRequest.objects.filter(status="prov", project__in=_vp).count()
+        l_st.append("prov"); w_st.append("prov")
     if _dir:
-        lc += LimitChangeRequest.objects.filter(status="dir", project__in=_vp).count()
-        wc += WeeklyRequest.objects.filter(status="dir", project__in=_vp).count()
+        l_st.append("dir"); w_st.append("dir")
     if _adm:
-        lc += LimitChangeRequest.objects.filter(status="adm", project__in=_vp).count()
-        wc += WeeklyRequest.objects.filter(status="submitted", project__in=_vp).count()
+        l_st.append("adm"); w_st.append("submitted")
+    from django.db.models import Count as _Cnt
+    lc = sum(r["n"] for r in LimitChangeRequest.objects.filter(status__in=l_st, project__in=_vp)
+             .values("status").annotate(n=_Cnt("id"))) if l_st else 0
+    wc = sum(r["n"] for r in WeeklyRequest.objects.filter(status__in=w_st, project__in=_vp)
+             .values("status").annotate(n=_Cnt("id"))) if w_st else 0
     ctx.update({"pending_lc": lc, "pending_wc": wc, "pending_total": lc + wc})
     return ctx
