@@ -179,8 +179,10 @@
   }
 
   // -------- ЖАДВАЛ (таб алмашганда тоза қурилади) --------
+  var korilganKey = {};   // renderAll ичида: ном+бўлим калити биринчи марта кўрилдими
   function renderAll(){
     renderTabs();
+    korilganKey = {};
     var h = haftaTop(sel);
     var edit = tahrirmi();
     var raqam = h ? h.raqam : (HAFTA.length+1);
@@ -333,7 +335,20 @@
       var wq = tr.querySelector('.c-wq'), wp = tr.querySelector('.c-wp'),
           ws = tr.querySelector('.c-ws'), am = tr.querySelector('.c-amal'),
           iz = tr.querySelector('.c-izoh');
-      if (edit){
+      // Бир хил ном + бўлим ИККИНЧИ марта: ҳафталик фақат биринчи қаторга тегишли
+      var dubl = !!korilganKey[key]; korilganKey[key] = true;
+      if (dubl){
+        tr.dataset.dubl = '1';
+        wq.innerHTML = '<span class="mute" style="font-size:11px; color:#B45309; white-space:normal;" title="Бу блокда шу номли қатор юқорида бор — ҳафталик ўша қаторга ёзилади. Бошқа иш бўлса, номини фарқланг (масалан изоҳини номга қўшинг).">↑ бир хил ном</span>';
+        wp.textContent = ''; ws.textContent = ''; am.textContent = '';
+        if (LIM_EDIT){ iz.innerHTML = '<textarea class="wkin tx lim-i" rows="1" placeholder="изоҳ...">'+esc(limRow(tr).izoh)+'</textarea>'; izohKengay(iz.querySelector('.lim-i')); }
+        else iz.textContent = tr.dataset.izoh || '';
+      } else {
+        delete tr.dataset.dubl;
+      }
+      if (dubl){
+        // (ҳафталик катаги йўқ — пастдаги шохлар ўтказиб юборилади)
+      } else if (edit){
         var m = items.length ? items[0] : null;
         var q0 = m ? m.qty : 0, p0 = m ? m.price : price;
         // Ҳафталик изоҳ — ✎ тугмаси орқасида (ёзиб бўлгач ўзи ёпилади); Изоҳ устуни — ЛИМИТ изоҳи
@@ -867,6 +882,7 @@
   // -------- ҲИСОБ + ХАТО --------
   function rowWeek(tr){
     var key = tr.dataset.key, q=0, s=0;
+    if (tr.dataset.dubl) return { q:0, s:0 };   // бир хил номли 2-қатор — ҳафталик биринчисида
     if (tahrirmi()){
       var iq = tr.querySelector('.in-q'), ip = tr.querySelector('.in-p');
       var mq = iq?pf(iq.value):0, mp = ip?pf(ip.value):0;
@@ -1025,6 +1041,26 @@
     document.getElementById('gWsum').textContent = fmt(gW);
     var panel = document.getElementById('ljErr'), list = document.getElementById('ljErrList'), ok = document.getElementById('ljOk');
     list.innerHTML='';
+    // --- Бир блокда бир хил номли қаторлар ---
+    (function(){
+      var sanoq = {}, nomlar = {}, tahrir = {};
+      function qosh(nom, bolim, tahrirlanadi){
+        var k = (nom||'').trim().toLowerCase()+'|'+(bolim||'').trim().toLowerCase();
+        if (!(nom||'').trim()) return;
+        sanoq[k] = (sanoq[k]||0) + 1; nomlar[k] = [nom, bolim]; if (tahrirlanadi) tahrir[k] = true;
+      }
+      ishRows().forEach(function(tr){
+        if (rowDel(tr)) return;
+        if (LIM_EDIT && tr.dataset.id){ var lx = limRow(tr); qosh(lx.name, tr.dataset.bolim, true); }
+        else qosh(tr.dataset.name, tr.dataset.bolim, false);
+      });
+      yangiBloklar.forEach(function(blk){ blk.rows.forEach(function(x){ qosh(x.name, blkBolim(blk), true); }); });
+      Object.keys(sanoq).forEach(function(k){
+        if (sanoq[k] < 2) return;
+        var n = nomlar[k], matn = '«'+n[0]+'» номи «'+(n[1]||'Бўлимсиз')+'» блокида '+sanoq[k]+' марта — ҳафталик фақат биринчи қаторга ёзилади. Бошқа иш бўлса номини фарқланг (масалан: «'+n[0]+' — дюсел 150»).';
+        if (tahrir[k]) errs.push(matn); else warns.push(matn);
+      });
+    })();
     window._ljErr = errs.length>0;
     if (errs.length){
       document.getElementById('ljErrHdr').textContent = '⛔ '+errs.length+' та хато';
@@ -1167,6 +1203,7 @@
     var items = [];
     ishRows().forEach(function(tr){
       if (rowDel(tr)) return;   // ўчирилган қаторнинг ҳафталиги ҳам кетмайди
+      if (tr.dataset.dubl) return;   // бир хил номли 2-қатор — ҳафталиги биринчи қаторда
       var iq = tr.querySelector('.in-q'), ip = tr.querySelector('.in-p'), ii = tr.querySelector('.in-i');
       if (!iq) return;
       var q = pf(iq.value);
