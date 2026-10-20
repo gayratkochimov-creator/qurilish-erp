@@ -73,11 +73,9 @@ def approvals(request):
             from .models import Moliya, WeeklyRequestItem
             _lt = ExpressionWrapper(F("quantity") * F("unit_price"),
                                     output_field=DecimalField(max_digits=20, decimal_places=2))
-            from .models import LimitItem as _LI
-            tas = ((WeeklyRequestItem.objects
-                    .filter(request__project__in=_vp, request__status="approved")
-                    .aggregate(s=Sum(_lt))["s"] or Decimal("0"))
-                   + (_LI.objects.filter(project__in=_vp).aggregate(s=Sum("boshlangich_sum"))["s"] or Decimal("0")))
+            tas = (WeeklyRequestItem.objects
+                   .filter(request__project__in=_vp, request__status="approved")
+                   .aggregate(s=Sum(_lt))["s"] or Decimal("0"))
             ber = (Moliya.objects
                    .filter(Q(item__request__project__in=_vp, item__request__status="approved")
                            | Q(limit_item__project__in=_vp), bekor=False)

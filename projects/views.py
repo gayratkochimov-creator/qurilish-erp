@@ -397,7 +397,6 @@ def dashboard(request):
             "obj": p,
             "limit_str": _money(limit),
             "sarf_str": _money(sarf),
-            "bosh_str": _money(_Y[p.pk]["boshlangich"]) if _Y[p.pk]["boshlangich"] else "",
             "mat_str": _money(mat),
             "lab_str": _money(lab),
             "mach_str": _money(mach),

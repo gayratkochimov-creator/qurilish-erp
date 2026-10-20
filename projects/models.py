@@ -113,23 +113,15 @@ class Project(models.Model):
         )
         for r in rows:
             d[r["kind"]] = r["s"] or Decimal("0.00")
-        # limitgacha qo'lda kiritilgan bajarilgan qism — tur bo'yicha
-        for r in (LimitItem.objects.filter(project=self).values("kind").annotate(s=Sum("boshlangich_sum"))):
-            d[r["kind"]] = d.get(r["kind"], Decimal("0.00")) + (r["s"] or Decimal("0.00"))
         return d
 
-    def boshlangich_sarf(self):
-        """Umumiy limit qatorlariga QO'LDA kiritilgan «limitgacha bajarilgan» summalar
-        (haftalikda ko'rsatilmagan bo'lsa ham sarflangan hisoblanadi — 2026-10-20, foydalanuvchi qarori)."""
-        return LimitItem.objects.filter(project=self).aggregate(s=Sum("boshlangich_sum"))["s"] or Decimal("0.00")
-
     def sarflangan(self):
-        """Tasdiqlangan haftalik so'rovlar + limitgacha qo'lda kiritilgan bajarilgan qism."""
+        """Tasdiqlangan haftalik so'rovlar yig'indisi (bitta so'rov)."""
         agg = WeeklyRequestItem.objects.filter(
             request__project=self,
             request__status=WeeklyRequest.Status.APPROVED,
         ).aggregate(s=Sum(_LINE_TOTAL))
-        return (agg["s"] or Decimal("0.00")) + self.boshlangich_sarf()
+        return agg["s"] or Decimal("0.00")
 
     def qolgan(self):
         return self.budget_total - self.sarflangan()
@@ -203,11 +195,10 @@ class Limit(models.Model):
         return (self.items.aggregate(s=Sum(_LINE_TOTAL))["s"] or Decimal("0.00"))
 
     def sarflangan(self):
-        """Shu limitga yozilgan TASDIQLANGAN haftaliklar + qatorlarning limitgacha bajarilgan qismi."""
-        return ((WeeklyRequestItem.objects
-                 .filter(request__limit=self, request__status=WeeklyRequest.Status.APPROVED)
-                 .aggregate(s=Sum(_LINE_TOTAL))["s"] or Decimal("0.00"))
-                + (self.items.aggregate(s=Sum("boshlangich_sum"))["s"] or Decimal("0.00")))
+        """Shu limitga yozilgan TASDIQLANGAN haftaliklar summasi."""
+        return (WeeklyRequestItem.objects
+                .filter(request__limit=self, request__status=WeeklyRequest.Status.APPROVED)
+                .aggregate(s=Sum(_LINE_TOTAL))["s"] or Decimal("0.00"))
 
 
 def _joriy_limit(self, yarat=True):
@@ -1194,7 +1185,7 @@ def obyekt_yigindilar(projects):
 
     def bosh():
         return {"sarf": nol, "kind": {"material": nol, "labor": nol, "machinery": nol, "other": nol},
-                "ber": nol, "lim_soni": 0, "boshlangich": nol}
+                "ber": nol, "lim_soni": 0}
     out = {i: bosh() for i in ids}
     if not ids:
         return out
@@ -1205,15 +1196,6 @@ def obyekt_yigindilar(projects):
         v = r["s"] or nol
         d["kind"][r["kind"]] = d["kind"].get(r["kind"], nol) + v
         d["sarf"] += v
-    # limitgacha qo'lda kiritilgan bajarilgan qism (sarflanganga qo'shiladi)
-    for r in (LimitItem.objects.filter(project_id__in=ids).values("project_id", "kind")
-              .annotate(s=Sum("boshlangich_sum"))):
-        d = out.setdefault(r["project_id"], bosh())
-        v = r["s"] or nol
-        if v:
-            d["kind"][r["kind"]] = d["kind"].get(r["kind"], nol) + v
-            d["sarf"] += v
-            d["boshlangich"] += v
     for r in (Moliya.objects.filter(item__request__project_id__in=ids, bekor=False,
                                     item__request__status=WeeklyRequest.Status.APPROVED)
               .values("item__request__project_id").annotate(s=Sum("summa"))):
