@@ -507,7 +507,7 @@
             <div class="mb"><span style="width:{{ row.foiz_bar }}%; background:{{ row.rang }};"></span></div>
           </td>
           <td class="num">{{ row.limit_str }}</td>
-          <td class="num lead">{{ row.sarf_str }}</td>
+          <td class="num lead">{{ row.sarf_str }}{% if row.bosh_str %}<div style="font-size:10.5px; color:#64748b; font-weight:500;" title="Umumiy limitga qo'lda kiritilgan, limitgacha bajarilgan qism">shundan limitgacha: {{ row.bosh_str }}</div>{% endif %}</td>
           <td class="num">{{ row.qoldiq_str }}</td>
           <td><span class="badge {{ row.holat_class }}">{{ row.holat }}</span></td>
         </tr>
