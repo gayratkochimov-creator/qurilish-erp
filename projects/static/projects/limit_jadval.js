@@ -2,6 +2,7 @@
 // Statik fayl — brauzer keshlaydi; versiya ?v=<commit> bilan yangilanadi. (2026-10-16 — tezlik)
 (function(){
   var C = window.LJ_CFG;
+  var TARIX_URL = C.TARIX_URL || '';
   var CAN_EDIT = C.CAN_EDIT;
   var ADMIN_RAW = C.ADMIN_RAW;
   var ADM_TOGRI = C.ADM_TOGRI;
@@ -157,9 +158,33 @@
   function ishRows(){ return Array.prototype.slice.call(document.querySelectorAll('#ljBody tr.ish')); }
 
   // -------- ТАБЛАР --------
+  // Ekranda faqat OXIRGI 6 hafta tabi (foydalanuvchi qarori, 2026-10-21); eskilari
+  // «Ҳафталик тарих»da. Tanlangan (havola bilan ochilgan) eski hafta tabi baribir ko'rsatiladi.
+  var TAB_SONI = 6, eskiOchiq = false;
   function renderTabs(){
     var t = document.getElementById('ljTabs'); t.innerHTML='';
-    HAFTA.forEach(function(h){
+    var yashirin = [];
+    var korsat = HAFTA.filter(function(h, i){
+      var ohirgi = i >= HAFTA.length - TAB_SONI;
+      if (ohirgi || eskiOchiq || 'w'+h.id === sel) return true;
+      yashirin.push(h); return false;
+    });
+    if (yashirin.length){
+      var e = document.createElement('a');
+      e.href = TARIX_URL || '#'; e.className = 'eski';
+      e.textContent = '… эски ' + yashirin.length + ' ҳафта';
+      e.title = 'Эски ҳафталар «Ҳафталик тарих»да. Шу ерда очиш учун босинг (ўнг тугма — тарихга ўтиш)';
+      e.style.cssText = 'font-size:12px; color:#6B7280; text-decoration:none; padding:0 8px; align-self:center; white-space:nowrap;';
+      e.onclick = function(ev){ ev.preventDefault(); eskiOchiq = true; renderTabs(); };
+      t.appendChild(e);
+    } else if (eskiOchiq && HAFTA.length > TAB_SONI){
+      var y = document.createElement('a');
+      y.href = '#'; y.textContent = '‹ фақат охирги ' + TAB_SONI + ' та';
+      y.style.cssText = 'font-size:12px; color:#6B7280; text-decoration:none; padding:0 8px; align-self:center; white-space:nowrap;';
+      y.onclick = function(ev){ ev.preventDefault(); eskiOchiq = false; renderTabs(); };
+      t.appendChild(y);
+    }
+    korsat.forEach(function(h){
       var b = document.createElement('button');
       var belgi = h.ruxsat ? '🔓 таҳрир' : h.status==='draft' ? '✏️' : h.status==='dir' ? '⏳ дир.' :
                   h.status==='submitted' ? '⏳ адм.' : '🔒';
