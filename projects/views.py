@@ -5105,10 +5105,10 @@ def limit_jadval(request, pk):
 
 
 def _lj_xabar_yubor(matn, oluvchi, yubordi):
-    """Xabar (banner) + xodimning O'Z Telegram botiga. TG ketdi-mi -> bool."""
-    from .models import Xabar
-    x = Xabar.objects.create(matn=matn, muhimlik="muhim", yubordi=yubordi, hammaga=False)
-    x.kimga.add(oluvchi)
+    """Zanjir bildirishnomasi — FAQAT xodimning O'Z Telegram botiga (tizim banneri YO'Q:
+    foydalanuvchi qarori, 2026-10-21 — «бундай хабарнома келиши шарт эмас»; sahifa
+    tepasidagi banner faqat adminning «Xabar yuborish» xabarlari uchun). TG ketdi-mi -> bool."""
+    x = None
     tg = False
     try:
         from .auth2fa import tg_send_fon
