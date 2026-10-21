@@ -84,7 +84,7 @@ def _provlarga_xabar(request, matn):
         tg_n += 1 if tg else 0
     if not nomlar:
         return ""
-    return f" Proverchik(lar)ga xabar yuborildi: {', '.join(nomlar)}" + (f" (Telegram: {tg_n})." if tg_n else " (tizimda).")
+    return f" Proverchik(lar)ga Telegram: {', '.join(nomlar)}" + (f" ({tg_n} ta yuborildi)." if tg_n else " (bot bog'lanmagan).")
 
 
 def _snab_bor(p):
@@ -1659,7 +1659,7 @@ def _limit_request_action_asl(request, pk):
                 messages.info(request, f"↩ So'rov {NOMI.get(target, target)} qaytarildi "
                                        f"(sabab: {sabab})."
                                        + (f" {oluvchi.username}ga xabar yuborildi"
-                                          + (" (Telegram ham)." if tg else " (tizimda).")
+                                          + (" (Telegram yuborildi)." if tg else " (Telegram bog'lanmagan).")
                                           if oluvchi is not None else ""))
             return redirect(reverse("dashboard") + "?tab=tasdiqlar")
         # DIREKTOR bosqichi: dir → adm (yoki rad)
@@ -1798,7 +1798,7 @@ def _wk_xabar(request, req, status, matn):
         return ""
     link = request.build_absolute_uri(_lj_url(req.limit or req.project.joriy_limit(), hafta=req.id))
     _, tg = _lj_xabar_yubor(matn + f"\nJadval: {link}", oluvchi, request.user)
-    return f" {oluvchi.username}ga xabar yuborildi" + (" (Telegram ham)." if tg else " (tizimda).")
+    return f" {oluvchi.username}ga Telegram" + (" yuborildi." if tg else " bog'lanmagan — xabar ketmadi.")
 
 
 def _wk_qayt(request, req):
@@ -5115,8 +5115,7 @@ def _lj_xabar_yubor(matn, oluvchi, yubordi):
         prof = getattr(oluvchi, "profile", None)
         chat = (getattr(prof, "telegram_chat_id", "") or "").strip() if prof else ""
         if chat:
-            tg = bool(tg_send_fon(chat, "❗ " + matn +
-                                  "\n\nTizimga kirib «O'qidim» tugmasini bosing."))
+            tg = bool(tg_send_fon(chat, "❗ " + matn))
     except Exception:
         pass
     return x, tg
