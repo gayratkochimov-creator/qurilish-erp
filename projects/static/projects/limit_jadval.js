@@ -80,7 +80,7 @@
   var bolaklar = {};    // key -> [{qty, price, izoh}]
   var extralar = [];    // limitda yo'q ishlar: {name, bolim, unit, kind, qty, price, izoh}
 
-  function fmt(n){ n = Math.round(n*100)/100; return n.toLocaleString('ru-RU'); }
+  function fmt(n){ n = Math.round(n*1000)/1000; return n.toLocaleString('ru-RU', {maximumFractionDigits: 3}); }   // 3 kasr: 253,185 — yashirin 0,005 lar ko'rinsin (2026-10-21)
   function pf(v){ var x = parseFloat(String(v).replace(/\s/g,'').replace(',','.')); return isNaN(x)?0:x; }
   function esc(s){ var d=document.createElement('div'); d.textContent=s==null?'':String(s); return d.innerHTML.replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
   // Ҳафталик изоҳ: ✎ тугмаси билан очилади, ёзиб бўлгач (фокус кетганда) ўзи ёпилади;
