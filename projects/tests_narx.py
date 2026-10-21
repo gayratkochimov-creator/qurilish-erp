@@ -33,7 +33,7 @@ class NarxTahlilTest(TestCase):
         WeeklyRequestItem.objects.create(request=w, kind="material", name="Beton", unit="m3",
                                          quantity=Decimal("30"), unit_price=Decimal("800000"), bolim="Poydevor")
         qat, kat, umum = _narx_tahlil(self.p)
-        d = qat["beton|poydevor"]
+        d = qat["beton|poydevor|material"]
         self.assertEqual(d["fakt_qty"], Decimal("30"))
         self.assertEqual(d["qolgan_qty"], Decimal("70"))
         self.assertEqual(d["joriy"], Decimal("800000"))
@@ -51,7 +51,7 @@ class NarxTahlilTest(TestCase):
         WeeklyRequestItem.objects.create(request=w2, kind="material", name="Beton", unit="m3",
                                          quantity=Decimal("30"), unit_price=Decimal("900000"), bolim="Poydevor")
         qat, kat, umum = _narx_tahlil(self.p)
-        d = qat["beton|poydevor"]
+        d = qat["beton|poydevor|material"]
         self.assertEqual(d["fakt_qty"], Decimal("60"))
         self.assertEqual(d["fakt_sum"], Decimal("51000000.00"))
         self.assertEqual(d["fakt_avg"], Decimal("850000.00"))
@@ -76,14 +76,14 @@ class NarxTahlilTest(TestCase):
         WeeklyRequestItem.objects.create(request=w1, kind="material", name="Beton",
                                          quantity=Decimal("10"), unit_price=Decimal("820000"), bolim="Poydevor")
         qat, _, _ = _narx_tahlil(self.p)
-        self.assertEqual(qat["beton|poydevor"]["joriy"], Decimal("950000"))
+        self.assertEqual(qat["beton|poydevor|material"]["joriy"], Decimal("950000"))
 
     def test_tasdiqlanmagan_hisobga_olinmaydi(self):
         w = _hafta(self.p, 0, status="dir")
         WeeklyRequestItem.objects.create(request=w, kind="material", name="Beton",
                                          quantity=Decimal("30"), unit_price=Decimal("900000"), bolim="Poydevor")
         qat, _, umum = _narx_tahlil(self.p)
-        self.assertEqual(qat["beton|poydevor"]["fakt_qty"], Decimal("0"))
+        self.assertEqual(qat["beton|poydevor|material"]["fakt_qty"], Decimal("0"))
         self.assertEqual(umum["farq"], Decimal("0"))
 
     def test_narx_tushdi_tejam(self):
@@ -91,7 +91,7 @@ class NarxTahlilTest(TestCase):
         WeeklyRequestItem.objects.create(request=w, kind="material", name="Beton",
                                          quantity=Decimal("50"), unit_price=Decimal("700000"), bolim="Poydevor")
         qat, _, umum = _narx_tahlil(self.p)
-        d = qat["beton|poydevor"]
+        d = qat["beton|poydevor|material"]
         # 50×(700−800) + 50×(700−800) = −10 mln
         self.assertEqual(d["farq"], Decimal("-10000000.00"))
         self.assertLess(umum["farq"], 0)
@@ -102,7 +102,7 @@ class NarxTahlilTest(TestCase):
         WeeklyRequestItem.objects.create(request=w, kind="material", name="Beton",
                                          quantity=Decimal("120"), unit_price=Decimal("800000"), bolim="Poydevor")
         qat, _, _ = _narx_tahlil(self.p)
-        d = qat["beton|poydevor"]
+        d = qat["beton|poydevor|material"]
         self.assertEqual(d["qolgan_qty"], Decimal("-20"))
         self.assertEqual(d["prognoz"], Decimal("0.00"))
         self.assertEqual(d["farq"], Decimal("0.00"))

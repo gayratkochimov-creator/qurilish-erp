@@ -297,7 +297,7 @@ def _narx_tahlil(p):
     # kiradi, aks holda «joriy narxda kerak» sarflangandan kam chiqib qoladi
     yoq = {k: Decimal("0") for k in KINDS}
     for li in p.limit_items.all().order_by("id"):
-        k = (li.name or "").strip().lower() + "|" + (li.bolim or "").strip().lower()
+        k = _lj_key(li.name, li.bolim, li.kind)
         d = qat.get(k)
         if d is None:
             d = qat[k] = {
@@ -312,7 +312,7 @@ def _narx_tahlil(p):
         d["fakt_sum"] += li.boshlangich_sum or 0
     for wi in (WeeklyRequestItem.objects
                .filter(request__project=p, request__status=WeeklyRequest.Status.APPROVED)):
-        k = (wi.name or "").strip().lower() + "|" + (wi.bolim or "").strip().lower()
+        k = _lj_key(wi.name, wi.bolim, wi.kind)
         d = qat.get(k)
         if d is None:
             yoq[wi.kind if wi.kind in yoq else "material"] += wi.total
@@ -904,7 +904,7 @@ def _hafta_jadval_guruhlar(w, lim_cache, fakt_cache):
     if pid not in lim_cache:
         lk = {}
         for li in (w.limit.items.all() if w.limit_id else w.project.limit_items.all()):
-            k = _lj_key(li.name, li.bolim)
+            k = _lj_key(li.name, li.bolim, li.kind)
             d = lk.setdefault(k, {"qty": Decimal("0"), "sum": Decimal("0"),
                                   "price": li.unit_price})
             d["qty"] += li.quantity - (li.boshlangich_qty or 0)
@@ -914,7 +914,7 @@ def _hafta_jadval_guruhlar(w, lim_cache, fakt_cache):
         for fi in WeeklyRequestItem.objects.filter(
                 **({"request__limit_id": pid} if w.limit_id else {"request__project_id": pid}),
                 request__status="approved"):
-            k = _lj_key(fi.name, fi.bolim)
+            k = _lj_key(fi.name, fi.bolim, fi.kind)
             d = fk_.setdefault(k, {"qty": Decimal("0"), "sum": Decimal("0")})
             d["qty"] += fi.quantity
             d["sum"] += fi.total
@@ -923,7 +923,7 @@ def _hafta_jadval_guruhlar(w, lim_cache, fakt_cache):
     kor, gr, tartib = set(), {}, []
     u_j = f_j = w_j = Decimal("0")
     for it in w.items.all():
-        k = _lj_key(it.name, it.bolim)
+        k = _lj_key(it.name, it.bolim, it.kind)
         l = lk.get(k)
         f = fkm.get(k, {"qty": Decimal("0"), "sum": Decimal("0")})
         split = k in kor
@@ -1316,7 +1316,7 @@ def _tasdiqlar_data(status="dir", user=None):
             else:
                 holat, eski_str = "", ""
             items.append({
-                "id": it.id,
+                "id": it.id, "kind": it.kind,
                 "kind_disp": it.get_kind_display(), "cls": LI_CLS.get(it.kind, "mat"),
                 "name": it.name, "unit": it.unit or "—",
                 "qty_str": _qty(it.quantity), "price_str": _money(it.unit_price),
@@ -1330,13 +1330,13 @@ def _tasdiqlar_data(status="dir", user=None):
         lfakt = {}
         for fi in WeeklyRequestItem.objects.filter(request__limit=r.limit,
                                                    request__status="approved"):
-            k = _lj_key(fi.name, fi.bolim)
+            k = _lj_key(fi.name, fi.bolim, fi.kind)
             d = lfakt.setdefault(k, {"qty": Decimal("0"), "sum": Decimal("0")})
             d["qty"] += fi.quantity
             d["sum"] += fi.total
         lkor = set()
         for it_ in items:
-            k = _lj_key(it_["name"], it_["bolim"])
+            k = _lj_key(it_["name"], it_["bolim"], it_["kind"])
             fk = lfakt.get(k, {"qty": Decimal("0"), "sum": Decimal("0")})
             birinchi = k not in lkor
             lkor.add(k)
@@ -1395,7 +1395,7 @@ def _tasdiqlar_data(status="dir", user=None):
         # Limit jadvali ustunlari uchun: (nom|bo'lim) -> umumiy / bajarilgan / qolgan
         lim_key = {}
         for li in w.limit.items.all():
-            k = _lj_key(li.name, li.bolim)
+            k = _lj_key(li.name, li.bolim, li.kind)
             d = lim_key.setdefault(k, {"qty": Decimal("0"), "sum": Decimal("0"),
                                        "price": li.unit_price})
             d["qty"] += li.quantity - (li.boshlangich_qty or 0)
@@ -1403,7 +1403,7 @@ def _tasdiqlar_data(status="dir", user=None):
         fakt_key = {}
         for fi in WeeklyRequestItem.objects.filter(request__limit=w.limit,
                                                    request__status="approved"):
-            k = _lj_key(fi.name, fi.bolim)
+            k = _lj_key(fi.name, fi.bolim, fi.kind)
             d = fakt_key.setdefault(k, {"qty": Decimal("0"), "sum": Decimal("0")})
             d["qty"] += fi.quantity
             d["sum"] += fi.total
@@ -1427,7 +1427,7 @@ def _tasdiqlar_data(status="dir", user=None):
                             + (f" ({foiz_str})" if li.unit_price else ""))
             else:
                 holat, eski_str = "", ""
-            k = _lj_key(it.name, it.bolim)
+            k = _lj_key(it.name, it.bolim, it.kind)
             lk = lim_key.get(k)
             fk = fakt_key.get(k, {"qty": Decimal("0"), "sum": Decimal("0")})
             split = k in kor_key            # bir xil nom+bo'lim 2-marta (narx bo'lingan)
@@ -2273,7 +2273,7 @@ def _obj_limit_wb(p):
         boshi = rr + 1
         for it in items:
             nr += 1
-            fk = (it.name or "").strip().lower() + "|" + (it.bolim or "").strip().lower()
+            fk = _lj_key(it.name, it.bolim, it.kind)
             # Bir xil nom+bo'lim ikki qatorda bo'lsa fakt faqat birinchisiga yoziladi
             f = fakt.get(fk) if fk not in fakt_berildi else None
             fakt_berildi.add(fk)
@@ -3106,7 +3106,7 @@ def moliya(request):
                        .filter(request__limit=lim, request__status=WeeklyRequest.Status.APPROVED)
                        .select_related("request").prefetch_related("moliyalar__yozdi").order_by("request__week_start", "id"))
             for it in w_items:
-                k = _lj_key(it.name, it.bolim)
+                k = _lj_key(it.name, it.bolim, it.kind)
                 d = fakt.setdefault(k, {"qty": Decimal("0"), "sum": Decimal("0")})
                 d["qty"] += it.quantity; d["sum"] += it.total
             items = list(lim.items.all().order_by("id"))
@@ -3121,7 +3121,7 @@ def moliya(request):
                 tol_li.setdefault(m.limit_item_id, []).append(m)
             tol_key = {}
             for it in w_items:
-                k = _lj_key(it.name, it.bolim)
+                k = _lj_key(it.name, it.bolim, it.kind)
                 if k in limit_keys:
                     tol_key.setdefault(k, []).extend(it.moliyalar.all())
                 else:
@@ -3296,7 +3296,7 @@ def _moliya_li_berildi(li):
     s = Moliya.objects.filter(limit_item=li, bekor=False).aggregate(s=Sum("summa"))["s"] or Decimal("0")
     for m in Moliya.objects.filter(item__request__limit_id=li.limit_id, bekor=False,
                                    item__request__status=WeeklyRequest.Status.APPROVED).select_related("item"):
-        if _lj_key(m.item.name, m.item.bolim) == _lj_key(li.name, li.bolim):
+        if _lj_key(m.item.name, m.item.bolim, m.item.kind) == _lj_key(li.name, li.bolim, li.kind):
             s += m.summa
     return s
 
@@ -4030,10 +4030,10 @@ def _hafta_qatorlarini_yangila(w, yangi, ws_, we_, user):
     from django.utils import timezone as _tz
     mavjud = defaultdict(deque)
     for it in w.items.all().order_by("id"):
-        mavjud[_lj_key(it.name, it.bolim)].append(it)
+        mavjud[_lj_key(it.name, it.bolim, it.kind)].append(it)
     reja_yangila, reja_yarat = [], []
     for y in yangi:
-        navbat = mavjud.get(_lj_key(y.name, y.bolim))
+        navbat = mavjud.get(_lj_key(y.name, y.bolim, y.kind))
         if navbat:
             it = navbat.popleft()
             yangi_total = (y.quantity * y.unit_price).quantize(Decimal("0.01"))
@@ -4066,8 +4066,10 @@ def _hafta_qatorlarini_yangila(w, yangi, ws_, we_, user):
     return None
 
 
-def _lj_key(name, bolim):
-    return (name or "").strip().lower() + "|" + (bolim or "").strip().lower()
+def _lj_key(name, bolim, kind=""):
+    """Qator kaliti: nom + bo'lim + TUR. Bir xil nom har xil turda (material / ish haqi /
+    mashina / ko'zda tutilmagan) — ALOHIDA qatorlar (foydalanuvchi qarori, 2026-10-21)."""
+    return (name or "").strip().lower() + "|" + (bolim or "").strip().lower() + "|" + (kind or "").strip().lower()
 
 
 def _lj_guruhlar(items, fakt):
@@ -4078,7 +4080,7 @@ def _lj_guruhlar(items, fakt):
     items = list(items)
     dublikat_soni = {}
     for li in items:
-        k0 = _lj_key(li.name, li.bolim)
+        k0 = _lj_key(li.name, li.bolim, li.kind)
         dublikat_soni[k0] = dublikat_soni.get(k0, 0) + 1
     fakt_kalgan = {k0: {"qty": v["qty"], "sum": v["sum"]} for k0, v in fakt.items()}
     korilgan_dubl = {}
@@ -4090,7 +4092,7 @@ def _lj_guruhlar(items, fakt):
             g = _g[kal] = {"bolim": kal, "masul": (li.masul or "").strip(), "rows": []}
         if not g["masul"] and (li.masul or "").strip():
             g["masul"] = li.masul.strip()
-        k = _lj_key(li.name, li.bolim)
+        k = _lj_key(li.name, li.bolim, li.kind)
         rem = fakt_kalgan.get(k)
         korilgan_dubl[k] = korilgan_dubl.get(k, 0) + 1
         oxirgi_dubl = korilgan_dubl[k] == dublikat_soni.get(k, 1)
@@ -4696,7 +4698,7 @@ def limit_jadval(request, pk):
                         # shu POSTdagi (eski nomli) haftalik qatorlar ham yangi nomga o'tadi
                         yangi_nom = {k: it[k] for k in ("name", "bolim", "unit", "kind")}
                         hafta_qatorlarini_qayta_nomla(lim, eski, yangi_nom)
-                        qayta_nom[_lj_key(eski["name"], eski["bolim"])] = yangi_nom
+                        qayta_nom[_lj_key(eski["name"], eski["bolim"], eski["kind"])] = yangi_nom
                         lim_ozgardi = True
                 if yangilar:
                     LimitItem.objects.bulk_create([LimitItem(project=p, limit=lim, **{k: v for k, v in it.items() if k != "asl_id"})
@@ -4713,13 +4715,13 @@ def limit_jadval(request, pk):
         # Qoldiq (tasdiqlanganlar bo'yicha) — server tomonda qayta tekshiramiz
         qoldiq = {}
         for li in lim.items.all():
-            d = qoldiq.setdefault(_lj_key(li.name, li.bolim),
+            d = qoldiq.setdefault(_lj_key(li.name, li.bolim, li.kind),
                                   {"qty": Decimal("0"), "unit": li.unit, "nom": li.name})
             d["qty"] += li.quantity - (li.boshlangich_qty or 0)
         if taklif_view and taklif_obj is not None:
             # Hali tasdiqlanmagan taklif qatorlari — chegara sifatida ularning hajmi
             for it in taklif_obj.proposed_items.all():
-                k_ = _lj_key(it.name, it.bolim)
+                k_ = _lj_key(it.name, it.bolim, it.kind)
                 if k_ not in qoldiq:
                     qoldiq[k_] = {"qty": it.quantity - (it.boshlangich_qty or 0),
                                   "unit": it.unit, "nom": it.name}
@@ -4727,7 +4729,7 @@ def limit_jadval(request, pk):
             if w.status == "rejected" or (draft is not None and w.id == draft.id) or w.tahrir_ruxsat:
                 continue
             for it in w.items.all():
-                k = _lj_key(it.name, it.bolim)
+                k = _lj_key(it.name, it.bolim, it.kind)
                 if k in qoldiq:
                     qoldiq[k]["qty"] -= it.quantity
 
@@ -4739,7 +4741,7 @@ def limit_jadval(request, pk):
             nm = " ".join(str(row.get("name") or "").split())[:300]
             if not nm:
                 continue
-            yn = qayta_nom.get(_lj_key(nm, " ".join(str(row.get("bolim") or "").split())))
+            yn = qayta_nom.get(_lj_key(nm, " ".join(str(row.get("bolim") or "").split()), str(row.get("kind") or "material")))
             if yn:
                 row = dict(row, name=yn["name"], bolim=yn["bolim"], unit=yn["unit"], kind=yn["kind"])
                 nm = yn["name"]
@@ -4760,7 +4762,7 @@ def limit_jadval(request, pk):
                 quantity=q, unit_price=pr,
                 note=" ".join(str(row.get("izoh") or "").split())[:500],
                 bolim=bolim))
-            k = _lj_key(nm, bolim)
+            k = _lj_key(nm, bolim, kind)
             sorov[k] = sorov.get(k, Decimal("0")) + q
         # Qolgandan oshmasin (shu sahifaning qat'iy nazorati)
         for k, jq in sorov.items():
@@ -4819,7 +4821,7 @@ def limit_jadval(request, pk):
         if w.status == "rejected" or (draft is not None and w.id == draft.id) or w.tahrir_ruxsat:
             continue
         for it in w.items.all():
-            k = _lj_key(it.name, it.bolim)
+            k = _lj_key(it.name, it.bolim, it.kind)
             d = fakt.setdefault(k, {"qty": Decimal("0"), "sum": Decimal("0")})
             d["qty"] += it.quantity
             d["sum"] += it.total
@@ -4834,7 +4836,7 @@ def limit_jadval(request, pk):
             # Amaldagi limitdan farqi: yangi / o'zgargan / o'chirilayotgan qatorlar
             joriy = {}
             for li in lim.items.all().order_by("id"):
-                joriy.setdefault(_lj_key(li.name, li.bolim),
+                joriy.setdefault(_lj_key(li.name, li.bolim, li.kind),
                                  (li.name, float(li.quantity), float(li.unit_price)))
             t_keys = set()
             for g in guruhlar:
@@ -4869,7 +4871,7 @@ def limit_jadval(request, pk):
     for i, w in enumerate(haftalar, start=1):
         items_map, boshqa = {}, []
         for it in w.items.all():
-            k = _lj_key(it.name, it.bolim)
+            k = _lj_key(it.name, it.bolim, it.kind)
             row = {"qty": float(it.quantity), "price": float(it.unit_price),
                    "sum": float(it.total), "izoh": it.note or "",
                    "name": it.name, "bolim": it.bolim or "",
@@ -5164,7 +5166,7 @@ def limit_jadval_export(request, pk):
     for w in haftalar:
         m = {}
         for wi in w.items.all():
-            k = _lj_key(wi.name, wi.bolim)
+            k = _lj_key(wi.name, wi.bolim, wi.kind)
             d = m.setdefault(k, [Decimal("0"), Decimal("0")])
             d[0] += wi.quantity
             d[1] += wi.total
@@ -5175,13 +5177,13 @@ def limit_jadval_export(request, pk):
     fakt = {}
     for wi in (WeeklyRequestItem.objects.filter(request__limit=lim)
                .exclude(request__status__in=["rejected", "draft"])):
-        k = _lj_key(wi.name, wi.bolim)
+        k = _lj_key(wi.name, wi.bolim, wi.kind)
         d = fakt.setdefault(k, {"qty": Decimal("0"), "sum": Decimal("0")})
         d["qty"] += wi.quantity
         d["sum"] += wi.total
     dubl = {}
     for li in lim.items.all():
-        k0 = _lj_key(li.name, li.bolim)
+        k0 = _lj_key(li.name, li.bolim, li.kind)
         dubl[k0] = dubl.get(k0, 0) + 1
     rem = {k0: {"qty": v["qty"], "sum": v["sum"]} for k0, v in fakt.items()}
     korilgan = {}
@@ -5194,7 +5196,7 @@ def limit_jadval_export(request, pk):
                                  "rows": []}
         if not g["masul"] and (li.masul or "").strip():
             g["masul"] = li.masul.strip()
-        k = _lj_key(li.name, li.bolim)
+        k = _lj_key(li.name, li.bolim, li.kind)
         korilgan[k] = korilgan.get(k, 0) + 1
         oxirgi = korilgan[k] == dubl.get(k, 1)
         r0 = rem.get(k)

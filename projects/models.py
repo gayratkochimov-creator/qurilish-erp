@@ -698,7 +698,7 @@ def hafta_qatorlarini_qayta_nomla(lim, eski, yangi):
     if all(eski[k] == yangi[k] for k in ("name", "bolim", "unit", "kind")):
         return 0
     return (WeeklyRequestItem.objects
-            .filter(request__limit=lim, name=eski["name"], bolim=eski["bolim"])
+            .filter(request__limit=lim, name=eski["name"], bolim=eski["bolim"], kind=eski["kind"])
             .update(name=yangi["name"], bolim=yangi["bolim"],
                     unit=yangi["unit"], kind=yangi["kind"]))
 

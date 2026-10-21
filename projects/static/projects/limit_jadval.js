@@ -126,12 +126,13 @@
     var t = document.getElementById('ljTbl');
     if (t) t.querySelectorAll('input[type=number].wkin').forEach(raqamKengay);
   }
-  function wkKey(n, b){ return (n||'').trim().toLowerCase()+'|'+(b||'').trim().toLowerCase(); }
-  // Tanlangan haftaning shu nom+bo'lim bo'yicha qiymatlari (limitda yo'q qatorlar ham)
-  function wkItems(h, name, bolim){
+  // Kalit: nom + bo'lim + TUR (serverdagi _lj_key bilan bir xil)
+  function wkKey(n, b, k){ return (n||'').trim().toLowerCase()+'|'+(b||'').trim().toLowerCase()+'|'+(k||'').trim().toLowerCase(); }
+  // Tanlangan haftaning shu nom+bo'lim+tur bo'yicha qiymatlari (limitda yo'q qatorlar ham)
+  function wkItems(h, name, bolim, kind){
     if (!h) return null;
-    var k = wkKey(name, bolim);
-    var arr = h.items[k] || (h.boshqa||[]).filter(function(b){ return wkKey(b.name, b.bolim) === k; });
+    var k = wkKey(name, bolim, kind);
+    var arr = h.items[k] || (h.boshqa||[]).filter(function(b){ return wkKey(b.name, b.bolim, b.kind) === k; });
     if (!arr || !arr.length) return null;
     var q = 0; arr.forEach(function(a){ q += (a.qty||0); });
     return { qty:q, price:arr[0].price||0, izoh:arr[0].izoh||'' };
@@ -508,7 +509,7 @@
         var wEdit = tahrirmi();   // hafta ustuni faqat PTO/admin tahriridagi ochiq haftada
         if (TAKLIF_EDIT && x._wkTab !== sel){
           // Taklif/qoralama qatori: tanlangan haftaning saqlangan qiymatlari
-          var its0 = wkItems(haftaTop(sel), x.name, blkBolim(blk));
+          var its0 = wkItems(haftaTop(sel), x.name, blkBolim(blk), x.kind || 'material');
           x.wq = its0 ? its0.qty : 0; x.wp = its0 ? its0.price : 0; x.wi = its0 ? its0.izoh : '';
           x._wkTab = sel;
         }
@@ -1069,17 +1070,17 @@
     // --- Бир блокда бир хил номли қаторлар ---
     (function(){
       var sanoq = {}, nomlar = {}, tahrir = {};
-      function qosh(nom, bolim, tahrirlanadi){
-        var k = (nom||'').trim().toLowerCase()+'|'+(bolim||'').trim().toLowerCase();
+      function qosh(nom, bolim, kind, tahrirlanadi){
+        var k = wkKey(nom, bolim, kind);
         if (!(nom||'').trim()) return;
         sanoq[k] = (sanoq[k]||0) + 1; nomlar[k] = [nom, bolim]; if (tahrirlanadi) tahrir[k] = true;
       }
       ishRows().forEach(function(tr){
         if (rowDel(tr)) return;
-        if (LIM_EDIT && tr.dataset.id){ var lx = limRow(tr); qosh(lx.name, tr.dataset.bolim, true); }
-        else qosh(tr.dataset.name, tr.dataset.bolim, false);
+        if (LIM_EDIT && tr.dataset.id){ var lx = limRow(tr); qosh(lx.name, tr.dataset.bolim, lx.kind || tr.dataset.kind, true); }
+        else qosh(tr.dataset.name, tr.dataset.bolim, tr.dataset.kind, false);
       });
-      yangiBloklar.forEach(function(blk){ blk.rows.forEach(function(x){ qosh(x.name, blkBolim(blk), true); }); });
+      yangiBloklar.forEach(function(blk){ blk.rows.forEach(function(x){ qosh(x.name, blkBolim(blk), x.kind || 'material', true); }); });
       Object.keys(sanoq).forEach(function(k){
         if (sanoq[k] < 2) return;
         var n = nomlar[k], matn = '«'+n[0]+'» номи «'+(n[1]||'Бўлимсиз')+'» блокида '+sanoq[k]+' марта — ҳафталик фақат биринчи қаторга ёзилади. Бошқа иш бўлса номини фарқланг (масалан: «'+n[0]+' — дюсел 150»).';
