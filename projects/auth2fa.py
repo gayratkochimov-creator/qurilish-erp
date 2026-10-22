@@ -216,14 +216,25 @@ def kirish(request):
     xato = ""
     bot_kerak = False      # Telegram bog'lanmagan — ro'yxatdan o'tish yo'riqnomasi chiqadi
     if request.method == "POST":
-        user = authenticate(
-            request,
-            username=(request.POST.get("username") or "").strip(),
-            password=request.POST.get("password") or "",
-        )
+        from django.core.cache import cache
+        _login = (request.POST.get("username") or "").strip()
+        _ip = request.META.get("HTTP_X_FORWARDED_FOR", request.META.get("REMOTE_ADDR", "")).split(",")[0].strip()
+        _blok_kalit = f"login_blok:{_login.lower()}:{_ip}"
+        # XAVFSIZLIK (2026-10-22): parolni tanlab topishga qarshi — 5 xato → 15 daqiqa
+        if cache.get(_blok_kalit, 0) >= 5:
+            return render(request, "registration/login.html", {
+                "xato": "Ko'p marta noto'g'ri urinish — 15 daqiqadan keyin qayta urinib ko'ring.",
+                "bot_kerak": False, "bot": ""})
+        user = authenticate(request, username=_login, password=request.POST.get("password") or "")
         if user is None:
+            try:
+                cache.add(_blok_kalit, 0, 900)
+                cache.incr(_blok_kalit)
+            except Exception:
+                pass
             xato = "Login yoki parol noto'g'ri. Qaytadan urinib ko'ring."
         else:
+            cache.delete(_blok_kalit)
             prof = getattr(user, "profile", None)
             chat = (prof.telegram_chat_id or "").strip() if prof else ""
             if not chat and not tg_majburiy():

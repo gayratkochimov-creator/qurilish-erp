@@ -15,7 +15,7 @@ from django.db.models import Sum
 
 from .models import (_LINE_TOTAL, Firma, GrafikRow, LimitChangeItem,
                      LimitChangeRequest, LimitItem, Project, WeeklyRequest,
-                     WeeklyRequestItem, sync_limit_items, hafta_qatorlarini_qayta_nomla)
+                     WeeklyRequestItem, limit_qatorlarini_qolla, sync_limit_items, hafta_qatorlarini_qayta_nomla)
 from .roles import (
     can_access_project, is_admin, is_director, is_prorab, is_pto,
     visible_firmas, visible_projects,
@@ -1065,7 +1065,9 @@ def limit_narx_yangilash(request, pk):
             ozgardi.append(f"{li.name} {_money(li.unit_price)} → {_money(narx)}")
         items.append({"kind": li.kind, "name": li.name, "unit": li.unit,
                       "quantity": li.quantity, "unit_price": narx, "note": li.note,
-                      "bolim": li.bolim, "masul": li.masul})
+                      "bolim": li.bolim, "masul": li.masul,
+                      "boshlangich_qty": li.boshlangich_qty, "boshlangich_sum": li.boshlangich_sum,
+                      "asl_id": li.id})
         sums[li.kind if li.kind in sums else "material"] += (li.quantity * narx).quantize(Decimal("0.01"))
     if not ozgardi:
         messages.info(request, "Narxi o'zgargan qator yo'q — limit joriy narxlarda.")
@@ -1074,7 +1076,7 @@ def limit_narx_yangilash(request, pk):
     reason = ("Narx o'zgarishi (joriy narxda yangilash): " + "; ".join(ozgardi))[:255]
     if is_admin(request.user):
         with transaction.atomic():
-            sync_limit_items(lim, items)
+            limit_qatorlarini_qolla(lim, items)   # ID bo'yicha — boshlang'ich/sana saqlanadi
             p.recompute_limits()
         messages.success(request, f"Limit joriy narxda yangilandi (admin). Umumiy limit: {_money(p.budget_total)}. "
                                   f"O'zgargan: {len(ozgardi)} qator.")
@@ -1089,7 +1091,7 @@ def limit_narx_yangilash(request, pk):
                 new_machinery=sums["machinery"], new_other=sums["other"],
                 reason=reason, requested_by=request.user, status=_st,
             )
-            LimitChangeItem.objects.bulk_create([LimitChangeItem(request=req, **it) for it in items])
+            LimitChangeItem.objects.bulk_create([LimitChangeItem(request=req, **it) for it in items])   # asl_id/boshlang'ich bilan
         messages.success(request, f"{len(ozgardi)} qator narxi joriy narxga yangilanib so'rov yuborildi. "
                                   + _limit_yubor_xabar(_st))
     return redirect("project_detail", pk=pk)
@@ -1205,7 +1207,8 @@ def limit_return_pto(request, pk):
         LimitChangeItem.objects.bulk_create([
             LimitChangeItem(request=req, kind=it.kind, name=it.name, unit=it.unit,
                             quantity=it.quantity, unit_price=it.unit_price,
-                            note=it.note, bolim=it.bolim, masul=it.masul)
+                            note=it.note, bolim=it.bolim, masul=it.masul,
+                            asl=it, boshlangich_qty=it.boshlangich_qty, boshlangich_sum=it.boshlangich_sum)
             for it in items
         ])
     messages.success(request,
@@ -4553,6 +4556,13 @@ def limit_jadval(request, pk):
                 lim_del.add(int(x))
             except (TypeError, ValueError):
                 pass
+        if lim_del:
+            _tolovli = list(LimitItem.objects.filter(id__in=lim_del, moliyalar__bekor=False)
+                            .distinct().values_list("name", flat=True))
+            if _tolovli:
+                messages.error(request, "To'lov yozilgan qator(lar) o'chirilmaydi: «" + "», «".join(_tolovli[:5])
+                               + "». Avval buxgalter to'lovni bekor qiladi (admin ruxsati bilan).")
+                return _qayt()
         # QO'SHISH rejimi: qulf, lekin yangi qatorlar — zanjir orqali (tahrir/o'chirish yo'q)
         qosh_rejim = (not lim_edit_huquq) and lim_qosh_huquq and bool(lim_new)
         if qosh_rejim:
@@ -4682,6 +4692,8 @@ def limit_jadval(request, pk):
             with transaction.atomic():
                 for li in lim.items.all().order_by("id"):
                     if li.id in lim_del:
+                        if li.moliyalar.filter(bekor=False).exists():
+                            continue   # to'lovli qator o'chirilmaydi (yuqorida xabar berilgan)
                         li.delete()
                         lim_ozgardi = True
                         continue

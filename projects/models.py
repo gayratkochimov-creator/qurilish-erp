@@ -1,4 +1,4 @@
-﻿"""
+"""
 projects/models.py
 """
 from decimal import Decimal
@@ -703,6 +703,11 @@ def hafta_qatorlarini_qayta_nomla(lim, eski, yangi):
                     unit=yangi["unit"], kind=yangi["kind"]))
 
 
+def tolovli_limit_qatori(li):
+    """Qatorga faol (bekor qilinmagan) to'lov yozilganmi — bunday qator O'CHIRILMAYDI."""
+    return li.moliyalar.filter(bekor=False).exists()
+
+
 def limit_qatorlarini_qolla(lim, items):
     """Limit jadvalidan kelgan TO'LIQ ro'yxatni qo'llaydi: `asl_id` bor qator — o'sha
     LimitItem o'rnida yangilanadi (sana/ID saqlanadi, haftalik tarixi ergashadi),
@@ -725,6 +730,8 @@ def limit_qatorlarini_qolla(lim, items):
             hafta_qatorlarini_qayta_nomla(lim, eski, {k: it[k] for k in ("name", "bolim", "unit", "kind")})
     for pk, li in mavjud.items():
         if pk not in qoldi:
+            if tolovli_limit_qatori(li):
+                continue      # to'lovli qator saqlanib qoladi (jurnal yo'qolmasin)
             li.delete()
 
 
@@ -770,9 +777,11 @@ def sync_limit_items(lim, items):
             li.boshlangich_qty = it.get("boshlangich_qty", 0)
             li.boshlangich_sum = it.get("boshlangich_sum", 0)
             li.save()          # auto_now -> updated_at yangilanadi
-    # ro'yxatda qolmaganlarni o'chiramiz
+    # ro'yxatda qolmaganlarni o'chiramiz (to'lovli qatorlar saqlanadi)
     for navbat in mavjud.values():
         for li in navbat:
+            if tolovli_limit_qatori(li):
+                continue
             li.delete()
 
 
@@ -921,8 +930,10 @@ class Moliya(models.Model):
     # 2026-10-12: moliyalashtirish UMUMIY LIMIT jadvali bo'yicha yuritiladi —
     # to'lov limit qatoriga yoziladi (eski haftalik to'lovlar item orqali saqlanib qoladi
     # va mos limit qatoriga qo'shib hisoblanadi)
+    # PROTECT (2026-10-22 audit): to'lov yozilgan limit qatori o'chirilsa pul jurnali
+    # izsiz yo'qolmasin — o'chirish urinishi xato beradi, ko'rinishlar oldindan tekshiradi
     limit_item = models.ForeignKey(
-        "LimitItem", on_delete=models.CASCADE, null=True, blank=True,
+        "LimitItem", on_delete=models.PROTECT, null=True, blank=True,
         related_name="moliyalar", verbose_name="Limit qatori",
     )
     summa = models.DecimalField("Berilgan summa", **MONEY)

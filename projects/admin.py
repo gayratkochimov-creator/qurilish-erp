@@ -1,4 +1,4 @@
-﻿"""
+"""
 projects/admin.py — Obyektlar (Project) va ish bo'limlari uchun admin.
 """
 from django import forms
@@ -344,7 +344,29 @@ class UserAdmin(DjangoUserAdmin):
         ro = list(super().get_readonly_fields(request, obj))
         if not _asosiy_adminmi(request.user):
             ro += ["is_active", "is_staff", "is_superuser"]
+            # XAVFSIZLIK (2026-10-22): boshqa superuser'ning LOGINI ham o'zgarmaydi — aks holda
+            # «admin» loginini o'ziga ko'chirib asosiy admin bo'lib olish mumkin edi
+            if obj is not None and obj.is_superuser and obj.pk != request.user.pk:
+                ro += ["username", "first_name", "last_name", "email", "groups", "user_permissions"]
         return ro
+
+    def save_model(self, request, obj, form, change):
+        from django.conf import settings as _s
+        asosiy = getattr(_s, "ASOSIY_ADMIN_LOGIN", "admin")
+        eski_login = type(obj).objects.filter(pk=obj.pk).values_list("username", flat=True).first() if change else None
+        if not _asosiy_adminmi(request.user) and obj.username == asosiy and eski_login != asosiy:
+            # faqat asosiy admin «admin» loginini bera oladi
+            raise PermissionDenied(f"«{asosiy}» loginini faqat asosiy admin beradi.")
+        super().save_model(request, obj, form, change)
+
+    def user_change_password(self, request, id, form_url=""):
+        # Boshqa superuser'ning parolini faqat ASOSIY admin o'zgartiradi
+        from django.core.exceptions import PermissionDenied as _PD
+        maqsad = self.get_object(request, id)
+        if maqsad is not None and maqsad.is_superuser and maqsad.pk != request.user.pk \
+                and not _asosiy_adminmi(request.user):
+            raise _PD("Boshqa adminning parolini faqat asosiy admin o'zgartiradi.")
+        return super().user_change_password(request, id, form_url)
 
     def get_queryset(self, request):
         # Foydalanuvchilarni faqat superuser boshqaradi; boshqa staff — faqat o'zini ko'radi

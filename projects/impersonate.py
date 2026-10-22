@@ -20,15 +20,33 @@ from django.shortcuts import get_object_or_404, redirect
 ASL_ADMIN_KALIT = "asl_admin_id"
 
 
+def _jurnal(matn):
+    """Impersonatsiya jurnali — BASE_DIR/impersonate.log (kim, kim sifatida, qachon)."""
+    try:
+        from django.conf import settings
+        from django.utils import timezone
+        with open(settings.BASE_DIR / "impersonate.log", "a", encoding="utf-8") as f:
+            f.write(f"{timezone.localtime():%Y-%m-%d %H:%M:%S} | {matn}\n")
+    except Exception:
+        pass
+
+
 @login_required
 def sifatida_kirish(request, pk):
-    """Superuser -> tanlangan xodim sifatida kirish."""
+    """Superuser -> tanlangan xodim sifatida kirish.
+    XAVFSIZLIK (2026-10-22): boshqa SUPERUSER (shu jumladan asosiy admin) sifatida kirish
+    faqat ASOSIY adminga — aks holda ikkinchi admin asosiy adminning huquqini oladi."""
+    from .roles import is_asosiy_admin
     if not request.user.is_superuser:
         raise PermissionDenied("Faqat asosiy admin.")
     U = get_user_model()
     maqsad = get_object_or_404(U, pk=pk, is_active=True)
     if maqsad.pk == request.user.pk:
         return redirect("/")
+    if maqsad.is_superuser and not is_asosiy_admin(request.user):
+        _jurnal(f"RAD: {request.user.username} -> {maqsad.username} (superuser)")
+        raise PermissionDenied("Boshqa admin sifatida kirish — faqat asosiy admin.")
+    _jurnal(f"KIRDI: {request.user.username} -> {maqsad.username} | IP {request.META.get('REMOTE_ADDR', '')}")
     admin_id = request.user.pk
     # login() boshqa user uchun sessiyani tozalaydi — belgini KEYIN yozamiz
     dj_login(request, maqsad, backend="django.contrib.auth.backends.ModelBackend")
@@ -49,6 +67,7 @@ def adminga_qaytish(request):
     if admin is None:
         request.session.pop(ASL_ADMIN_KALIT, None)
         return redirect("/")
+    _jurnal(f"QAYTDI: {admin.username} <- {request.user.username}")
     dj_login(request, admin, backend="django.contrib.auth.backends.ModelBackend")
     request.session.pop(ASL_ADMIN_KALIT, None)
     messages.success(request, "O'z hisobingizga (admin) qaytdingiz.")
