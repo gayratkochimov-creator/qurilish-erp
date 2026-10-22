@@ -1504,24 +1504,30 @@ def tasdiqlar(request):
     return render(request, "projects/tasdiqlar.html", {"lim_list": lim_list, "wk_list": wk_list})
 
 
+def _faol(u):
+    """Bo'shatilgan (is_active=False) xodim bosqich egasi bo'lmaydi — None (2026-10-22):
+    uning o'rniga obyektga biriktirilgan faol xodim davom ettiradi."""
+    return u if (u is not None and u.is_active) else None
+
+
 def _limit_bosqich_egasi(req, status):
     """Limit so'rovining shu bosqichida javob beradigan foydalanuvchi: avval shu
-    so'rovda o'sha bosqichni bajargan odam, bo'lmasa obyekt/firmaga biriktirilgani."""
+    so'rovda o'sha bosqichni bajargan odam (faol bo'lsa), bo'lmasa obyekt/firmaga biriktirilgani."""
     from django.contrib.auth import get_user_model
     U = get_user_model()
     p = req.project
     if status == "snab":
-        return req.snab_by or (U.objects.filter(is_active=True, profile__projects=p, profile__role="snab")
-                               .order_by("username").first())
+        return _faol(req.snab_by) or (U.objects.filter(is_active=True, profile__projects=p, profile__role="snab")
+                                      .order_by("username").first())
     if status == "pto2":
-        return req.pto2_by or req.requested_by or (
+        return _faol(req.pto2_by) or _faol(req.requested_by) or (
             U.objects.filter(is_active=True, profile__projects=p, profile__role="pto").order_by("username").first())
     if status == "dir":
-        return req.director_by or (U.objects.filter(is_active=True, profile__firma=p.firma, profile__role="director")
-                                   .order_by("username").first())
+        return _faol(req.director_by) or (U.objects.filter(is_active=True, profile__firma=p.firma, profile__role="director")
+                                          .order_by("username").first())
     if status == "prov":
         pr_ = _provlar()
-        return req.prov_by or (pr_[0] if pr_ else None)
+        return _faol(req.prov_by) or (pr_[0] if pr_ else None)
     return None
 
 
@@ -1775,14 +1781,14 @@ def _wk_bosqich_egasi(req, status):
         return qs.order_by("username").first()
 
     if status == "draft" or status == "pto2":
-        return (req.pto2_by if status == "pto2" else None) or req.created_by or birinchi("pto")
+        return _faol(req.pto2_by if status == "pto2" else None) or _faol(req.created_by) or birinchi("pto")
     if status == "snab":
-        return req.snab_by or birinchi("snab")
+        return _faol(req.snab_by) or birinchi("snab")
     if status == "dir":
-        return req.director_by or birinchi("director", True)
+        return _faol(req.director_by) or birinchi("director", True)
     if status == "prov":
         pr_ = _provlar()
-        return req.prov_by or (pr_[0] if pr_ else None)
+        return _faol(req.prov_by) or (pr_[0] if pr_ else None)
     if status == "submitted":
         from django.conf import settings as _s
         return (U.objects.filter(is_active=True, is_superuser=True,
@@ -5053,7 +5059,8 @@ def limit_jadval(request, pk):
             lj_qadamlar.append({"nom": n, "holat": "keyin", "kim": "", "vaqt": ""})
         if qoralama_obj:
             lj_qadamlar[0]["holat"] = "joriy"
-            meniki = qoralama_obj.requested_by_id == request.user.id
+            meniki = (qoralama_obj.requested_by_id == request.user.id
+                      or (qoralama_obj.requested_by_id and not qoralama_obj.requested_by.is_active))
             lj_pill = {"tur": "draft", "matn": "Қоралама сизда" if meniki else "Қоралама · " + _ism(qoralama_obj.requested_by)}
         elif _oxt or limit_bor:
             for q_ in lj_qadamlar:
@@ -5542,3 +5549,38 @@ def weekly_edit(request, pk):
     w0 = get_object_or_404(WeeklyRequest, pk=pk)
     _firma_yoki_403(request, w0.project)
     return redirect(_lj_url(w0.limit or w0.project.joriy_limit(), korinish="amaldagi"))
+
+
+@login_required
+def xodim_faoliyat(request, pk):
+    """FAQAT ADMIN: xodim (shu jumladan bo'shatilgan) tizimga nima kiritganini ko'rish —
+    limit so'rovlari, haftalik so'rovlar, to'lovlar, prorab so'rovlari (2026-10-22)."""
+    from django.contrib.auth import get_user_model
+    from .models import MaterialRequest, Moliya
+    if not is_admin(request.user):
+        raise PermissionDenied("Faqat admin ko'radi.")
+    u = get_object_or_404(get_user_model(), pk=pk)
+    prof = getattr(u, "profile", None)
+    lim_req = []
+    for r in (LimitChangeRequest.objects.filter(requested_by=u).select_related("project", "limit")
+              .prefetch_related("proposed_items").order_by("-created_at")[:200]):
+        items = list(r.proposed_items.all())
+        lim_req.append({"r": r, "soni": len(items), "summa": _money(sum((it.total for it in items), Decimal("0"))),
+                        "url": _lj_url(r.limit or r.project.joriy_limit(), korinish="taklif") if r.status in LIM_JARAYON or r.status == "draft"
+                        else _lj_url(r.limit or r.project.joriy_limit())})
+    haftalar = []
+    for w in (WeeklyRequest.objects.filter(created_by=u).select_related("project", "limit")
+              .prefetch_related("items").order_by("-week_start")[:300]):
+        items = list(w.items.all())
+        haftalar.append({"w": w, "soni": len(items), "summa": _money(sum((it.total for it in items), Decimal("0"))),
+                         "url": _lj_url(w.limit or w.project.joriy_limit(), hafta=w.id)})
+    tolovlar = list(Moliya.objects.filter(yozdi=u).select_related("limit_item__project", "item__request__project").order_by("-created_at")[:200])
+    try:
+        sorovlar = list(MaterialRequest.objects.filter(created_by=u).select_related("project").order_by("-id")[:200])
+    except Exception:
+        sorovlar = []
+    return render(request, "projects/xodim_faoliyat.html", {
+        "u": u, "prof": prof, "lim_req": lim_req, "haftalar": haftalar, "tolovlar": tolovlar, "sorovlar": sorovlar,
+        "obyektlar": list(prof.projects.all()) if prof else [],
+        "jami": {"lim": len(lim_req), "hafta": len(haftalar), "tolov": len(tolovlar), "sorov": len(sorovlar)},
+    })

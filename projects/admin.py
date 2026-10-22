@@ -321,7 +321,7 @@ def _asosiy_adminmi(user):
 
 class UserAdmin(DjangoUserAdmin):
     inlines = [UserProfileInline]
-    list_display = DjangoUserAdmin.list_display + ("firma_nomi", "sifatida_kirish_tugma")
+    list_display = DjangoUserAdmin.list_display + ("firma_nomi", "sifatida_kirish_tugma", "faoliyat_tugma")
 
     # Eslatma: login/parol jonli tekshiruvi (admin_userform.js) endi jazzmin
     # "custom_js" orqali BARCHA admin sahifalariga ulanadi (settings.py) —
@@ -379,6 +379,11 @@ class UserAdmin(DjangoUserAdmin):
     def firma_nomi(self, obj):
         prof = getattr(obj, "profile", None)
         return prof.firma if prof and prof.firma_id else "—"
+
+    @admin.display(description="Faoliyat")
+    def faoliyat_tugma(self, obj):
+        """Xodim (bo'shatilgan ham) tizimga nima kiritgani — faqat admin ko'radi."""
+        return format_html('<a class="button" href="/xodim/{}/faoliyat/" title="Limit, haftalik, to\'lov, so\'rovlar">📋 Faoliyat</a>', obj.pk)
 
     @admin.display(description="Tekshirish")
     def sifatida_kirish_tugma(self, obj):

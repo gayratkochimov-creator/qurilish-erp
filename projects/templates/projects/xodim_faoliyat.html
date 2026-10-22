@@ -1,0 +1,56 @@
+{% extends "base_site.html" %}
+{% block title %}Xodim faoliyati — {{ u.username }}{% endblock %}
+{% block page_title %}Xodim faoliyati{% endblock %}
+{% block extra_head %}
+<style>
+  .xf-head { display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:14px; }
+  .xf-head h2 { margin:0; font-size:21px; font-weight:700; }
+  .chip { display:inline-flex; align-items:center; height:22px; padding:0 9px; border-radius:999px; font-size:11.5px; font-weight:700; }
+  .chip.off { background:#FEE2E2; color:#B91C1C; } .chip.on { background:#DCFCE7; color:#15803D; } .chip.gray { background:#F1F5F9; color:#475569; }
+  .kpi { display:grid; grid-template-columns:repeat(auto-fit, minmax(160px,1fr)); gap:12px; margin-bottom:14px; }
+  .kpi .c { background:#fff; border:1px solid #E2E8F0; border-radius:12px; padding:12px 16px; }
+  .kpi .l { font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:#64748B; font-weight:700; } .kpi .v { font-size:22px; font-weight:800; }
+  .panel { background:#fff; border:1px solid #E2E8F0; border-radius:14px; overflow:hidden; margin-bottom:16px; }
+  .panel h3 { margin:0; padding:12px 16px; border-bottom:1px solid #E2E8F0; font-size:14px; }
+  table { width:100%; border-collapse:collapse; } th { background:#F8FAFC; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#64748B; padding:8px 12px; text-align:left; border-bottom:1px solid #E2E8F0; }
+  td { padding:8px 12px; border-bottom:1px solid #EEF1F5; font-size:13px; vertical-align:top; } .num { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  a.lnk { color:#2563EB; text-decoration:none; font-weight:600; } .bosh { padding:16px; color:#94A3B8; font-size:13px; }
+  .eslatma { background:#FFFBEB; border:1px solid #FDE68A; border-radius:10px; padding:10px 14px; font-size:12.5px; color:#92400E; margin-bottom:14px; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="xf-head">
+  <h2>{{ u.username }}{% if u.get_full_name %} — {{ u.get_full_name }}{% endif %}</h2>
+  {% if u.is_active %}<span class="chip on">faol</span>{% else %}<span class="chip off">bo'shatilgan (is_active=False)</span>{% endif %}
+  {% if prof %}<span class="chip gray">{{ prof.get_role_display|default:"lavozim yo'q" }}{% if prof.firma %} · {{ prof.firma.name }}{% endif %}</span>{% endif %}
+  <a class="lnk" href="/admin/auth/user/{{ u.pk }}/change/" style="margin-left:auto; font-size:12.5px;">Admin panelda ochish</a>
+</div>
+{% if not u.is_active %}<div class="eslatma">Bu xodim tizimga kira olmaydi. Kiritgan ma'lumotlari saqlanib qolgan va faqat admin shu sahifada ko'radi. Obyektlariga biriktirilgan boshqa (faol) xodim ishni davom ettiradi — zanjir va qoralamalar unga o'tadi.</div>{% endif %}
+<div class="kpi">
+  <div class="c"><div class="l">Limit so'rovlari</div><div class="v">{{ jami.lim }}</div></div>
+  <div class="c"><div class="l">Haftalik so'rovlar</div><div class="v">{{ jami.hafta }}</div></div>
+  <div class="c"><div class="l">To'lovlar</div><div class="v">{{ jami.tolov }}</div></div>
+  <div class="c"><div class="l">Prorab so'rovlari</div><div class="v">{{ jami.sorov }}</div></div>
+  <div class="c"><div class="l">Biriktirilgan obyektlar</div><div class="v">{{ obyektlar|length }}</div></div>
+</div>
+
+<div class="panel"><h3>Umumiy limit so'rovlari (kiritgan / tahrirlagan)</h3>
+<table><thead><tr><th>Sana</th><th>Obyekt</th><th>Limit</th><th>Holat</th><th class="num">Qatorlar</th><th class="num">Summa</th><th>Sabab</th><th></th></tr></thead><tbody>
+{% for x in lim_req %}<tr><td>{{ x.r.created_at|date:"d.m.Y H:i" }}</td><td>{{ x.r.project.code }} — {{ x.r.project.name }}</td><td>{% if x.r.limit %}{{ x.r.limit.raqam }}-limit{% endif %}</td><td>{{ x.r.get_status_display }}</td><td class="num">{{ x.soni }}</td><td class="num">{{ x.summa }}</td><td style="font-size:12px; color:#475569;">{{ x.r.reason|truncatechars:60 }}</td><td><a class="lnk" href="{{ x.url }}">Jadval</a></td></tr>
+{% empty %}<tr><td colspan="8" class="bosh">Yo'q.</td></tr>{% endfor %}</tbody></table></div>
+
+<div class="panel"><h3>Haftalik so'rovlar (kiritgan)</h3>
+<table><thead><tr><th>Hafta</th><th>Obyekt</th><th>Holat</th><th class="num">Qatorlar</th><th class="num">Summa</th><th></th></tr></thead><tbody>
+{% for x in haftalar %}<tr><td>{{ x.w.week_start|date:"d.m" }}–{{ x.w.week_end|date:"d.m.Y" }}</td><td>{{ x.w.project.code }} — {{ x.w.project.name }}</td><td>{{ x.w.get_status_display }}</td><td class="num">{{ x.soni }}</td><td class="num">{{ x.summa }}</td><td><a class="lnk" href="{{ x.url }}">Jadval</a></td></tr>
+{% empty %}<tr><td colspan="6" class="bosh">Yo'q.</td></tr>{% endfor %}</tbody></table></div>
+
+<div class="panel"><h3>To'lovlar (buxgalter sifatida yozgan)</h3>
+<table><thead><tr><th>Sana</th><th>Qator</th><th>Obyekt</th><th class="num">Summa</th><th>Holat</th></tr></thead><tbody>
+{% for m in tolovlar %}<tr><td>{{ m.sana|date:"d.m.Y" }}</td><td>{{ m.qator.name }}</td><td>{% if m.project %}{{ m.project.code }}{% endif %}</td><td class="num">{{ m.summa|floatformat:"0" }}</td><td>{% if m.bekor %}bekor{% else %}faol{% endif %}</td></tr>
+{% empty %}<tr><td colspan="5" class="bosh">Yo'q.</td></tr>{% endfor %}</tbody></table></div>
+
+<div class="panel"><h3>Prorab so'rovlari</h3>
+<table><thead><tr><th>№</th><th>Obyekt</th><th>Holat</th><th>Sana</th></tr></thead><tbody>
+{% for s in sorovlar %}<tr><td>{{ s.raqam|default:s.pk }}</td><td>{{ s.project.code }} — {{ s.project.name }}</td><td>{{ s.get_status_display }}</td><td>{{ s.created_at|date:"d.m.Y" }}</td></tr>
+{% empty %}<tr><td colspan="4" class="bosh">Yo'q.</td></tr>{% endfor %}</tbody></table></div>
+{% endblock %}

@@ -1,4 +1,4 @@
-﻿from django.urls import path
+from django.urls import path
 from . import views
 
 urlpatterns = [
@@ -17,6 +17,7 @@ urlpatterns = [
     path("haftalik/<int:pk>/qaytarish/", views.weekly_return_pto, name="weekly_return_pto"),
     path("haftalik/<int:pk>/export/", views.weekly_export, name="weekly_export"),
     path("moliya/", views.moliya, name="moliya"),
+    path("xodim/<int:pk>/faoliyat/", views.xodim_faoliyat, name="xodim_faoliyat"),
     path("moliya/<int:item_id>/yozish/", views.moliya_yozish, name="moliya_yozish"),
     path("moliya/limit/<int:li_id>/yozish/", views.moliya_limit_yozish, name="moliya_limit_yozish"),
     path("moliya/limit/<int:li_id>/izoh/", views.moliya_izoh, name="moliya_izoh"),
