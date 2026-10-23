@@ -290,7 +290,10 @@
     if (til === 'kir') {
       qollash(document.body);
       // Keyin qo'shilgan elementlar (qator qo'shish, xabarlar, dropdown) ham kirillga o'tadi
-      new MutationObserver(function(muts){
+      // (2026-10-23) O'zgarishlar bitta kadrda yig'ilib ishlanadi — jadvalda yozish paytida
+      // har tugma bosilganda butun daraxt qayta yurilmaydi
+      var navbat = [], kadr = null;
+      function ishla(muts){
         if (ishlanmoqda) return;
         muts.forEach(function(m){
           if (m.type === 'characterData' && m.target.nodeValue && /[A-Za-z]/.test(m.target.nodeValue)) {
@@ -313,6 +316,12 @@
             }
           });
         });
+      }
+      new MutationObserver(function(muts){
+        if (ishlanmoqda) return;
+        for (var i = 0; i < muts.length; i++) navbat.push(muts[i]);
+        if (kadr) return;
+        kadr = requestAnimationFrame(function(){ kadr = null; var m = navbat; navbat = []; ishla(m); });
       }).observe(document.body, {childList:true, subtree:true, characterData:true});
     }
   })();
