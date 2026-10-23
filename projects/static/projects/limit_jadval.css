@@ -72,6 +72,7 @@
   .k-chip.labor { background:#f0fdf4; color:#15803d; border-color:#bbf7d0; }
   .k-chip.machinery { background:#f5f3ff; color:#7c3aed; border-color:#ddd6fe; }
   .k-chip.other { background:#fff7ed; color:#c2410c; border-color:#fed7aa; }
+  .k-chip.avans { background:#ccfbf1; color:#0f766e; border-color:#99f6e4; }
   .k-chip:hover { filter:brightness(.95); }
   /* Тури бўйича filtr chiplar (jadval tepasida) */
   .turbar { display:flex; gap:8px; align-items:center; margin:2px 0 8px; flex-wrap:wrap; font-size:12.5px; }

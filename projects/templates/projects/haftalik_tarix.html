@@ -41,7 +41,7 @@
   tbody tr:hover { background:#fafbff; }
   tfoot td { border-top:2px solid var(--line); font-weight:800; font-size:13px; background:#fafbfc; }
   .dot { display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:4px; vertical-align:middle; }
-  .dot.mat{background:#0a6ed1;} .dot.lab{background:#5899da;} .dot.mach{background:#89c3f0;}
+  .dot.mat{background:#0a6ed1;} .dot.lab{background:#5899da;} .dot.mach{background:#89c3f0;} .dot.av{background:#0f766e;}
   .badge { display:inline-block; color:#fff; padding:3px 10px; border-radius:999px; font-size:11px; font-weight:700; }
   .lnk { color:var(--brand); font-weight:700; font-size:12px; }
   .empty { padding:50px 20px; text-align:center; color:#94a3b8; font-size:14px; line-height:1.7; }
@@ -117,6 +117,7 @@
           <th class="num"><span class="dot mat"></span>Material</th>
           <th class="num"><span class="dot lab"></span>Ish haqi</th>
           <th class="num"><span class="dot mach"></span>Mashina</th>
+          <th class="num"><span class="dot av"></span>Avans</th>
           <th class="num">Jami</th><th>Holati</th><th></th>
         </tr>
       </thead>
@@ -131,12 +132,13 @@
           <td class="num">{{ r.mat_str }}</td>
           <td class="num">{{ r.lab_str }}</td>
           <td class="num">{{ r.mach_str }}</td>
+          <td class="num">{{ r.avans_str }}</td>
           <td class="num"><b>{{ r.jami_str }}</b></td>
           <td>{% if r.is_approved %}<span class="badge" style="background:#15803d;">Tasdiqlangan</span>{% else %}<span class="badge" style="background:#94a3b8;">Qoralama</span>{% endif %}</td>
           <td><button type="button" class="lnk detbtn" data-id="{{ r.id }}" style="border:none; background:none; cursor:pointer;">ichi ▾</button></td>
         </tr>
         <tr class="detrow" id="det-{{ r.id }}" style="display:none;">
-          <td colspan="11" style="background:#f8fafc; padding:10px 14px;">
+          <td colspan="12" style="background:#f8fafc; padding:10px 14px;">
             <div style="overflow-x:auto;">
             <table class="hjad" style="min-width:1150px; width:100%;">
               <thead>
@@ -201,7 +203,7 @@
           </td>
         </tr>
         {% empty %}
-        <tr><td colspan="11" class="empty">Tanlangan filtr bo'yicha haftalik limit topilmadi.</td></tr>
+        <tr><td colspan="12" class="empty">Tanlangan filtr bo'yicha haftalik limit topilmadi.</td></tr>
         {% endfor %}
       </tbody>
       {% if rows %}

@@ -67,7 +67,7 @@
   }
   function blkBolim(blk){ return blk.ichida !== undefined ? limBlok(blk.ichida).bolim : (blk.bolim||''); }
   function blkMasul(blk){ return blk.ichida !== undefined ? limBlok(blk.ichida).masul : (blk.masul||''); }
-  var KSEL = '<select class="ksel lim-k"><option value="material">Материал</option><option value="labor">Иш ҳақи</option><option value="machinery">Машина части</option><option value="other">Кўзда тутилмаган</option></select>';
+  var KSEL = '<select class="ksel lim-k"><option value="material">Материал</option><option value="labor">Иш ҳақи</option><option value="machinery">Машина части</option><option value="other">Кўзда тутилмаган</option><option value="avans">Аванс</option></select>';
   var STATUS_NOMI = { dir:"Директор тасдиғида", submitted:"Админ тасдиғида", approved:"Тасдиқланган", draft:"Қоралама" };
   var sel = DRAFT_ID !== null ? ('w'+DRAFT_ID)
             : (CAN_EDIT ? 'yangi' : (HAFTA.length ? 'w'+HAFTA[HAFTA.length-1].id : 'yangi'));
@@ -542,7 +542,7 @@
         r.innerHTML = '<td class="ctr"></td>'+
           '<td><textarea class="wkin tx yb-n" rows="1" placeholder="иш номи..."'+(x.sana ? ' title="Киритилган: '+esc(x.sana)+'"' : '')+'>'+esc(x.name||'')+'</textarea>'+
           (x.sana ? '<span style="font-size:10px; color:#94a3b8; white-space:nowrap; margin-left:4px;">'+esc(x.sana)+'</span>' : '')+
-          '<select class="ksel yb-k"><option value="material">Материал</option><option value="labor">Иш ҳақи</option><option value="machinery">Машина части</option><option value="other">Кўзда тутилмаган</option></select></td>'+
+          '<select class="ksel yb-k"><option value="material">Материал</option><option value="labor">Иш ҳақи</option><option value="machinery">Машина части</option><option value="other">Кўзда тутилмаган</option><option value="avans">Аванс</option></select></td>'+
           '<td><textarea class="wkin tx yb-i" rows="1" placeholder="изоҳ...">'+esc(x.izoh||'')+'</textarea></td>'+
           '<td class="ctr"><input class="wkin kichik yb-u" value="'+esc(x.unit||'')+'" placeholder="бирл."></td>'+
           '<td class="num"><input class="wkin yb-q" type="number" min="0" step="0.001" value="'+(x.vol||'')+'"></td>'+
@@ -726,7 +726,9 @@
   }
 
   // Tur tanlangach select IXCHAM CHIPGA aylanadi; chip bosilsa qayta ochiladi
-  var KIND_NOMLARI = { material:'Материал', labor:'Иш ҳақи', machinery:'Машина ч.', other:'Кўзда т.' };
+  var KIND_NOMLARI = { material:'Материал', labor:'Иш ҳақи', machinery:'Машина ч.', other:'Кўзда т.', avans:'Аванс' };
+  // «Аванс» qatori: umumiy limit jamiga KIRMAYDI, haftalik jamiga KIRADI (2026-10-23)
+  function qatorTuri(tr){ var x = (LIM_EDIT && tr.dataset.id) ? limRows[tr.dataset.id] : null; return (x && x.kind) || tr.dataset.kind || 'material'; }
   function turChipUla(r, sel, x){
     if (!sel) return;
     var chip = document.createElement('span');
@@ -870,7 +872,7 @@
         r.innerHTML = '<td class="ctr">+</td>'+
           '<td><input class="wkin tx ex-n" value="'+esc(x.name||'')+'" placeholder="иш номи...">'+
           '<input class="wkin tx ex-b" list="ljBolimList" value="'+esc(x.bolim||'')+'" placeholder="бўлим (ихтиёрий)" style="margin-top:2px;">'+
-          '<select class="ksel ex-k"><option value="material">Материал</option><option value="labor">Иш ҳақи</option><option value="machinery">Машина части</option><option value="other">Кўзда тутилмаган</option></select></td>'+
+          '<select class="ksel ex-k"><option value="material">Материал</option><option value="labor">Иш ҳақи</option><option value="machinery">Машина части</option><option value="other">Кўзда тутилмаган</option><option value="avans">Аванс</option></select></td>'+
           '<td><textarea class="wkin tx ex-i" rows="1" placeholder="изоҳ">'+esc(x.izoh||'')+'</textarea></td>'+
           '<td class="ctr dim">—</td><td class="num dim">—</td><td class="num dim">—</td><td class="num dim">—</td>'+
           '<td class="num dim">—</td><td class="num dim">—</td><td class="num dim">—</td><td class="num dim">—</td>'+
@@ -981,8 +983,8 @@
         if (!LIM_EDIT){ setT(tr.querySelector('.c-fqty'), fmt(fqJ)); setT(tr.querySelector('.c-fsum'), fmt(fsJ)); }
         setT(tr.querySelector('.c-lqty'), fmt(vol-fqJ));
         setT(tr.querySelector('.c-lsum'), fmt(vol*price-fsJ));
-        sT+=vol*price; sF+=fsJ; sL+=vol*price-fsJ; sW+=w.s;
-        gT+=vol*price; gF+=fsJ; gL+=vol*price-fsJ; gW+=w.s;
+        if (qatorTuri(tr) !== 'avans'){ sT+=vol*price; sF+=fsJ; sL+=vol*price-fsJ; gT+=vol*price; gF+=fsJ; gL+=vol*price-fsJ; }
+        sW+=w.s; gW+=w.s;
         tr.classList.remove('row-err'); tr.classList.remove('row-warn');
         nrk++; var rn = tr.querySelector('.rn'); setT(rn, nrk);
         // Бажарилган умумийдан ортиқ (лимитдан ошиб бўлган) — ОГОҲЛАНТИРИШ,
@@ -1000,7 +1002,14 @@
         if (edit){
           var lq = vol-fq;
           var xatoBor = false;
-          if (w.q > 0.0001 && w.q > lq + 0.001){
+          if (qatorTuri(tr) === 'avans'){
+            // Аванс — СУММА бўйича чегара (бўлиб-бўлиб берилади, миқдор 1 бўлса ҳам)
+            var ls = vol*price - fs;
+            if (w.s > 0.0001 && w.s > ls + 0.5){
+              errs.push('"'+tr.dataset.name+'" (аванс): сўралган сумма '+fmt(w.s)+' — қолган '+fmt(ls)+' дан ортиқ');
+              xatoBor = true;
+            }
+          } else if (w.q > 0.0001 && w.q > lq + 0.001){
             errs.push('"'+tr.dataset.name+'"'+(tr.dataset.bolim?(' ('+tr.dataset.bolim+')'):'')+': сўралган '+fmt(w.q)+' '+tr.dataset.unit+' — қолган '+fmt(lq)+' дан ортиқ');
             xatoBor = true;
           }
@@ -1044,9 +1053,9 @@
         // joriy hafta — Бажарилганга jonli
         var s0 = (x.vol||0)*(x.price||0), f0 = (x.fs||0) + (x.bs||0) + (wEditB ? (x.wq||0)*wnarx : 0),
             fq0 = (x.fq||0) + (x.bq||0) + (wEditB ? (x.wq||0) : 0);
-        gT += s0; gF += f0; gL += s0 - f0;
+        if ((x.kind||'material') !== 'avans'){ gT += s0; gF += f0; gL += s0 - f0; bT += s0; bF += f0; }
         gW += (x.wq||0) * wnarx;
-        bT += s0; bF += f0; bW += (x.wq||0) * wnarx;
+        bW += (x.wq||0) * wnarx;
         if ((x.name||'').trim() && (x.vol||0) < fq0 - 0.001)
           warns.push('"'+x.name+'"'+(blk.bolim?(' ('+blk.bolim+')'):'')+': бажарилган ('+fmt(fq0)+') умумийдан ('+fmt(x.vol||0)+') ортиқ.');
         if ((x.bq||0) < 0 || (x.bs||0) < 0) errs.push('«'+(x.name||blkNomi)+'»: бажарилган қисми манфий бўлмасин');
@@ -1057,8 +1066,12 @@
           errs.push('«'+blkNomi+'» блоки: иш номи ёзилмаган');
         // Умумий НАРХ мажбурий ЭМАС — занжирда СНАБЖЕНИЕ нархлайди
         if ((x.wq||0)>0 && wnarx<=0) errs.push('«'+(x.name||blkNomi)+'» (ҳафталик): нарх киритилмаган');
-        if ((x.wq||0)>0 && (x.vol||0)>0 && (x.wq||0) > (x.vol||0)+0.001)
-          errs.push('«'+(x.name||blkNomi)+'»: ҳафталик '+fmt(x.wq)+' — умумий '+fmt(x.vol)+' дан ортиқ');
+        if ((x.wq||0)>0 && (x.vol||0)>0){
+          if ((x.kind||'material') === 'avans'){
+            if ((x.wq||0)*wnarx > (x.vol||0)*(x.price||0)+0.5) errs.push('«'+(x.name||blkNomi)+'» (аванс): ҳафталик сумма '+fmt((x.wq||0)*wnarx)+' — умумий '+fmt((x.vol||0)*(x.price||0))+' дан ортиқ');
+          } else if ((x.wq||0) > (x.vol||0)+0.001)
+            errs.push('«'+(x.name||blkNomi)+'»: ҳафталик '+fmt(x.wq)+' — умумий '+fmt(x.vol)+' дан ортиқ');
+        }
       });
       // Taklif tahririda bo'limsiz blok ruxsat («Бўлимсиз қаторлар» — eski ma'lumot)
       if (toldirilgan && !blkBolim(blk).trim() && !TAKLIF_EDIT && blk.ichida === undefined)

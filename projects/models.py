@@ -90,7 +90,8 @@ class Project(models.Model):
         d = {"material": Decimal("0.00"), "labor": Decimal("0.00"),
              "machinery": Decimal("0.00"), "other": Decimal("0.00")}
         for r in agg:
-            d[r["kind"]] = r["s"] or Decimal("0.00")
+            if r["kind"] in d:          # «avans» — limit byudjetiga kirmaydi
+                d[r["kind"]] = r["s"] or Decimal("0.00")
         self.limit_material = d["material"]
         self.limit_labor = d["labor"]
         self.limit_machinery = d["machinery"]
@@ -112,15 +113,17 @@ class Project(models.Model):
             .annotate(s=Sum(_LINE_TOTAL))
         )
         for r in rows:
-            d[r["kind"]] = r["s"] or Decimal("0.00")
+            if r["kind"] in d:          # «avans» sarf toifalariga kirmaydi
+                d[r["kind"]] = r["s"] or Decimal("0.00")
         return d
 
     def sarflangan(self):
-        """Tasdiqlangan haftalik so'rovlar yig'indisi (bitta so'rov)."""
+        """Tasdiqlangan haftalik so'rovlar yig'indisi (bitta so'rov). «Avans» turi limit
+        byudjetiga kirmagani uchun bu yerda ham hisoblanmaydi (haftalik jamida ko'rinadi)."""
         agg = WeeklyRequestItem.objects.filter(
             request__project=self,
             request__status=WeeklyRequest.Status.APPROVED,
-        ).aggregate(s=Sum(_LINE_TOTAL))
+        ).exclude(kind="avans").aggregate(s=Sum(_LINE_TOTAL))
         return agg["s"] or Decimal("0.00")
 
     def qolgan(self):
@@ -191,14 +194,18 @@ class Limit(models.Model):
         return f"{self.project.code} · {self.raqam}-лимит"
 
     def jami(self):
-        """Shu limit qatorlari summasi."""
-        return (self.items.aggregate(s=Sum(_LINE_TOTAL))["s"] or Decimal("0.00"))
+        """Shu limit qatorlari summasi («avans» qatorlari KIRMAYDI)."""
+        return (self.items.exclude(kind="avans").aggregate(s=Sum(_LINE_TOTAL))["s"] or Decimal("0.00"))
+
+    def avans_jami(self):
+        """«Avans» turidagi qatorlar summasi — alohida ko'rsatiladi."""
+        return (self.items.filter(kind="avans").aggregate(s=Sum(_LINE_TOTAL))["s"] or Decimal("0.00"))
 
     def sarflangan(self):
         """Shu limitga yozilgan TASDIQLANGAN haftaliklar summasi."""
         return (WeeklyRequestItem.objects
                 .filter(request__limit=self, request__status=WeeklyRequest.Status.APPROVED)
-                .aggregate(s=Sum(_LINE_TOTAL))["s"] or Decimal("0.00"))
+                .exclude(kind="avans").aggregate(s=Sum(_LINE_TOTAL))["s"] or Decimal("0.00"))
 
 
 def _joriy_limit(self, yarat=True):
@@ -483,6 +490,7 @@ class WeeklyRequestItem(models.Model):
         LABOR = "labor", "Ish haqi"
         MACHINERY = "machinery", "Mashina chasti"
         OTHER = "other", "Ko'zda tutilmagan xarajatlar"
+        AVANS = "avans", "Avans"   # 2026-10-23: umumiy limit jamiga KIRMAYDI, haftalikda hisoblanadi
 
     request = models.ForeignKey(
         WeeklyRequest, on_delete=models.CASCADE,
@@ -549,6 +557,7 @@ class LimitItem(models.Model):
         LABOR = "labor", "Ish haqi"
         MACHINERY = "machinery", "Mashina chasti"
         OTHER = "other", "Ko'zda tutilmagan xarajatlar"
+        AVANS = "avans", "Avans"   # 2026-10-23: umumiy limit jamiga KIRMAYDI, haftalikda hisoblanadi
 
     project = models.ForeignKey(
         Project, on_delete=models.CASCADE,
@@ -1162,6 +1171,7 @@ class MaterialRequestItem(models.Model):
         LABOR = "labor", "Ish haqi"
         MACHINERY = "machinery", "Mashina chasti"
         OTHER = "other", "Ko'zda tutilmagan xarajatlar"
+        AVANS = "avans", "Avans"   # 2026-10-23: umumiy limit jamiga KIRMAYDI, haftalikda hisoblanadi
 
     request = models.ForeignKey(
         MaterialRequest, on_delete=models.CASCADE,
@@ -1196,7 +1206,7 @@ def obyekt_yigindilar(projects):
 
     def bosh():
         return {"sarf": nol, "kind": {"material": nol, "labor": nol, "machinery": nol, "other": nol},
-                "ber": nol, "lim_soni": 0}
+                "ber": nol, "lim_soni": 0, "avans": nol}
     out = {i: bosh() for i in ids}
     if not ids:
         return out
@@ -1205,6 +1215,9 @@ def obyekt_yigindilar(projects):
               .values("request__project_id", "kind").annotate(s=Sum(_LINE_TOTAL))):
         d = out.setdefault(r["request__project_id"], bosh())
         v = r["s"] or nol
+        if r["kind"] == "avans":
+            d["avans"] += v           # limit sarfiga kirmaydi, alohida
+            continue
         d["kind"][r["kind"]] = d["kind"].get(r["kind"], nol) + v
         d["sarf"] += v
     for r in (Moliya.objects.filter(item__request__project_id__in=ids, bekor=False,

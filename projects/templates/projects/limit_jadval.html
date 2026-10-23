@@ -1,4 +1,4 @@
-﻿{% extends "base_site.html" %}
+{% extends "base_site.html" %}
 {% load l10n static %}
 {% block title %}Лимит жадвали — {{ p.code }}{% endblock %}
 {% block content %}
@@ -208,6 +208,7 @@
   <button type="button" class="tchipf" data-k="labor"><span class="dotk" style="background:#15803d;"></span>Иш ҳақи</button>
   <button type="button" class="tchipf" data-k="machinery"><span class="dotk" style="background:#7c3aed;"></span>Машина части</button>
   <button type="button" class="tchipf" data-k="other"><span class="dotk" style="background:#c2410c;"></span>Кўзда тутилмаган</button>
+  <button type="button" class="tchipf" data-k="avans" title="Умумий лимит жамига кирмайди, ҳафталикда ҳисобланади"><span class="dotk" style="background:#0f766e;"></span>Аванс</button>
 </div>
 <div class="lj-wrap" id="jadvalWrap">
   <div class="lj-toliq-bosh">Бу лимитда ҳали тўлиқ олинган (қолган = 0) қатор йўқ.</div>

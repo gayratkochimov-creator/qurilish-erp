@@ -51,8 +51,10 @@ def _firma_yoki_403(request, project):
 
 
 KIND_NOMI = {"material": "Material", "labor": "Ish haqi", "machinery": "Mashina chasti",
-             "other": "Ko'zda tutilmagan xarajatlar"}
-KINDS = ("material", "labor", "machinery", "other")
+             "other": "Ko'zda tutilmagan xarajatlar", "avans": "Avans"}
+KINDS = ("material", "labor", "machinery", "other")          # limit BYUDJETI toifalari
+KINDS_ALL = KINDS + ("avans",)                               # + avans (byudjetga kirmaydi, haftalikda bor)
+AVANS_BLOK = "Аванс (умумий лимитга кирмайди)"
 
 # Tasdiqlash zanjirida «jarayonda» statuslar:
 # snab (snabjeniye ko'rigida) -> pto2 (PTO xulosasida) -> dir -> adm
@@ -1001,7 +1003,7 @@ def haftalik_tarix(request):
         for it in w.items.all():
             s[it.kind] = s.get(it.kind, Decimal("0")) + it.total
             cnt += 1
-        jami = s["material"] + s["labor"] + s["machinery"] + s["other"]
+        jami = sum(s.values(), Decimal("0"))      # avans ham haftalik jamiga kiradi
         t_jami += jami
         rows.append({
             "detal": _hafta_jadval_guruhlar(w, lim_cache, fakt_cache),
@@ -1016,6 +1018,7 @@ def haftalik_tarix(request):
             "is_approved": w.status == "approved",
             "mat_str": _money(s["material"]), "lab_str": _money(s["labor"]),
             "mach_str": _money(s["machinery"]), "oth_str": _money(s["other"]),
+            "avans_str": _money(s.get("avans", Decimal("0"))),
             "jami_str": _money(jami), "soni": cnt,
         })
 
@@ -1068,7 +1071,8 @@ def limit_narx_yangilash(request, pk):
                       "bolim": li.bolim, "masul": li.masul,
                       "boshlangich_qty": li.boshlangich_qty, "boshlangich_sum": li.boshlangich_sum,
                       "asl_id": li.id})
-        sums[li.kind if li.kind in sums else "material"] += (li.quantity * narx).quantize(Decimal("0.01"))
+        if li.kind in sums:
+            sums[li.kind] += (li.quantity * narx).quantize(Decimal("0.01"))
     if not ozgardi:
         messages.info(request, "Narxi o'zgargan qator yo'q — limit joriy narxlarda.")
         return redirect("project_detail", pk=pk)
@@ -1296,7 +1300,7 @@ def _tasdiqlar_data(status="dir", user=None):
     lreqs = (lreqs.select_related("project", "project__firma", "limit", "requested_by", "director_by",
                                   "snab_by", "pto2_by", "prov_by", "decided_by")
              .prefetch_related("proposed_items", "limit__items").order_by("-created_at"))
-    LI_CLS = {"material": "mat", "labor": "lab", "machinery": "mach", "other": "oth"}
+    LI_CLS = {"material": "mat", "labor": "lab", "machinery": "mach", "other": "oth", "avans": "av"}
     lim_list = []
     for r in lreqs:
         # Joriy tarkib bilan solishtirish — tasdiqlashdagi juftlash bilan BIR XIL tartibda,
@@ -1576,7 +1580,8 @@ def _limit_request_action_asl(request, pk):
                     it.delete()
                     sums = {k: Decimal("0") for k in KINDS}
                     for x in req.proposed_items.all():
-                        sums[x.kind] += x.total
+                        if x.kind in sums:
+                            sums[x.kind] += x.total
                     req.new_material = sums["material"]
                     req.new_labor = sums["labor"]
                     req.new_machinery = sums["machinery"]
@@ -2227,9 +2232,11 @@ def _obj_limit_wb(p):
     # Bo'limlar bo'yicha guruhlash (sahifadagi tartib: birinchi uchragan, bo'limsiz oxirida)
     guruh = {}
     for it in p.limit_items.all().order_by("id"):
-        kal = (it.bolim or "").strip()
+        kal = AVANS_BLOK if it.kind == "avans" else (it.bolim or "").strip()
         guruh.setdefault(kal, []).append(it)
-    tartib = [k for k in guruh if k] + ([""] if "" in guruh else [])
+    tartib = ([k for k in guruh if k and k != AVANS_BLOK] + ([""] if "" in guruh else [])
+              + ([AVANS_BLOK] if AVANS_BLOK in guruh else []))
+    avans_jami_qator = None
 
     # Ikki qatorli sarlavha (guruh ustunlari birlashtirilgan):
     #   F-H REJA | I-K BAJARILGAN | L-N QOLGAN | O NARX FARQI
@@ -2321,7 +2328,10 @@ def _obj_limit_wb(p):
             c.number_format = money; c.font = tot_font
         for c in ws1[rr]:
             c.fill = tot_fill; c.border = border
-        jami_qatorlar.append(rr)
+        if kal == AVANS_BLOK:
+            avans_jami_qator = rr          # UMUMIYga qo'shilmaydi
+        else:
+            jami_qatorlar.append(rr)
 
     oxiri = ws1.max_row
     # UMUMIY (blok jamilari yig'indisi)
@@ -3039,7 +3049,7 @@ def moliya(request):
         firma_id = ""
     if not proj_id.isdigit():
         proj_id = ""
-    KCLS = {"material": "mat", "labor": "lab", "machinery": "mach", "other": "oth"}
+    KCLS = {"material": "mat", "labor": "lab", "machinery": "mach", "other": "oth", "avans": "av"}
 
     def _dec(x):
         return Decimal(str(x or 0))
@@ -3865,7 +3875,7 @@ def material_sorov_add(request):
         notes = request.POST.getlist("note")
         kinds = request.POST.getlist("kind")
         prices = request.POST.getlist("unit_price")
-        valid_kind = set(KINDS)
+        valid_kind = set(KINDS_ALL)
         satrlar = []
         for i in range(len(names)):
             nom = (names[i] or "").strip()
@@ -3959,7 +3969,7 @@ def material_sorov_action(request, pk):
     # PTO tahriri: qatorlarni yangilash / o'chirish / yangi qator (istalgan holatda)
     if action in ("accept", "save"):
         from .models import MaterialRequestItem
-        valid_kind = set(KINDS)
+        valid_kind = set(KINDS_ALL)
         ochir = set(request.POST.getlist("del"))
         for it in req.items.all():
             if str(it.id) in ochir:
@@ -4197,7 +4207,7 @@ def _lj_qator(e):
         return None, f"«{nm}»: бажарилган қисми noto'g'ri (manfiy yoki juda katta) — saqlanmadi."
     if bq > 0 and bs == 0:
         bs = bq * pr
-    return {"asl_id": asl_id, "kind": kind if kind in KINDS else "material", "name": nm,
+    return {"asl_id": asl_id, "kind": kind if kind in KINDS_ALL else "material", "name": nm,
             "unit": " ".join(str(e.get("unit") or "").split())[:32],
             # Bazadagi aniqlik bilan bir xil yaxlitlash — summa qatorlar bilan mos tursin
             "quantity": q.quantize(Decimal("0.001")), "unit_price": pr.quantize(Decimal("0.01")),
@@ -4238,7 +4248,8 @@ def _lj_qulf_normalla(lim, items):
     natija = [asl[pk] for pk in asl] + yangi
     sums = {k: Decimal("0") for k in KINDS}
     for it in natija:
-        sums[it["kind"]] += (it["quantity"] * it["unit_price"]).quantize(Decimal("0.01"))
+        if it["kind"] in sums:
+            sums[it["kind"]] += (it["quantity"] * it["unit_price"]).quantize(Decimal("0.01"))
     return natija, sums
 
 
@@ -4265,7 +4276,8 @@ def _lj_taklif_saqla(request, lim, payload, qayt_kerak=True):
         if it is None:
             continue
         items.append(it)
-        sums[it["kind"]] += (it["quantity"] * it["unit_price"]).quantize(Decimal("0.01"))
+        if it["kind"] in sums:
+            sums[it["kind"]] += (it["quantity"] * it["unit_price"]).quantize(Decimal("0.01"))
     if not items:
         messages.error(request, "Kamida bitta qator bo'lishi kerak — saqlanmadi.")
         return qayt
@@ -4323,7 +4335,8 @@ def _lj_qoralama_yarat(request, lim, payload):
             return qayt
         if it is not None:
             items.append(it)
-            sums[it["kind"]] += (it["quantity"] * it["unit_price"]).quantize(Decimal("0.01"))
+            if it["kind"] in sums:
+                sums[it["kind"]] += (it["quantity"] * it["unit_price"]).quantize(Decimal("0.01"))
     if not items:
         messages.error(request, "Qoralama uchun kamida bitta qator kiriting.")
         return qayt
@@ -4629,11 +4642,13 @@ def limit_jadval(request, pk):
                     edits[li.id]["asl_id"] = li.id
                     it = edits[li.id]
                 t_items.append(it)
-                t_sums[it["kind"]] += (it["quantity"] * it["unit_price"]).quantize(Decimal("0.01"))
+                if it["kind"] in t_sums:
+                    t_sums[it["kind"]] += (it["quantity"] * it["unit_price"]).quantize(Decimal("0.01"))
             for it in yangilar:
                 it["asl_id"] = None
                 t_items.append(it)
-                t_sums[it["kind"]] += (it["quantity"] * it["unit_price"]).quantize(Decimal("0.01"))
+                if it["kind"] in t_sums:
+                    t_sums[it["kind"]] += (it["quantity"] * it["unit_price"]).quantize(Decimal("0.01"))
             if not t_items:
                 messages.error(request, "Qoralama uchun kamida bitta qator kiriting.")
                 return _qayt()
@@ -4660,11 +4675,13 @@ def limit_jadval(request, pk):
                         it = edits[li.id]
                         ozgardi_soni += 1
                 t_items.append(it)
-                t_sums[it["kind"]] += (it["quantity"] * it["unit_price"]).quantize(Decimal("0.01"))
+                if it["kind"] in t_sums:
+                    t_sums[it["kind"]] += (it["quantity"] * it["unit_price"]).quantize(Decimal("0.01"))
             for it in yangilar:
                 it["asl_id"] = None
                 t_items.append(it)
-                t_sums[it["kind"]] += (it["quantity"] * it["unit_price"]).quantize(Decimal("0.01"))
+                if it["kind"] in t_sums:
+                    t_sums[it["kind"]] += (it["quantity"] * it["unit_price"]).quantize(Decimal("0.01"))
                 ozgardi_soni += 1
             if not t_items:
                 messages.error(request, "Kamida bitta limit qatori bo'lishi kerak.")
@@ -4734,15 +4751,17 @@ def limit_jadval(request, pk):
         qoldiq = {}
         for li in lim.items.all():
             d = qoldiq.setdefault(_lj_key(li.name, li.bolim, li.kind),
-                                  {"qty": Decimal("0"), "unit": li.unit, "nom": li.name})
+                                  {"qty": Decimal("0"), "sum": Decimal("0"), "unit": li.unit, "nom": li.name, "kind": li.kind})
             d["qty"] += li.quantity - (li.boshlangich_qty or 0)
+            d["sum"] += li.quantity * li.unit_price - (li.boshlangich_sum or 0)
         if taklif_view and taklif_obj is not None:
             # Hali tasdiqlanmagan taklif qatorlari — chegara sifatida ularning hajmi
             for it in taklif_obj.proposed_items.all():
                 k_ = _lj_key(it.name, it.bolim, it.kind)
                 if k_ not in qoldiq:
                     qoldiq[k_] = {"qty": it.quantity - (it.boshlangich_qty or 0),
-                                  "unit": it.unit, "nom": it.name}
+                                  "sum": it.quantity * it.unit_price - (it.boshlangich_sum or 0),
+                                  "unit": it.unit, "nom": it.name, "kind": it.kind}
         for w in haftalar:
             if w.status == "rejected" or (draft is not None and w.id == draft.id) or w.tahrir_ruxsat:
                 continue
@@ -4750,9 +4769,10 @@ def limit_jadval(request, pk):
                 k = _lj_key(it.name, it.bolim, it.kind)
                 if k in qoldiq:
                     qoldiq[k]["qty"] -= it.quantity
+                    qoldiq[k]["sum"] -= it.total
 
-        valid_kind = set(KINDS)
-        yangi_items, sorov = [], {}
+        valid_kind = set(KINDS_ALL)
+        yangi_items, sorov, sorov_sum = [], {}, {}
         for row in payload.get("items") or []:
             if not isinstance(row, dict):
                 continue
@@ -4782,10 +4802,21 @@ def limit_jadval(request, pk):
                 bolim=bolim))
             k = _lj_key(nm, bolim, kind)
             sorov[k] = sorov.get(k, Decimal("0")) + q
+            sorov_sum[k] = sorov_sum.get(k, Decimal("0")) + (q * pr)
         # Qolgandan oshmasin (shu sahifaning qat'iy nazorati)
         for k, jq in sorov.items():
             d = qoldiq.get(k)
-            if d is not None and jq > d["qty"] + Decimal("0.001"):
+            if d is None:
+                continue
+            if d.get("kind") == "avans":
+                # Avans — SUMMA bo'yicha (bo'lib-bo'lib beriladi: miqdor 1 bo'lsa ham)
+                js = sorov_sum.get(k, Decimal("0"))
+                if js > d["sum"] + Decimal("0.01"):
+                    messages.error(request,
+                        f"«{d['nom']}» (avans): so'ralgan summa {_money(js)} — qolgan "
+                        f"{_money(d['sum'])} dan ORTIQ. Saqlanmadi.")
+                    return _qayt()
+            elif jq > d["qty"] + Decimal("0.001"):
                 messages.error(request,
                     f"«{d['nom']}»: so'ralgan {_qty(jq)} {d['unit']} — qolgan "
                     f"{_qty(d['qty'])} {d['unit']} dan ORTIQ. Saqlanmadi.")
@@ -5208,7 +5239,7 @@ def limit_jadval_export(request, pk):
     korilgan = {}
     guruhlar = {}
     for li in lim.items.all().order_by("id"):
-        kal = (li.bolim or "").strip()
+        kal = AVANS_BLOK if li.kind == "avans" else (li.bolim or "").strip()
         g = guruhlar.get(kal)
         if g is None:
             g = guruhlar[kal] = {"bolim": kal, "masul": (li.masul or "").strip(),
@@ -5314,6 +5345,9 @@ def limit_jadval_export(request, pk):
 
     r = h2
     yakun_qatorlar = []
+    avans_yakun = None
+    if AVANS_BLOK in guruhlar:
+        guruhlar[AVANS_BLOK] = guruhlar.pop(AVANS_BLOK)   # oxirida
     hafta_korildi = [set() for _ in haftalar]
     for g in guruhlar.values():
         r += 1
@@ -5378,9 +5412,12 @@ def limit_jadval_export(request, pk):
         for c in range(1, NCOL + 1):
             ws.cell(r, c).fill = F_SUB
             ws.cell(r, c).border = border
-        yakun_qatorlar.append(r)
+        if g["bolim"] == AVANS_BLOK:
+            avans_yakun = r
+        else:
+            yakun_qatorlar.append(r)
 
-    # ЖАМИ
+    # ЖАМИ (umumiy ustunlar — avans bloksiz; hafta ustunlari — avans bilan)
     r += 1
     ws.cell(r, 2, "ЖАМИ:").font = Font(name=AR, bold=True, size=12)
     ws.cell(r, 2).alignment = right
@@ -5388,8 +5425,9 @@ def limit_jadval_export(request, pk):
         [(15 + 4 * i, _L(15 + 4 * i)) for i in range(len(haftalar))]
     for c, harf in jami_cols:
         cell = ws.cell(r, c)
-        cell.value = ("=" + "+".join(f"{harf}{j}" for j in yakun_qatorlar)) \
-            if yakun_qatorlar else 0
+        qatorlar_ = yakun_qatorlar + ([avans_yakun] if (avans_yakun and c >= 12) else [])
+        cell.value = ("=" + "+".join(f"{harf}{j}" for j in qatorlar_)) \
+            if qatorlar_ else 0
         cell.number_format = money
         cell.font = Font(name=AR, bold=True, size=12, color="0B6E4F")
         cell.alignment = right
