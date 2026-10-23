@@ -104,16 +104,33 @@
     ta.addEventListener('blur', function(){ ta.style.display = 'none'; wiBelgi(btn, ta); });
     ta.addEventListener('input', function(){ wiBelgi(btn, ta); });
   }
-  function izohKengay(el){ if (!el || el.tagName!=='TEXTAREA') return; var h0 = el.style.height; el.style.height='auto'; if (!el.scrollHeight){ el.style.height = h0; return; } el.style.height=(el.scrollHeight+2)+'px'; }
+  // (2026-10-23) Kengaytirish BATCH: so'rovlar navbatga yig'ilib keyingi kadrda bir o'tishda bajariladi —
+  // har chaqiruvda alohida reflow (80 qatorda ~1 s) o'rniga ~10 ms. O'lchash: avval hammasi 'auto', keyin o'qish, keyin yozish.
+  var kengayNavbat = [], kengayKadr = null, kengayTimer = null;
+  function izohKengay(el){
+    if (!el || el.tagName!=='TEXTAREA') return;
+    if (kengayNavbat.indexOf(el) < 0) kengayNavbat.push(el);
+    if (!kengayKadr){
+      kengayKadr = requestAnimationFrame(kengayIshla);
+      kengayTimer = setTimeout(kengayIshla, 150);   // yashirin oynada rAF kelmaydi — zaxira
+    }
+  }
+  function kengayIshla(){
+    if (kengayKadr) cancelAnimationFrame(kengayKadr);
+    clearTimeout(kengayTimer); kengayKadr = null; kengayTimer = null;
+    var ts = kengayNavbat.filter(function(t){ return t.isConnected && t.offsetParent !== null; }); kengayNavbat = [];
+    var eski = ts.map(function(t){ return t.style.height; });
+    ts.forEach(function(t){ t.style.height = 'auto'; });
+    var hs = ts.map(function(t){ return t.scrollHeight; });
+    ts.forEach(function(t, i){ t.style.height = hs[i] ? (hs[i] + 2) + 'px' : eski[i]; });
+  }
   // Saqlash/yuklashdan keyin, qator ko'rinish rejimi yoki qidiruv o'zgarganda — barcha nom/izoh kataklari qayta o'lchanadi
   // (yashirin paytda o'lchangan katak 1 qatorli bo'lib qoladi)
   // (2026-10-23) BATCH: avval hammasini 'auto' qilib, keyin o'lchab, keyin yozamiz — 246 ta katak uchun
   // 1 000 ms o'rniga ~10 ms (har katakda alohida o'lchash butun jadvalni qayta joylashtirardi)
   function nomKengayHammasi(){
-    var ts = Array.prototype.filter.call(document.querySelectorAll('#ljBody textarea, #yangiBody textarea, #boshqaBody textarea'), function(t){ return t.offsetParent !== null; });
-    ts.forEach(function(t){ t.style.height = 'auto'; });
-    var hs = ts.map(function(t){ return t.scrollHeight; });
-    ts.forEach(function(t, i){ if (hs[i]) t.style.height = (hs[i] + 2) + 'px'; });
+    document.querySelectorAll('#ljBody textarea, #yangiBody textarea, #boshqaBody textarea').forEach(function(t){ if (kengayNavbat.indexOf(t) < 0) kengayNavbat.push(t); });
+    kengayIshla();
   }
   window.addEventListener('load', nomKengayHammasi);
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(nomKengayHammasi);
