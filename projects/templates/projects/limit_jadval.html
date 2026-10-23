@@ -208,7 +208,6 @@
   <button type="button" class="tchipf" data-k="labor"><span class="dotk" style="background:#15803d;"></span>Иш ҳақи</button>
   <button type="button" class="tchipf" data-k="machinery"><span class="dotk" style="background:#7c3aed;"></span>Машина части</button>
   <button type="button" class="tchipf" data-k="other"><span class="dotk" style="background:#c2410c;"></span>Кўзда тутилмаган</button>
-  <button type="button" class="tchipf" data-k="avans" title="Умумий лимит жамига кирмайди, ҳафталикда ҳисобланади"><span class="dotk" style="background:#0f766e;"></span>Аванс</button>
 </div>
 <div class="lj-wrap" id="jadvalWrap">
   <div class="lj-toliq-bosh">Бу лимитда ҳали тўлиқ олинган (қолган = 0) қатор йўқ.</div>
@@ -258,7 +257,7 @@
     </tr>
     {% endfor %}
     {% if lim_edit_huquq or lim_qosh_huquq %}<tr class="lim-addrow" data-bolim="{{ g.bolim }}"><td style="padding:0;"></td><td colspan="16" style="background:#f6f9fd; padding:1px 8px;"><button type="button" class="blk-add lim-addqator" style="margin-left:0; padding:0 8px; font-size:11px; line-height:17px;">+ Қатор</button><button type="button" class="blk-add lim-addblok" style="margin-left:6px; padding:0 8px; font-size:11px; line-height:17px;">+ Янги блок</button></td></tr>{% endif %}
-    <tr class="subtotal"><td colspan="6" style="text-align:right;">Блок якуни:</td>
+    <tr class="subtotal" data-bolim="{{ g.bolim }}"><td colspan="6" style="text-align:right;"><button type="button" class="blk-avans" data-bolim="{{ g.bolim }}" title="Масъулга аванс (блокка ёки аниқ қаторга). Умумий жамига кирмайди, ҳафталикда ҳисобланади" style="display:none; float:left; margin-left:6px;">💵 + аванс</button><span class="s-av"></span>Блок якуни:</td>
       <td class="num s-total"></td><td></td><td class="num s-fsum"></td>
       <td></td><td class="num s-lsum"></td><td colspan="3"></td>
       <td class="num s-wsum"></td><td></td></tr>
@@ -308,6 +307,7 @@
 {% endif %}
 
 {{ hafta_json|json_script:"haftaJson" }}
+{{ av_fakt_json|json_script:"avfaktJson" }}
 {% if taklif_edit %}{{ taklif_json|json_script:"taklifJson" }}{% endif %}
 <script>
 window.LJ_CFG = (function(){

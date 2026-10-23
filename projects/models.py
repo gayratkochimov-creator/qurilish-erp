@@ -512,6 +512,14 @@ class WeeklyRequestItem(models.Model):
     # bir xil material har bo'limda o'z qoldig'i bilan yuriladi
     bolim = models.CharField("Bo'lim", max_length=200, blank=True)
     created_at = models.DateTimeField("Kiritilgan sana", auto_now_add=True, null=True)
+    # AVANS (kind="avans", 2026-10-23): ustaga oldindan berilgan pul. Umumiy limit jamiga
+    # KIRMAYDI, haftalik jamiga KIRADI. Bog'lanish: avans_qator — aniq limit qatoriga
+    # (masalan ish haqi), bo'sh bo'lsa — butun BLOKka (bolim + mas'ul, «materiali ichida» usta).
+    # Nazorat: bajarilgan + so'ralgan + avans ≤ qator/blok limiti (dastur o'zi ayiradi).
+    avans_qator = models.ForeignKey(
+        "LimitItem", null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="avanslar", verbose_name="Avans qaysi qatorga",
+    )
 
     class Meta:
         verbose_name = "So'rov qatori"

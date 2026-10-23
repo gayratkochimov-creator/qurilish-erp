@@ -2237,6 +2237,10 @@ def _obj_limit_wb(p):
     tartib = ([k for k in guruh if k and k != AVANS_BLOK] + ([""] if "" in guruh else [])
               + ([AVANS_BLOK] if AVANS_BLOK in guruh else []))
     avans_jami_qator = None
+    obj_avans = {}            # blok -> tasdiqlangan haftaliklardagi avans jami
+    for wi_ in WeeklyRequestItem.objects.filter(request__project=p, request__status="approved", kind="avans"):
+        b_ = (wi_.bolim or "").strip()
+        obj_avans[b_] = obj_avans.get(b_, Decimal("0")) + wi_.total
 
     # Ikki qatorli sarlavha (guruh ustunlari birlashtirilgan):
     #   F-H REJA | I-K BAJARILGAN | L-N QOLGAN | O NARX FARQI
@@ -2332,6 +2336,15 @@ def _obj_limit_wb(p):
             avans_jami_qator = rr          # UMUMIYga qo'shilmaydi
         else:
             jami_qatorlar.append(rr)
+        av_ = obj_avans.get(kal)
+        if av_:
+            ra = ws1.max_row + 1
+            ws1.cell(ra, 3, f"«{nomi}» аванс берилган (ҳафталиклар):").font = Font(italic=True, color="0F766E")
+            ws1.cell(ra, 8, float(av_)).number_format = money
+            ws1.cell(ra, 14).value = f"=H{rr}-K{rr}-H{ra}"     # аванс билан қолган
+            ws1.cell(ra, 14).number_format = money
+            for c in ws1[ra]:
+                c.border = border
 
     oxiri = ws1.max_row
     # UMUMIY (blok jamilari yig'indisi)
@@ -3124,7 +3137,10 @@ def moliya(request):
             w_items = (WeeklyRequestItem.objects
                        .filter(request__limit=lim, request__status=WeeklyRequest.Status.APPROVED)
                        .select_related("request").prefetch_related("moliyalar__yozdi").order_by("request__week_start", "id"))
+            avans_items = []
             for it in w_items:
+                if it.kind == "avans":
+                    avans_items.append(it); continue
                 k = _lj_key(it.name, it.bolim, it.kind)
                 d = fakt.setdefault(k, {"qty": Decimal("0"), "sum": Decimal("0")})
                 d["qty"] += it.quantity; d["sum"] += it.total
@@ -3140,6 +3156,8 @@ def moliya(request):
                 tol_li.setdefault(m.limit_item_id, []).append(m)
             tol_key = {}
             for it in w_items:
+                if it.kind == "avans":
+                    continue
                 k = _lj_key(it.name, it.bolim, it.kind)
                 if k in limit_keys:
                     tol_key.setdefault(k, []).extend(it.moliyalar.all())
@@ -3156,8 +3174,37 @@ def moliya(request):
                     sor_it[sr.item_id] = sr
             key_korildi = set()
             l_t = l_f = l_b = Decimal("0")
+
+            def _hafta_qator(it):
+                """Haftalik (limitda yo'q / avans) qatori — to'lov haftalik qatoriga yoziladi."""
+                b_ = it.berildi
+                tl_ = list(it.moliyalar.all())
+                toliq_ = it.qarz <= 0
+                holat = "toliq" if toliq_ else ("qisman" if b_ > 0 else "yoq")
+                return {"it": it, "w": it.request, "kind_cls": KCLS.get(it.kind, "mat"),
+                        "sorov": sor_it.get(it.pk), "faol_tolov": sum(1 for m in tl_ if not m.bekor),
+                        "sorov_url": reverse("moliya_tahrir_sorov", args=["hafta", it.pk]),
+                        "kind_disp": KIND_NOMI.get(it.kind, it.kind),
+                        "qty_str": _qty(it.quantity), "price_str": _money(it.unit_price),
+                        "total_str": _money(it.total), "ber_str": _money(b_),
+                        "ost_str": _money(it.total - b_), "toliq": toliq_,
+                        "holat": holat, "holat_nom": {"toliq": "To'liq", "qisman": "Qisman", "yoq": "Berilmagan"}[holat],
+                        "foiz": min(100, int(b_ / it.total * 100)) if it.total > 0 else 0,
+                        "tolovlar": tl_, "tolov_json": json.dumps(_moliya_tolov_json(tl_), ensure_ascii=False),
+                        "ber_raw": str(b_), "total_raw": str(it.total), "fs_raw": str(it.total)}
+
+            # Avanslar blok bo'yicha (qatorga bog'langanlar ham o'z blokida), berilgani qoldiqdan ayiriladi
+            av_blok, av_row_ber = {}, {}
+            for it in avans_items:
+                av_blok.setdefault((it.bolim or "").strip(), []).append(it)
+                if it.avans_qator_id:
+                    av_row_ber[it.avans_qator_id] = av_row_ber.get(it.avans_qator_id, Decimal("0")) + it.berildi
             for g in guruhlar:
                 g_t = g_f = g_b = Decimal("0")
+                g_av_sor = g_av_ber = Decimal("0")
+                g["avanslar"] = [_hafta_qator(it) for it in av_blok.get(g["bolim"], [])]
+                for it in av_blok.get(g["bolim"], []):
+                    g_av_sor += it.total; g_av_ber += it.berildi
                 for r in g["rows"]:
                     li = li_map[r["id"]]
                     total = li.total
@@ -3168,7 +3215,8 @@ def moliya(request):
                         tolovlar += list(tol_key.get(r["key"], []))
                     tolovlar.sort(key=lambda m: (m.sana, m.id))
                     ber = sum((m.summa for m in tolovlar if not m.bekor), Decimal("0"))
-                    ost = total - ber
+                    av_q = av_row_ber.get(li.pk, Decimal("0"))
+                    ost = total - ber - av_q
                     toliq_ = total > 0 and ost <= 0
                     holat = "toliq" if toliq_ else ("qisman" if ber > 0 else "yoq")
                     sr = sor_li.get(li.pk)
@@ -3189,31 +3237,20 @@ def moliya(request):
                         "foiz": min(100, int(ber / total * 100)) if total > 0 else 0,
                         "m_izoh": li.moliya_izoh or "",
                         "ber_bajdan_kop": ber > f_sum + Decimal("0.5"),
+                        "av_ber_str": _money(av_q) if av_q else "",
                     })
                     g_t += total; g_f += f_sum; g_b += ber
-                g.update({"t_str": _money(g_t), "f_str": _money(g_f), "b_str": _money(g_b),
-                          "o_str": _money(g_t - g_b), "o_manfiy": g_t - g_b < 0, "soni": len(g["rows"]),
-                          "foiz": min(100, int(g_b / g_t * 100)) if g_t > 0 else 0})
-                l_t += g_t; l_f += g_f; l_b += g_b
+                g_b_all = g_b + g_av_ber          # blokka berilgan jami = qator to'lovlari + avans
+                g.update({"t_str": _money(g_t), "f_str": _money(g_f), "b_str": _money(g_b_all),
+                          "o_str": _money(g_t - g_b_all), "o_manfiy": g_t - g_b_all < 0, "soni": len(g["rows"]),
+                          "foiz": min(100, int(g_b_all / g_t * 100)) if g_t > 0 else 0,
+                          "av_sor_str": _money(g_av_sor) if g_av_sor else "", "av_ber_str": _money(g_av_ber) if g_av_sor else ""})
+                l_t += g_t; l_f += g_f; l_b += g_b_all
             # Limitda yo'q (haftalikdan kelgan) qatorlar — to'lov haftalik qatoriga (eski usul)
             boshqa, bq_t, bq_b = [], Decimal("0"), Decimal("0")
             for it in boshqa_items:
-                b_ = it.berildi
-                tl_ = list(it.moliyalar.all())
-                toliq_ = it.qarz <= 0
-                holat = "toliq" if toliq_ else ("qisman" if b_ > 0 else "yoq")
-                boshqa.append({"it": it, "w": it.request, "kind_cls": KCLS.get(it.kind, "mat"),
-                               "sorov": sor_it.get(it.pk), "faol_tolov": sum(1 for m in tl_ if not m.bekor),
-                               "sorov_url": reverse("moliya_tahrir_sorov", args=["hafta", it.pk]),
-                               "kind_disp": KIND_NOMI.get(it.kind, it.kind),
-                               "qty_str": _qty(it.quantity), "price_str": _money(it.unit_price),
-                               "total_str": _money(it.total), "ber_str": _money(b_),
-                               "ost_str": _money(it.total - b_), "toliq": toliq_,
-                               "holat": holat, "holat_nom": {"toliq": "To'liq", "qisman": "Qisman", "yoq": "Berilmagan"}[holat],
-                               "foiz": min(100, int(b_ / it.total * 100)) if it.total > 0 else 0,
-                               "tolovlar": tl_, "tolov_json": json.dumps(_moliya_tolov_json(tl_), ensure_ascii=False),
-                               "ber_raw": str(b_), "total_raw": str(it.total), "fs_raw": str(it.total)})
-                bq_t += it.total; bq_b += b_
+                boshqa.append(_hafta_qator(it))
+                bq_t += it.total; bq_b += it.berildi
             limit_bloklar.append({
                 "lim": lim, "guruhlar": guruhlar, "boshqa": boshqa,
                 "bq_t_str": _money(bq_t), "bq_b_str": _money(bq_b), "bq_o_str": _money(bq_t - bq_b),
@@ -3229,6 +3266,8 @@ def moliya(request):
             for g in bl["guruhlar"]:
                 for r in g["rows"]:
                     _hs["hammasi"] += 1; _hs[r["holat"]] += 1
+                for b in g.get("avanslar", []):
+                    _hs["hammasi"] += 1; _hs[b["holat"]] += 1
             for b in bl["boshqa"]:
                 _hs["hammasi"] += 1; _hs[b["holat"]] += 1
         holat_soni = _hs
@@ -3308,6 +3347,19 @@ def _moliya_tolov_json(tolovlar):
     return out
 
 
+def _moliya_avans_ber(lim, bolim=None, li=None):
+    """Tasdiqlangan haftaliklardagi AVANS qatorlariga buxgalter bergan jami.
+    li — shu qatorga bog'langan avanslar; bolim — blokning barcha avanslari (qatorga bog'langanlar ham)."""
+    from .models import Moliya
+    qs = Moliya.objects.filter(bekor=False, item__kind="avans", item__request__limit=lim,
+                               item__request__status=WeeklyRequest.Status.APPROVED)
+    if li is not None:
+        qs = qs.filter(item__avans_qator=li)
+    elif bolim is not None:
+        qs = qs.filter(item__bolim=bolim)
+    return qs.aggregate(s=Sum("summa"))["s"] or Decimal("0")
+
+
 def _moliya_li_berildi(li):
     """Limit qatoriga BERILGAN jami: limit qatori to'lovlari + shu limitdagi tasdiqlangan
     haftaliklarning (eski usul) shu nom+bo'limli qator to'lovlari."""
@@ -3349,12 +3401,26 @@ def moliya_limit_yozish(request, li_id):
         miqdor = None
     with transaction.atomic():
         li = LimitItem.objects.select_for_update().select_related("project", "limit").get(pk=li.pk)
-        ost = li.total - _moliya_li_berildi(li)
+        av_q = _moliya_avans_ber(li.limit, li=li)
+        ost = li.total - _moliya_li_berildi(li) - av_q
         if summa > ost + Decimal("0.01"):
             messages.error(request,
-                f"Summa qolgan ostatkidan katta: ostatki {_money(ost)}, siz {_money(summa)} yozdingiz. "
-                "Ortiqcha to'lov yozilmaydi — avval limitni oshiring.")
+                f"Summa qolgan ostatkidan katta: ostatki {_money(ost)}"
+                + (f" (avans {_money(av_q)} ayirilgan)" if av_q else "")
+                + f", siz {_money(summa)} yozdingiz. Ortiqcha to'lov yozilmaydi — avval limitni oshiring.")
             return redirect(qayt)
+        # BLOK nazorati: blokka berilgan avans + blok qatorlari to'lovlari ≤ blok limiti
+        b0 = (li.bolim or "").strip()
+        av_b = _moliya_avans_ber(li.limit, bolim=b0)
+        if av_b > 0:
+            blok_rows = [x for x in li.limit.items.all() if (x.bolim or "").strip() == b0 and x.kind != "avans"]
+            ost_b = (sum((x.total for x in blok_rows), Decimal("0"))
+                     - sum((_moliya_li_berildi(x) for x in blok_rows), Decimal("0")) - av_b)
+            if summa > ost_b + Decimal("0.01"):
+                messages.error(request,
+                    f"«{b0 or 'Bo‘limsiz'}» blokiga avans {_money(av_b)} berilgan — blok bo'yicha qolgan ostatki "
+                    f"{_money(max(ost_b, Decimal('0')))}, siz {_money(summa)} yozdingiz. Ortiqcha to'lov yozilmaydi.")
+                return redirect(qayt)
         Moliya.objects.create(limit_item=li, summa=summa, miqdor=miqdor, izoh=izoh, usul=usul,
                               sana=sana, yozdi=request.user)
     qoldi = li.total - _moliya_li_berildi(li)
@@ -4071,7 +4137,8 @@ def _hafta_qatorlarini_yangila(w, yangi, ws_, we_, user):
         for it, y in reja_yangila:
             it.kind, it.unit = y.kind, y.unit
             it.quantity, it.unit_price, it.note = y.quantity, y.unit_price, y.note
-            it.save(update_fields=["kind", "unit", "quantity", "unit_price", "note"])
+            it.avans_qator = y.avans_qator
+            it.save(update_fields=["kind", "unit", "quantity", "unit_price", "note", "avans_qator"])
         for it in ochiriladi:
             it.delete()
         for y in reja_yarat:
@@ -4083,6 +4150,31 @@ def _hafta_qatorlarini_yangila(w, yangi, ws_, we_, user):
         w.tahrir_ruxsat = False          # ruxsat bir martalik
         w.save(update_fields=["week_start", "week_end", "edited_by", "edited_at", "tahrir_ruxsat"])
     return None
+
+
+def _avans_nom(bolim, masul, qator):
+    """Avans qatori nomi: qatorga bog'langan — «Аванс · <qator nomi>», blokka — «Аванс · <mas'ul/bo'lim>»."""
+    if qator is not None:
+        return ("Аванс · " + (qator.name or "").strip())[:255]
+    return ("Аванс · " + ((masul or "").strip() or (bolim or "").strip() or "блок"))[:255]
+
+
+def _avans_yigindi(haftalar, otkaz=None):
+    """Yopiq haftalardagi avanslar: {"blok": {bolim: sum}, "qator": {li_id: sum}} (Decimal).
+    otkaz(w) -> True bo'lsa hafta hisobga olinmaydi (qoralama, rad etilgan, ruxsatdagi)."""
+    out = {"blok": {}, "qator": {}}
+    for w in haftalar:
+        if otkaz and otkaz(w):
+            continue
+        for it in w.items.all():
+            if it.kind != "avans":
+                continue
+            if it.avans_qator_id:
+                out["qator"][it.avans_qator_id] = out["qator"].get(it.avans_qator_id, Decimal("0")) + it.total
+            else:
+                b = (it.bolim or "").strip()
+                out["blok"][b] = out["blok"].get(b, Decimal("0")) + it.total
+    return out
 
 
 def _lj_key(name, bolim, kind=""):
@@ -4773,8 +4865,27 @@ def limit_jadval(request, pk):
 
         valid_kind = set(KINDS_ALL)
         yangi_items, sorov, sorov_sum = [], {}, {}
+        avans_yangi = []                      # (bolim, li|None, summa, izoh)
+        li_map_ = {li.pk: li for li in lim.items.all()}
+        blok_masul = {}
+        for li in li_map_.values():
+            b0 = (li.bolim or "").strip()
+            if (li.masul or "").strip() and not blok_masul.get(b0):
+                blok_masul[b0] = li.masul.strip()
         for row in payload.get("items") or []:
             if not isinstance(row, dict):
+                continue
+            if str(row.get("kind") or "") == "avans":
+                # AVANS — alohida: miqdor 1, narx = summa; blok yoki aniq qatorga bog'lanadi
+                a_sum = _to_dec(str(row.get("price") or row.get("sum") or "0")) or Decimal("0")
+                if a_sum <= 0:
+                    continue
+                a_bolim = " ".join(str(row.get("bolim") or "").split())[:200]
+                a_li = li_map_.get(int(row["avans_id"])) if str(row.get("avans_id") or "").isdigit() else None
+                if a_li is not None:
+                    a_bolim = (a_li.bolim or "").strip()
+                avans_yangi.append((a_bolim, a_li, a_sum.quantize(Decimal("0.01")),
+                                    " ".join(str(row.get("izoh") or "").split())[:500]))
                 continue
             nm = " ".join(str(row.get("name") or "").split())[:300]
             if not nm:
@@ -4803,6 +4914,87 @@ def limit_jadval(request, pk):
             k = _lj_key(nm, bolim, kind)
             sorov[k] = sorov.get(k, Decimal("0")) + q
             sorov_sum[k] = sorov_sum.get(k, Decimal("0")) + (q * pr)
+        for a_bolim, a_li, a_sum, a_izoh in avans_yangi:
+            yangi_items.append(WeeklyRequestItem(
+                kind="avans", name=_avans_nom(a_bolim, blok_masul.get(a_bolim, ""), a_li),
+                unit="сўм", quantity=Decimal("1"), unit_price=a_sum, note=a_izoh,
+                bolim=a_bolim, avans_qator=a_li))
+        # ---- AVANS NAZORATI: bajarilgan + so'ralgan + avans ≤ limit (blok va qator bo'yicha) ----
+        _otkaz = lambda w: (w.status == "rejected" or (draft is not None and w.id == draft.id)
+                            or w.tahrir_ruxsat or (ruxsat_hafta is not None and w.id == ruxsat_hafta.id))
+        av_prev = _avans_yigindi(haftalar, _otkaz)
+        av_blok_all, av_qator_all = dict(av_prev["blok"]), dict(av_prev["qator"])
+        for a_bolim, a_li, a_sum, _ in avans_yangi:
+            if a_li is not None:
+                av_qator_all[a_li.pk] = av_qator_all.get(a_li.pk, Decimal("0")) + a_sum
+            else:
+                av_blok_all[a_bolim] = av_blok_all.get(a_bolim, Decimal("0")) + a_sum
+        if av_blok_all or av_qator_all:
+            T_blok, F_blok, R_blok, T_row, F_row, R_row = {}, {}, {}, {}, {}, {}
+            for li in li_map_.values():
+                b0 = (li.bolim or "").strip()
+                k0 = _lj_key(li.name, li.bolim, li.kind)
+                T_blok[b0] = T_blok.get(b0, Decimal("0")) + li.total
+                T_row[li.pk] = li.total
+                F_row[li.pk] = (li.boshlangich_sum or Decimal("0"))
+                F_blok[b0] = F_blok.get(b0, Decimal("0")) + F_row[li.pk]
+            for w in haftalar:
+                if _otkaz(w):
+                    continue
+                for it in w.items.all():
+                    if it.kind == "avans":
+                        continue
+                    b0 = (it.bolim or "").strip()
+                    if b0 in T_blok:
+                        F_blok[b0] = F_blok.get(b0, Decimal("0")) + it.total
+                    for li in li_map_.values():
+                        if _lj_key(li.name, li.bolim, li.kind) == _lj_key(it.name, it.bolim, it.kind):
+                            F_row[li.pk] = F_row.get(li.pk, Decimal("0")) + it.total
+                            break
+            for y in yangi_items:
+                if y.kind == "avans":
+                    continue
+                b0 = (y.bolim or "").strip()
+                if b0 in T_blok:
+                    R_blok[b0] = R_blok.get(b0, Decimal("0")) + y.total
+                for li in li_map_.values():
+                    if _lj_key(li.name, li.bolim, li.kind) == _lj_key(y.name, y.bolim, y.kind):
+                        R_row[li.pk] = R_row.get(li.pk, Decimal("0")) + y.total
+                        break
+            # qator bo'yicha
+            for li_id, av in av_qator_all.items():
+                if av <= 0 or li_id not in T_row:
+                    continue
+                jami = F_row.get(li_id, Decimal("0")) + R_row.get(li_id, Decimal("0")) + av
+                if jami > T_row[li_id] + Decimal("0.5"):
+                    li = li_map_[li_id]
+                    mumkin = T_row[li_id] - F_row.get(li_id, Decimal("0")) - av
+                    messages.error(request,
+                        f"«{li.name}»: аванс {_money(av)} берилган — бажарилган + сўралган + аванс "
+                        f"({_money(jami)}) қатор лимитидан ({_money(T_row[li_id])}) ортиқ. "
+                        f"Кўпи билан {_money(max(mumkin, Decimal('0')))} ёзиш мумкин. Сақланмади.")
+                    return _qayt()
+            # blok bo'yicha (qatorga bog'langan avanslar ham shu blokka kiradi)
+            blok_av = dict(av_blok_all)
+            for li_id, av in av_qator_all.items():
+                li = li_map_.get(li_id)
+                if li is not None:
+                    b0 = (li.bolim or "").strip()
+                    blok_av[b0] = blok_av.get(b0, Decimal("0")) + av
+            for b0, av in blok_av.items():
+                if av <= 0:
+                    continue
+                if b0 not in T_blok:
+                    messages.error(request, f"«{b0 or 'блок'}» блоки умумий лимитда йўқ — аванс ёзилмади.")
+                    return _qayt()
+                jami = F_blok.get(b0, Decimal("0")) + R_blok.get(b0, Decimal("0")) + av
+                if jami > T_blok[b0] + Decimal("0.5"):
+                    mumkin = T_blok[b0] - F_blok.get(b0, Decimal("0")) - av
+                    messages.error(request,
+                        f"«{b0 or 'Бўлимсиз'}» блоки: аванс {_money(av)} билан бажарилган + сўралган "
+                        f"({_money(jami)}) блок лимитидан ({_money(T_blok[b0])}) ортиқ. "
+                        f"Кўпи билан {_money(max(mumkin, Decimal('0')))} ёзиш мумкин. Сақланмади.")
+                    return _qayt()
         # Qolgandan oshmasin (shu sahifaning qat'iy nazorati)
         for k, jq in sorov.items():
             d = qoldiq.get(k)
@@ -4870,10 +5062,16 @@ def limit_jadval(request, pk):
         if w.status == "rejected" or (draft is not None and w.id == draft.id) or w.tahrir_ruxsat:
             continue
         for it in w.items.all():
+            if it.kind == "avans":
+                continue          # avans — bajarilgan emas, alohida (av_fakt)
             k = _lj_key(it.name, it.bolim, it.kind)
             d = fakt.setdefault(k, {"qty": Decimal("0"), "sum": Decimal("0")})
             d["qty"] += it.quantity
             d["sum"] += it.total
+    _av = _avans_yigindi(haftalar, lambda w: (w.status == "rejected" or (draft is not None and w.id == draft.id)
+                                             or w.tahrir_ruxsat))
+    av_fakt = {"blok": {b: float(v) for b, v in _av["blok"].items()},
+               "qator": {str(i): float(v) for i, v in _av["qator"].items()}}
 
     # Limit qatorlari bo'lim guruhlari bilan (fakt taqsimoti — _lj_guruhlar ichida).
     # TAKLIF ko'rinishida amaldagi limit o'rniga ZANJIRDAGI taklif qatorlari chiqadi.
@@ -4918,8 +5116,12 @@ def limit_jadval(request, pk):
     # Hafta tablari ma'lumoti (JSONga)
     hafta_data = []
     for i, w in enumerate(haftalar, start=1):
-        items_map, boshqa = {}, []
+        items_map, boshqa, avans_ = {}, [], []
         for it in w.items.all():
+            if it.kind == "avans":
+                avans_.append({"qator": it.avans_qator_id, "name": it.name, "bolim": (it.bolim or "").strip(),
+                               "sum": float(it.total), "izoh": it.note or ""})
+                continue
             k = _lj_key(it.name, it.bolim, it.kind)
             row = {"qty": float(it.quantity), "price": float(it.unit_price),
                    "sum": float(it.total), "izoh": it.note or "",
@@ -4936,7 +5138,7 @@ def limit_jadval(request, pk):
             "ws": w.week_start.isoformat(), "we": w.week_end.isoformat(),
             "status": w.status, "locked": w.status != "draft" and not w.tahrir_ruxsat,
             "ruxsat": bool(w.tahrir_ruxsat),
-            "number": w.number or "", "items": items_map, "boshqa": boshqa,
+            "number": w.number or "", "items": items_map, "boshqa": boshqa, "avans": avans_,
             # Zanjir holati banneri uchun imzolar
             "kiritdi": w.created_by.username if w.created_by_id else "",
             "kiritdi_at": f"{_lt0(w.created_at):%d.%m %H:%M}" if w.created_at else "",
@@ -5150,7 +5352,7 @@ def limit_jadval(request, pk):
         "lim_holat": lim_holat,
         "is_adm": is_admin(request.user),
         "lim_pending": bool(lim_pend_obj),
-        "hafta_json": hafta_data,
+        "hafta_json": hafta_data, "av_fakt_json": av_fakt,
         "draft_id": draft.id if draft else None,
         "taklif_ws": t_ws.isoformat(), "taklif_we": t_we.isoformat(),
     })
@@ -5212,21 +5414,25 @@ def limit_jadval_export(request, pk):
     raqam = {w.pk: i + 1 for i, w in enumerate(haftalar)}   # xronologik raqam
     haftalar = ([w for w in haftalar if w.pk != vis_id]
                 + [w for w in haftalar if w.pk == vis_id])
-    hmaps = []
+    hmaps, havans = [], []
     for w in haftalar:
-        m = {}
+        m, av = {}, {}
         for wi in w.items.all():
+            if wi.kind == "avans":
+                b_ = (wi.bolim or "").strip()
+                av[b_] = av.get(b_, Decimal("0")) + wi.total
+                continue
             k = _lj_key(wi.name, wi.bolim, wi.kind)
             d = m.setdefault(k, [Decimal("0"), Decimal("0")])
             d[0] += wi.quantity
             d[1] += wi.total
-        hmaps.append(m)
+        hmaps.append(m); havans.append(av)
     hafta = next((w for w in haftalar if w.pk == vis_id), None)
 
     # --- fakt (tasdiqlangan haftalar) + dublikatlarga taqsimot (sahifadagidek) ---
     fakt = {}
     for wi in (WeeklyRequestItem.objects.filter(request__limit=lim)
-               .exclude(request__status__in=["rejected", "draft"])):
+               .exclude(request__status__in=["rejected", "draft"]).exclude(kind="avans")):
         k = _lj_key(wi.name, wi.bolim, wi.kind)
         d = fakt.setdefault(k, {"qty": Decimal("0"), "sum": Decimal("0")})
         d["qty"] += wi.quantity
@@ -5397,6 +5603,24 @@ def limit_jadval_export(request, pk):
                     cell.number_format = money; cell.alignment = right
                 if c in (1, 4) or qism == 0:
                     cell.alignment = Alignment(horizontal="center")
+        # Аванс (масъулга) — фақат ҳафта устунларида; умумий жамига кирмайди
+        if any(havans[wi_].get(g["bolim"]) for wi_ in range(len(haftalar))):
+            r += 1
+            ws.cell(r, 2, "Аванс (масъулга берилган)")
+            ws.cell(r, 4, "сўм")
+            for wi_ in range(len(haftalar)):
+                a_ = havans[wi_].get(g["bolim"])
+                if a_:
+                    c0 = 12 + 4 * wi_
+                    ws.cell(r, c0, "сўм"); ws.cell(r, c0 + 1, 1); ws.cell(r, c0 + 2, float(a_))
+                    ws.cell(r, c0 + 3).value = f"={_L(c0+1)}{r}*{_L(c0+2)}{r}"
+            for c in range(1, NCOL + 1):
+                cell = ws.cell(r, c)
+                cell.border = border
+                cell.font = Font(name=AR, size=10, italic=True, color="0F766E")
+                qism = (c - 12) % 4 if c >= 12 else None
+                if qism in (2, 3):
+                    cell.number_format = money; cell.alignment = right
         # Blok yakuni
         r += 1
         ws.cell(r, 2, "Блок якуни:").font = tot_font

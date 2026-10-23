@@ -23,6 +23,7 @@
   var WK_PROV_ACTOR = C.WK_PROV_ACTOR;
   var DRAFT_ID = C.DRAFT_ID;
   var HAFTA = JSON.parse(document.getElementById('haftaJson').textContent);
+  var AV_FAKT = (function(){ try { return JSON.parse(document.getElementById('avfaktJson').textContent); } catch(e){ return {blok:{}, qator:{}}; } })();
   // Умумийni ZANJIRNING HAR BIR ishtirokchisi (PTO/snab/direktor/admin) shu
   // jadvalda tahrirlaydi — admin to'g'ridan, qolganlarda zanjirga so'rov ketadi
   // Zanjirdagi TAKLIF ko'rinishi: bosqich egasi taklif qatorlarini shu jadvalda
@@ -67,7 +68,7 @@
   }
   function blkBolim(blk){ return blk.ichida !== undefined ? limBlok(blk.ichida).bolim : (blk.bolim||''); }
   function blkMasul(blk){ return blk.ichida !== undefined ? limBlok(blk.ichida).masul : (blk.masul||''); }
-  var KSEL = '<select class="ksel lim-k"><option value="material">Материал</option><option value="labor">Иш ҳақи</option><option value="machinery">Машина части</option><option value="other">Кўзда тутилмаган</option><option value="avans">Аванс</option></select>';
+  var KSEL = '<select class="ksel lim-k"><option value="material">Материал</option><option value="labor">Иш ҳақи</option><option value="machinery">Машина части</option><option value="other">Кўзда тутилмаган</option></select>';
   var STATUS_NOMI = { dir:"Директор тасдиғида", submitted:"Админ тасдиғида", approved:"Тасдиқланган", draft:"Қоралама" };
   var sel = DRAFT_ID !== null ? ('w'+DRAFT_ID)
             : (CAN_EDIT ? 'yangi' : (HAFTA.length ? 'w'+HAFTA[HAFTA.length-1].id : 'yangi'));
@@ -459,7 +460,13 @@
       return { name:x.name, bolim:x.bolim, unit:x.unit, kind:x.kind||'material',
                qty:x.qty, price:x.price, izoh:x.izoh||'' };
     }) : [];
+    // avanslar (blok / qator) — joriy haftadan
+    avanslar = {};
+    ((h && h.avans) ? h.avans : []).forEach(function(a){
+      (avanslar[a.bolim||''] = avanslar[a.bolim||''] || []).push({ qator: a.qator||null, sum: a.sum||0, izoh: a.izoh||'' });
+    });
     chizExtralar();
+    chizAvanslar();
     chizYangiBloklar();
     hisobla();
   }
@@ -542,7 +549,7 @@
         r.innerHTML = '<td class="ctr"></td>'+
           '<td><textarea class="wkin tx yb-n" rows="1" placeholder="иш номи..."'+(x.sana ? ' title="Киритилган: '+esc(x.sana)+'"' : '')+'>'+esc(x.name||'')+'</textarea>'+
           (x.sana ? '<span style="font-size:10px; color:#94a3b8; white-space:nowrap; margin-left:4px;">'+esc(x.sana)+'</span>' : '')+
-          '<select class="ksel yb-k"><option value="material">Материал</option><option value="labor">Иш ҳақи</option><option value="machinery">Машина части</option><option value="other">Кўзда тутилмаган</option><option value="avans">Аванс</option></select></td>'+
+          '<select class="ksel yb-k"><option value="material">Материал</option><option value="labor">Иш ҳақи</option><option value="machinery">Машина части</option><option value="other">Кўзда тутилмаган</option></select></td>'+
           '<td><textarea class="wkin tx yb-i" rows="1" placeholder="изоҳ...">'+esc(x.izoh||'')+'</textarea></td>'+
           '<td class="ctr"><input class="wkin kichik yb-u" value="'+esc(x.unit||'')+'" placeholder="бирл."></td>'+
           '<td class="num"><input class="wkin yb-q" type="number" min="0" step="0.001" value="'+(x.vol||'')+'"></td>'+
@@ -726,7 +733,7 @@
   }
 
   // Tur tanlangach select IXCHAM CHIPGA aylanadi; chip bosilsa qayta ochiladi
-  var KIND_NOMLARI = { material:'Материал', labor:'Иш ҳақи', machinery:'Машина ч.', other:'Кўзда т.', avans:'Аванс' };
+  var KIND_NOMLARI = { material:'Материал', labor:'Иш ҳақи', machinery:'Машина ч.', other:'Кўзда т.' };
   // «Аванс» qatori: umumiy limit jamiga KIRMAYDI, haftalik jamiga KIRADI (2026-10-23)
   function qatorTuri(tr){ var x = (LIM_EDIT && tr.dataset.id) ? limRows[tr.dataset.id] : null; return (x && x.kind) || tr.dataset.kind || 'material'; }
   function turChipUla(r, sel, x){
@@ -857,6 +864,75 @@
     });
   })();
 
+  // -------- АВАНС (масъулга): блокка ёки аниқ қаторга боғланади --------
+  // Умумий жамига КИРМАЙДИ, ҳафталик жамига КИРАДИ. Назорат: бажарилган + сўралган + аванс ≤ лимит.
+  var avanslar = {};   // bolim -> [{qator:id|null, sum, izoh}]  (жорий таҳрирланаётган ҳафта)
+  function blokMasul(bolim){ var b = document.querySelector('#ljBody tr.block[data-bolim="'+CSS.escape(bolim)+'"]'); return b ? (b.dataset.masul||'') : ''; }
+  function blokQatorlari(bolim){
+    return ishRows().filter(function(tr){ return (tr.dataset.bolim||'') === bolim && !rowDel(tr) && tr.dataset.id; });
+  }
+  function avNom(bolim, qator){
+    if (qator){ var tr = document.querySelector('#ljBody tr.ish[data-id="'+qator+'"]'); var nm = tr ? ((LIM_EDIT ? limRow(tr).name : tr.dataset.name)||'') : ''; return 'Аванс · ' + nm; }
+    return 'Аванс · ' + (blokMasul(bolim) || bolim || 'блок');
+  }
+  function avOldin(bolim, qator){   // ёпиқ ҳафталардаги аванс (шу мақсадга)
+    if (qator) return pf((AV_FAKT.qator||{})[String(qator)]);
+    return pf((AV_FAKT.blok||{})[bolim]);
+  }
+  function avBlokOldin(bolim){     // блок + унинг қаторларига берилган ёпиқ аванслар
+    var s0 = avOldin(bolim, null);
+    blokQatorlari(bolim).forEach(function(tr){ s0 += avOldin(bolim, tr.dataset.id); });
+    return s0;
+  }
+  function avJoriy(bolim){ return (avanslar[bolim]||[]).reduce(function(a,x){ return a + (x.sum||0); }, 0); }
+  function avJoriyQator(id){ var t = 0; Object.keys(avanslar).forEach(function(b){ (avanslar[b]||[]).forEach(function(x){ if (String(x.qator||'') === String(id)) t += (x.sum||0); }); }); return t; }
+  function chizAvanslar(){
+    document.querySelectorAll('#ljBody tr.avans').forEach(function(x){ x.remove(); });
+    var edit = tahrirmi();
+    document.querySelectorAll('#ljBody tr.subtotal').forEach(function(st){
+      var bolim = st.dataset.bolim || '';
+      var btn = st.querySelector('.blk-avans'); if (btn){ btn.style.display = edit ? '' : 'none'; btn.onclick = function(){ avansQosh(bolim); }; }
+      var list = avanslar[bolim] || [];
+      list.forEach(function(a, i){
+        var r = document.createElement('tr'); r.className = 'avans'; r.dataset.bolim = bolim; r._av = a;
+        var oldin = avOldin(bolim, a.qator);
+        var nomHtml;
+        if (edit){
+          var opts = '<option value="">Блок жами'+(blokMasul(bolim) ? ' · '+esc(blokMasul(bolim)) : '')+'</option>';
+          blokQatorlari(bolim).forEach(function(tr){ var nm = LIM_EDIT ? limRow(tr).name : tr.dataset.name; opts += '<option value="'+tr.dataset.id+'"'+(String(a.qator||'')===String(tr.dataset.id)?' selected':'')+'>'+esc(nm)+'</option>'; });
+          nomHtml = '<span style="display:flex; gap:4px; align-items:center;"><b style="color:#0f766e; white-space:nowrap;">💵 Аванс →</b><select class="ksel av-t" style="max-width:260px;">'+opts+'</select></span>';
+        } else {
+          nomHtml = '<b style="color:#0f766e;">💵 '+esc(avNom(bolim, a.qator))+'</b><span class="mute" style="font-size:10.5px; margin-left:6px;">'+(a.qator ? 'қаторга' : 'блокка')+'</span>';
+        }
+        r.innerHTML = '<td class="ctr">💵</td><td>'+nomHtml+'</td>'+
+          '<td>'+(edit ? '<textarea class="wkin tx av-i" rows="1" placeholder="изоҳ (кимга, нима учун)">'+esc(a.izoh||'')+'</textarea>' : '<span style="font-size:11.5px; color:#666;">'+esc(a.izoh||'')+'</span>')+'</td>'+
+          '<td class="ctr">сўм</td><td class="num dim">—</td><td class="num dim">—</td>'+
+          '<td class="num av-old" title="Олдинги (ёпиқ) ҳафталарда берилган аванс">'+((edit && oldin) ? '<span class="mute" style="font-size:11px;">олдин '+fmt(oldin)+'</span>' : '')+'</td>'+
+          '<td class="num dim">—</td><td class="num dim">—</td><td class="num dim">—</td>'+
+          '<td class="num av-qol" title="Аванс айирилгандан кейин қолган"></td>'+
+          '<td class="ctr">сўм</td>'+
+          '<td class="num">'+(edit ? '<input class="wkin av-s" type="number" min="0" value="'+(a.sum||'')+'" placeholder="сумма">' : fmt(a.sum))+'</td>'+
+          '<td class="num dim">—</td><td class="num av-ws">'+fmt(a.sum||0)+'</td>'+
+          '<td class="ctr">'+(edit ? '<button type="button" class="del-btn" title="Авансни ўчириш">✕</button>' : '')+'</td>';
+        if (edit){
+          r.querySelector('.av-t').addEventListener('change', function(){ a.qator = this.value ? +this.value : null; autoSaqla(); chizAvanslar(); hisobla(); });
+          r.querySelector('.av-s').addEventListener('input', function(){ a.sum = pf(this.value); r.querySelector('.av-ws').textContent = fmt(a.sum); autoSaqla(); hisoblaKechik(120); });
+          var ai = r.querySelector('.av-i'); ai.addEventListener('input', function(){ a.izoh = this.value; izohKengay(ai); autoSaqla(); });
+          r.querySelector('.del-btn').onclick = function(){ list.splice(i, 1); autoSaqla(); chizAvanslar(); hisobla(); };
+        }
+        st.parentNode.insertBefore(r, st);
+        if (edit) izohKengay(r.querySelector('.av-i'));
+      });
+    });
+  }
+  function avansQosh(bolim){
+    if (!tahrirmi()){ alert('🔒 Ёпилган ҳафтага аванс қўшилмайди'); return; }
+    (avanslar[bolim] = avanslar[bolim] || []).push({ qator:null, sum:0, izoh:'' });
+    chizAvanslar(); hisobla();
+    var rr = document.querySelectorAll('#ljBody tr.avans[data-bolim="'+CSS.escape(bolim)+'"]');
+    var last = rr[rr.length-1]; if (last){ var i0 = last.querySelector('.av-s'); if (i0) i0.focus(); }
+  }
+
   // -------- Лимитда йўқ ишлар (+ Иш) --------
   // Бўлими мавжуд блокка мос келса — қатор ШУ БЛОК ИЧИДА (якунидан олдин)
   // кўринади, акс ҳолда пастдаги «Лимитда йўқ ишлар» бўлимида туради.
@@ -872,7 +948,7 @@
         r.innerHTML = '<td class="ctr">+</td>'+
           '<td><input class="wkin tx ex-n" value="'+esc(x.name||'')+'" placeholder="иш номи...">'+
           '<input class="wkin tx ex-b" list="ljBolimList" value="'+esc(x.bolim||'')+'" placeholder="бўлим (ихтиёрий)" style="margin-top:2px;">'+
-          '<select class="ksel ex-k"><option value="material">Материал</option><option value="labor">Иш ҳақи</option><option value="machinery">Машина части</option><option value="other">Кўзда тутилмаган</option><option value="avans">Аванс</option></select></td>'+
+          '<select class="ksel ex-k"><option value="material">Материал</option><option value="labor">Иш ҳақи</option><option value="machinery">Машина части</option><option value="other">Кўзда тутилмаган</option></select></td>'+
           '<td><textarea class="wkin tx ex-i" rows="1" placeholder="изоҳ">'+esc(x.izoh||'')+'</textarea></td>'+
           '<td class="ctr dim">—</td><td class="num dim">—</td><td class="num dim">—</td><td class="num dim">—</td>'+
           '<td class="num dim">—</td><td class="num dim">—</td><td class="num dim">—</td><td class="num dim">—</td>'+
@@ -965,8 +1041,29 @@
     var sT=0,sF=0,sL=0,sW=0,nrk=0;
     var body = document.getElementById('ljBody');
     var toliqN = 0, lastToliq = false;
+    var curBolim = '', sAv = 0;    // жорий блок ва унинг шу ҳафтадаги аванслари
     Array.prototype.forEach.call(body.rows, function(tr){
-      if (tr.classList.contains('block')){ sT=0;sF=0;sL=0;sW=0; nrk=0; lastToliq = false; return; }
+      if (tr.classList.contains('block')){ sT=0;sF=0;sL=0;sW=0; nrk=0; lastToliq = false; curBolim = tr.dataset.bolim||''; sAv = 0; return; }
+      if (tr.classList.contains('avans')){
+        var a = tr._av || {}; var as = a.sum||0;
+        sW += as; gW += as; sAv += as;
+        tr.classList.toggle('row-err', false);
+        if (as > 0 && a.qator){
+          // қаторга боғланган аванс: қатор лимити − бажарилган − аванс
+          // (ёпиқ ҳафтада AV_FAKT шу ҳафтани ҳам ўз ичига олади — жорий қўшилмайди)
+          var qtr = document.querySelector('#ljBody tr.ish[data-id="'+a.qator+'"]');
+          if (qtr){
+            var qT = rowVol(qtr)*rowPrice(qtr), qF = pf(qtr.dataset.fsum);
+            if (LIM_EDIT && qtr.dataset.id){ var qx = limRow(qtr); qF = pf(qtr.dataset.ws) + (qx.bs||0); }
+            var qW = edit ? rowWeek(qtr).s : 0;
+            var qAv = avOldin(curBolim, a.qator) + (edit ? avJoriyQator(a.qator) : 0);
+            var qol = qT - qF - qW - qAv;
+            setT(tr.querySelector('.av-qol'), fmt(qol));
+            tr.querySelector('.av-qol').style.color = qol < -0.5 ? '#b91c1c' : '';
+          }
+        }
+        return;
+      }
       if (tr.classList.contains('split')){ tr.classList.toggle('toliq', lastToliq); return; }
       if (tr.classList.contains('ish')){
         if (rowDel(tr)) return;
@@ -1013,6 +1110,14 @@
             errs.push('"'+tr.dataset.name+'"'+(tr.dataset.bolim?(' ('+tr.dataset.bolim+')'):'')+': сўралган '+fmt(w.q)+' '+tr.dataset.unit+' — қолган '+fmt(lq)+' дан ортиқ');
             xatoBor = true;
           }
+          // Қаторга боғланган АВАНС: бажарилган + сўралган + аванс ≤ қатор лимити (дастур ўзи айиради)
+          if (tr.dataset.id){
+            var avR = avOldin(tr.dataset.bolim||'', tr.dataset.id) + avJoriyQator(tr.dataset.id);
+            if (avR > 0 && fsJ + avR > vol*price + 0.5){
+              errs.push('"'+tr.dataset.name+'": аванс '+fmt(avR)+' берилган — бажарилган + сўралган + аванс ('+fmt(fsJ + avR)+') қатор лимитидан ('+fmt(vol*price)+') ортиқ. Кўпи билан '+fmt(Math.max(vol*price - fs - avR, 0))+' ёзиш мумкин');
+              xatoBor = true;
+            }
+          }
           var iq=tr.querySelector('.in-q'), ip=tr.querySelector('.in-p');
           if (iq && pf(iq.value)>0 && ip && pf(ip.value)<=0){ errs.push('"'+tr.dataset.name+'": нарх киритилмаган'); xatoBor = true; }
           (bolaklar[tr.dataset.key]||[]).forEach(function(b){
@@ -1040,6 +1145,25 @@
         setT(tr.querySelector('.s-fsum'), fmt(sF));
         setT(tr.querySelector('.s-lsum'), fmt(sL));
         setT(tr.querySelector('.s-wsum'), fmt(sW));
+        // БЛОК АВАНС НАЗОРАТИ: бажарилган (+ шу ҳафта сўралган) + аванс ≤ блок лимити
+        var avAll = avBlokOldin(curBolim) + (edit ? sAv : 0);   // ёпиқ ҳафта AV_FAKT ичида — қайта қўшилмайди
+        var sav = tr.querySelector('.s-av');
+        tr.classList.remove('row-err');
+        if (avAll > 0){
+          var qolAv = sT - sF - avAll;
+          setT(sav, 'аванс жами ' + fmt(avAll) + ' · аванс билан қолган ' + fmt(qolAv) + '  ');
+          sav.style.cssText = 'font-weight:400; font-size:11px; color:' + (qolAv < -0.5 ? '#b91c1c' : '#0f766e') + '; margin-right:8px;';
+          // блокка боғланган аванс қаторларининг «қолган» катаги
+          var tpr = tr.previousElementSibling;
+          while (tpr && tpr.classList.contains('avans')){
+            if (!(tpr._av||{}).qator){ setT(tpr.querySelector('.av-qol'), fmt(qolAv)); tpr.querySelector('.av-qol').style.color = qolAv < -0.5 ? '#b91c1c' : ''; }
+            tpr = tpr.previousElementSibling;
+          }
+          if (edit && qolAv < -0.5){
+            errs.push('«'+(curBolim||'Бўлимсиз')+'» блоки: аванс '+fmt(avAll)+' билан бажарилган + сўралган ('+fmt(sF + avAll)+') блок лимитидан ('+fmt(sT)+') '+fmt(-qolAv)+' ортиқ — кўпи билан '+fmt(Math.max(sT - (sF - (sW - sAv)) - avAll, 0))+' ёзиш мумкин');
+            tr.classList.add('row-err');
+          }
+        } else setT(sav, '');
       }
     });
     // Yangi (saqlanmagan) limit bloklari — Умумий ва Қолганга qo'shiladi
@@ -1296,6 +1420,13 @@
         items.push({ name:x.name, bolim:x.bolim, unit:x.unit, kind:x.kind||'material',
                      qty:x.qty, price:x.price, izoh:x.izoh||'' });
     });
+    // Аванслар (блок / қатор) — kind:'avans', miqdor 1, narx = summa
+    Object.keys(avanslar).forEach(function(b){
+      (avanslar[b]||[]).forEach(function(a){
+        if ((a.sum||0) > 0) items.push({ name:avNom(b, a.qator), bolim:b, unit:'сўм', kind:'avans',
+                                          qty:1, price:a.sum, izoh:a.izoh||'', avans_id:a.qator||null });
+      });
+    });
     // Yangi blok qatorlarining HAFTALIK ustuni ham haftalik so'rovga kiradi
     yangiBloklar.forEach(function(blk){
       blk.rows.forEach(function(x){
@@ -1538,7 +1669,7 @@
       ws:(document.getElementById('wkStart')||{}).value||'',
       we:(document.getElementById('wkEnd')||{}).value||'',
       rows:rows, lim:lim, limBloklar:(LIM_EDIT ? limBloklar : {}), token:(TAKLIF_EDIT ? TAKLIF_TOKEN : ''),
-      bolaklar:bolaklar, extralar:extralar, yangiBloklar:yangiBloklar };
+      bolaklar:bolaklar, extralar:extralar, yangiBloklar:yangiBloklar, avanslar:avanslar };
   }
   var autoT = null;
   function autoSaqla(){
@@ -1549,8 +1680,9 @@
         if (yuborilmoqda) return;
         var s = snapshotOl();
         var bolakBor = Object.keys(bolaklar).some(function(k){ return (bolaklar[k]||[]).length; });
+        var avBor = Object.keys(avanslar).some(function(k){ return (avanslar[k]||[]).length; });
         var bosh = !Object.keys(s.rows).length && !Object.keys(s.lim).length &&
-                   !bolakBor && !extralar.length && !yangiBloklar.length;
+                   !bolakBor && !extralar.length && !yangiBloklar.length && !avBor;
         if (bosh) localStorage.removeItem(autoKey());
         else localStorage.setItem(autoKey(), JSON.stringify(s));
       } catch(e){}
@@ -1561,7 +1693,8 @@
     var s = null;
     try { s = JSON.parse(localStorage.getItem(autoKey())||'null'); } catch(e){}
     if (!s || !s.rows) return;
-    if (!LIM_EDIT && !Object.keys(s.rows).length && !(s.extralar||[]).length &&
+    var sAvBor = Object.keys(s.avanslar||{}).some(function(k){ return (s.avanslar[k]||[]).length; });
+    if (!LIM_EDIT && !Object.keys(s.rows).length && !(s.extralar||[]).length && !sAvBor &&
         !(TAKLIF_EDIT && s.token === TAKLIF_TOKEN && (s.yangiBloklar||[]).length) &&
         !Object.keys(s.bolaklar||{}).some(function(k){ return (s.bolaklar[k]||[]).length; })){
       // faqat Умумий (blok) tahriri saqlangan edi, u esa endi yopiq — tiklanadigan narsa yo'q
@@ -1577,6 +1710,8 @@
     // shuning uchun snapshot AVVAL render, KEYIN ustiga qo'yiladi
     renderAll(); requestAnimationFrame(nomKengayHammasi);
     extralar = s.extralar || [];
+    if (s.avanslar) avanslar = s.avanslar;
+    chizAvanslar();
     if (LIM_EDIT) yangiBloklar = s.yangiBloklar || [];
     else if (TAKLIF_EDIT){ if (s.token === TAKLIF_TOKEN && (s.yangiBloklar||[]).length) yangiBloklar = s.yangiBloklar; }
     else yangiBloklar = [];

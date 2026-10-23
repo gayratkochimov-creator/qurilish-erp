@@ -297,7 +297,23 @@
         {% if amal_ustun %}<td class="ctr">{% include "projects/_moliya_amal.html" with x=r %}</td>{% endif %}
       </tr>
       {% endfor %}
-      <tr class="sub"><td></td><td colspan="5" style="text-align:right;">Blok yakuni:</td><td class="num">{{ g.t_str }}</td><td class="c-nq"></td><td class="num">{{ g.f_str }}</td><td class="c-nq"></td><td></td><td class="num ber">{{ g.b_str }}</td><td class="num ost {% if g.o_manfiy %}neg{% endif %}">{{ g.o_str }}</td><td class="ctr sm">{{ g.foiz }} %</td><td></td>{% if amal_ustun %}<td></td>{% endif %}</tr>
+      {% for b in g.avanslar %}
+      <tr class="ish avans {% if b.toliq %}toliq{% endif %}" data-h="{{ b.holat }}" data-q="{{ b.it.name|lower }} {{ g.bolim|lower }} {{ g.masul|lower }} avans аванс"
+          data-nom="{{ b.it.name }}" data-sub="Avans · {{ g.bolim|default:'Bo‘limsiz' }}{% if g.masul %} · Mas'ul: {{ g.masul }}{% endif %} · hafta {{ b.w.week_start|date:'d.m' }}–{{ b.w.week_end|date:'d.m.Y' }}"
+          data-total="{{ b.total_raw }}" data-fs="{{ b.fs_raw }}" data-ber="{{ b.ber_raw }}" data-tolov='{{ b.tolov_json }}' {% if yoza_oladi %}data-action="{% url 'moliya_yozish' b.it.id %}" data-sorov-url="{{ b.sorov_url }}"{% if b.sorov %} data-sorov="{{ b.sorov.status }}" data-sorov-sabab="{{ b.sorov.sabab }}" data-saqla-url="{% url 'moliya_tahrir_saqla' b.sorov.pk %}"{% endif %}{% endif %}>
+        <td class="ctr mute">💵</td>
+        <td><span class="kind k-av">Avans</span><span class="nm">{{ b.it.name }}</span><div class="sm" style="font-size:11px;">{{ b.w.week_start|date:"d.m" }}–{{ b.w.week_end|date:"d.m.Y" }}{% if b.it.avans_qator_id %} · qatorga{% else %} · blokka{% endif %} · umumiy jamiga kirmaydi</div></td>
+        <td class="izoh-lim c-nq">{{ b.it.note }}</td><td class="ctr">сўм</td>
+        <td class="num c-nq mute">—</td><td class="num c-nq mute">—</td><td class="num mute">—</td>
+        <td class="num c-nq mute">—</td><td class="num" style="font-weight:600;">{{ b.total_str }}</td><td class="num c-nq mute">—</td><td class="num mute">—</td>
+        <td class="num c-ber"><div class="bv">{% if b.tolovlar %}<button type="button" class="tx" data-tarix title="To'lov tarixi">{{ b.tolovlar|length }} ta to'lov</button>{% endif %}<span class="ber-v {% if b.toliq %}g{% elif b.ber_str == '0' %}z{% endif %}">{{ b.ber_str }}</span></div><div class="bar"><i class="{% if b.toliq %}g{% endif %}" style="width:{{ b.foiz }}%"></i></div></td>
+        <td class="num c-ost"><span class="ost-v {% if b.toliq %}g{% endif %}">{{ b.ost_str }}</span></td>
+        <td class="ctr"><span class="chip {{ b.holat }}">{% if b.toliq %}✓ {% endif %}{{ b.holat_nom }}</span></td>
+        <td class="iz-td"><div class="iz"><span class="t bosh">—</span></div></td>
+        {% if amal_ustun %}<td class="ctr">{% include "projects/_moliya_amal.html" with x=b %}</td>{% endif %}
+      </tr>
+      {% endfor %}
+      <tr class="sub"><td></td><td colspan="5" style="text-align:right;">Blok yakuni:{% if g.av_sor_str %} <span class="sm" style="font-weight:400;">(avans {{ g.av_ber_str }} / {{ g.av_sor_str }} berilgan jamiga kiradi)</span>{% endif %}</td><td class="num">{{ g.t_str }}</td><td class="c-nq"></td><td class="num">{{ g.f_str }}</td><td class="c-nq"></td><td></td><td class="num ber">{{ g.b_str }}</td><td class="num ost {% if g.o_manfiy %}neg{% endif %}">{{ g.o_str }}</td><td class="ctr sm">{{ g.foiz }} %</td><td></td>{% if amal_ustun %}<td></td>{% endif %}</tr>
     {% empty %}
       <tr><td colspan="{% if amal_ustun %}16{% else %}15{% endif %}" class="lj-bosh">Bu limitda hali qator yo'q — PTO limit jadvalida kiritadi.</td></tr>
     {% endfor %}
