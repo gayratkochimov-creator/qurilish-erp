@@ -37,7 +37,11 @@ DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 # soxtalanmasin). Faqat DEBUG=True (lokal) da vaqtinchalik kalit.
 SECRET_KEY = os.environ.get('SECRET_KEY', '')
 if not SECRET_KEY:
-    if DEBUG:
+    import sys as _sys
+    # manage.py buyruqlari (migrate, collectstatic, disk_holati …) serverning Bash konsolida
+    # WSGI env'isiz ishlaydi — ularga haqiqiy kalit kerak emas (cookie/sessiya imzolamaydi)
+    _konsol = bool(_sys.argv) and _sys.argv[0].endswith('manage.py')
+    if DEBUG or _konsol:
         SECRET_KEY = 'lokal-debug-kalit-ishlab-chiqarishda-ishlatilmaydi'
     else:
         from django.core.exceptions import ImproperlyConfigured
