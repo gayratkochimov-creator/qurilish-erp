@@ -515,9 +515,10 @@
         hr.querySelectorAll('.yb-bolim,.yb-masul').forEach(function(i){ i.disabled = true; });
         var hdb = hr.querySelector('.del-btn'); if (hdb) hdb.remove();
       }
-      hr.querySelector('.yb-bolim').addEventListener('input', function(){ blk.bolim = this.value; taklifDirty = true; hisobla(); });
+      hr.querySelector('.yb-bolim').addEventListener('input', function(){ blk.bolim = this.value; taklifDirty = true; hisoblaKechik(350); });
       hr.querySelector('.yb-masul').addEventListener('input', function(){ blk.masul = this.value; taklifDirty = true; autoSaqla(); });
-      hr.querySelector('.del-btn').onclick = function(){
+      var hdbtn = hr.querySelector('.del-btn');   // qulf (TAKLIF_QULF) blokda tugma yo'q — avval shu yerda JS yiqilib jadval bo'sh qolardi (2026-10-23)
+      if (hdbtn) hdbtn.onclick = function(){
         var bor = blk.rows.some(function(x){ return (x.name||'').trim() || x.vol>0; });
         if (bor && !confirm('"'+blk.bolim+'" блокида маълумот бор. Барибир ўчирилсинми?')) return;
         yangiBloklar.splice(bi,1); taklifDirty = true; chizYangiBloklar(); hisobla();
@@ -568,7 +569,7 @@
           r.querySelectorAll('.yb-n,.yb-u,.yb-q,.yb-p,.yb-i,.yb-bq,.yb-bs,.yb-k').forEach(function(i){ i.disabled = true; i.title = '🔒 Тасдиқланган қатор — ўзгартириш учун админ рухсати керак'; });
           var db0 = r.querySelector('.del-btn'); if (db0) db0.remove();
         }
-        r.querySelector('.del-btn').onclick = function(){
+        var rdel = r.querySelector('.del-btn'); if (rdel) rdel.onclick = function(){
           if ((x.fq||0) > 0 && !confirm('«'+(x.name||'')+'» бўйича бажарилган иш бор ('+fmt(x.fq)+'). Қатор барибир ўчирилсинми?')) return;
           var i0 = blk.rows.indexOf(x);
           if (i0 > -1) blk.rows.splice(i0, 1);
@@ -697,7 +698,7 @@
       anchor.parentNode.insertBefore(s, anchor.nextSibling);
       anchor = s;
       if (edit){
-        s.querySelector('.del-btn').onclick = function(){
+        var sdel = s.querySelector('.del-btn'); if (sdel) sdel.onclick = function(){
           bolaklar[key].splice(+s.dataset.bi, 1); redrawKey(key);
         };
         ['bz-q','bz-p','bz-i'].forEach(function(cls){
@@ -880,7 +881,7 @@
           '<td class="ctr"><button type="button" class="del-btn" title="Ўчириш">✕</button></td>';
         r.querySelector('.ex-k').value = x.kind || 'material';
         turChipUla(r, r.querySelector('.ex-k'), x);
-        r.querySelector('.del-btn').onclick = function(){ extralar.splice(+r.dataset.ei,1); chizExtralar(); hisobla(); };
+        var rdel = r.querySelector('.del-btn'); if (rdel) rdel.onclick = function(){ extralar.splice(+r.dataset.ei,1); chizExtralar(); hisobla(); };
         [['ex-n','name'],['ex-b','bolim'],['ex-i','izoh'],['ex-u','unit'],['ex-q','qty'],['ex-p','price'],['ex-k','kind']].forEach(function(pr){
           var inp = r.querySelector('.'+pr[0]);
           inp.addEventListener('input', function(){
