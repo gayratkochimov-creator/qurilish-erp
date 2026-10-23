@@ -67,10 +67,12 @@ def disk_holati():
     quota = int(os.environ.get("DISK_QUOTA_MB") or getattr(settings, "DISK_QUOTA_MB", 512) or 512)
     base = Path(settings.BASE_DIR)
     home = Path.home()
-    try:
-        used = _hajm(home if str(base).startswith(str(home)) else base)
-    except Exception:
-        used = _hajm(base)
+    # Loyiha papkasi + foydalanuvchi keshlari (PythonAnywhere kvotasiga kiradi); butun home emas —
+    # lokal kompyuterda home o'nlab GB bo'ladi
+    used = _hajm(base)
+    for q in (home / ".cache", home / ".local"):
+        if q.exists() and not str(base).startswith(str(q)):
+            used += _hajm(q)
     qism = []
     for nom, yol in (("baza", base / "db.sqlite3"), ("media", base / "media"), ("venv", base / "venv"),
                      ("git", base / ".git"), ("pip kesh", home / ".cache")):
