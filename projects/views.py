@@ -4277,6 +4277,17 @@ def _lj_taklif_huquq(user, req):
             or (req.status == "prov" and _is_prov(user)))
 
 
+def _lj_narx_faqat(user, req):
+    """Taklifda FAQAT NARX tahriri (foydalanuvchi qarori, 2026-10-24): ta'minotchi, direktor,
+    proverchik — faqat narxni o'zgartiradi; nom/miqdor/qator qo'shish-o'chirish yo'q.
+    Admin — to'liq; PTO (qoralama, pto2) — to'liq."""
+    if req is None or not _lj_taklif_huquq(user, req):
+        return False
+    if is_admin(user) or is_pto(user):
+        return False
+    return True
+
+
 def _lj_taklif_token(req):
     """Taklifning joriy holati belgisi — eskirgan oynadan ustiga yozib yubormaslik uchun."""
     return "%s|%s|%s|%d" % (req.pk, req.status,
@@ -4370,6 +4381,8 @@ def _lj_taklif_saqla(request, lim, payload, qayt_kerak=True):
         return qayt
     if not _lj_taklif_huquq(request.user, req):
         raise PermissionDenied("Bu bosqichda so'rovni siz tahrirlay olmaysiz.")
+    if _lj_narx_faqat(request.user, req):
+        return _lj_taklif_narx_saqla(request, lim, req, payload, qayt, qayt_kerak)
     items = []
     sums = {k: Decimal("0") for k in KINDS}
     for e in payload.get("req_items") or []:
@@ -4419,6 +4432,48 @@ def _lj_taklif_saqla(request, lim, payload, qayt_kerak=True):
     else:
         messages.success(request, f"Taklif saqlandi ({len(items)} qator, yangi umumiy: "
                                   f"{_money(req.new_total)}). Endi keyingi bosqichga yuborishingiz mumkin.")
+    return qayt if qayt_kerak else None
+
+
+def _lj_taklif_narx_saqla(request, lim, req, payload, qayt, qayt_kerak=True):
+    """Ta'minotchi / direktor / proverchik: taklif qatorlarining FAQAT NARXI yangilanadi
+    (qator `tid` — LimitChangeItem.pk bo'yicha). Nom, miqdor, tur, izoh, qator soni o'zgarmaydi."""
+    from django.utils import timezone as _tz
+    p = lim.project
+    yangi_narx = {}
+    for e in payload.get("req_items") or []:
+        if not isinstance(e, dict) or not str(e.get("tid") or "").isdigit():
+            continue
+        pr = _to_dec(str(e.get("price") if e.get("price") is not None else "0"))
+        if pr is None or pr < 0 or pr > Decimal("1000000000000"):
+            messages.error(request, "Narx noto'g'ri (manfiy yoki juda katta) — saqlanmadi.")
+            return qayt
+        yangi_narx[int(e["tid"])] = pr.quantize(Decimal("0.01"))
+    ozgardi = 0
+    with transaction.atomic():
+        req = (LimitChangeRequest.objects.select_for_update()
+               .filter(project=p, status__in=LIM_JARAYON + ["draft"]).order_by("-id").first())
+        if req is None or _lj_taklif_token(req) != str(payload.get("token") or ""):
+            messages.error(request, "So'rov siz ochgandan keyin o'zgargan — sahifa yangilandi, qayta kiriting.")
+            return qayt
+        if not _lj_taklif_huquq(request.user, req):
+            raise PermissionDenied("Bu bosqichda so'rovni siz tahrirlay olmaysiz.")
+        for it in req.proposed_items.all():
+            pr = yangi_narx.get(it.pk)
+            if pr is not None and pr != it.unit_price:
+                it.unit_price = pr
+                it.save(update_fields=["unit_price"])
+                ozgardi += 1
+        sums = {k: Decimal("0") for k in KINDS}
+        for it in req.proposed_items.all():
+            if it.kind in sums:
+                sums[it.kind] += it.total
+        req.new_material, req.new_labor = sums["material"], sums["labor"]
+        req.new_machinery, req.new_other = sums["machinery"], sums["other"]
+        req.edited_by, req.edited_at = request.user, _tz.now()
+        req.save(update_fields=["new_material", "new_labor", "new_machinery", "new_other", "edited_by", "edited_at"])
+    messages.success(request, f"Narxlar saqlandi ({ozgardi} qator o'zgardi, yangi umumiy: {_money(req.new_total)}). "
+                              "Bu bosqichda faqat narx tahrirlanadi — nom/miqdor PTO va admin ixtiyorida.")
     return qayt if qayt_kerak else None
 
 
@@ -5123,7 +5178,7 @@ def limit_jadval(request, pk):
                 "bolim": g["bolim"], "masul": g["masul"],
                 "rows": [{"name": r["name"], "unit": r["unit"], "kind": r["kind"],
                           "vol": r["vol"], "price": r["price"], "izoh": r["izoh"],
-                          "asl": r.get("asl"), "bq": r["bq"], "bs": r["bs"], "sana": r.get("sana", ""),
+                          "asl": r.get("asl"), "tid": r.get("id"), "bq": r["bq"], "bs": r["bs"], "sana": r.get("sana", ""),
                           "fq": r["wq"], "fs": r["ws"]} for r in g["rows"]],
             } for g in guruhlar]
             # Haftalik qatorlar taklif qatorlariga KALIT bo'yicha bog'lanadi (aks holda ular
@@ -5356,6 +5411,7 @@ def limit_jadval(request, pk):
         # Qoralama tahririda qulf: asl qatorlar faqat o'qiladi
         "taklif_qulf": bool(taklif_view and qoralama_obj and _lj_qulf(lim)),
         "taklif_view": taklif_view, "taklif_edit": taklif_view and taklif_huquq,
+        "taklif_narx": bool(taklif_view and taklif_huquq and _lj_narx_faqat(request.user, taklif_obj)),
         "taklif_json": taklif_json, "taklif_ochirilgan": taklif_ochirilgan,
         "taklif_token": _lj_taklif_token(taklif_obj) if taklif_obj else "",
         "qoralama": qoralama,

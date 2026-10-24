@@ -322,6 +322,7 @@ window.LJ_CFG = (function(){
   var QORALAMA_BOR = {{ qoralama|yesno:"true,false" }};   // obyektda saqlangan qoralama bor (amaldagi ko'rinishda)
   var LIM_QOSH = {{ lim_qosh_huquq|yesno:"true,false" }};
   var TAKLIF_QULF = {{ taklif_qulf|yesno:"true,false" }};
+  var TAKLIF_NARX = {{ taklif_narx|yesno:"true,false" }};   // ta'minotchi/direktor/proverchik — faqat narx
   var QAYTAR_TMPL = "{% url 'weekly_return_pto' 123456789 %}";
   var EXPORT_URL = "{% url 'limit_jadval_export' p.pk %}?limit={{ lim.raqam }}";
   var WK_ACT_TMPL = "{% url 'weekly_action' 123456789 %}";
@@ -332,7 +333,7 @@ window.LJ_CFG = (function(){
   var DRAFT_ID = {{ draft_id|default:"null" }};
   var PK = {{ p.pk }}; var LIM_RAQAM = {{ lim.raqam }};
   var TARIX_URL = "{% url 'haftalik_tarix' %}?obyekt={{ p.pk }}";
-  return {CAN_EDIT: CAN_EDIT, ADMIN_RAW: ADMIN_RAW, ADM_TOGRI: ADM_TOGRI, IS_ADM: IS_ADM, LIM_EDIT: LIM_EDIT, TAKLIF: TAKLIF, TAKLIF_EDIT: TAKLIF_EDIT, TAKLIF_TOKEN: TAKLIF_TOKEN, QORALAMA_BOR: QORALAMA_BOR, LIM_QOSH: LIM_QOSH, TAKLIF_QULF: TAKLIF_QULF, QAYTAR_TMPL: QAYTAR_TMPL, EXPORT_URL: EXPORT_URL, WK_ACT_TMPL: WK_ACT_TMPL, CSRF_T: CSRF_T, WK_DIR_ACTOR: WK_DIR_ACTOR, WK_SNAB_ACTOR: WK_SNAB_ACTOR, WK_PROV_ACTOR: WK_PROV_ACTOR, DRAFT_ID: DRAFT_ID, PK: PK, LIM_RAQAM: LIM_RAQAM, TARIX_URL: TARIX_URL};
+  return {CAN_EDIT: CAN_EDIT, ADMIN_RAW: ADMIN_RAW, ADM_TOGRI: ADM_TOGRI, IS_ADM: IS_ADM, LIM_EDIT: LIM_EDIT, TAKLIF: TAKLIF, TAKLIF_EDIT: TAKLIF_EDIT, TAKLIF_TOKEN: TAKLIF_TOKEN, QORALAMA_BOR: QORALAMA_BOR, LIM_QOSH: LIM_QOSH, TAKLIF_QULF: TAKLIF_QULF, TAKLIF_NARX: TAKLIF_NARX, QAYTAR_TMPL: QAYTAR_TMPL, EXPORT_URL: EXPORT_URL, WK_ACT_TMPL: WK_ACT_TMPL, CSRF_T: CSRF_T, WK_DIR_ACTOR: WK_DIR_ACTOR, WK_SNAB_ACTOR: WK_SNAB_ACTOR, WK_PROV_ACTOR: WK_PROV_ACTOR, DRAFT_ID: DRAFT_ID, PK: PK, LIM_RAQAM: LIM_RAQAM, TARIX_URL: TARIX_URL};
 })();
 </script>
 <script src="{% static 'projects/limit_jadval.js' %}?v={{ kod_versiya }}"></script>

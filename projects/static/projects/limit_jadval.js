@@ -14,6 +14,7 @@
   var QORALAMA_BOR = C.QORALAMA_BOR;
   var LIM_QOSH = C.LIM_QOSH;
   var TAKLIF_QULF = C.TAKLIF_QULF;
+  var TAKLIF_NARX = !!C.TAKLIF_NARX;   // taklifda FAQAT NARX tahriri (ta'minotchi/direktor/proverchik)
   var QAYTAR_TMPL = C.QAYTAR_TMPL;
   var EXPORT_URL = C.EXPORT_URL;
   var WK_ACT_TMPL = C.WK_ACT_TMPL;
@@ -484,7 +485,7 @@
     yangiBloklar = yangiBloklar.filter(function(b){ return b.ichida === undefined || b.rows.length; });
     if (!yangiBloklar.some(function(b){ return b.ichida === undefined && b.keyin === undefined; })){
       // Blok yo'q bo'lsa ham jadval ICHIDA qo'shish tugmasi turadi
-      if (BLOK_EDIT){
+      if (BLOK_EDIT && !TAKLIF_NARX){
         var addr0 = document.createElement('tr'); addr0.className = 'yb-addrow';
         addr0.innerHTML = '<td style="padding:0;"></td><td colspan="16" style="background:#f6f9fd; padding:1px 8px;">'+
           '<button type="button" class="blk-add yb-addblok0" style="margin-left:0; padding:0 8px; font-size:11px; line-height:17px;">+ Янги блок (бўлим)</button></td>';
@@ -518,8 +519,8 @@
         '<input class="wkin tx yb-masul" value="'+esc(blk.masul||'')+'" placeholder="масъул (ихтиёрий)" style="width:190px;">'+
         (TAKLIF_EDIT ? '' : '<span style="font-weight:400; font-size:11px; color:#8a5a00;">(янги блок — «Лимитни юбориш» билан занжирга кетади)</span>')+'</span></td>'+
         '<td class="ctr"><button type="button" class="del-btn" title="Блокни ўчириш">✕</button></td>';
-      if (TAKLIF_QULF && blk.rows.some(function(x){ return x.asl; })){
-        hr.querySelectorAll('.yb-bolim,.yb-masul').forEach(function(i){ i.disabled = true; });
+      if ((TAKLIF_QULF && blk.rows.some(function(x){ return x.asl; })) || TAKLIF_NARX){
+        hr.querySelectorAll('.yb-bolim,.yb-masul').forEach(function(i){ i.disabled = true; if (TAKLIF_NARX) i.title = 'Бу босқичда фақат НАРХ таҳрирланади'; });
         var hdb = hr.querySelector('.del-btn'); if (hdb) hdb.remove();
       }
       hr.querySelector('.yb-bolim').addEventListener('input', function(){ blk.bolim = this.value; taklifDirty = true; hisoblaKechik(350); });
@@ -575,6 +576,11 @@
           // Тасдиқланган қатор — қулф: фақат ўқилади (ҳафталик устуни очиқ)
           r.querySelectorAll('.yb-n,.yb-u,.yb-q,.yb-p,.yb-i,.yb-bq,.yb-bs,.yb-k').forEach(function(i){ i.disabled = true; i.title = '🔒 Тасдиқланган қатор — ўзгартириш учун админ рухсати керак'; });
           var db0 = r.querySelector('.del-btn'); if (db0) db0.remove();
+        } else if (TAKLIF_NARX){
+          // Таъминотчи / директор / проверчик — ФАҚАТ НАРХ (2026-10-24)
+          r.querySelectorAll('.yb-n,.yb-u,.yb-q,.yb-i,.yb-bq,.yb-bs,.yb-k').forEach(function(i){ i.disabled = true; i.title = 'Бу босқичда фақат НАРХ таҳрирланади (ном/миқдор — ПТО ва админ)'; });
+          var ybp = r.querySelector('.yb-p'); if (ybp){ ybp.style.background = '#fef9c3'; ybp.title = 'Нархни киритинг'; }
+          var db1 = r.querySelector('.del-btn'); if (db1) db1.remove();
         }
         var rdel = r.querySelector('.del-btn'); if (rdel) rdel.onclick = function(){
           if ((x.fq||0) > 0 && !confirm('«'+(x.name||'')+'» бўйича бажарилган иш бор ('+fmt(x.fq)+'). Қатор барибир ўчирилсинми?')) return;
@@ -649,9 +655,9 @@
       // Blok YAKUNIDA qo'shish tugmalari: shu blokka qator / yana yangi blok
       var addr = document.createElement('tr'); addr.className = 'yb-addrow';
       addr.innerHTML = '<td style="padding:0;"></td><td colspan="16" style="background:#f6f9fd; padding:1px 8px;">'+
-        '<button type="button" class="blk-add yb-addqator" style="margin-left:0; padding:0 8px; font-size:11px; line-height:17px;">+ Қатор</button>'+
-        '<button type="button" class="blk-add yb-addblok" style="margin-left:6px; padding:0 8px; font-size:11px; line-height:17px;">+ Янги блок</button></td>';
-      addr.querySelector('.yb-addqator').onclick = function(){
+        (TAKLIF_NARX ? '' : '<button type="button" class="blk-add yb-addqator" style="margin-left:0; padding:0 8px; font-size:11px; line-height:17px;">+ Қатор</button>')+
+        (TAKLIF_NARX ? '' : '<button type="button" class="blk-add yb-addblok" style="margin-left:6px; padding:0 8px; font-size:11px; line-height:17px;">+ Янги блок</button>')+'</td>';
+      var aq0 = addr.querySelector('.yb-addqator'); if (aq0) aq0.onclick = function(){
         var oxk = blk.rows.length ? (blk.rows[blk.rows.length-1].kind||'material') : 'material';
         blk.rows.push({name:'',unit:'',kind:oxk,vol:0,price:0});
         chizYangiBloklar(); hisobla();
@@ -659,7 +665,7 @@
         var qs = document.querySelectorAll('tr.extra[data-bi="'+yangiBloklar.indexOf(blk)+'"] .yb-n');
         if (qs.length) qs[qs.length-1].focus();
       };
-      addr.querySelector('.yb-addblok').onclick = function(){
+      var ab0 = addr.querySelector('.yb-addblok'); if (ab0) ab0.onclick = function(){
         if (blk.keyin !== undefined) keyinBlokQosh(blk.keyin); else yangiBlokQosh();
       };
       ins(addr);
@@ -1487,7 +1493,7 @@
         if ((x.name||'').trim())
           rows.push({ bolim:(blk.bolim||'').trim(), masul:(blk.masul||'').trim(), name:x.name,
                       unit:x.unit||'', kind:x.kind||'material', vol:x.vol||0, price:x.price||0,
-                      note:x.izoh||'', asl:x.asl||null, bq:x.bq||0, bs:x.bs||0 });
+                      note:x.izoh||'', asl:x.asl||null, tid:x.tid||null, bq:x.bq||0, bs:x.bs||0 });
       });
     });
     return rows;
@@ -1501,7 +1507,7 @@
         if ((x.name||'').trim())
           rows.push({ bolim:(blk.bolim||'').trim(), masul:(blk.masul||'').trim(), name:x.name,
                       unit:x.unit||'', kind:x.kind||'material', vol:x.vol||0, price:x.price||0,
-                      note:x.izoh||'', asl:x.asl||null, bq:x.bq||0, bs:x.bs||0 });
+                      note:x.izoh||'', asl:x.asl||null, tid:x.tid||null, bq:x.bq||0, bs:x.bs||0 });
       });
     });
     if (!rows.length){ alert('Камида битта қатор бўлиши керак. Сўровни бутунлай бекор қилиш учун уни орқага қайтаринг ёки рад этинг.'); return; }
