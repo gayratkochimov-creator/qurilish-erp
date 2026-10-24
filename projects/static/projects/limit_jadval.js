@@ -1758,7 +1758,9 @@
     try {
       Object.keys(localStorage).forEach(function(k){ if (k.indexOf(AUTO_PREF) === 0) localStorage.removeItem(k); });
     } catch(e){}
-    location.reload();
+    // Ishonchli: yangi sahifa ?tozala=1 bilan ochiladi va kalitlarni YANA o'chiradi (poyga bo'lmasin)
+    try { var u0 = new URL(location.href); u0.searchParams.set('tozala', '1'); location.href = u0.toString(); }
+    catch(e){ location.reload(); }
   };
   ['wkStart','wkEnd'].forEach(function(id){
     var el = document.getElementById(id);
@@ -1793,6 +1795,17 @@
 
   window.addEventListener('pageshow', function(e){ if (e.persisted) yuborilmoqda = false; });
 
+  // ?tozala=1 — «Керак эмас, ўчириш» dan keyin: avtosaqlash kalitlari tiklanishdan OLDIN o'chiriladi
+  (function(){
+    try {
+      var u1 = new URL(location.href);
+      if (u1.searchParams.get('tozala') === '1'){
+        Object.keys(localStorage).forEach(function(k){ if (k.indexOf(AUTO_PREF) === 0) localStorage.removeItem(k); });
+        u1.searchParams.delete('tozala');
+        history.replaceState(null, '', u1.toString());
+      }
+    } catch(e){}
+  })();
   renderAll(); requestAnimationFrame(nomKengayHammasi); setTimeout(nomKengayHammasi, 300);
   autoTikla();
 })();
