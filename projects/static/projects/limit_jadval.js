@@ -1753,7 +1753,11 @@
   var acBtn = document.getElementById('ljAutoClear');
   if (acBtn) acBtn.onclick = function(){
     if (!confirm('Тикланган (сақланмаган) ўзгаришлар ўчирилади. Давом этамизми?')) return;
-    try { localStorage.removeItem(autoKey()); } catch(e){}
+    // Kechikkan avtosaqlash (600 ms) qayta yozib qo'ymasin; shu limitning BARCHA tab kalitlari o'chadi
+    yuborilmoqda = true; clearTimeout(autoT);
+    try {
+      Object.keys(localStorage).forEach(function(k){ if (k.indexOf(AUTO_PREF) === 0) localStorage.removeItem(k); });
+    } catch(e){}
     location.reload();
   };
   ['wkStart','wkEnd'].forEach(function(id){
