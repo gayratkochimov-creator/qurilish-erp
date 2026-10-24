@@ -272,12 +272,8 @@
   .blk-avans { border:1px solid #99f6e4; background:#ccfbf1; color:#0f766e; border-radius:999px; padding:1px 10px; font-size:11px; font-weight:700; cursor:pointer; }
   .blk-avans:hover { background:#99f6e4; }
 
-  /* Tur belgisi (qulf/tasdiqlangan limitda bir qarashda ko'rinadi) */
-  .kbadge { display:inline-block; font-size:9.5px; font-weight:700; line-height:14px; padding:0 6px; border-radius:999px; margin-right:6px; vertical-align:middle; border:1px solid transparent; white-space:nowrap; }
-  .kbadge.k-material { background:#eff6ff; color:#1d4ed8; border-color:#bfdbfe; }
-  .kbadge.k-labor { background:#f0fdf4; color:#15803d; border-color:#bbf7d0; }
-  .kbadge.k-machinery { background:#f5f3ff; color:#7c3aed; border-color:#ddd6fe; }
-  .kbadge.k-other { background:#fff7ed; color:#c2410c; border-color:#fed7aa; }
+  /* Tur belgisi — nomdan KEYIN, rangsiz (foydalanuvchi, 2026-10-24) */
+  .kbadge { display:inline-block; font-size:10px; font-weight:500; line-height:14px; padding:0 5px; border-radius:4px; margin-left:4px; vertical-align:middle; color:#64748b; background:#f1f5f9; border:1px solid #e2e8f0; white-space:nowrap; }
   /* Qatorga admin ruxsati */
   .qr-btn { border:1px solid #e2e8f0; background:#fff; border-radius:6px; font-size:12px; line-height:18px; padding:0 4px; cursor:pointer; margin-left:3px; }
   .qr-btn.on { background:#fef9c3; border-color:#eab308; }
