@@ -4440,15 +4440,27 @@ def _lj_taklif_narx_saqla(request, lim, req, payload, qayt, qayt_kerak=True):
     (qator `tid` — LimitChangeItem.pk bo'yicha). Nom, miqdor, tur, izoh, qator soni o'zgarmaydi."""
     from django.utils import timezone as _tz
     p = lim.project
+    from collections import defaultdict, deque
+    # tid yo'q qatorlar (eski oyna) — nom+bo'lim+tur kaliti bo'yicha tartibda juftlanadi
+    kalit_nav = defaultdict(deque)
+    for it in req.proposed_items.all().order_by("id"):
+        kalit_nav[_lj_key(it.name, it.bolim, it.kind)].append(it.pk)
     yangi_narx = {}
     for e in payload.get("req_items") or []:
-        if not isinstance(e, dict) or not str(e.get("tid") or "").isdigit():
+        if not isinstance(e, dict):
             continue
         pr = _to_dec(str(e.get("price") if e.get("price") is not None else "0"))
         if pr is None or pr < 0 or pr > Decimal("1000000000000"):
             messages.error(request, "Narx noto'g'ri (manfiy yoki juda katta) — saqlanmadi.")
             return qayt
-        yangi_narx[int(e["tid"])] = pr.quantize(Decimal("0.01"))
+        if str(e.get("tid") or "").isdigit():
+            tid = int(e["tid"])
+        else:
+            nav = kalit_nav.get(_lj_key(str(e.get("name") or ""), str(e.get("bolim") or ""), str(e.get("kind") or "material")))
+            if not nav:
+                continue          # taklifda yo'q qator — narx-faqat rejimida qo'shilmaydi
+            tid = nav.popleft()
+        yangi_narx[tid] = pr.quantize(Decimal("0.01"))
     ozgardi = 0
     with transaction.atomic():
         req = (LimitChangeRequest.objects.select_for_update()
