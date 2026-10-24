@@ -2316,9 +2316,12 @@ def _obj_limit_wb(p):
             for col in (7, 8, 10, 11, 13, 14, 15):
                 ws1.cell(r, col).number_format = money
                 ws1.cell(r, col).alignment = right
-            for col in (6, 9, 12):
-                ws1.cell(r, col).number_format = qtyfmt
+            for col, qv_ in ((6, it.quantity), (9, f["fakt_qty"] if f else 0),
+                             (12, it.quantity - (f["fakt_qty"] if f else 0))):
+                ws1.cell(r, col).number_format = _qfmt(qv_)
                 ws1.cell(r, col).alignment = right
+            for col in (3, 4):
+                ws1.cell(r, col).alignment = Alignment(wrap_text=True, vertical="top")
             if f and f["farq"]:
                 ws1.cell(r, 15).font = farq_pos_font if f["farq"] > 0 else farq_neg_font
             for c in ws1[r]:
@@ -2366,7 +2369,7 @@ def _obj_limit_wb(p):
                 c.value = f'=SUMIF($B${h2 + 1}:$B${oxiri},"{KIND[k]}",${harf}${h2 + 1}:${harf}${oxiri})'
                 c.number_format = money
     ws1.freeze_panes = "A6"
-    for i, w in enumerate([6, 15, 32, 24, 9, 11, 13, 15, 11, 13, 15, 11, 13, 15, 15], start=1):
+    for i, w in enumerate([6, 15, 46, 28, 9, 11, 14, 17, 11, 14, 17, 11, 14, 17, 17], start=1):
         ws1.column_dimensions[get_column_letter(i)].width = w
 
     # ===== 2-VARAQ: Haftalik so'rovlar =====
@@ -4152,6 +4155,15 @@ def _hafta_qatorlarini_yangila(w, yangi, ws_, we_, user):
     return None
 
 
+def _qfmt(v):
+    """Excel miqdor formati: butun son bo'lsa '#,##0' (aks holda Excel «1,» deb ko'rsatadi), kasr — 3 xonagacha."""
+    try:
+        v = float(v or 0)
+    except (TypeError, ValueError):
+        return '#,##0.###'
+    return '#,##0' if abs(v - round(v)) < 1e-9 else '#,##0.###'
+
+
 def _avans_nom(bolim, masul, qator):
     """Avans qatori nomi: qatorga bog'langan — «Аванс · <qator nomi>», blokka — «Аванс · <mas'ul/bo'lim>»."""
     if qator is not None:
@@ -5580,6 +5592,7 @@ def limit_jadval_export(request, pk):
             ws.cell(r, 9, float(it["f_sum"]))
             ws.cell(r, 10).value = f"=E{r}-H{r}"
             ws.cell(r, 11).value = f"=G{r}-I{r}"
+            qv = {5: it["qty"], 8: it["f_qty"], 10: it["qty"] - it["f_qty"]}   # miqdor formati uchun
             for wi_ in range(len(haftalar)):
                 c0 = 12 + 4 * wi_
                 ws.cell(r, c0).value = f"=D{r}"
@@ -5589,6 +5602,7 @@ def limit_jadval_export(request, pk):
                 if hd:
                     hq, hs = hd
                     ws.cell(r, c0 + 1, float(hq))
+                    qv[c0 + 1] = hq
                     narx = (hs / hq) if hq else Decimal("0")
                     ws.cell(r, c0 + 2, float(narx))
                 ws.cell(r, c0 + 3).value = f"={_L(c0+1)}{r}*{_L(c0+2)}{r}"
@@ -5598,11 +5612,13 @@ def limit_jadval_export(request, pk):
                 cell.font = Font(name=AR, size=10)
                 qism = (c - 12) % 4 if c >= 12 else None
                 if c in (5, 8, 10) or qism == 1:
-                    cell.number_format = qtyf; cell.alignment = right
+                    cell.number_format = _qfmt(qv.get(c)); cell.alignment = right
                 if c in (6, 7, 9, 11) or qism in (2, 3):
                     cell.number_format = money; cell.alignment = right
                 if c in (1, 4) or qism == 0:
                     cell.alignment = Alignment(horizontal="center")
+                if c in (2, 3):       # nom / izoh — katak ichida, qatorga bo'linib
+                    cell.alignment = Alignment(wrap_text=True, vertical="top")
         # Аванс (масъулга) — фақат ҳафта устунларида; умумий жамига кирмайди
         if any(havans[wi_].get(g["bolim"]) for wi_ in range(len(haftalar))):
             r += 1
@@ -5672,8 +5688,9 @@ def limit_jadval_export(request, pk):
                         font=Font(name=AR, color="CC0000", bold=True),
                         fill=PatternFill("solid", bgColor="FBE4E6")))
 
-    kengliklar = [5, 34, 22, 8, 10, 11, 14, 10, 14, 10, 14] + \
-        [8, 10, 11, 14] * len(haftalar)
+    # Kengliklar: ЖАМИ (bold 12, 9 xonali) sig'ishi uchun summa ustunlari 17, nom 48 (wrap)
+    kengliklar = [5, 48, 26, 8, 11, 13, 17, 11, 17, 11, 17] + \
+        [8, 11, 13, 17] * len(haftalar)
     for i, w_ in enumerate(kengliklar, start=1):
         ws.column_dimensions[_L(i)].width = w_
     # Tanlangan haftadan boshqa haftalar YASHIRIN guruh (Excelda «+» bilan ochiladi)
