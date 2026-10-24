@@ -11,6 +11,7 @@ urlpatterns = [
     path("obyekt/<int:pk>/limit-jadval/qaytar/", views.limit_navbat_eski, name="limit_navbat_qaytar"),
     path("obyekt/<int:pk>/limit-jadval/excel/", views.limit_jadval_export, name="limit_jadval_export"),
     path("obyekt/<int:pk>/limit-jadval/ruxsat/", views.limit_tahrir_ruxsat_toggle, name="limit_tahrir_ruxsat"),
+    path("limit-qator/<int:li_id>/ruxsat/", views.limit_qator_ruxsat_toggle, name="limit_qator_ruxsat"),
     path("obyekt/<int:pk>/limit-jadval/yangi-limit/", views.limit_yangi, name="limit_yangi"),
     path("obyekt/<int:pk>/limit/qaytarish/", views.limit_return_pto, name="limit_return_pto"),
     path("obyekt/<int:pk>/limit/narx-yangilash/", views.limit_narx_yangilash, name="limit_narx_yangilash"),

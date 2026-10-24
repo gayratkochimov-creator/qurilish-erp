@@ -243,9 +243,9 @@
         data-vol="{{ r.vol|unlocalize }}" data-price="{{ r.price|unlocalize }}"
         data-fqty="{{ r.fakt_qty|unlocalize }}" data-fsum="{{ r.fakt_sum|unlocalize }}"
         data-bq="{{ r.bq|unlocalize }}" data-bs="{{ r.bs|unlocalize }}" data-wq="{{ r.wq|unlocalize }}" data-ws="{{ r.ws|unlocalize }}"
-        data-izoh="{{ r.izoh }}" data-sana="{{ r.sana }}">
+        data-izoh="{{ r.izoh }}" data-sana="{{ r.sana }}" data-ruxsat="{% if r.ruxsat %}1{% endif %}">
       <td class="ctr rn">{{ forloop.counter }}</td>
-      <td title="{% if r.sana %}Киритилган: {{ r.sana }}{% endif %}">{{ r.name }}{% if r.sana %} <span class="qsana" style="font-size:10px; color:#94a3b8; white-space:nowrap;">{{ r.sana }}</span>{% endif %}{% if r.ozg == 'yangi' %} <span style="background:#dcfce7; color:#15803d; border-radius:4px; padding:0 5px; font-size:10.5px; font-weight:700;">янги</span>{% elif r.ozg == 'ozgardi' %} <span style="background:#fef3c7; color:#92400e; border-radius:4px; padding:0 5px; font-size:10.5px; font-weight:700;">ўзгарди</span>{% endif %}</td>
+      <td title="{% if r.sana %}Киритилган: {{ r.sana }}{% endif %}">{% if r.kind_qisqa %}<span class="kbadge k-{{ r.kind }}" title="Тури">{{ r.kind_qisqa }}</span>{% endif %}{{ r.name }}{% if r.sana %} <span class="qsana" style="font-size:10px; color:#94a3b8; white-space:nowrap;">{{ r.sana }}</span>{% endif %}{% if r.ozg == 'yangi' %} <span style="background:#dcfce7; color:#15803d; border-radius:4px; padding:0 5px; font-size:10.5px; font-weight:700;">янги</span>{% elif r.ozg == 'ozgardi' %} <span style="background:#fef3c7; color:#92400e; border-radius:4px; padding:0 5px; font-size:10.5px; font-weight:700;">ўзгарди</span>{% endif %}</td>
       <td class="c-izoh" style="font-size:11.5px; color:#666;">{{ r.izoh }}</td>
       <td class="ctr">{{ r.unit }}</td>
       <td class="num c-vol"></td><td class="num c-price"></td><td class="num c-total"></td>
@@ -323,6 +323,10 @@ window.LJ_CFG = (function(){
   var LIM_QOSH = {{ lim_qosh_huquq|yesno:"true,false" }};
   var TAKLIF_QULF = {{ taklif_qulf|yesno:"true,false" }};
   var TAKLIF_NARX = {{ taklif_narx|yesno:"true,false" }};   // ta'minotchi/direktor/proverchik — faqat narx
+  var LIM_QATOR = {{ lim_qator|yesno:"true,false" }};        // qulf limit — faqat admin ruxsat bergan qatorlar tahrirlanadi
+  var QATOR_RUXSAT = {{ qator_ruxsat_ids }};                  // ruxsatli LimitItem id'lari
+  var QR_ADMIN = {{ qr_admin|yesno:"true,false" }};          // admin qatorga ruxsat bera oladi (qulf limit)
+  var QR_URL_TMPL = "{% url 'limit_qator_ruxsat' 123456789 %}";
   var QAYTAR_TMPL = "{% url 'weekly_return_pto' 123456789 %}";
   var EXPORT_URL = "{% url 'limit_jadval_export' p.pk %}?limit={{ lim.raqam }}";
   var WK_ACT_TMPL = "{% url 'weekly_action' 123456789 %}";
@@ -333,7 +337,7 @@ window.LJ_CFG = (function(){
   var DRAFT_ID = {{ draft_id|default:"null" }};
   var PK = {{ p.pk }}; var LIM_RAQAM = {{ lim.raqam }};
   var TARIX_URL = "{% url 'haftalik_tarix' %}?obyekt={{ p.pk }}";
-  return {CAN_EDIT: CAN_EDIT, ADMIN_RAW: ADMIN_RAW, ADM_TOGRI: ADM_TOGRI, IS_ADM: IS_ADM, LIM_EDIT: LIM_EDIT, TAKLIF: TAKLIF, TAKLIF_EDIT: TAKLIF_EDIT, TAKLIF_TOKEN: TAKLIF_TOKEN, QORALAMA_BOR: QORALAMA_BOR, LIM_QOSH: LIM_QOSH, TAKLIF_QULF: TAKLIF_QULF, TAKLIF_NARX: TAKLIF_NARX, QAYTAR_TMPL: QAYTAR_TMPL, EXPORT_URL: EXPORT_URL, WK_ACT_TMPL: WK_ACT_TMPL, CSRF_T: CSRF_T, WK_DIR_ACTOR: WK_DIR_ACTOR, WK_SNAB_ACTOR: WK_SNAB_ACTOR, WK_PROV_ACTOR: WK_PROV_ACTOR, DRAFT_ID: DRAFT_ID, PK: PK, LIM_RAQAM: LIM_RAQAM, TARIX_URL: TARIX_URL};
+  return {CAN_EDIT: CAN_EDIT, ADMIN_RAW: ADMIN_RAW, ADM_TOGRI: ADM_TOGRI, IS_ADM: IS_ADM, LIM_EDIT: LIM_EDIT, TAKLIF: TAKLIF, TAKLIF_EDIT: TAKLIF_EDIT, TAKLIF_TOKEN: TAKLIF_TOKEN, QORALAMA_BOR: QORALAMA_BOR, LIM_QOSH: LIM_QOSH, TAKLIF_QULF: TAKLIF_QULF, TAKLIF_NARX: TAKLIF_NARX, LIM_QATOR: LIM_QATOR, QATOR_RUXSAT: QATOR_RUXSAT, QR_ADMIN: QR_ADMIN, QR_URL_TMPL: QR_URL_TMPL, QAYTAR_TMPL: QAYTAR_TMPL, EXPORT_URL: EXPORT_URL, WK_ACT_TMPL: WK_ACT_TMPL, CSRF_T: CSRF_T, WK_DIR_ACTOR: WK_DIR_ACTOR, WK_SNAB_ACTOR: WK_SNAB_ACTOR, WK_PROV_ACTOR: WK_PROV_ACTOR, DRAFT_ID: DRAFT_ID, PK: PK, LIM_RAQAM: LIM_RAQAM, TARIX_URL: TARIX_URL};
 })();
 </script>
 <script src="{% static 'projects/limit_jadval.js' %}?v={{ kod_versiya }}"></script>

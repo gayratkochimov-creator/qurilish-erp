@@ -53,6 +53,7 @@ def _firma_yoki_403(request, project):
 KIND_NOMI = {"material": "Material", "labor": "Ish haqi", "machinery": "Mashina chasti",
              "other": "Ko'zda tutilmagan xarajatlar", "avans": "Avans"}
 KINDS = ("material", "labor", "machinery", "other")          # limit BYUDJETI toifalari
+KIND_QISQA = {"material": "Материал", "labor": "Иш ҳақи", "machinery": "Машина ч.", "other": "Кўзда т."}
 KINDS_ALL = KINDS + ("avans",)                               # + avans (byudjetga kirmaydi, haftalikda bor)
 AVANS_BLOK = "Аванс (умумий лимитга кирмайди)"
 
@@ -4236,6 +4237,7 @@ def _lj_guruhlar(items, fakt):
         _ca = getattr(li, "created_at", None)
         g["rows"].append({
             "sana": f"{_ca:%d.%m.%Y}" if _ca else "",
+            "kind_qisqa": KIND_QISQA.get(li.kind, ""), "ruxsat": bool(getattr(li, "tahrir_ruxsat", False)),
             "id": li.pk, "asl": getattr(li, "asl_id", None),
             "key": k, "name": li.name, "izoh": li.note or "", "unit": li.unit or "",
             "kind": li.kind, "bolim": kal,
@@ -4351,12 +4353,15 @@ def _lj_qulf_normalla(lim, items):
     tushib qolmaydi — faqat YANGI qatorlar qo'shiladi (zanjir orqali). Qaytaradi:
     (items, sums)."""
     asl = {li.pk: _lj_qator_dict(li) for li in lim.items.all().order_by("id")}
+    ruxsatli = set(lim.items.filter(tahrir_ruxsat=True).values_list("pk", flat=True))
     yangi = []
     bor = set()
     for it in items:
         a = it.get("asl_id")
         if a in asl:
             bor.add(a)
+            if a in ruxsatli:
+                asl[a] = dict(it, asl_id=a)   # admin shu qatorga ruxsat bergan — tahrir qoladi
         else:
             it["asl_id"] = None
             yangi.append(it)
@@ -4572,6 +4577,7 @@ def _lj_qoralama_amal(request, lim, amal):
             q.requested_by = q.requested_by or request.user
             q.save(update_fields=["status", "requested_by"])
             q.approve(request.user)
+            lim.items.filter(tahrir_ruxsat=True).update(tahrir_ruxsat=False)   # qator ruxsatlari ham bir martalik
             if lim.tahrir_ruxsat:
                 lim.tahrir_ruxsat = False
                 lim.save(update_fields=["tahrir_ruxsat"])
@@ -4588,6 +4594,7 @@ def _lj_qoralama_amal(request, lim, amal):
             q.old_machinery, q.old_other = p.limit_machinery, p.limit_other
             q.reason = "Limit jadvalidan tahrir"
             q.save()
+            lim.items.filter(tahrir_ruxsat=True).update(tahrir_ruxsat=False)   # qator ruxsatlari ham bir martalik
             if lim.tahrir_ruxsat:
                 lim.tahrir_ruxsat = False   # ruxsat bir martalik
                 lim.save(update_fields=["tahrir_ruxsat"])
@@ -4624,6 +4631,12 @@ def limit_jadval(request, pk):
     # «Таҳрирга рухсат» bilan ochiladi
     lim_edit_huquq = (is_admin(request.user) or zanjir_ishtirokchi) and (
         not amaldagi_bor or lim.tahrir_ruxsat)
+    # QATOR RUXSATI (2026-10-24): admin alohida qator(lar)ga ruxsat bergan — qulf limitda
+    # faqat o'sha qatorlar tahrirlanadi (JS: LIM_QATOR, serverda lim_edits/lim_del filtrlanadi)
+    ruxsat_ids = set(lim.items.filter(tahrir_ruxsat=True).values_list("id", flat=True)) if amaldagi_bor else set()
+    qator_rejim = bool(ruxsat_ids) and not lim_edit_huquq and (is_admin(request.user) or zanjir_ishtirokchi)
+    if qator_rejim:
+        lim_edit_huquq = True
     # Tasdiqlangan (qulf) limitga ham YANGI blok/qator qo'shish mumkin — faqat
     # zanjir orqali (admin ham), mavjud qatorlar tegilmaydi
     lim_qosh_huquq = (is_admin(request.user) or zanjir_ishtirokchi) and not lim_edit_huquq
@@ -4755,6 +4768,13 @@ def limit_jadval(request, pk):
                 return _qayt()
         # QO'SHISH rejimi: qulf, lekin yangi qatorlar — zanjir orqali (tahrir/o'chirish yo'q)
         qosh_rejim = (not lim_edit_huquq) and lim_qosh_huquq and bool(lim_new)
+        if qator_rejim:
+            # Qator ruxsati: faqat ruxsat berilgan qatorlar tahrirlanadi / o'chiriladi
+            _e0, _d0 = len(lim_edits), len(lim_del)
+            lim_edits = [e for e in lim_edits if str(e.get("id") or "").isdigit() and int(e["id"]) in ruxsat_ids]
+            lim_del = {d for d in lim_del if d in ruxsat_ids}
+            if (_e0, _d0) != (len(lim_edits), len(lim_del)):
+                messages.warning(request, "Ruxsat berilmagan qatorlar qulf — ularning o'zgarishi e'tiborga olinmadi.")
         if qosh_rejim:
             if lim_edits or lim_del:
                 messages.warning(request, "Mavjud qatorlar qulf — ularning o'zgarishi e'tiborga olinmadi, "
@@ -4872,6 +4892,7 @@ def limit_jadval(request, pk):
                     )
                     LimitChangeItem.objects.bulk_create(
                         [LimitChangeItem(request=req0, **it) for it in t_items])
+                    lim.items.filter(tahrir_ruxsat=True).update(tahrir_ruxsat=False)   # qator ruxsatlari ham bir martalik
                     if lim.tahrir_ruxsat:
                         # Admin ruxsati BIR MARTALIK — so'rov yuborilgach yopiladi
                         lim.tahrir_ruxsat = False
@@ -4912,6 +4933,7 @@ def limit_jadval(request, pk):
                     lim_ozgardi = True
                 if lim_ozgardi:
                     p.recompute_limits()
+                    lim.items.filter(tahrir_ruxsat=True).update(tahrir_ruxsat=False)   # qator ruxsatlari ham bir martalik
                     if lim.tahrir_ruxsat:
                         lim.tahrir_ruxsat = False   # ruxsat bir martalik
                         lim.save(update_fields=["tahrir_ruxsat"])
@@ -5416,6 +5438,8 @@ def limit_jadval(request, pk):
         "wk_snab_actor": _is_snab_w(request.user) and not request.user.is_superuser,
         "wk_prov_actor": _is_prov_w(request.user) and not request.user.is_superuser,
         "p": p, "guruhlar": guruhlar,
+        "lim_qator": qator_rejim, "qator_ruxsat_ids": sorted(ruxsat_ids),
+        "qr_admin": bool(is_admin(request.user) and amaldagi_bor and not lim.tahrir_ruxsat and not taklif_view and not lim_pend_obj),
         # Taklif ko'rinishida haftalik va Умумий (amaldagi) tahriri o'chiq
         "can_edit": can_edit,
         "lim_edit_huquq": lim_edit_huquq and not taklif_view,
@@ -5820,6 +5844,27 @@ def limit_tahrir_ruxsat_toggle(request, pk):
                                       "ishtirokchilari Умумийni tahrirlab yuborishi mumkin.")
         else:
             messages.info(request, "🔒 Limit tahriri yana yopildi.")
+    return redirect(_lj_url(lim))
+
+
+@login_required
+def limit_qator_ruxsat_toggle(request, li_id):
+    """ADMIN: tasdiqlangan limitning BITTA QATORIGA tahrir ruxsati berish/olish (2026-10-24).
+    Ruxsatli qatorni PTO/snab/direktor jadvalda tahrirlab zanjirga yuboradi (admin — to'g'ridan);
+    so'rov yuborilgach / qo'llangach ruxsat o'zi yopiladi."""
+    from .models import LimitItem
+    li = get_object_or_404(LimitItem.objects.select_related("project", "limit"), pk=li_id)
+    _firma_yoki_403(request, li.project)
+    if not is_admin(request.user):
+        raise PermissionDenied("Ruxsatni faqat admin beradi.")
+    lim = li.limit or li.project.joriy_limit()
+    if request.method == "POST":
+        li.tahrir_ruxsat = not li.tahrir_ruxsat
+        li.save(update_fields=["tahrir_ruxsat"])
+        if li.tahrir_ruxsat:
+            messages.success(request, f"🔓 «{li.name}» qatoriga tahrir ruxsati berildi — jadvalda shu qator ochiq.")
+        else:
+            messages.info(request, f"🔒 «{li.name}» qatori yana qulflandi.")
     return redirect(_lj_url(lim))
 
 

@@ -15,6 +15,14 @@
   var LIM_QOSH = C.LIM_QOSH;
   var TAKLIF_QULF = C.TAKLIF_QULF;
   var TAKLIF_NARX = !!C.TAKLIF_NARX;   // taklifda FAQAT NARX tahriri (ta'minotchi/direktor/proverchik)
+  var LIM_QATOR = !!C.LIM_QATOR, QATOR_RUXSAT = (C.QATOR_RUXSAT || []).map(String), QR_ADMIN = !!C.QR_ADMIN, QR_URL_TMPL = C.QR_URL_TMPL || '';
+  function qatorRuxsat(tr){ return QATOR_RUXSAT.indexOf(String(tr.dataset.id||'')) >= 0; }
+  function qrToggle(id){
+    var f = document.createElement('form'); f.method = 'post'; f.action = QR_URL_TMPL.replace('123456789', id);
+    f.innerHTML = '<input type="hidden" name="csrfmiddlewaretoken" value="'+C.CSRF_T+'">';
+    document.body.appendChild(f); f.submit();
+  }
+  var AVANS_KORSAT = false;   // 2026-10-24 foydalanuvchi: avans qismi HOZIRCHA kerak emas (kod qoldi, tugma yashirin)
   var QAYTAR_TMPL = C.QAYTAR_TMPL;
   var EXPORT_URL = C.EXPORT_URL;
   var WK_ACT_TMPL = C.WK_ACT_TMPL;
@@ -347,6 +355,7 @@
           '<input class="wkin tx lim-bm" value="'+esc(b.masul)+'" placeholder="масъул (ихтиёрий)" style="width:190px;"></span>';
         bt.querySelector('.lim-bn').addEventListener('input', function(){ b.bolim = this.value; autoSaqla(); });
         bt.querySelector('.lim-bm').addEventListener('input', function(){ b.masul = this.value; autoSaqla(); });
+        if (LIM_QATOR) bt.querySelectorAll('.lim-bn,.lim-bm').forEach(function(i){ i.disabled = true; i.title = '🔒 Қулф — фақат рухсат берилган қаторлар таҳрирланади'; });
       });
     }
     ishRows().forEach(function(tr){
@@ -373,6 +382,11 @@
         tr.querySelector('.c-fqty').innerHTML = '<input class="wkin lim-bq" type="number" min="0" step="0.001" value="'+(((x.bq||0)+wq0)||'')+'" placeholder="0"'+hint+'>';
         tr.querySelector('.c-fsum').innerHTML = '<input class="wkin lim-bs" type="number" min="0" value="'+(((x.bs||0)+ws0)||'')+'" placeholder="0"'+hint+'>';
         fq = wq0 + (x.bq||0); fs = ws0 + (x.bs||0);
+        tr.classList.remove('qr-on'); tr.classList.remove('qr-qulf');
+        if (LIM_QATOR){
+          if (qatorRuxsat(tr)) tr.classList.add('qr-on');
+          else { tr.classList.add('qr-qulf'); tr.querySelectorAll('.lim-n,.lim-u,.lim-k,.lim-q,.lim-p,.lim-bq,.lim-bs').forEach(function(i){ i.disabled = true; i.title = '🔒 Қулф — бу қаторга админ рухсат бермаган'; }); }
+        }
       } else {
         tr.querySelector('.c-vol').textContent = fmt(vol);
         tr.querySelector('.c-price').textContent = fmt(price);
@@ -442,7 +456,16 @@
           chizBolaklar(tr, key, false);
         } else bolaklar[key] = [];
       }
-      if (LIM_EDIT){
+      if (LIM_QATOR && !qatorRuxsat(tr)){ var li0 = tr.querySelector('.lim-i'); if (li0) li0.disabled = true; }
+      if (QR_ADMIN && tr.dataset.id){
+        // Админ: шу қаторга алоҳида таҳрир рухсати (🔒 → 🔓)
+        var qb = document.createElement('button'); qb.type = 'button'; qb.className = 'qr-btn' + (qatorRuxsat(tr) ? ' on' : '');
+        qb.textContent = qatorRuxsat(tr) ? '🔓' : '🔒';
+        qb.title = qatorRuxsat(tr) ? 'Рухсат берилган — бекор қилиш' : 'Шу қаторни таҳрирлашга рухсат бериш';
+        qb.onclick = function(){ qrToggle(tr.dataset.id); };
+        am.appendChild(qb);
+      }
+      if (LIM_EDIT && !(LIM_QATOR && !qatorRuxsat(tr))){
         // ✕ — мавжуд қаторни ўчириш (сақлашда занжирга/тўғридан кетади)
         var db = document.createElement('button'); db.type = 'button'; db.className = 'del-btn lim-del'; db.title = 'Қаторни ўчириш'; db.textContent = '✕';
         db.onclick = function(){
@@ -897,7 +920,7 @@
     var edit = tahrirmi();
     document.querySelectorAll('#ljBody tr.subtotal').forEach(function(st){
       var bolim = st.dataset.bolim || '';
-      var btn = st.querySelector('.blk-avans'); if (btn){ btn.style.display = edit ? '' : 'none'; btn.onclick = function(){ avansQosh(bolim); }; }
+      var btn = st.querySelector('.blk-avans'); if (btn){ btn.style.display = (edit && AVANS_KORSAT) ? '' : 'none'; btn.onclick = function(){ avansQosh(bolim); }; }
       var list = avanslar[bolim] || [];
       list.forEach(function(a, i){
         var r = document.createElement('tr'); r.className = 'avans'; r.dataset.bolim = bolim; r._av = a;

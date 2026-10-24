@@ -591,6 +591,9 @@ class LimitItem(models.Model):
     boshlangich_sum = models.DecimalField("Limitgacha bajarilgan (summa)", default=0, **MONEY)
     # Moliyalashtirish jadvalidagi «Izoh» ustuni — buxgalter yozadi (to'lov izohidan alohida)
     moliya_izoh = models.CharField("Moliya izohi (buxgalter)", max_length=300, blank=True)
+    # Admin QATORGA alohida tahrir ruxsati (2026-10-24): tasdiqlangan (qulf) limitda faqat shu qator
+    # tahrirlanadi; so'rov yuborilgach / qo'llangach o'zi yopiladi (Limit.tahrir_ruxsat kabi bir martalik)
+    tahrir_ruxsat = models.BooleanField("Qatorni tahrirlashga ruxsat (admin)", default=False)
     created_at = models.DateTimeField("Qo'shilgan sana", auto_now_add=True, null=True)
     updated_at = models.DateTimeField("O'zgartirilgan sana", auto_now=True, null=True)
 
