@@ -1443,7 +1443,13 @@
     var lsQ = document.getElementById('limStart'), leQ = document.getElementById('limEnd');
     var sanaOzgardi = !!(lsQ && leQ && (lsQ.value !== LIM_SANA0[0] || leQ.value !== LIM_SANA0[1]));
     var limBor = !!(limEdits.length || limNew.length || limDel.length);
-    if (!items.length && !limBor && !sanaOzgardi){ limZanjir=false; limMode='qoralama'; alert('Камида битта қаторга объём киритинг.'); return; }
+    if (!items.length && !limBor && !sanaOzgardi){
+      limZanjir=false; limMode='qoralama';
+      var hD = haftaTop(sel);
+      // Бўш ҚОРАЛАМА сақланади (2026-10-24): қаторлари ўчирилади; юбориш/янги ҳафта учун объём шарт
+      if (action !== 'save' || !(hD && hD.status === 'draft')){ alert('Камида битта қаторга объём киритинг.'); return; }
+      if (!confirm('Ҳафталикда объём йўқ — қоралама БЎШ сақланади (барча қаторлари ўчирилади). Давом этамизми?')) return;
+    }
     if (limMode !== 'qoralama' && (!ADM_TOGRI || limZanjir) && limBor &&
         !confirm('Умумий лимит ўзгаришлари СНАБЖЕНИЕ → ПТО → ДИРЕКТОР → ПРОВЕРЧИК → АДМИН занжирига сўров бўлиб кетади ва Тасдиқлар бўлимида кўринади. Давом этамизми?')){ limZanjir=false; limMode='qoralama'; return; }
     if (limMode === 'qoralama' && limBor &&

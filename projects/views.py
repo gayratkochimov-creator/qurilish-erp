@@ -5029,7 +5029,17 @@ def limit_jadval(request, pk):
             if (lim_ozgardi or lim_ozgarish) and payload.get("action") != "submit":
                 # Faqat Умумий tahrirlandi (natija xabari yuqorida) — haftalikka tegilmaydi
                 return _qayt()
-            messages.error(request, "Kamida bitta qatorga miqdor kiriting.")
+            if payload.get("action") == "submit" or ruxsat_hafta is not None or draft is None:
+                messages.error(request, "Kamida bitta qatorga miqdor kiriting.")
+                return _qayt()
+            # BO'SH qoralama saqlanadi (foydalanuvchi talabi, 2026-10-24): barcha qatorlar o'chadi,
+            # hafta qoralama bo'lib qoladi — keyin to'ldiriladi yoki o'chiriladi
+            with transaction.atomic():
+                draft.items.all().delete()
+                if ws_ and we_:          # faqat_limit rejimida sanalar o'qilmagan bo'lishi mumkin
+                    draft.week_start, draft.week_end = ws_, we_
+                    draft.save(update_fields=["week_start", "week_end"])
+            messages.success(request, "Qoralama bo'sh saqlandi — barcha qatorlari o'chirildi (0 qator).")
             return _qayt()
 
         if ruxsat_hafta is not None:
