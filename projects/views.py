@@ -5585,9 +5585,13 @@ def limit_jadval_export(request, pk):
                           "unit": li.unit or "", "key": k,
                           "qty": li.quantity, "price": li.unit_price,
                           "f_qty": f_qty + (li.boshlangich_qty or 0),
-                          "f_sum": f_sum + (li.boshlangich_sum or 0)})
+                          "f_sum": f_sum + (li.boshlangich_sum or 0),
+                          "bq": li.boshlangich_qty or Decimal("0"), "bs": li.boshlangich_sum or Decimal("0")})
 
     # --- Excel ---
+    # Бажарилган = бошланғич (қўлда) + РАД ЭТИЛМАГАН ҳафталар устунлари — ФОРМУЛА (2026-10-26):
+    # Excelда ҳафталик объём/нарх ўзгартирилса Бажарилган, Қолган, Блок якуни, ЖАМИ ўзи янгиланади
+    hisob_haftalar = [i for i, w in enumerate(haftalar) if w.status != "rejected"]
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Лимит"
@@ -5625,6 +5629,7 @@ def limit_jadval_export(request, pk):
     if haftalar:
         sub += (f" · {len(haftalar)} ҳафта (эскилари яширин устунларда,"
                 " «+» билан очилади)")
+    sub += " · Бажарилган/Қолган — формула: ҳафталик объём ёки нарх ўзгартирилса ўзи қайта ҳисобланади"
     sub += f" · юкланди: {_lt().strftime('%d.%m.%Y %H:%M')}"
     ws["A2"] = sub
     ws["A2"].font = Font(name=AR, size=10, color="64748B")
@@ -5690,8 +5695,11 @@ def limit_jadval_export(request, pk):
             ws.cell(r, 5, float(it["qty"]))
             ws.cell(r, 6, float(it["price"]))
             ws.cell(r, 7).value = f"=E{r}*F{r}"
-            ws.cell(r, 8, float(it["f_qty"]))
-            ws.cell(r, 9, float(it["f_sum"]))
+            _bq, _bs = float(it["bq"]), float(it["bs"])
+            _q = "".join(f"+{_L(12 + 4 * i + 1)}{r}" for i in hisob_haftalar)
+            _s = "".join(f"+{_L(12 + 4 * i + 3)}{r}" for i in hisob_haftalar)
+            ws.cell(r, 8).value = f"={_bq:g}{_q}" if _q else _bq
+            ws.cell(r, 9).value = f"={_bs:.2f}{_s}" if _s else _bs
             ws.cell(r, 10).value = f"=E{r}-H{r}"
             ws.cell(r, 11).value = f"=G{r}-I{r}"
             qv = {5: it["qty"], 8: it["f_qty"], 10: it["qty"] - it["f_qty"]}   # miqdor formati uchun
