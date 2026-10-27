@@ -85,6 +85,8 @@ MIDDLEWARE = [
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
+    # Telegramga ulanmagan foydalanuvchi (eski sessiya ham) tizimda qola olmaydi
+    'core.middleware.TelegramMajburiyMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'core.middleware.NoHTMLCacheMiddleware',
     # Kunlik AVTO arxiv: kunning birinchi tashrifida baza + hisobotlar ZIP botga
@@ -174,8 +176,10 @@ MEDIA_ROOT = BASE_DIR / 'media'
 LOGIN_URL = 'login'
 # Telegram orqali kod bilan kirish MAJBURIY: profilida Telegram bog'lanmagan
 # foydalanuvchi tizimga kira olmaydi (avval botda /start -> login -> parol).
-# Favqulodda holatda (bot ishlamay qolsa) serverda False qilib vaqtincha o'chiriladi.
-TELEGRAM_2FA_MAJBURIY = os.environ.get("TELEGRAM_2FA_MAJBURIY", "1") != "0"
+# 2026-10-27 (foydalanuvchi talabi): «hech kim ro'yxatdan o'tmasdan kira olmasin» — SERVERDA
+# (DEBUG=False) bu bayroqni o'chirib BO'LMAYDI, env qiymati e'tiborga olinmaydi. Faqat lokal
+# ishlab chiqishda (.env: DEBUG=True va TELEGRAM_2FA_MAJBURIY=0) testlar uchun o'chiriladi.
+TELEGRAM_2FA_MAJBURIY = not (DEBUG and os.environ.get("TELEGRAM_2FA_MAJBURIY", "1") == "0")
 LOGIN_REDIRECT_URL = 'dashboard'
 LOGOUT_REDIRECT_URL = 'login'
 
