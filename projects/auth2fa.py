@@ -22,7 +22,7 @@ import urllib.request
 
 from django.contrib.auth import authenticate, get_user_model
 from django.contrib.auth import login as dj_login
-from django.http import HttpResponse, HttpResponseForbidden
+from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -383,6 +383,11 @@ def telegram_hook(request, secret):
     if not chat_id or not text:
         return HttpResponse("ok")
 
+    def javob(matn):
+        """Foydalanuvchiga javob — WEBHOOK JAVOBI ICHIDA (2026-10-27): alohida chiqish so'rovi
+        kerak emas, server proksisi uzilsa ham bot javob beradi va tezroq."""
+        return JsonResponse({"method": "sendMessage", "chat_id": chat_id, "text": matn})
+
     from .models import TelegramBindState, UserProfile
 
     # --- ADMIN matn buyruqlari: /tasdiq_<id> yoki /rad_<id> (tugma o'rniga) ---
@@ -392,11 +397,18 @@ def telegram_hook(request, secret):
         try:
             sid = int(text.split("_", 1)[1])
         except (ValueError, IndexError):
-            tg_send(chat_id, "Buyruq formati: /tasdiq_5 yoki /rad_5")
-            return HttpResponse("ok")
+            return javob("Buyruq formati: /tasdiq_5 yoki /rad_5")
         natija = _bind_qaror(sid, tasdiq=text.startswith("/tasdiq_"))
-        tg_send(chat_id, natija)
-        return HttpResponse("ok")
+        return javob(natija)
+    # --- ADMIN: kutilayotgan bog'lanish so'rovlari ro'yxati (bildirishnoma yetib bormasa ham) ---
+    if chat_id in _adminlar and text.lower() in ("/sorovlar", "/so'rovlar"):
+        kut = (TelegramBindState.objects.filter(pending_user__isnull=False)
+               .select_related("pending_user").order_by("-updated_at")[:20])
+        if not kut:
+            return javob("Kutilayotgan bog'lanish so'rovi yo'q ✅")
+        qatorlar = [f"👤 {s.pending_user.username} — {_rol_nomi(s.pending_user)}\n"
+                    f"   ✅ /tasdiq_{s.id}   ❌ /rad_{s.id}" for s in kut]
+        return javob("🔔 Kutilayotgan so'rovlar:\n\n" + "\n\n".join(qatorlar))
 
     # --- Ombor menyusi: /ombor (snabjeniye o'z obyektlarini, admin hammasini) ---
     if text.lower() in ("/ombor", "/ostatka"):
@@ -408,21 +420,18 @@ def telegram_hook(request, secret):
 
     # Blok tekshiruvi
     if state.blocked_until and timezone.now() < state.blocked_until:
-        tg_send(chat_id, BOT_BLOK)
-        return HttpResponse("ok")
+        return javob(BOT_BLOK)
 
     if text == "/start":
         state.step, state.login_tmp = "login", ""
         state.save(update_fields=["step", "login_tmp", "updated_at"])
-        tg_send(chat_id, BOT_START)
-        return HttpResponse("ok")
+        return javob(BOT_START)
 
     if state.step == "login":
         state.login_tmp = text[:150]
         state.step = "parol"
         state.save(update_fields=["step", "login_tmp", "updated_at"])
-        tg_send(chat_id, BOT_PAROL)
-        return HttpResponse("ok")
+        return javob(BOT_PAROL)
 
     if state.step == "parol":
         # Parol xabarini darhol o'chiramiz — chat tarixida qolmasin
@@ -443,22 +452,18 @@ def telegram_hook(request, secret):
                 state.blocked_until = timezone.now() + timezone.timedelta(minutes=BIND_BLOK_DAQIQA)
                 state.fails = 0
                 state.save()
-                tg_send(chat_id, BOT_BLOK)
-            else:
-                state.save()
-                tg_send(chat_id, BOT_XATO)
-            return HttpResponse("ok")
+                return javob(BOT_BLOK)
+            state.save()
+            return javob(BOT_XATO)
         # Login/parol TO'G'RI — lekin darhol bog'lamaymiz: ADMIN tasdig'i kerak
         _adminlar2 = admin_chatlar()
         if not _adminlar2:
             state.pending_user = None
             state.save()
-            tg_send(chat_id, BOT_ADMIN_YOQ)
-            return HttpResponse("ok")
+            return javob(BOT_ADMIN_YOQ)
         state.fails = 0
         state.pending_user = user
         state.save()
-        tg_send(chat_id, BOT_KUTISH)
         kimdan = msg.get("from") or {}
         ism = " ".join(x for x in [kimdan.get("first_name", ""), kimdan.get("last_name", "")] if x).strip()
         nik = ("@" + kimdan["username"]) if kimdan.get("username") else ""
@@ -467,24 +472,26 @@ def telegram_hook(request, secret):
                 f"💬 Telegram: {ism} {nik} (chat {chat_id})\n\n"
                 f"Shu odamga kirish kodlari yuborilishini tasdiqlaysizmi?\n"
                 f"Yoki yozing: /tasdiq_{state.id} yoki /rad_{state.id}")
-        for _ac in _adminlar2:
-            bordi = tg_send_kb(
-                _ac, matn,
-                [[{"text": "✅ Tasdiqlash", "callback_data": f"b1:{state.id}"},
-                  {"text": "❌ Rad etish", "callback_data": f"b0:{state.id}"}]],
-            )
-            if not bordi:
-                # Tugmali xabar o'tmasa — oddiy matn bilan (buyruqlar ichida bor)
-                tg_send(_ac, matn)
-        return HttpResponse("ok")
+        def _adminlarga(adminlar, matn, sid):
+            for _ac in adminlar:
+                bordi = tg_send_kb(
+                    _ac, matn,
+                    [[{"text": "✅ Tasdiqlash", "callback_data": f"b1:{sid}"},
+                      {"text": "❌ Rad etish", "callback_data": f"b0:{sid}"}]],
+                )
+                if not bordi:
+                    # Tugmali xabar o'tmasa — oddiy matn bilan (buyruqlar ichida bor)
+                    tg_send(_ac, matn)
+        # Adminlarga xabar FONDA — webhook javobi (foydalanuvchiga) kutib qolmasin
+        import threading as _th
+        _th.Thread(target=_adminlarga, args=(list(_adminlar2), matn, state.id), daemon=True).start()
+        return javob(BOT_KUTISH)
 
     # Suhbatdan tashqari istalgan matn
     if state.pending_user_id:
-        tg_send(chat_id, BOT_KUTISH)
-        return HttpResponse("ok")
+        return javob(BOT_KUTISH)
     bogliq = UserProfile.objects.filter(telegram_chat_id=chat_id).exists()
-    tg_send(chat_id, BOT_BOR if bogliq else BOT_YOQ)
-    return HttpResponse("ok")
+    return javob(BOT_BOR if bogliq else BOT_YOQ)
 
 
 def _bind_qaror(state_id, tasdiq):
