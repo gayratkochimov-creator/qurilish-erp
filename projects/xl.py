@@ -7,15 +7,17 @@ formulalar (katak manzillari, + - * /, SUM/IF/MAX ...) qoladi, qolgani ODDIY MAT
 """
 import re
 
-_FN_OK = {"SUM", "IF", "OR", "AND", "N", "MAX", "MIN", "ROUND", "ABS"}
+_FN_OK = {"SUM", "SUMIF", "IF", "OR", "AND", "N", "MAX", "MIN", "ROUND", "ABS"}
 _BELGI = re.compile(r"^=[A-Z0-9+\-*/().,:;<>=$% ]*$")
 _FN = re.compile(r"([A-Z]+)\(")
-_BOSH_MATN = '""'       # formuladagi bo'sh matn literali — ruxsat etiladi
+_MATN = re.compile(r'"[^"]*"')     # formuladagi matn literali ("" yoki "Материал") — o'zi xavfsiz
 
 
 def formula_xavfsiz(v):
-    """Dastur yozadigan formulalar ko'rinishimi?"""
-    s = str(v).replace(_BOSH_MATN, "")
+    """Dastur yozadigan formulalar ko'rinishimi? Xavf FUNKSIYADA (HYPERLINK, WEBSERVICE, DDE...) —
+    shuning uchun faqat ruxsat etilgan funksiyalar va oddiy belgilar qoladi; matn literallari
+    (masalan SUMIF sharti) tekshiruvdan oldin olib tashlanadi."""
+    s = _MATN.sub("", str(v))
     if not _BELGI.match(s):
         return False
     return all(fn in _FN_OK for fn in _FN.findall(s))

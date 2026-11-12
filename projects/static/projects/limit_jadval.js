@@ -1002,7 +1002,7 @@
         });
       } else {
         r.innerHTML = '<td class="ctr">+</td>'+
-          '<td>'+esc(x.name)+(x.bolim?(' <span style="font-size:10.5px; color:#64748b;">📁 '+esc(x.bolim)+'</span>'):'')+'</td>'+
+          '<td>'+esc(x.name)+' <span class="kbadge" title="Тури">'+esc(KIND_NOMLARI[x.kind||'material']||(x.kind==='avans'?'Аванс':''))+'</span>'+(x.bolim?(' <span style="font-size:10.5px; color:#64748b;">📁 '+esc(x.bolim)+'</span>'):'')+'</td>'+
           '<td style="font-size:11.5px; color:#666;">'+esc(x.izoh||'')+'</td>'+
           '<td class="ctr dim">—</td><td class="num dim">—</td><td class="num dim">—</td><td class="num dim">—</td>'+
           '<td class="num dim">—</td><td class="num dim">—</td><td class="num dim">—</td><td class="num dim">—</td>'+
@@ -1650,8 +1650,80 @@
     var hid = '';
     if (sel !== 'yangi') hid = sel.slice(1);
     else if (DRAFT_ID !== null) hid = DRAFT_ID;
-    location.href = EXPORT_URL + (hid ? ('&hafta=' + hid) : '');
+    if (!hid){
+      // Янги (сақланмаган) ҳафта: ёзилган рақамлар фақат шу браузерда — Excel эса сервердан олинади
+      var kiritilgan = ishRows().some(function(tr){ return rowWeek(tr).q > 0; }) ||
+                       extralar.some(function(x){ return (x.qty||0) > 0; });
+      if (kiritilgan){
+        alert('Бу ҳафта ҳали сақланмаган — Excel файлга чиқмайди.\nАввал «Сақлаш»ни босинг, кейин «Эксел»ни юкланг.');
+        return;
+      }
+      location.href = EXPORT_URL + '&haftasiz=1';     // ҳафта йўқ — фақат тўлиқ лимит варағи
+      return;
+    }
+    location.href = EXPORT_URL + '&hafta=' + hid;
   };
+
+  // -------- 🖨 ЧОП ЭТИШ: танланган ҳафтада СЎРАЛГАН қаторлар, тури ва ҳафталик изоҳи билан --------
+  // (2026-11-12, фойдаланувчи талаби.) «Фақат сўралганлар» белгиси олинса — тўлиқ жадвал чиқади.
+  function chopTozala(){
+    document.body.classList.remove('chop-hafta');
+    document.querySelectorAll('.chop-yoq').forEach(function(x){ x.classList.remove('chop-yoq'); });
+    document.querySelectorAll('.chop-yashir').forEach(function(x){ x.classList.remove('chop-yashir'); });
+    document.querySelectorAll('.chop-wi, .chop-val').forEach(function(x){ x.remove(); });
+  }
+  function chopTayyorla(){
+    chopTozala();
+    var h = haftaTop(sel), edit = tahrirmi();
+    var cb = document.getElementById('chopFaqat');
+    var faqat = !cb || cb.checked;
+    var bloklar = {}, soni = 0;
+    var rows = ishRows();
+    var bor = rows.map(function(tr){
+      var q = rowWeek(tr).q > 0;
+      if (q){ soni++; bloklar[tr.dataset.bolim||''] = true; }
+      return q;
+    });
+    document.querySelectorAll('#ljBody tr.avans').forEach(function(tr){ bloklar[tr.dataset.bolim||''] = true; });
+    // Матнли катаклар: input/textarea ўрнига тўлиқ матн (чопда кесилиб қолмасин)
+    document.querySelectorAll('#ljTbl input.wkin.tx, #ljTbl textarea.wkin.tx').forEach(function(el){
+      if (el.classList.contains('in-i') || el.classList.contains('yb-wi')) { el.classList.add('chop-yashir'); return; }
+      if (el.offsetParent === null) return;          // яширин майдон
+      var sp = document.createElement('span'); sp.className = 'chop-val'; sp.textContent = el.value || '';
+      el.parentNode.insertBefore(sp, el.nextSibling); el.classList.add('chop-yashir');
+    });
+    // Ҳафталик изоҳ — экранда ✎ орқасида; чопда «Изоҳ» устунида кўринади
+    rows.forEach(function(tr, i){
+      if (!bor[i]) return;
+      var matn = '';
+      if (edit){ var ta = tr.querySelector('.in-i'); matn = ta ? (ta.value||'').trim() : ''; }
+      else { var its = (h && h.items[tr.dataset.key]) || []; matn = its.length ? (its[0].izoh||'').trim() : ''; }
+      var iz = tr.querySelector('.c-izoh');
+      if (!matn || !iz) return;
+      var ta2 = iz.querySelector('textarea');
+      var mavjud = (ta2 ? ta2.value : iz.textContent).trim();
+      if (mavjud === matn) return;                   // ёпиқ ҳафтада изоҳ устунида шундоқ ҳам турибди
+      var d = document.createElement('div'); d.className = 'chop-wi'; d.textContent = 'Ҳафталик изоҳ: ' + matn;
+      iz.appendChild(d);
+    });
+    var nomEl = document.getElementById('chopHafta'), th = document.getElementById('wkHead');
+    if (nomEl) nomEl.textContent = (th ? th.textContent.replace('✏️', '').replace('🔒', '').trim() : '') +
+      ((faqat && soni) ? ' — ҳафталик сўров (фақат сўралган қаторлар)' : '');
+    if (!faqat || !soni) return;                     // ҳафтада ҳеч нарса сўралмаган — тўлиқ жадвал
+    document.body.classList.add('chop-hafta');
+    rows.forEach(function(tr, i){ if (!bor[i]) tr.classList.add('chop-yoq'); });
+    document.querySelectorAll('#ljBody tr.block, #ljBody tr.subtotal').forEach(function(tr){
+      if (!bloklar[tr.dataset.bolim||'']) tr.classList.add('chop-yoq');
+    });
+  }
+  window.addEventListener('beforeprint', chopTayyorla);
+  window.addEventListener('afterprint', chopTozala);
+  (function(){
+    var cb = document.getElementById('chopFaqat'), btn = document.getElementById('btnChop');
+    try { if (cb && localStorage.getItem('lj_chop_faqat') === '0') cb.checked = false; } catch(e){}
+    if (cb) cb.onchange = function(){ try { localStorage.setItem('lj_chop_faqat', cb.checked ? '1' : '0'); } catch(e){} };
+    if (btn) btn.onclick = function(){ window.print(); };
+  })();
   document.getElementById('btnHisobot').onclick = function(){
     var rows = [];
     HAFTA.forEach(function(h){

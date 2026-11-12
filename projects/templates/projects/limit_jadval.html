@@ -183,8 +183,9 @@
     <div class="r">
       <label class="lh-search" id="lhSearch"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg><input type="text" id="ljQidir" placeholder="Материал, иш ҳақи, масъул, бўлим, изоҳ…" aria-label="Жадвалдан излаш" autocomplete="off"><span id="ljQidirN" style="font-size:11.5px; color:#6B7280; white-space:nowrap;"></span><button type="button" class="cl" id="ljQidirCl" aria-label="Тозалаш">×</button></label>
       <button type="button" class="lh-btn sm" id="btnHisobot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-6"/></svg>Нарх тарихи</button>
-      <button type="button" class="lh-btn sm" onclick="window.print()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>Чоп этиш</button>
-      <button type="button" class="lh-btn sm" id="btnExcel" title="Тўлиқ жадвални формулали Excel қилиб юклаб олиш"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>Эксел</button>
+      <label class="lh-chopf" title="Белгиланган: чопда фақат танланган ҳафтада СЎРАЛГАН қаторлар чиқади. Олиб ташланса — тўлиқ жадвал."><input type="checkbox" id="chopFaqat" checked> Фақат сўралганлар</label>
+      <button type="button" class="lh-btn sm" id="btnChop" title="Танланган ҳафта сўровини чоп этиш (тури ва ҳафталик изоҳи билан)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>Чоп этиш</button>
+      <button type="button" class="lh-btn sm" id="btnExcel" title="Excel: 1-варақ — танланган ҳафтада сўралганлар (тури ва изоҳи билан), 2-варақ — тўлиқ лимит (формулали)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>Эксел</button>
     </div>
   </div>
 </div>
@@ -197,7 +198,7 @@
 <div id="ljOk" class="noprint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg><b>Жадвал текширилди: хато йўқ.</b><span>Барча қаторларда бирлик, объём ва нарх тўлдирилган.</span></div>
 <div id="ljErr"><div class="hdr" id="ljErrHdr"></div><ul id="ljErrList"></ul></div>
 <div id="ljWarn"><div class="hdr" id="ljWarnHdr"></div><ul id="ljWarnList"></ul></div>
-<div class="lj-print-only">{{ p.code }} — {{ p.name }} — {{ lim.raqam }}-умумий лимит ва ҳафталик лимитлар</div>
+<div class="lj-print-only">{{ p.code }} — {{ p.name }} — {{ lim.raqam }}-умумий лимит ва ҳафталик лимитлар<div id="chopHafta" class="chop-hafta-nom"></div></div>
 
 <datalist id="ljBolimList">{% for g in guruhlar %}{% if g.bolim %}<option value="{{ g.bolim }}"></option>{% endif %}{% endfor %}</datalist>
 

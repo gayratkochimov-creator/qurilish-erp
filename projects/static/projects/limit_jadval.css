@@ -110,10 +110,25 @@
       border:none !important; background:transparent !important; box-shadow:none !important;
       padding:0 !important; font-size:8.5px !important; width:60px !important; appearance:none;
     }
-    .split-btn, .del-btn { display:none !important; }
+    .split-btn, .del-btn, .wi-tgl, .qr-btn, .blk-add, .blk-avans { display:none !important; }
+    tr.lim-addrow, .chop-yoq, .lj-toliq-bosh { display:none !important; }
+    /* Чоп: ҳафталик изоҳ ва матнли катаклар тўлиқ кўринсин (input кесилиб қолмасин) */
+    .chop-wi { display:block !important; font-size:8px; color:#5c2a73; font-style:italic; line-height:1.25; }
+    .chop-val { display:inline !important; white-space:normal; word-break:break-word; }
+    .chop-yashir { display:none !important; }
+    .chop-hafta-nom { display:block !important; font-size:11px; font-weight:600; color:#5B21B6; margin-top:2px; }
+    .kbadge { border:1px solid #9ca3af !important; background:#fff !important; color:#111 !important; font-size:7.5px !important; line-height:10px !important; padding:0 3px !important; margin-left:3px !important; }
+    .qsana { display:none !important; }
+    /* Фақат сўралганлар чопида блок/ЖАМИ нинг Умумий·Бажарилган·Қолган йиғиндиси кўрсатилмайди
+       (улар бутун блокники — чоп этилган қаторлар йиғиндиси эмас); ҳафта суммаси қолади */
+    body.chop-hafta .s-total, body.chop-hafta .s-fsum, body.chop-hafta .s-lsum,
+    body.chop-hafta #gTotal, body.chop-hafta #gFsum, body.chop-hafta #gLsum { visibility:hidden; }
     thead { display:table-header-group; }
     tr { page-break-inside:avoid; }
   }
+  .chop-wi, .chop-val, .chop-hafta-nom { display:none; }
+  .lh-chopf { display:inline-flex; align-items:center; gap:6px; font-size:12px; color:#4B5563; cursor:pointer; user-select:none; white-space:nowrap; }
+  .lh-chopf input { width:15px; height:15px; accent-color:#7E3AF2; cursor:pointer; }
   /* Server xabarlari — xato QIZIL quti bo'lib ko'rinsin (oldin oddiy matn edi, «Сақланмади» ko'rinmasdi) */
   .msg { border-radius:8px; padding:10px 14px; font-size:14px; font-weight:600; margin-bottom:8px; border:1px solid; }
   .msg.success { background:#ecfdf5; color:#065f46; border-color:#a7f3d0; }
