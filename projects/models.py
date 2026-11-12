@@ -717,6 +717,17 @@ def hafta_qatorlarini_qayta_nomla(lim, eski, yangi):
     tarixi uziladi). `eski`/`yangi` — {name, bolim, unit, kind}."""
     if all(eski[k] == yangi[k] for k in ("name", "bolim", "unit", "kind")):
         return 0
+
+    def _kalit(n, b, k):
+        return ((n or "").strip().lower(), (b or "").strip().lower(), (k or "").strip().lower())
+
+    ek = _kalit(eski["name"], eski["bolim"], eski["kind"])
+    if ek != _kalit(yangi["name"], yangi["bolim"], yangi["kind"]):
+        # Eski nom+bo'lim+tur bilan limitda YANA qator qolgan (bir xil nomli dublikat) — haftalik tarix
+        # o'sha qatorda qoladi. Aks holda bitta qator nomi o'zgarsa, hamma haftaliklar unga ergashib,
+        # ikkinchi qatorning «Бажарилган»i 0 bo'lib qolardi (audit Y6). None = ergashtirilmadi.
+        if any(_kalit(n, b, k) == ek for n, b, k in lim.items.values_list("name", "bolim", "kind")):
+            return None
     return (WeeklyRequestItem.objects
             .filter(request__limit=lim, name=eski["name"], bolim=eski["bolim"], kind=eski["kind"])
             .update(name=yangi["name"], bolim=yangi["bolim"],

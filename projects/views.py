@@ -22,6 +22,9 @@ from .roles import (
 )
 
 
+from .xl import formulalar, xl_saqla  # noqa: E402 — Excel formula himoyasi
+
+
 def _to_dec(v):
     """Excel katagidan Decimal (bo'sh/xato bo'lsa None)."""
     if v is None:
@@ -2115,21 +2118,21 @@ def build_hisobotlar_zip(user=None):
         ws.freeze_panes = "A2"
         for i, w in enumerate([16, 30, 22, 16, 16, 18, 18, 18, 18, 18], start=1):
             ws.column_dimensions[get_column_letter(i)].width = w
-        b = io.BytesIO(); wb.save(b)
+        b = io.BytesIO(); xl_saqla(wb, b)
         z.writestr("Umumiy_limitlar.xlsx", b.getvalue())
 
         # 2) Har obyekt uchun batafsil (faqat limiti yoki haftaligi bo'lganlar)
         for p in proj_qs.order_by("code"):
             if p.budget_total <= 0 and not p.weekly_requests.exists() and not p.limit_items.exists():
                 continue
-            b = io.BytesIO(); _obj_limit_wb(p).save(b)
+            b = io.BytesIO(); xl_saqla(_obj_limit_wb(p), b)
             fn = f"Obyektlar/{p.code}_limit.xlsx".replace(" ", "_")
             z.writestr(fn, b.getvalue())
 
         # 3) Ombor qoldig'i (foydalanuvchi ko'rish doirasi bo'yicha; bot user=None=hammasi)
         try:
             from ombor.views import _ombor_wb
-            b = io.BytesIO(); _ombor_wb(user=user).save(b)
+            b = io.BytesIO(); xl_saqla(_ombor_wb(user=user), b)
             z.writestr("Ombor_qoldiq.xlsx", b.getvalue())
         except Exception:
             pass
@@ -2172,7 +2175,7 @@ def limit_export(request):
         ws.column_dimensions[get_column_letter(i)].width = w
 
     buf = io.BytesIO()
-    wb.save(buf)
+    xl_saqla(wb, buf)
     buf.seek(0)
     resp = HttpResponse(
         buf.getvalue(),
@@ -2417,7 +2420,7 @@ def limit_export_obj(request, pk):
     """Bitta obyekt limit hisoboti — Excel."""
     p = _firma_yoki_403(request, get_object_or_404(Project, pk=pk))
     buf = io.BytesIO()
-    _obj_limit_wb(p).save(buf)
+    xl_saqla(_obj_limit_wb(p), buf)
     buf.seek(0)
     resp = HttpResponse(
         buf.getvalue(),
@@ -2582,7 +2585,7 @@ def grafik_template(request):
         wt.column_dimensions[get_column_letter(c)].width = 12
 
     buf = io.BytesIO()
-    wb.save(buf)
+    xl_saqla(wb, buf)
     buf.seek(0)
     resp = HttpResponse(
         buf.getvalue(),
@@ -2894,6 +2897,7 @@ def grafik_rabota(request, pk=None):
 
     tpl = _s.BASE_DIR / "projects" / "xlsx" / "grafik_namuna.xlsx"
     wb = openpyxl.load_workbook(tpl)
+    _qolip_f = formulalar(wb)      # qolipdagi formulalar — ishonchli
 
     BOSH_FILL = PatternFill()   # rangsiz
 
@@ -3010,7 +3014,7 @@ def grafik_rabota(request, pk=None):
         clear_rows(wf, 4)
 
     buf = io.BytesIO()
-    wb.save(buf)
+    xl_saqla(wb, buf, ishonchli=_qolip_f)
     buf.seek(0)
     resp = HttpResponse(buf.getvalue(),
                         content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
@@ -3880,7 +3884,7 @@ def weekly_export(request, pk):
         ws.column_dimensions[get_column_letter(i)].width = kenglik
 
     buf = io.BytesIO()
-    wb.save(buf)
+    xl_saqla(wb, buf)
     buf.seek(0)
     resp = HttpResponse(
         buf.getvalue(),
@@ -4924,8 +4928,8 @@ def limit_jadval(request, pk):
                         # Qayta nomlangan qatorga bog'liq haftalik qatorlar ham ergashadi;
                         # shu POSTdagi (eski nomli) haftalik qatorlar ham yangi nomga o'tadi
                         yangi_nom = {k: it[k] for k in ("name", "bolim", "unit", "kind")}
-                        hafta_qatorlarini_qayta_nomla(lim, eski, yangi_nom)
-                        qayta_nom[_lj_key(eski["name"], eski["bolim"], eski["kind"])] = yangi_nom
+                        if hafta_qatorlarini_qayta_nomla(lim, eski, yangi_nom) is not None:
+                            qayta_nom[_lj_key(eski["name"], eski["bolim"], eski["kind"])] = yangi_nom
                         lim_ozgardi = True
                 if yangilar:
                     LimitItem.objects.bulk_create([LimitItem(project=p, limit=lim, **{k: v for k, v in it.items() if k != "asl_id"})
@@ -4997,6 +5001,10 @@ def limit_jadval(request, pk):
                 nm = yn["name"]
             q = _to_dec(str(row.get("qty") or "0")) or Decimal("0")
             pr = _to_dec(str(row.get("price") or "0")) or Decimal("0")
+            # «NaN» / «Infinity» / haddan katta son — xabar bilan rad (aks holda 500 xatosi, audit M5)
+            if not (q.is_finite() and pr.is_finite()) or q >= _LJ_CHEGARA or pr >= _LJ_CHEGARA:
+                messages.error(request, f"«{nm}»: miqdor yoki narx noto'g'ri (son emas yoki juda katta) — saqlanmadi.")
+                return _qayt()
             if q <= 0:
                 continue
             if pr <= 0:
@@ -5134,6 +5142,22 @@ def limit_jadval(request, pk):
         if ruxsat_hafta is not None:
             # YOPIQ haftani (admin ruxsati bilan) tahrirlash: qatorlar O'RNIDA yangilanadi —
             # to'lov yozilgan qator o'chirilmaydi/kamaytirilmaydi; status o'zgarmaydi
+            if ruxsat_hafta.status == WeeklyRequest.Status.APPROVED:
+                # Tasdiqlangan hafta summasi O'SSA — tur bo'yicha limit tekshiriladi (qayta tasdiq yo'q,
+                # shuning uchun limitdan oshirib bo'lmaydi). Faqat admin ongli ravishda oshira oladi.
+                _eski_k = _items_by_kind([i for i in ruxsat_hafta.items.all() if i.kind in KINDS])
+                _yangi_k = _items_by_kind([i for i in yangi_items if i.kind in KINDS])
+                _oshgan = []
+                for _k in KINDS:
+                    if _yangi_k[_k] > _eski_k[_k]:
+                        _oshgan += _limit_oshish(ruxsat_hafta.limit or lim, {_k: _yangi_k[_k]},
+                                                 exclude_request_id=ruxsat_hafta.id)
+                if _oshgan and not request.user.is_superuser:
+                    messages.error(request, "Tasdiqlangan hafta summasi limitdan oshadi — saqlanmadi. "
+                                            + "; ".join(_oshgan) + ". Limitni oshiring yoki admin tahrirlasin.")
+                    return _qayt()
+                if _oshgan:
+                    messages.warning(request, "DIQQAT: tahrirdan keyin sarf limitdan oshdi — " + "; ".join(_oshgan))
             xato = _hafta_qatorlarini_yangila(ruxsat_hafta, yangi_items, ws_, we_, request.user)
             if xato:
                 messages.error(request, xato)
@@ -5812,7 +5836,7 @@ def limit_jadval_export(request, pk):
 
     import io as _io
     buf = _io.BytesIO()
-    wb.save(buf)
+    xl_saqla(wb, buf)
     resp = HttpResponse(
         buf.getvalue(),
         content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

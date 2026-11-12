@@ -14,8 +14,6 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
-from django.conf import settings
-from django.conf.urls.static import static
 from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from django.urls import include, path
@@ -39,5 +37,10 @@ urlpatterns = [
     path('', include('projects.urls')),
 ]
 
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+# /media/ (chek, nakladnoy rasmlari) — faqat tizimga kirgan va shu omborni ko'ra oladiganlarga.
+# Serverda Web → Static files ro'yxatida /media/ turgan bo'lsa, bu yo'l ishlamaydi (fayl ochiq
+# beriladi) — himoya uchun o'sha qatorni o'chirish kerak.
+from django.urls import re_path  # noqa: E402
+from ombor.media import media_korish  # noqa: E402
+
+urlpatterns += [re_path(r"^media/(?P<path>.+)$", media_korish, name="media_korish")]

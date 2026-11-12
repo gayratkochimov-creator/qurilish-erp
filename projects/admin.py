@@ -109,6 +109,22 @@ class WeeklyRequestItemInline(admin.TabularInline):
     fields = ["kind", "work_section", "name", "note", "unit", "quantity", "unit_price", "qator_summasi"]
     readonly_fields = ["qator_summasi"]
 
+    # Zanjirga kirgan (qoralama bo'lmagan) haftalik qatorlari admin formasidan o'zgartirilmaydi —
+    # limit nazorati va imzolar chetlab o'tilmasin (audit M2). Tahrir: jadval sahifasidagi ruxsat orqali.
+    def _qulf(self, obj):
+        return obj is not None and obj.pk and obj.status != "draft"
+
+    def get_readonly_fields(self, request, obj=None):
+        if self._qulf(obj):
+            return list(self.fields)
+        return super().get_readonly_fields(request, obj)
+
+    def has_add_permission(self, request, obj=None):
+        return False if self._qulf(obj) else super().has_add_permission(request, obj)
+
+    def has_delete_permission(self, request, obj=None):
+        return False if self._qulf(obj) else super().has_delete_permission(request, obj)
+
     @admin.display(description="Qator summasi")
     def qator_summasi(self, obj):
         if obj and obj.pk:
@@ -240,7 +256,8 @@ class LimitChangeRequestAdmin(FirmaScopedAdmin):
     list_display = ["project", "yangi_material", "yangi_ish", "yangi_mashina", "yangi_jami", "status", "requested_by", "created_at"]
     list_filter = ["status", "project"]
     search_fields = ["project__code", "project__name"]
-    readonly_fields = ["old_material", "old_labor", "old_machinery", "requested_by", "created_at",
+    # status — faqat harakatlar (tasdiqlash/rad) va zanjir orqali o'zgaradi (audit M2)
+    readonly_fields = ["status", "old_material", "old_labor", "old_machinery", "requested_by", "created_at",
                        "decided_by", "decided_at", "decision_note"]
     inlines = [LimitChangeItemInline]
     actions = [action_approve_limit, action_reject_limit]
@@ -271,7 +288,8 @@ class WeeklyRequestAdmin(FirmaScopedAdmin):
     search_fields = ["number", "project__code", "project__name"]
     date_hierarchy = "week_start"
     autocomplete_fields = ["project"]
-    readonly_fields = ["created_by", "created_at", "approved_by", "approved_at"]
+    # status — faqat harakatlar (Tasdiqlash / Qoralamaga) va zanjir orqali o'zgaradi (audit M2)
+    readonly_fields = ["status", "created_by", "created_at", "approved_by", "approved_at"]
     actions = [action_approve, action_to_draft]
 
     @admin.display(description="Jami summa")
@@ -412,7 +430,7 @@ class MaterialRequestAdmin(FirmaScopedAdmin):
     list_display = ["id", "project", "created_by", "status", "created_at", "decided_by", "decided_at"]
     list_filter = ["status", "project"]
     search_fields = ["project__code", "project__name"]
-    readonly_fields = ["created_by", "created_at", "decided_by", "decided_at"]
+    readonly_fields = ["status", "created_by", "created_at", "decided_by", "decided_at"]
     inlines = [MaterialRequestItemInline]
 
 

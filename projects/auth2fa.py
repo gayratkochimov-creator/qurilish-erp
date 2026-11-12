@@ -71,6 +71,29 @@ def admin_chatlar():
     return chats
 
 
+def baza_chatlar():
+    """BAZA NUSXASI (barcha firmalar + parol xeshlari) boradigan chatlar — FAQAT:
+    telegram.json'dagi asosiy chat va ASOSIY adminning o'z chati. Boshqa adminlarning
+    telefoniga to'liq baza ketmaydi (audit M1) — ular faqat hisobotlar ZIP'ini oladi."""
+    chats = set()
+    a = str(_token_chat()[1] or "").strip()
+    if a:
+        chats.add(a)
+    try:
+        from django.conf import settings
+        from .models import UserProfile
+        cid = (UserProfile.objects
+               .filter(user__username=getattr(settings, "ASOSIY_ADMIN_LOGIN", "admin"),
+                       user__is_superuser=True, user__is_active=True)
+               .exclude(telegram_chat_id="")
+               .values_list("telegram_chat_id", flat=True).first())
+        if cid:
+            chats.add(str(cid))
+    except Exception:
+        pass
+    return chats
+
+
 def _log_xato(method, izoh):
     """Telegram API xatolarini faylga yozish — serverda muammoni topish oson bo'lsin.
     (Parol yoki kod matni YOZILMAYDI — faqat metod, chat va xato.)"""

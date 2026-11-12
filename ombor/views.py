@@ -111,9 +111,13 @@ def _dec(v):
     if not s:
         return None
     try:
-        return Decimal(s)
+        d = Decimal(s)
     except Exception:
         return None
+    # «NaN» / «Infinity» / haddan katta son — qabul qilinmaydi (500 xatosi bo'lmasin, audit M5)
+    if not d.is_finite() or abs(d) >= Decimal("1000000000000"):
+        return None
+    return d
 
 
 def _qty(v):
@@ -255,7 +259,8 @@ def ombor_export(request):
     wb = _ombor_wb(request.GET.get("firma") or "", request.GET.get("project") or "",
                    request.GET.get("warehouse") or "", user=request.user)
     buf = io.BytesIO()
-    wb.save(buf)
+    from projects.xl import xl_saqla
+    xl_saqla(wb, buf)
     buf.seek(0)
     resp = HttpResponse(buf.getvalue(),
                         content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
@@ -380,10 +385,16 @@ def prixod_add(request):
         # Rasm hajmi chegarasi — 10 MB (disk to'lib qolmasin, server 512 MB)
         MAX_RASM = 10 * 1024 * 1024
         katta = []
+        rasm_emas = []      # rasm bo'lmagan fayllar (tekshiruvdan o'tmadi)
+        from .media import rasm_tayyorla
         # Mahsulot rasmlari — 5 tagacha
         for f in request.FILES.getlist("images")[:5]:
             if f.size > MAX_RASM:
                 katta.append(f.name)
+                continue
+            _asl = f.name
+            if not rasm_tayyorla(f):
+                rasm_emas.append(_asl)
                 continue
             ReceiptImage.objects.create(receipt=r, turi="product", image=f)
         # Nakladnoy rasmlari — har biri ITOGO summasi bilan (ketma-ket qatorlar)
@@ -394,10 +405,16 @@ def prixod_add(request):
             if nf.size > MAX_RASM:
                 katta.append(nf.name)
                 continue
+            _asl = nf.name
+            if not rasm_tayyorla(nf):
+                rasm_emas.append(_asl)
+                continue
             ReceiptImage.objects.create(
                 receipt=r, turi="nakladnoy", image=nf,
                 summa=_dec(request.POST.get(f"nak_summa_{i}")),
             )
+        if rasm_emas:
+            messages.warning(request, "Rasm emas — yuklanmadi (faqat JPG / PNG / WEBP): " + ", ".join(rasm_emas))
         if katta:
             messages.warning(request,
                 "Ba'zi rasmlar 10 MB dan katta — yuklanmadi: " + ", ".join(katta[:5]))

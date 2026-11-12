@@ -45,7 +45,8 @@ def _admin_chat():
 
 def _chat_user(chat_id):
     from projects.models import UserProfile
-    prof = (UserProfile.objects.filter(telegram_chat_id=str(chat_id))
+    # Bo'shatilgan (is_active=False) xodimga bot javob bermaydi
+    prof = (UserProfile.objects.filter(telegram_chat_id=str(chat_id), user__is_active=True)
             .select_related("user").first())
     return prof.user if prof else None
 
@@ -67,7 +68,7 @@ def _qabul_qiluvchilar(proj):
     from projects.models import UserProfile
     chats = set(admin_chatlar())
     if proj is not None:
-        for cid in (UserProfile.objects.filter(projects=proj)
+        for cid in (UserProfile.objects.filter(projects=proj, user__is_active=True)
                     .exclude(telegram_chat_id="")
                     .values_list("telegram_chat_id", flat=True)):
             chats.add(str(cid))

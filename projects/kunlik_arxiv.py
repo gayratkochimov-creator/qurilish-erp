@@ -100,7 +100,7 @@ def kunlik_yubor():
         _api, _sqlite_snapshot, _token_chat,
     )
     try:
-        from projects.auth2fa import admin_chatlar
+        from projects.auth2fa import admin_chatlar, baza_chatlar
         token = _token_chat()[0]
         chatlar = admin_chatlar()
         if not (token and chatlar):
@@ -119,7 +119,7 @@ def kunlik_yubor():
             try:
                 with open(snap, "rb") as f:
                     data = f.read()
-                for chat in chatlar:
+                for chat in baza_chatlar():     # to'liq baza — faqat asosiy chat / asosiy admin
                     _api(token, "sendDocument",
                          fields={"chat_id": chat,
                                  "caption": f"🗄 Kunlik AVTO zaxira (baza)\n{now}"},
