@@ -40,6 +40,7 @@
   .lj tr.block.blokcha td:nth-child(2) { padding-left:22px; }
   .lj tr.block.blokcha td { background:#fdf0cc !important; }
   .bch-belgi { color:#b45309; font-weight:800; margin-right:2px; }
+  .bch-ota { color:#92400e; font-weight:700; white-space:nowrap; }
   .lj tr.grand td { background:#d1e7dd !important; font-weight:700; font-size:14px; position:sticky; bottom:0; z-index:2; }
   .lj tr.row-err td { background:#fbe4e6 !important; }
   .lj tr.row-warn td { background:#fff7e0 !important; }

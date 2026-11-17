@@ -777,12 +777,16 @@ def sync_limit_items(lim, items):
     """
     from collections import defaultdict, deque
 
+    def _k(kind, name, bolim):
+        # Blok ham kalitda: «1-блок › Майда» va «1-блок › Катта»dagi bir xil nom — alohida qatorlar
+        return (kind, (name or "").strip().lower(), (bolim or "").strip().lower())
+
     mavjud = defaultdict(deque)
     for li in lim.items.all().order_by("id"):
-        mavjud[(li.kind, (li.name or "").strip().lower())].append(li)
+        mavjud[_k(li.kind, li.name, li.bolim)].append(li)
 
     for it in items:
-        kalit = (it["kind"], (it["name"] or "").strip().lower())
+        kalit = _k(it["kind"], it["name"], it.get("bolim", ""))
         navbat = mavjud.get(kalit)
         if not navbat:
             LimitItem.objects.create(project=lim.project, limit=lim, **it)

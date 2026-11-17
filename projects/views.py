@@ -212,11 +212,12 @@ def _limitga_yangi_materiallar(req):
     """
     lim = req.limit or req.project.joriy_limit()
     p = lim.project
-    mavjud = {(li.kind, (li.name or "").strip().lower()) for li in lim.items.all()}
+    # Kalit — nom + BLOK + tur: boshqa blok/blokchada shu nom bo'lsa ham bu blokda yo'q → qo'shiladi
+    mavjud = {_lj_key(li.name, li.bolim, li.kind) for li in lim.items.all()}
     yangi, korilgan = [], set()
     for it in req.items.all():
         nom = (it.name or "").strip()
-        kalit = (it.kind, nom.lower())
+        kalit = _lj_key(nom, it.bolim, it.kind)
         if not nom or kalit in mavjud or kalit in korilgan:
             continue
         korilgan.add(kalit)
@@ -273,15 +274,16 @@ def _nom_kalit(kind, name):
 
 
 def _joriy_narxlar(p):
-    """Har nom uchun JORIY narx — shu nomdagi ENG OXIRGI tasdiqlangan haftalik narxi.
-    {(kind, nom): narx}. Hali so'ralmagan nomlar ro'yxatda bo'lmaydi (limit narxi qoladi)."""
+    """Har QATOR (nom + blok + tur) uchun JORIY narx — shu qatorning ENG OXIRGI tasdiqlangan haftalik
+    narxi. {_lj_key: narx}. Boshqa blok/blokchadagi shu nomning narxi olinmaydi (2026-11-17).
+    Hali so'ralmagan qatorlar ro'yxatda bo'lmaydi (limit narxi qoladi)."""
     joriy = {}
     qs = (WeeklyRequestItem.objects
           .filter(request__project=p, request__status=WeeklyRequest.Status.APPROVED)
           .order_by("request__week_start", "request_id", "id")
-          .values_list("kind", "name", "unit_price"))
-    for kind, name, narx in qs:
-        joriy[_nom_kalit(kind, name)] = narx     # oxirgisi g'olib
+          .values_list("kind", "name", "bolim", "unit_price"))
+    for kind, name, bolim, narx in qs:
+        joriy[_lj_key(name, bolim, kind)] = narx     # oxirgisi g'olib
     return joriy
 
 
@@ -337,7 +339,7 @@ def _narx_tahlil(p):
         if d["limit_qty"] > 0:
             d["limit_price"] = (d["limit_sum"] / d["limit_qty"]).quantize(Decimal("0.01"))
         lp = d["limit_price"]
-        d["joriy"] = joriy_map.get(_nom_kalit(d["kind"], d["name"]), lp)
+        d["joriy"] = joriy_map.get(_lj_key(d["name"], d["bolim"], d["kind"]), lp)
         d["fakt_avg"] = ((d["fakt_sum"] / d["fakt_qty"]).quantize(Decimal("0.01"))
                          if d["fakt_qty"] > 0 else Decimal("0"))
         d["qolgan_qty"] = d["limit_qty"] - d["fakt_qty"]
@@ -1069,7 +1071,7 @@ def limit_narx_yangilash(request, pk):
     joriy = _joriy_narxlar(p)
     items, ozgardi, sums = [], [], {k: Decimal("0") for k in KINDS}
     for li in lim.items.all().order_by("id"):
-        narx = joriy.get(_nom_kalit(li.kind, li.name), li.unit_price)
+        narx = joriy.get(_lj_key(li.name, li.bolim, li.kind), li.unit_price)
         if narx != li.unit_price:
             ozgardi.append(f"{li.name} {_money(li.unit_price)} → {_money(narx)}")
         items.append({"kind": li.kind, "name": li.name, "unit": li.unit,
@@ -1314,10 +1316,10 @@ def _tasdiqlar_data(status="dir", user=None):
         from collections import defaultdict, deque
         joriy = defaultdict(deque)
         for li in sorted(r.limit.items.all(), key=lambda x: x.id):   # prefetch'dan (order_by yangi so'rov ochardi)
-            joriy[(li.kind, (li.name or "").strip().lower())].append(li)
+            joriy[_lj_key(li.name, li.bolim, li.kind)].append(li)
         items = []
         for it in r.proposed_items.all():
-            kalit = (it.kind, (it.name or "").strip().lower())
+            kalit = _lj_key(it.name, it.bolim, it.kind)
             navbat = joriy.get(kalit)
             eski = navbat.popleft() if navbat else None
             if eski is None:
@@ -1404,7 +1406,7 @@ def _tasdiqlar_data(status="dir", user=None):
         # «BOSHQA NARX» = limitdagi narxdan farq qiladi.
         limit_map = {}
         for li in w.limit.items.all():
-            limit_map.setdefault((li.kind, (li.name or "").strip().lower()), li)
+            limit_map.setdefault(_lj_key(li.name, li.bolim, li.kind), li)
         # Limit jadvali ustunlari uchun: (nom|bo'lim) -> umumiy / bajarilgan / qolgan
         lim_key = {}
         for li in w.limit.items.all():
@@ -1424,7 +1426,7 @@ def _tasdiqlar_data(status="dir", user=None):
         kor_key = set()
         narx_farq, narx_soni = Decimal("0"), 0   # so'rov bo'yicha narx farqi jami
         for it in w.items.all():
-            li = limit_map.get((it.kind, (it.name or "").strip().lower()))
+            li = limit_map.get(_lj_key(it.name, it.bolim, it.kind))
             farq_str, foiz_str = "", ""
             if li is None:
                 holat, eski_str = "yangi", "Umumiy limitda yo'q — tasdiqlangach ro'yxatga qo'shiladi"

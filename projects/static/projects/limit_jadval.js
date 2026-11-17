@@ -78,6 +78,8 @@
   // Блокча: бўлим номининг давоми — «1-блок › Майда» (сервер ҳам шундай сақлайди)
   var BLOKCHA = ' › ';
   function blokOta(b){ return String(b||'').split('›')[0].trim(); }
+  function blokBola(b){ b = String(b||''); var i = b.indexOf('›'); return i > -1 ? b.slice(i+1).trim() : ''; }
+  function blokchami(b){ return String(b||'').indexOf('›') > -1; }
   // Асосий блок гуруҳлари: [pblock, [блок сарлавҳалари], psubtotal] — кўриниш/чоп учун
   function otaGuruhlar(){
     var out = [];
@@ -366,10 +368,25 @@
       // Blok sarlavhasi: bo'lim nomi va mas'ul ham tahrirlanadi
       document.querySelectorAll('#ljBody tr.block:not(.exhdr)').forEach(function(bt){
         var b = limBlok(bt.dataset.bolim);
+        var subMi = blokchami(b.bolim);
         bt.cells[1].innerHTML = '<span style="display:inline-flex; gap:8px; align-items:center; flex-wrap:wrap;">'+
-          '<input class="wkin tx lim-bn" value="'+esc(b.bolim)+'" placeholder="бўлим номи" style="width:280px; font-weight:700;">'+
+          (subMi ? ('<span class="bch-belgi">↳</span><span class="bch-ota" title="Асосий блок">'+esc(blokOta(b.bolim))+' ›</span>'+
+                    '<input class="wkin tx lim-bn" value="'+esc(blokBola(b.bolim))+'" placeholder="блокча номи" style="width:220px; font-weight:700;">')
+                 : '<input class="wkin tx lim-bn" value="'+esc(b.bolim)+'" placeholder="бўлим номи" style="width:280px; font-weight:700;">')+
           '<input class="wkin tx lim-bm" value="'+esc(b.masul)+'" placeholder="масъул (ихтиёрий)" style="width:190px;"></span>';
-        bt.querySelector('.lim-bn').addEventListener('input', function(){ b.bolim = this.value; autoSaqla(); });
+        bt.querySelector('.lim-bn').addEventListener('input', function(){
+          if (subMi){ b.bolim = blokOta(b.bolim) + BLOKCHA + this.value; autoSaqla(); return; }
+          // Asosiy blok qayta nomlansa — uning saqlangan blokchalari ham ergashadi
+          var eski = blokOta(b.bolim), yangiNom = this.value;
+          b.bolim = yangiNom;
+          document.querySelectorAll('#ljBody tr.block.blokcha').forEach(function(ch){
+            var cb = limBlok(ch.dataset.bolim);
+            if (blokOta(cb.bolim) !== eski) return;
+            cb.bolim = blokOta(yangiNom) + BLOKCHA + blokBola(cb.bolim);
+            var lb = ch.querySelector('.bch-ota'); if (lb) lb.textContent = blokOta(yangiNom) + ' ›';
+          });
+          autoSaqla();
+        });
         bt.querySelector('.lim-bm').addEventListener('input', function(){ b.masul = this.value; autoSaqla(); });
         if (LIM_QATOR) bt.querySelectorAll('.lim-bn,.lim-bm').forEach(function(i){ i.disabled = true; i.title = '🔒 Қулф — фақат рухсат берилган қаторлар таҳрирланади'; });
       });
@@ -553,8 +570,12 @@
         else tb.appendChild(el);
       }
       var hr = document.createElement('tr'); hr.className='block'; hr.dataset.bi = bi;
+      var subMi = blokchami(blk.bolim);
+      if (subMi) hr.classList.add('blokcha');
       hr.innerHTML = '<td></td><td colspan="14"><span style="display:inline-flex; gap:8px; align-items:center; flex-wrap:wrap;">'+
-        '<input class="wkin tx yb-bolim" value="'+esc(blk.bolim||'')+'" placeholder="'+(TAKLIF_EDIT?'бўлим номи (бўш — «Бўлимсиз қаторлар»)':'бўлим номи (масалан: 1-этаж иш хаклари)')+'" style="width:280px; font-weight:700;">'+
+        (subMi ? ('<span class="bch-belgi">↳</span><span class="bch-ota" title="Асосий блок">'+esc(blokOta(blk.bolim))+' ›</span>'+
+                  '<input class="wkin tx yb-bolim yb-bola" value="'+esc(blokBola(blk.bolim))+'" placeholder="блокча номи (масалан: майда)" style="width:220px; font-weight:700;">') : '')+
+        (subMi ? '' : '<input class="wkin tx yb-bolim" value="'+esc(blk.bolim||'')+'" placeholder="'+(TAKLIF_EDIT?'бўлим номи (бўш — «Бўлимсиз қаторлар»)':'бўлим номи (масалан: 1-этаж иш хаклари)')+'" style="width:280px; font-weight:700;">')+
         '<input class="wkin tx yb-masul" value="'+esc(blk.masul||'')+'" placeholder="масъул (ихтиёрий)" style="width:190px;">'+
         (TAKLIF_EDIT ? '' : '<span style="font-weight:400; font-size:11px; color:#8a5a00;">(янги блок — «Лимитни юбориш» билан занжирга кетади)</span>')+'</span></td>'+
         '<td class="ctr"><button type="button" class="del-btn" title="Блокни ўчириш">✕</button></td>';
@@ -562,7 +583,20 @@
         hr.querySelectorAll('.yb-bolim,.yb-masul').forEach(function(i){ i.disabled = true; if (TAKLIF_NARX) i.title = 'Бу босқичда фақат НАРХ таҳрирланади'; });
         var hdb = hr.querySelector('.del-btn'); if (hdb) hdb.remove();
       }
-      hr.querySelector('.yb-bolim').addEventListener('input', function(){ blk.bolim = this.value; taklifDirty = true; hisoblaKechik(350); });
+      hr.querySelector('.yb-bolim').addEventListener('input', function(){
+        if (subMi){ blk.bolim = blokOta(blk.bolim) + BLOKCHA + this.value; }
+        else {
+          // Asosiy (yangi) blok qayta nomlansa — uning blokchalari ham ergashadi
+          var eski = blokOta(blk.bolim), yangiNom = this.value;
+          blk.bolim = yangiNom;
+          if (eski) yangiBloklar.forEach(function(b, j){
+            if (b === blk || b.ichida !== undefined || b.keyin !== blk.keyin || !blokchami(b.bolim) || blokOta(b.bolim) !== eski) return;
+            b.bolim = blokOta(yangiNom) + BLOKCHA + blokBola(b.bolim);
+            var lb = document.querySelector('tr.block[data-bi="'+j+'"] .bch-ota'); if (lb) lb.textContent = blokOta(yangiNom) + ' ›';
+          });
+        }
+        taklifDirty = true; hisoblaKechik(350);
+      });
       hr.querySelector('.yb-masul').addEventListener('input', function(){ blk.masul = this.value; taklifDirty = true; autoSaqla(); });
       var hdbtn = hr.querySelector('.del-btn');   // qulf (TAKLIF_QULF) blokda tugma yo'q — avval shu yerda JS yiqilib jadval bo'sh qolardi (2026-10-23)
       if (hdbtn) hdbtn.onclick = function(){
@@ -708,13 +742,28 @@
       var ab0 = addr.querySelector('.yb-addblok'); if (ab0) ab0.onclick = function(){
         if (blk.keyin !== undefined) keyinBlokQosh(blk.keyin); else yangiBlokQosh();
       };
-      var abc = addr.querySelector('.yb-addblokcha'); if (abc) abc.onclick = function(){
-        var ota = blokOta(blkBolim(blk));
-        if (!ota){ alert('Аввал блокка ном беринг — блокча шу ном ичида очилади.'); var bi0 = hr.querySelector('.yb-bolim'); if (bi0) bi0.focus(); return; }
-        if (blk.keyin !== undefined) keyinBlokQosh(blk.keyin, ota + BLOKCHA); else yangiBlokQosh(ota + BLOKCHA);
-      };
+      var abc = addr.querySelector('.yb-addblokcha'); if (abc) abc.onclick = function(){ blokchaQosh(blk, hr); };
       ins(addr);
     });
+  }
+  // Yangi (saqlanmagan) blok ichida blokcha: massivda o'sha blok va uning blokchalaridan KEYIN turadi,
+  // shuning uchun jadvalda ham shu blok ichida chiziladi
+  function blokchaQosh(blk, hr){
+    var ota = blokOta(blkBolim(blk));
+    if (!ota){ alert('Аввал блокка ном беринг — блокча шу ном ичида очилади.'); var bi0 = hr && hr.querySelector('.yb-bolim'); if (bi0) bi0.focus(); return; }
+    var j = yangiBloklar.indexOf(blk);
+    while (j + 1 < yangiBloklar.length){
+      var nx = yangiBloklar[j + 1];
+      if (nx.ichida !== undefined || nx.keyin !== blk.keyin || !blokchami(nx.bolim) || blokOta(nx.bolim) !== ota) break;
+      j++;
+    }
+    var yb = { bolim: ota + BLOKCHA, masul:'', rows:[{name:'',unit:'',kind:'material',vol:0,price:0}] };
+    if (blk.keyin !== undefined) yb.keyin = blk.keyin;
+    yangiBloklar.splice(j + 1, 0, yb);
+    taklifDirty = true;
+    chizYangiBloklar(); hisobla();
+    var inp = document.querySelector('tr.block[data-bi="'+(j + 1)+'"] .yb-bolim');
+    if (inp) inp.focus();
   }
   function yangiBlokQosh(nomi){
     if (!BLOK_EDIT){ alert('⏳ Лимит сўрови занжирда ёки сизда ҳуқуқ йўқ — ҳозир блок қўшилмайди.'); return; }
