@@ -4202,6 +4202,58 @@ def _lj_key(name, bolim, kind=""):
     return (name or "").strip().lower() + "|" + (bolim or "").strip().lower() + "|" + (kind or "").strip().lower()
 
 
+# ---- БЛОКЧАЛАР (2026-11-17, foydalanuvchi talabi: «блоклар ичида яна блокчалар бўлиши керак, майда ва
+# катта блокчалардаги маҳсулотларни битта деб ҳисобламасин»). Blokcha — bo'lim nomining davomi:
+# «1-блок › Майда». Qator kaliti bo'limni o'z ichiga olgani uchun blokchalardagi bir xil nomli
+# mahsulotlar ALOHIDA qator bo'ladi (bajarilgan/qolgan/haftalik/to'lov — hammasi alohida).
+BLOKCHA = " › "
+
+
+def bolim_toza(b):
+    """Bo'lim nomini bir xil ko'rinishga keltiradi: ortiqcha bo'sh joy va bo'sh blokcha qismlari olinadi
+    («1-блок›Майда», «1-блок ›  Майда ›» → «1-блок › Майда»)."""
+    qism = [" ".join(q.split()) for q in str(b or "").split("›")]
+    return BLOKCHA.join(q for q in qism if q)
+
+
+def blok_ota(b):
+    """Asosiy blok nomi («1-блок › Майда» → «1-блок»)."""
+    return str(b or "").split("›")[0].strip()
+
+
+def blok_bola(b):
+    """Blokcha nomi («1-блок › Майда» → «Майда»; blokchasiz → "")."""
+    b = str(b or "")
+    return b.split("›", 1)[1].strip() if "›" in b else ""
+
+
+def blok_tartibla(guruhlar):
+    """Guruhlarni asosiy blok bo'yicha YONMA-YON tartiblaydi (blokcha keyinroq qo'shilsa ham o'z
+    blokining ichida turadi) va belgilaydi: ota, bola, ota_bosh (asosiy blok sarlavhasi shu guruhdan
+    oldin), ota_oxir (asosiy blok jami shu guruhdan keyin). Bo'limsiz guruh — oxirida."""
+    tartib, run = [], {}
+    for g in guruhlar:
+        ota = blok_ota(g["bolim"]) if g["bolim"] else ""
+        if ota not in run:
+            run[ota] = []
+            tartib.append(ota)
+        run[ota].append(g)
+    if "" in run:
+        tartib.remove("")
+        tartib.append("")
+    out = []
+    for ota in tartib:
+        gs = run[ota]
+        gs.sort(key=lambda g: 0 if not blok_bola(g["bolim"]) else 1)     # blokning o'z qatorlari — birinchi
+        bor = bool(ota) and any(blok_bola(g["bolim"]) for g in gs)
+        for i, g in enumerate(gs):
+            g["ota"], g["bola"] = ota, blok_bola(g["bolim"])
+            g["ota_bosh"] = bor and i == 0
+            g["ota_oxir"] = bor and i == len(gs) - 1
+        out.extend(gs)
+    return out
+
+
 def _lj_guruhlar(items, fakt):
     """Limit qatorlari (LimitItem YOKI zanjirdagi LimitChangeItem) bo'lim guruhlari bilan.
     Bir xil nom+bo'lim BIR NECHTA qatorda bo'lsa, fakt TAQSIMLANADI:
@@ -4253,7 +4305,7 @@ def _lj_guruhlar(items, fakt):
             "wq": float(f_qty), "ws": float(f_sum),
             "fakt_qty": float(f_qty + bq), "fakt_sum": float(f_sum + bs),
         })
-    guruhlar = [g for kk, g in _g.items() if kk] + [g for kk, g in _g.items() if not kk]
+    guruhlar = blok_tartibla([g for kk, g in _g.items() if kk] + [g for kk, g in _g.items() if not kk])
     nr = 0
     for g in guruhlar:
         for r in g["rows"]:
@@ -4336,7 +4388,7 @@ def _lj_qator(e):
             "quantity": q.quantize(Decimal("0.001")), "unit_price": pr.quantize(Decimal("0.01")),
             "boshlangich_qty": bq.quantize(Decimal("0.001")), "boshlangich_sum": bs.quantize(Decimal("0.01")),
             "note": " ".join(str(e.get("note") or "").split())[:500],
-            "bolim": " ".join(str(e.get("bolim") or "").split())[:200],
+            "bolim": bolim_toza(e.get("bolim"))[:200],
             "masul": " ".join(str(e.get("masul") or "").split())[:120]}, None
 
 
@@ -4987,7 +5039,7 @@ def limit_jadval(request, pk):
                 a_sum = _to_dec(str(row.get("price") or row.get("sum") or "0")) or Decimal("0")
                 if a_sum <= 0:
                     continue
-                a_bolim = " ".join(str(row.get("bolim") or "").split())[:200]
+                a_bolim = bolim_toza(row.get("bolim"))[:200]
                 a_li = li_map_.get(int(row["avans_id"])) if str(row.get("avans_id") or "").isdigit() else None
                 if a_li is not None:
                     a_bolim = (a_li.bolim or "").strip()
@@ -4997,7 +5049,7 @@ def limit_jadval(request, pk):
             nm = " ".join(str(row.get("name") or "").split())[:300]
             if not nm:
                 continue
-            yn = qayta_nom.get(_lj_key(nm, " ".join(str(row.get("bolim") or "").split()), str(row.get("kind") or "material")))
+            yn = qayta_nom.get(_lj_key(nm, bolim_toza(row.get("bolim")), str(row.get("kind") or "material")))
             if yn:
                 row = dict(row, name=yn["name"], bolim=yn["bolim"], unit=yn["unit"], kind=yn["kind"])
                 nm = yn["name"]
@@ -5012,7 +5064,7 @@ def limit_jadval(request, pk):
             if pr <= 0:
                 messages.error(request, f"«{nm}»: narx kiritilmagan — saqlanmadi.")
                 return _qayt()
-            bolim = " ".join(str(row.get("bolim") or "").split())[:200]
+            bolim = bolim_toza(row.get("bolim"))[:200]
             kind = str(row.get("kind") or "material")
             if kind not in valid_kind:
                 kind = "material"
@@ -5749,6 +5801,8 @@ def limit_jadval_export(request, pk):
                           "f_sum": f_sum + (li.boshlangich_sum or 0),
                           "bq": li.boshlangich_qty or Decimal("0"), "bs": li.boshlangich_sum or Decimal("0")})
 
+    guruhlar = {g["bolim"]: g for g in blok_tartibla(list(guruhlar.values()))}   # blokchalar o'z bloki ichida
+
     # --- Excel ---
     # Бажарилган = бошланғич (қўлда) + РАД ЭТИЛМАГАН ҳафталар устунлари — ФОРМУЛА (2026-10-26):
     # Excelда ҳафталик объём/нарх ўзгартирилса Бажарилган, Қолган, Блок якуни, ЖАМИ ўзи янгиланади
@@ -5843,9 +5897,21 @@ def limit_jadval_export(request, pk):
     if AVANS_BLOK in guruhlar:
         guruhlar[AVANS_BLOK] = guruhlar.pop(AVANS_BLOK)   # oxirida
     hafta_korildi = [set() for _ in haftalar]
+    F_OTA = PatternFill("solid", fgColor="F6C760")
+    ota_yakunlar = []
     for g in guruhlar.values():
+        if g.get("ota_bosh"):
+            # Асосий блок (ичида блокчалар бор) — сарлавҳа
+            r += 1
+            ws.cell(r, 2, g["ota"])
+            ws.merge_cells(start_row=r, start_column=2, end_row=r, end_column=NCOL)
+            for c in range(1, NCOL + 1):
+                ws.cell(r, c).fill = F_OTA
+                ws.cell(r, c).font = Font(name=AR, bold=True, size=12)
+                ws.cell(r, c).border = border
+            ota_yakunlar = []
         r += 1
-        nom = g["bolim"] or "Бўлимсиз қаторлар"
+        nom = ("    ↳ " + g["bola"]) if g.get("bola") else (g["bolim"] or "Бўлимсиз қаторлар")
         if g["masul"]:
             nom += f"  ·  Масъул: {g['masul']}"
         ws.cell(r, 2, nom)
@@ -5939,6 +6005,22 @@ def limit_jadval_export(request, pk):
             avans_yakun = r
         else:
             yakun_qatorlar.append(r)
+            ota_yakunlar.append(r)
+        if g.get("ota_oxir") and ota_yakunlar:
+            # Асосий блок жами = блокчалар якунлари йиғиндиси (ЖАМИга алоҳида қўшилмайди)
+            r += 1
+            ws.cell(r, 2, f"{g['ota']} — жами:").font = Font(name=AR, bold=True, size=11)
+            ws.cell(r, 2).alignment = right
+            for c, harf in yak_cols:
+                cell = ws.cell(r, c)
+                cell.value = "=" + "+".join(f"{harf}{j}" for j in ota_yakunlar)
+                cell.number_format = money
+                cell.font = Font(name=AR, bold=True, size=11)
+                cell.alignment = right
+            for c in range(1, NCOL + 1):
+                ws.cell(r, c).fill = PatternFill("solid", fgColor="FBE3A6")
+                ws.cell(r, c).border = border
+            ota_yakunlar = []
 
     # ЖАМИ (umumiy ustunlar — avans bloksiz; hafta ustunlari — avans bilan)
     r += 1

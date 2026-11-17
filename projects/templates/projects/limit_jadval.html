@@ -237,7 +237,8 @@
     </td></tr>
   {% endif %}
   {% for g in guruhlar %}
-    <tr class="block" data-bolim="{{ g.bolim }}" data-masul="{{ g.masul }}"><td></td><td colspan="14">{{ g.bolim|default:"Бўлимсиз қаторлар" }}{% if g.masul %} &nbsp;·&nbsp; Масъул: {{ g.masul }}{% endif %}</td><td></td></tr>
+    {% if g.ota_bosh %}<tr class="pblock" data-ota="{{ g.ota }}"><td></td><td colspan="14">{{ g.ota }}</td><td></td></tr>{% endif %}
+    <tr class="block{% if g.bola %} blokcha{% endif %}" data-bolim="{{ g.bolim }}" data-masul="{{ g.masul }}"><td></td><td colspan="14">{% if g.bola %}<span class="bch-belgi">↳</span> {{ g.bola }}{% else %}{{ g.bolim|default:"Бўлимсиз қаторлар" }}{% endif %}{% if g.masul %} &nbsp;·&nbsp; Масъул: {{ g.masul }}{% endif %}</td><td></td></tr>
     {% for r in g.rows %}
     <tr class="ish" data-id="{{ r.id|default:"" }}" data-key="{{ r.key }}" data-name="{{ r.name }}" data-bolim="{{ r.bolim }}"
         data-unit="{{ r.unit }}" data-kind="{{ r.kind }}" data-n="{{ forloop.counter }}"
@@ -257,11 +258,15 @@
       <td class="ctr c-amal"></td>
     </tr>
     {% endfor %}
-    {% if lim_edit_huquq or lim_qosh_huquq %}<tr class="lim-addrow" data-bolim="{{ g.bolim }}"><td style="padding:0;"></td><td colspan="16" style="background:#f6f9fd; padding:1px 8px;"><button type="button" class="blk-add lim-addqator" style="margin-left:0; padding:0 8px; font-size:11px; line-height:17px;">+ Қатор</button><button type="button" class="blk-add lim-addblok" style="margin-left:6px; padding:0 8px; font-size:11px; line-height:17px;">+ Янги блок</button></td></tr>{% endif %}
+    {% if lim_edit_huquq or lim_qosh_huquq %}<tr class="lim-addrow" data-bolim="{{ g.bolim }}"><td style="padding:0;"></td><td colspan="16" style="background:#f6f9fd; padding:1px 8px;"><button type="button" class="blk-add lim-addqator" style="margin-left:0; padding:0 8px; font-size:11px; line-height:17px;">+ Қатор</button><button type="button" class="blk-add lim-addblokcha" style="margin-left:6px; padding:0 8px; font-size:11px; line-height:17px;" title="Шу блок ичида блокча (масалан: майда / катта). Блокчалардаги бир хил номли маҳсулотлар алоҳида ҳисобланади">+ Блокча</button><button type="button" class="blk-add lim-addblok" style="margin-left:6px; padding:0 8px; font-size:11px; line-height:17px;">+ Янги блок</button></td></tr>{% endif %}
     <tr class="subtotal" data-bolim="{{ g.bolim }}"><td colspan="6" style="text-align:right;"><button type="button" class="blk-avans" data-bolim="{{ g.bolim }}" title="Масъулга аванс (блокка ёки аниқ қаторга). Умумий жамига кирмайди, ҳафталикда ҳисобланади" style="display:none; float:left; margin-left:6px;">💵 + аванс</button><span class="s-av"></span>Блок якуни:</td>
       <td class="num s-total"></td><td></td><td class="num s-fsum"></td>
       <td></td><td class="num s-lsum"></td><td colspan="3"></td>
       <td class="num s-wsum"></td><td></td></tr>
+    {% if g.ota_oxir %}<tr class="psubtotal" data-ota="{{ g.ota }}"><td colspan="6" style="text-align:right;">{{ g.ota }} — жами:</td>
+      <td class="num p-total"></td><td></td><td class="num p-fsum"></td>
+      <td></td><td class="num p-lsum"></td><td colspan="3"></td>
+      <td class="num p-wsum"></td><td></td></tr>{% endif %}
   {% endfor %}
   </tbody>
   <tbody id="yangiBody"></tbody>

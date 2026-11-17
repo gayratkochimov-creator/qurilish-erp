@@ -75,6 +75,22 @@
     var b = document.querySelector('#ljBody tr.block[data-bolim="'+CSS.escape(bolim0)+'"]');
     return limBloklar[bolim0] || (limBloklar[bolim0] = { bolim:bolim0, masul:(b ? b.dataset.masul : '')||'' });
   }
+  // Блокча: бўлим номининг давоми — «1-блок › Майда» (сервер ҳам шундай сақлайди)
+  var BLOKCHA = ' › ';
+  function blokOta(b){ return String(b||'').split('›')[0].trim(); }
+  // Асосий блок гуруҳлари: [pblock, [блок сарлавҳалари], psubtotal] — кўриниш/чоп учун
+  function otaGuruhlar(){
+    var out = [];
+    document.querySelectorAll('#ljBody tr.pblock').forEach(function(pb){
+      var bl = [], t = pb.nextElementSibling;
+      while (t && !t.classList.contains('psubtotal') && !t.classList.contains('pblock')){
+        if (t.classList.contains('block')) bl.push(t);
+        t = t.nextElementSibling;
+      }
+      out.push({ p:pb, bloklar:bl, s:(t && t.classList.contains('psubtotal')) ? t : null });
+    });
+    return out;
+  }
   function blkBolim(blk){ return blk.ichida !== undefined ? limBlok(blk.ichida).bolim : (blk.bolim||''); }
   function blkMasul(blk){ return blk.ichida !== undefined ? limBlok(blk.ichida).masul : (blk.masul||''); }
   var KSEL = '<select class="ksel lim-k"><option value="material">Материал</option><option value="labor">Иш ҳақи</option><option value="machinery">Машина части</option><option value="other">Кўзда тутилмаган</option></select>';
@@ -679,6 +695,7 @@
       var addr = document.createElement('tr'); addr.className = 'yb-addrow';
       addr.innerHTML = '<td style="padding:0;"></td><td colspan="16" style="background:#f6f9fd; padding:1px 8px;">'+
         (TAKLIF_NARX ? '' : '<button type="button" class="blk-add yb-addqator" style="margin-left:0; padding:0 8px; font-size:11px; line-height:17px;">+ Қатор</button>')+
+        (TAKLIF_NARX ? '' : '<button type="button" class="blk-add yb-addblokcha" style="margin-left:6px; padding:0 8px; font-size:11px; line-height:17px;" title="Шу блок ичида блокча (масалан: майда / катта)">+ Блокча</button>')+
         (TAKLIF_NARX ? '' : '<button type="button" class="blk-add yb-addblok" style="margin-left:6px; padding:0 8px; font-size:11px; line-height:17px;">+ Янги блок</button>')+'</td>';
       var aq0 = addr.querySelector('.yb-addqator'); if (aq0) aq0.onclick = function(){
         var oxk = blk.rows.length ? (blk.rows[blk.rows.length-1].kind||'material') : 'material';
@@ -691,26 +708,31 @@
       var ab0 = addr.querySelector('.yb-addblok'); if (ab0) ab0.onclick = function(){
         if (blk.keyin !== undefined) keyinBlokQosh(blk.keyin); else yangiBlokQosh();
       };
+      var abc = addr.querySelector('.yb-addblokcha'); if (abc) abc.onclick = function(){
+        var ota = blokOta(blkBolim(blk));
+        if (!ota){ alert('Аввал блокка ном беринг — блокча шу ном ичида очилади.'); var bi0 = hr.querySelector('.yb-bolim'); if (bi0) bi0.focus(); return; }
+        if (blk.keyin !== undefined) keyinBlokQosh(blk.keyin, ota + BLOKCHA); else yangiBlokQosh(ota + BLOKCHA);
+      };
       ins(addr);
     });
   }
-  function yangiBlokQosh(){
+  function yangiBlokQosh(nomi){
     if (!BLOK_EDIT){ alert('⏳ Лимит сўрови занжирда ёки сизда ҳуқуқ йўқ — ҳозир блок қўшилмайди.'); return; }
     taklifDirty = true;
-    yangiBloklar.push({ bolim:'', masul:'',
+    yangiBloklar.push({ bolim:(typeof nomi === 'string' ? nomi : ''), masul:'',
       rows:[{name:'',unit:'',kind:'material',vol:0,price:0}] });
     chizYangiBloklar(); hisobla();
     var bls = document.querySelectorAll('#yangiBody .yb-bolim');
-    if (bls.length) bls[bls.length-1].focus();
+    if (bls.length){ var inp = bls[bls.length-1]; inp.focus(); var n = inp.value.length; try { inp.setSelectionRange(n, n); } catch(e){} }
   }
   // Mavjud blokdan KEYIN yangi blok (jadvalning o'sha joyida paydo bo'ladi)
-  function keyinBlokQosh(bolim0){
+  function keyinBlokQosh(bolim0, nomi){
     if (!(LIM_EDIT || LIM_QOSH)){ alert('⏳ Лимит сўрови занжирда ёки сизда ҳуқуқ йўқ — ҳозир блок қўшилмайди.'); return; }
-    yangiBloklar.push({ bolim:'', masul:'', keyin: bolim0,
+    yangiBloklar.push({ bolim:nomi||'', masul:'', keyin: bolim0,
       rows:[{name:'',unit:'',kind:'material',vol:0,price:0}] });
     chizYangiBloklar(); hisobla();
     var inp = document.querySelector('#ljBody tr.block[data-bi="'+(yangiBloklar.length-1)+'"] .yb-bolim');
-    if (inp) inp.focus();
+    if (inp){ inp.focus(); var n = inp.value.length; try { inp.setSelectionRange(n, n); } catch(e){} }
   }
 
   function chizBolaklar(tr, key, edit){
@@ -830,10 +852,15 @@
         grp = [];
       }
       Array.prototype.forEach.call(tb.rows, function(tr){
+        if (tr.classList.contains('pblock') || tr.classList.contains('psubtotal')){ flush(); return; }   // pastda alohida
         if (tr.classList.contains('block') || tr.classList.contains('exhdr')) flush();
         grp.push(tr);
       });
       flush();
+    });
+    otaGuruhlar().forEach(function(g){
+      var kor = g.bloklar.some(function(b){ return b.style.display !== 'none'; });
+      g.p.style.display = kor ? '' : 'none'; if (g.s) g.s.style.display = kor ? '' : 'none';
     });
     // Натижа сони — излаш майдони ёнида
     var cnt = document.getElementById('ljQidirN');
@@ -1071,7 +1098,14 @@
     var body = document.getElementById('ljBody');
     var toliqN = 0, lastToliq = false;
     var curBolim = '', sAv = 0;    // жорий блок ва унинг шу ҳафтадаги аванслари
+    var pT=0,pF=0,pL=0,pW=0;       // асосий блок (блокчалар йиғиндиси)
     Array.prototype.forEach.call(body.rows, function(tr){
+      if (tr.classList.contains('pblock')){ pT=0;pF=0;pL=0;pW=0; return; }
+      if (tr.classList.contains('psubtotal')){
+        setT(tr.querySelector('.p-total'), fmt(pT)); setT(tr.querySelector('.p-fsum'), fmt(pF));
+        setT(tr.querySelector('.p-lsum'), fmt(pL)); setT(tr.querySelector('.p-wsum'), fmt(pW));
+        return;
+      }
       if (tr.classList.contains('block')){ sT=0;sF=0;sL=0;sW=0; nrk=0; lastToliq = false; curBolim = tr.dataset.bolim||''; sAv = 0; return; }
       if (tr.classList.contains('avans')){
         var a = tr._av || {}; var as = a.sum||0;
@@ -1170,6 +1204,7 @@
         return;
       }
       if (tr.classList.contains('subtotal')){
+        pT += sT; pF += sF; pL += sL; pW += sW;
         setT(tr.querySelector('.s-total'), fmt(sT));
         setT(tr.querySelector('.s-fsum'), fmt(sF));
         setT(tr.querySelector('.s-lsum'), fmt(sL));
@@ -1262,6 +1297,10 @@
         if (tr.classList.contains('ish') && tr.classList.contains('toliq') && !rowDel(tr)) bor = true;
       });
       yop();
+      otaGuruhlar().forEach(function(g){
+        var yoq = !g.bloklar.some(function(b){ return !b.classList.contains('toliq-yoq'); });
+        g.p.classList.toggle('toliq-yoq', yoq); if (g.s) g.s.classList.toggle('toliq-yoq', yoq);
+      });
       var wrp = document.getElementById('jadvalWrap'); if (wrp) wrp.classList.toggle('toliq-nol', toliqN === 0);
     })();
     setT(document.getElementById('gTotal'), fmt(gT));
@@ -1366,6 +1405,11 @@
   // Mavjud blok ichiga «+ Қатор» — янги қатор ШУ блокнинг охирида пайдо бўлади
   document.getElementById('ljBody').addEventListener('click', function(e){
     if (e.target.classList.contains('lim-addblok')){ keyinBlokQosh(e.target.closest('tr.lim-addrow').dataset.bolim); return; }
+    if (e.target.classList.contains('lim-addblokcha')){
+      var b0 = e.target.closest('tr.lim-addrow').dataset.bolim;
+      if (!blokOta(b0)){ alert('Блокча фақат номли блок ичида очилади. Аввал блокка ном беринг.'); return; }
+      keyinBlokQosh(b0, blokOta(b0) + BLOKCHA); return;
+    }
     if (!e.target.classList.contains('lim-addqator')) return;
     if (!(LIM_EDIT || LIM_QOSH)){ alert('⏳ Лимит сўрови занжирда ёки сизда ҳуқуқ йўқ — ҳозир қатор қўшилмайди.'); return; }
     var bolim0 = e.target.closest('tr.lim-addrow').dataset.bolim;
@@ -1714,6 +1758,11 @@
     rows.forEach(function(tr, i){ if (!bor[i]) tr.classList.add('chop-yoq'); });
     document.querySelectorAll('#ljBody tr.block, #ljBody tr.subtotal').forEach(function(tr){
       if (!bloklar[tr.dataset.bolim||'']) tr.classList.add('chop-yoq');
+    });
+    otaGuruhlar().forEach(function(g){
+      if (g.bloklar.every(function(b){ return b.classList.contains('chop-yoq'); })){
+        g.p.classList.add('chop-yoq'); if (g.s) g.s.classList.add('chop-yoq');
+      }
     });
   }
   window.addEventListener('beforeprint', chopTayyorla);

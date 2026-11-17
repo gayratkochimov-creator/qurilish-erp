@@ -34,6 +34,12 @@
   .lj td.ctr { text-align:center; }
   .lj tr.block td { background:#fde8b0 !important; font-weight:700; }
   .lj tr.subtotal td { background:#e8f0fe !important; font-weight:700; }
+  /* Блокчалар: асосий блок сарлавҳаси/жами — тўқроқ; блокча сарлавҳаси — ичкарига сурилган */
+  .lj tr.pblock td { background:#f6c760 !important; font-weight:800; font-size:13.5px; }
+  .lj tr.psubtotal td { background:#fbe3a6 !important; font-weight:800; }
+  .lj tr.block.blokcha td:nth-child(2) { padding-left:22px; }
+  .lj tr.block.blokcha td { background:#fdf0cc !important; }
+  .bch-belgi { color:#b45309; font-weight:800; margin-right:2px; }
   .lj tr.grand td { background:#d1e7dd !important; font-weight:700; font-size:14px; position:sticky; bottom:0; z-index:2; }
   .lj tr.row-err td { background:#fbe4e6 !important; }
   .lj tr.row-warn td { background:#fff7e0 !important; }
@@ -122,7 +128,8 @@
     /* Фақат сўралганлар чопида блок/ЖАМИ нинг Умумий·Бажарилган·Қолган йиғиндиси кўрсатилмайди
        (улар бутун блокники — чоп этилган қаторлар йиғиндиси эмас); ҳафта суммаси қолади */
     body.chop-hafta .s-total, body.chop-hafta .s-fsum, body.chop-hafta .s-lsum,
-    body.chop-hafta #gTotal, body.chop-hafta #gFsum, body.chop-hafta #gLsum { visibility:hidden; }
+    body.chop-hafta #gTotal, body.chop-hafta #gFsum, body.chop-hafta #gLsum,
+    body.chop-hafta .p-total, body.chop-hafta .p-fsum, body.chop-hafta .p-lsum { visibility:hidden; }
     thead { display:table-header-group; }
     tr { page-break-inside:avoid; }
   }
@@ -273,7 +280,8 @@
   .lh-seg button.on { background:#1E5BB8; color:#fff; font-weight:600; }
   .lj-wrap.toliq-yashir tr.ish.toliq, .lj-wrap.toliq-yashir tr.split.toliq { display:none !important; }
   .lj-wrap.toliq-faqat tr.ish:not(.toliq), .lj-wrap.toliq-faqat tr.split:not(.toliq),
-  .lj-wrap.toliq-faqat tr.block.toliq-yoq, .lj-wrap.toliq-faqat tr.subtotal.toliq-yoq { display:none !important; }
+  .lj-wrap.toliq-faqat tr.block.toliq-yoq, .lj-wrap.toliq-faqat tr.subtotal.toliq-yoq,
+  .lj-wrap.toliq-faqat tr.pblock.toliq-yoq, .lj-wrap.toliq-faqat tr.psubtotal.toliq-yoq { display:none !important; }
   .lj-wrap.toliq-faqat tr.ish.toliq td { background:#F0FDF4; }
   .lj-toliq-bosh { display:none; margin:10px 0; padding:12px 14px; border:1px dashed #B8BFC9; border-radius:8px; color:#6B7280; font-size:13px; text-align:center; }
   .lj-wrap.toliq-faqat.toliq-nol .lj-toliq-bosh { display:block; }
