@@ -135,6 +135,28 @@
     tr { page-break-inside:avoid; }
   }
   .chop-wi, .chop-val, .chop-hafta-nom { display:none; }
+  /* ===== Чоп — Excel каби: Times New Roman 14, ҳамма катакда чегара (2026-11-18) =====
+     body.chop-faol фақат beforeprint…afterprint орасида қўйилади; экранда ҳам амал қилади,
+     чунки JS жадвал кенглигини шу ҳолатда ўлчаб, A4 га сиғдириш учун zoom беради. */
+  body.chop-faol table.lj { min-width:0 !important; width:auto !important; border-collapse:collapse !important; }
+  body.chop-faol table.lj th, body.chop-faol table.lj td {
+    font-family:"Times New Roman", Times, serif !important; font-size:14pt !important; line-height:1.25 !important;
+    border:1px solid #000 !important; padding:2px 5px !important; position:static !important; }
+  body.chop-faol table.lj td.c-izoh, body.chop-faol table.lj td.c-izoh * { font-size:14pt !important; color:#000 !important; }
+  body.chop-faol .lj input.wkin, body.chop-faol .lj select.ksel, body.chop-faol .lj textarea {
+    font-family:inherit !important; font-size:14pt !important; width:100% !important; min-width:0 !important;
+    border:none !important; background:transparent !important; box-shadow:none !important; padding:0 !important; }
+  body.chop-faol .kbadge { font-size:12pt !important; line-height:1.2 !important; padding:0 4px !important; margin-left:6px !important;
+    border:1px solid #555 !important; background:#fff !important; color:#000 !important; white-space:nowrap; }
+  body.chop-faol .chop-wi { display:block !important; font-size:12pt !important; color:#5c2a73; font-style:italic; }
+  body.chop-faol .chop-val { display:inline !important; }
+  body.chop-faol .chop-yashir, body.chop-faol .chop-yoq, body.chop-faol tr.lim-addrow, body.chop-faol tr.yb-addrow, body.chop-faol .qsana,
+  body.chop-faol .split-btn, body.chop-faol .del-btn, body.chop-faol .wi-tgl, body.chop-faol .qr-btn,
+  body.chop-faol .blk-add, body.chop-faol .blk-avans { display:none !important; }
+  /* «Амал» устуни чопда йўқ */
+  body.chop-faol table.lj thead tr:first-child > th:last-child,
+  body.chop-faol table.lj tbody tr > td:last-child:not(:first-child) { display:none !important; }
+  body.chop-faol .lj-print-only, body.chop-faol .chop-hafta-nom { font-family:"Times New Roman", Times, serif !important; }
   .lh-chopf { display:inline-flex; align-items:center; gap:6px; font-size:12px; color:#4B5563; cursor:pointer; user-select:none; white-space:nowrap; }
   .lh-chopf input { width:15px; height:15px; accent-color:#7E3AF2; cursor:pointer; }
   /* Server xabarlari — xato QIZIL quti bo'lib ko'rinsin (oldin oddiy matn edi, «Сақланмади» ko'rinmasdi) */

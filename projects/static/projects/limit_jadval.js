@@ -1759,7 +1759,14 @@
 
   // -------- 🖨 ЧОП ЭТИШ: танланган ҳафтада СЎРАЛГАН қаторлар, тури ва ҳафталик изоҳи билан --------
   // (2026-11-12, фойдаланувчи талаби.) «Фақат сўралганлар» белгиси олинса — тўлиқ жадвал чиқади.
+  // Чоп ҳам Excel каби (2026-11-18, фойдаланувчи): Times New Roman 14, ҳамма катакда чегара,
+  // тури тўлиқ сўз билан (Материал / Иш ҳақи / Машина часи / Кўзда тутилмаган), Амал устуни йўқ,
+  // жадвал A4 альбом кенглигига сиғадиган қилиб кичрайтирилади (Excelдаги «1 бет кенглигига» каби).
+  var KIND_TOLIQ = {material:'Материал', labor:'Иш ҳақи', machinery:'Машина часи', other:'Кўзда тутилмаган', avans:'Аванс'};
   function chopTozala(){
+    document.body.classList.remove('chop-faol');
+    var t = document.getElementById('ljTbl'); if (t) t.style.zoom = '';
+    document.querySelectorAll('.kbadge[data-asl]').forEach(function(b){ b.textContent = b.dataset.asl; delete b.dataset.asl; });
     document.body.classList.remove('chop-hafta');
     document.querySelectorAll('.chop-yoq').forEach(function(x){ x.classList.remove('chop-yoq'); });
     document.querySelectorAll('.chop-yashir').forEach(function(x){ x.classList.remove('chop-yashir'); });
@@ -1767,6 +1774,28 @@
   }
   function chopTayyorla(){
     chopTozala();
+    chopQatorlar();
+    document.querySelectorAll('#ljTbl .kbadge').forEach(function(b){
+      var tr = b.closest('tr'), k = tr && tr.dataset.kind;
+      if (k && KIND_TOLIQ[k] && b.textContent !== KIND_TOLIQ[k]){ b.dataset.asl = b.textContent; b.textContent = KIND_TOLIQ[k]; }
+    });
+    document.body.classList.add('chop-faol');
+    var t = document.getElementById('ljTbl');
+    if (t){
+      // Кенгликни ЧОП қоидалари билан ўлчаймиз: @media print қоидалари вақтинча «all» қилинади
+      var almash = [];
+      Array.prototype.forEach.call(document.styleSheets, function(ss){
+        var qq; try { qq = ss.cssRules; } catch(e){ return; }
+        Array.prototype.forEach.call(qq || [], function(r){
+          if (r.media && r.media.mediaText === 'print'){ r.media.mediaText = 'all'; almash.push(r); }
+        });
+      });
+      var W = t.getBoundingClientRect().width, P = 1060;   // A4 альбом − 7 мм четлар ≈ 1069px
+      almash.forEach(function(r){ r.media.mediaText = 'print'; });
+      if (W > P) t.style.zoom = (P / W).toFixed(3);
+    }
+  }
+  function chopQatorlar(){
     var h = haftaTop(sel), edit = tahrirmi();
     var cb = document.getElementById('chopFaqat');
     var faqat = !cb || cb.checked;
