@@ -5579,6 +5579,27 @@ def limit_navbat_eski(request, pk):
     return redirect("limit_jadval", pk=pk)
 
 
+XL_SHRIFT = "Times New Roman"
+
+
+def _xl_tnr(ws, jadval_boshi, ncol=None, olcham=14):
+    """Excel varag'i: barcha matn Times New Roman, jadval ma'lumotlari 14 o'lcham, jadvalning har
+    katagida TO'LIQ chegara (все границы) — 2026-11-18, foydalanuvchi talabi. Qalin/rang/kursiv saqlanadi."""
+    from openpyxl.styles import Border, Font, Side
+    ncol = ncol or ws.max_column
+    qora = Side(style="thin", color="000000")
+    chegara = Border(left=qora, right=qora, top=qora, bottom=qora)
+    for qator in ws.iter_rows(min_row=1, max_row=ws.max_row, max_col=ncol):
+        for x in qator:
+            f = x.font
+            if x.row < jadval_boshi:
+                s = 16 if x.row == 1 else 12
+            else:
+                s = olcham
+                x.border = chegara
+            x.font = Font(name=XL_SHRIFT, size=s, bold=f.bold, italic=f.italic, color=f.color)
+
+
 def _hafta_sorov_varaq(wb, p, w, raqam, holat, blok_tartib, masullar):
     """Tanlangan HAFTADA SO'RALGAN qatorlar — alohida varaq (2026-11-12, foydalanuvchi talabi:
     «эхзелни скачат қилганда ўша ҳафтага сўралган нарса чиқиши керак, ҳафталик изоҳ ва тури кўринсин»).
@@ -5591,7 +5612,7 @@ def _hafta_sorov_varaq(wb, p, w, raqam, holat, blok_tartib, masullar):
     items = list(w.items.all().order_by("id"))
     if not items:
         return None
-    AR = "Arial"
+    AR = XL_SHRIFT
     thin = Side(style="thin", color="C8CCD0")
     border = Border(left=thin, right=thin, top=thin, bottom=thin)
     money, right = '#,##0', Alignment(horizontal="right", vertical="top")
@@ -5664,7 +5685,7 @@ def _hafta_sorov_varaq(wb, p, w, raqam, holat, blok_tartib, masullar):
                 elif c in (6, 7):
                     x.number_format = money; x.alignment = right
                 elif c in (1, 3, 4):
-                    x.alignment = Alignment(horizontal="center", vertical="top")
+                    x.alignment = Alignment(horizontal="center", vertical="top", wrap_text=(c == 3))
                 else:
                     x.alignment = Alignment(wrap_text=True, vertical="top")
         r += 1
@@ -5698,7 +5719,9 @@ def _hafta_sorov_varaq(wb, p, w, raqam, holat, blok_tartib, masullar):
         x.value = f'=SUMIF($C${hr + 1}:$C${oxirgi},"{KIND_KIRILL[k]}",$G${hr + 1}:$G${oxirgi})'
         x.number_format = money; x.font = Font(name=AR, bold=True, size=10); x.alignment = right
 
-    for i, kenglik in enumerate([5, 50, 16, 8, 12, 14, 17, 40], start=1):
+    _xl_tnr(ws, hr, NC)
+    # Times New Roman 14 sig'ishi uchun kengroq; «Тури» to'liq so'z bilan bir qatorda ko'rinsin
+    for i, kenglik in enumerate([6, 55, 22, 10, 14, 17, 21, 50], start=1):
         ws.column_dimensions[chr(64 + i)].width = kenglik
     ws.freeze_panes = f"A{hr + 1}"
     ws.page_setup.orientation = "landscape"
@@ -5757,6 +5780,14 @@ def limit_jadval_export(request, pk):
                 d[2].append(_n)          # ҳафталик изоҳ (бир нечта бўлак бўлса — ҳаммаси)
         hmaps.append(m); havans.append(av)
     hafta = next((w for w in haftalar if w.pk == vis_id), None)
+    # Tanlangan haftada SO'RALMAGAN qatorlar Excelda YASHIRIN (qator guruhi, «+» bilan ochiladi) —
+    # 2026-11-18, foydalanuvchi talabi: «ўша ҳафтага сўралган материаллар қатори кўринсин, қолганлари
+    # скритда турсин». Hafta bo'sh yoki haftasiz=1 (saqlanmagan yangi hafta) — hamma qator ochiq.
+    vi = len(haftalar) - 1 if hafta is not None else None
+    sorov_rejim = (vi is not None and request.GET.get("haftasiz") != "1"
+                   and (any(v[0] > 0 or v[1] > 0 for v in hmaps[vi].values())
+                        or any(havans[vi].values())))
+    yashir = set()
 
     # --- fakt (tasdiqlangan haftalar) + dublikatlarga taqsimot (sahifadagidek) ---
     fakt = {}
@@ -5812,7 +5843,7 @@ def limit_jadval_export(request, pk):
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Лимит"
-    AR = "Arial"
+    AR = XL_SHRIFT
     thin = Side(style="thin", color="C8CCD0")
     border = Border(left=thin, right=thin, top=thin, bottom=thin)
     money = '#,##0'
@@ -5901,6 +5932,7 @@ def limit_jadval_export(request, pk):
     hafta_korildi = [set() for _ in haftalar]
     F_OTA = PatternFill("solid", fgColor="F6C760")
     ota_yakunlar = []
+    ota_qatorlar, ota_bor = [], False
     for g in guruhlar.values():
         if g.get("ota_bosh"):
             # Асосий блок (ичида блокчалар бор) — сарлавҳа
@@ -5912,7 +5944,9 @@ def limit_jadval_export(request, pk):
                 ws.cell(r, c).font = Font(name=AR, bold=True, size=12)
                 ws.cell(r, c).border = border
             ota_yakunlar = []
+            ota_qatorlar, ota_bor = [r], False
         r += 1
+        g_qatorlar, g_bor = [r], False          # yashirish uchun: blok sarlavhasi, qatorlar, yakun
         nom = ("    ↳ " + g["bola"]) if g.get("bola") else (g["bolim"] or "Бўлимсиз қаторлар")
         if g["masul"]:
             nom += f"  ·  Масъул: {g['masul']}"
@@ -5941,12 +5975,15 @@ def limit_jadval_export(request, pk):
             ws.cell(r, 11).value = f"=F{r}-I{r}"
             ws.cell(r, 12).value = f"=H{r}-J{r}"
             qv = {6: it["qty"], 9: it["f_qty"], 11: it["qty"] - it["f_qty"]}   # miqdor formati uchun
+            sorildi = False
             for wi_ in range(len(haftalar)):
                 c0 = wc(wi_)
                 ws.cell(r, c0).value = f"=E{r}"
                 hd = (hmaps[wi_].get(it["key"])
                       if it["key"] not in hafta_korildi[wi_] else None)
                 hafta_korildi[wi_].add(it["key"])
+                if wi_ == vi and hd and (hd[0] > 0 or hd[1] > 0):
+                    sorildi = True
                 if hd:
                     hq, hs, hn = hd
                     ws.cell(r, c0 + 1, float(hq))
@@ -5969,9 +6006,17 @@ def limit_jadval_export(request, pk):
                     cell.alignment = Alignment(horizontal="center", vertical="top", wrap_text=(c == 3))
                 if c in (2, 4) or qism == 4:       # nom / izoh — katak ichida, qatorga bo'linib
                     cell.alignment = Alignment(wrap_text=True, vertical="top")
+            if sorildi:
+                g_bor = True
+            else:
+                yashir.add(r)
         # Аванс (масъулга) — фақат ҳафта устунларида; умумий жамига кирмайди
         if any(havans[wi_].get(g["bolim"]) for wi_ in range(len(haftalar))):
             r += 1
+            if vi is not None and havans[vi].get(g["bolim"]):
+                g_bor = True
+            else:
+                yashir.add(r)
             ws.cell(r, 2, "Аванс (масъулга берилган)")
             ws.cell(r, 3, KIND_KIRILL["avans"])
             ws.cell(r, 5, "сўм")
@@ -6008,9 +6053,17 @@ def limit_jadval_export(request, pk):
         else:
             yakun_qatorlar.append(r)
             ota_yakunlar.append(r)
+        g_qatorlar.append(r)
+        if g_bor:
+            ota_bor = True
+        else:
+            yashir.update(g_qatorlar)          # haftada hech narsa so'ralmagan blok — butunlay yashirin
         if g.get("ota_oxir") and ota_yakunlar:
             # Асосий блок жами = блокчалар якунлари йиғиндиси (ЖАМИга алоҳида қўшилмайди)
             r += 1
+            ota_qatorlar.append(r)
+            if not ota_bor:
+                yashir.update(ota_qatorlar)
             ws.cell(r, 2, f"{g['ota']} — жами:").font = Font(name=AR, bold=True, size=11)
             ws.cell(r, 2).alignment = right
             for c, harf in yak_cols:
@@ -6055,9 +6108,19 @@ def limit_jadval_export(request, pk):
                         font=Font(name=AR, color="CC0000", bold=True),
                         fill=PatternFill("solid", bgColor="FBE4E6")))
 
-    # Kengliklar: ЖАМИ (bold 12, 9 xonali) sig'ishi uchun summa ustunlari 17, nom 48 (wrap)
-    kengliklar = [5, 48, 13, 26, 8, 11, 13, 17, 11, 17, 11, 17] + \
-        [8, 11, 13, 17, 26] * len(haftalar)
+    _xl_tnr(ws, h1, NCOL)
+    if sorov_rejim:
+        for rr in sorted(yashir):
+            ws.row_dimensions[rr].outlineLevel = 1
+            ws.row_dimensions[rr].hidden = True
+        ws.sheet_properties.outlinePr.summaryBelow = False
+        ws["A3"] = (f"Фақат {raqam[hafta.pk]}-ҳафтада сўралган қаторлар кўрсатилган; қолган {len(yashir)}"
+                    " та қатор яширин (чапдаги «+» билан очилади). Йиғиндилар — бутун блок бўйича.")
+        ws["A3"].font = Font(name=AR, bold=True, size=12, color="5B21B6")
+
+    # Kengliklar (Times New Roman 14): ЖАМИ sig'ishi uchun summa 22, nom 55 (wrap), «Тури» to'liq so'z
+    kengliklar = [6, 55, 22, 30, 10, 14, 17, 22, 14, 22, 14, 22] + \
+        [10, 14, 17, 22, 36] * len(haftalar)
     for i, w_ in enumerate(kengliklar, start=1):
         ws.column_dimensions[_L(i)].width = w_
     # Tanlangan haftadan boshqa haftalar YASHIRIN guruh (Excelda «+» bilan ochiladi)
