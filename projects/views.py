@@ -5600,140 +5600,6 @@ def _xl_tnr(ws, jadval_boshi, ncol=None, olcham=14):
             x.font = Font(name=XL_SHRIFT, size=s, bold=f.bold, italic=f.italic, color=f.color)
 
 
-def _hafta_sorov_varaq(wb, p, w, raqam, holat, blok_tartib, masullar):
-    """Tanlangan HAFTADA SO'RALGAN qatorlar — alohida varaq (2026-11-12, foydalanuvchi talabi:
-    «эхзелни скачат қилганда ўша ҳафтага сўралган нарса чиқиши керак, ҳафталик изоҳ ва тури кўринсин»).
-    Varaq BIRINCHI bo'lib qo'yiladi va fayl ochilganda shu ko'rinadi; to'liq limit — ikkinchi varaqda.
-    Bloklar limitdagi tartibda; har qatorda Тури (материал / иш ҳақи / машина / кўзда тутилмаган / аванс)
-    va ҳафталик изоҳ. Hafta bo'sh bo'lsa varaq yaratilmaydi."""
-    from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
-    from django.utils.timezone import localtime as _lt
-
-    items = list(w.items.all().order_by("id"))
-    if not items:
-        return None
-    AR = XL_SHRIFT
-    thin = Side(style="thin", color="C8CCD0")
-    border = Border(left=thin, right=thin, top=thin, bottom=thin)
-    money, right = '#,##0', Alignment(horizontal="right", vertical="top")
-    F_HDR = PatternFill("solid", fgColor="813D9C")
-    F_BLOK = PatternFill("solid", fgColor="FDE8B0")
-    F_SUB = PatternFill("solid", fgColor="F1EAFE")
-    F_GRAND = PatternFill("solid", fgColor="D1E7DD")
-    NC = 8          # № | Иш тури | Тури | Бирл. | Объём | Нархи | Сумма | Изоҳ
-
-    ws = wb.create_sheet(f"{raqam}-ҳафта сўрови", 0)
-    ws["A1"] = f"{p.code} — {p.name}"
-    ws["A1"].font = Font(name=AR, bold=True, size=14)
-    ws["A2"] = (f"{raqam}-ҳафта сўрови: {w.week_start:%d.%m.%Y} — {w.week_end:%d.%m.%Y}"
-                f" · {holat.get(w.status, w.status)}")
-    ws["A2"].font = Font(name=AR, bold=True, size=11, color="5B21B6")
-    imzo = []
-    for nom, kim, qachon in (("Киритди", w.created_by, w.created_at),
-                             ("Снабжение", getattr(w, "snab_by", None), getattr(w, "snab_at", None)),
-                             ("ПТО хулосаси", getattr(w, "pto2_by", None), getattr(w, "pto2_at", None)),
-                             ("Директор", getattr(w, "director_by", None), getattr(w, "director_at", None)),
-                             ("Проверчик", getattr(w, "prov_by", None), getattr(w, "prov_at", None)),
-                             ("Админ", w.approved_by, w.approved_at)):
-        if kim is not None:
-            imzo.append(f"{nom}: {kim.username}" + (f" · {_lt(qachon):%d.%m.%Y %H:%M}" if qachon else ""))
-    ws["A3"] = "  |  ".join(imzo)
-    ws["A3"].font = Font(name=AR, size=9, color="64748B")
-
-    hr = 5
-    for c, t in enumerate(("№", "Иш тури", "Тури", "Бирл.", "Объём", "Нархи", "Сумма", "Изоҳ"), start=1):
-        x = ws.cell(hr, c, t)
-        x.fill = F_HDR; x.font = Font(name=AR, bold=True, color="FFFFFF", size=10)
-        x.border = border; x.alignment = Alignment(horizontal="center", vertical="center")
-
-    # Bloklar: limitdagi tartibda, limitda yo'q bo'limlar — oxirida (uchragan tartibda)
-    guruh = {}
-    for it in items:
-        guruh.setdefault((it.bolim or "").strip(), []).append(it)
-    tartib = [b for b in blok_tartib if b in guruh] + [b for b in guruh if b not in blok_tartib]
-
-    r = hr
-    yakunlar = []
-    n = 0
-    for b in tartib:
-        r += 1
-        nom = b or "Бўлимсиз қаторлар"
-        if masullar.get(b):
-            nom += f"  ·  Масъул: {masullar[b]}"
-        ws.cell(r, 2, nom)
-        ws.merge_cells(start_row=r, start_column=2, end_row=r, end_column=NC)
-        for c in range(1, NC + 1):
-            x = ws.cell(r, c); x.fill = F_BLOK; x.font = Font(name=AR, bold=True, size=11); x.border = border
-        boshi = r + 1
-        for it in guruh[b]:
-            r += 1
-            n += 1
-            ws.cell(r, 1, n)
-            ws.cell(r, 2, it.name)
-            ws.cell(r, 3, KIND_KIRILL.get(it.kind, it.kind))
-            ws.cell(r, 4, it.unit or "")
-            ws.cell(r, 5, float(it.quantity or 0))
-            ws.cell(r, 6, float(it.unit_price or 0))
-            ws.cell(r, 7).value = f"=E{r}*F{r}"
-            ws.cell(r, 8, (it.note or "").strip())
-            for c in range(1, NC + 1):
-                x = ws.cell(r, c)
-                x.border = border
-                x.font = Font(name=AR, size=10)
-                if c == 5:
-                    x.number_format = _qfmt(it.quantity); x.alignment = right
-                elif c in (6, 7):
-                    x.number_format = money; x.alignment = right
-                elif c in (1, 3, 4):
-                    x.alignment = Alignment(horizontal="center", vertical="top", wrap_text=(c == 3))
-                else:
-                    x.alignment = Alignment(wrap_text=True, vertical="top")
-        r += 1
-        ws.cell(r, 2, "Блок якуни:").font = Font(name=AR, bold=True, size=10)
-        ws.cell(r, 2).alignment = Alignment(horizontal="right")
-        x = ws.cell(r, 7)
-        x.value = f"=SUM(G{boshi}:G{r-1})"
-        x.number_format = money; x.font = Font(name=AR, bold=True, size=10); x.alignment = right
-        for c in range(1, NC + 1):
-            ws.cell(r, c).fill = F_SUB; ws.cell(r, c).border = border
-        yakunlar.append(r)
-    oxirgi = r
-
-    r += 1
-    ws.cell(r, 2, "ҲАФТА ЖАМИ:").font = Font(name=AR, bold=True, size=12)
-    ws.cell(r, 2).alignment = Alignment(horizontal="right")
-    x = ws.cell(r, 7)
-    x.value = "=" + "+".join(f"G{j}" for j in yakunlar)
-    x.number_format = money; x.font = Font(name=AR, bold=True, size=12, color="0B6E4F"); x.alignment = right
-    for c in range(1, NC + 1):
-        ws.cell(r, c).fill = F_GRAND; ws.cell(r, c).border = border
-
-    # Турлар бўйича жами — фақат шу ҳафтада учраганлари
-    r += 1
-    bor = [k for k in KINDS_ALL if any(it.kind == k for it in items)]
-    for k in bor:
-        r += 1
-        ws.cell(r, 2, KIND_KIRILL[k] + " жами:").font = Font(name=AR, bold=True, size=10)
-        ws.cell(r, 2).alignment = Alignment(horizontal="right")
-        x = ws.cell(r, 7)
-        x.value = f'=SUMIF($C${hr + 1}:$C${oxirgi},"{KIND_KIRILL[k]}",$G${hr + 1}:$G${oxirgi})'
-        x.number_format = money; x.font = Font(name=AR, bold=True, size=10); x.alignment = right
-
-    _xl_tnr(ws, hr, NC)
-    # Times New Roman 14 sig'ishi uchun kengroq; «Тури» to'liq so'z bilan bir qatorda ko'rinsin
-    for i, kenglik in enumerate([6, 55, 22, 10, 14, 17, 21, 50], start=1):
-        ws.column_dimensions[chr(64 + i)].width = kenglik
-    ws.freeze_panes = f"A{hr + 1}"
-    ws.page_setup.orientation = "landscape"
-    ws.page_setup.paperSize = ws.PAPERSIZE_A4
-    ws.sheet_properties.pageSetUpPr.fitToPage = True
-    ws.page_setup.fitToWidth = 1
-    ws.page_setup.fitToHeight = 0
-    ws.print_title_rows = f"{hr}:{hr}"
-    wb.active = 0
-    return ws
-
-
 @login_required
 def limit_jadval_export(request, pk):
     """Limit jadvalini Excelga yuklab olish — sahifadagi ko'rinishda:
@@ -6136,11 +6002,9 @@ def limit_jadval_export(request, pk):
     ws.page_setup.fitToHeight = 0
     ws.print_title_rows = f"{h1}:{h2}"
 
-    # --- Танланган ҳафтанинг СЎРАЛГАН қаторлари — алоҳида варақ (биринчи; файл очилганда шу кўринади) ---
-    if hafta is not None and request.GET.get("haftasiz") != "1":
-        _hafta_sorov_varaq(wb, p, hafta, raqam[hafta.pk], HOLAT,
-                           [g["bolim"] for g in guruhlar.values()],
-                           {g["bolim"]: g["masul"] for g in guruhlar.values()})
+    # Алоҳида «N-ҳафта сўрови» варағи ОЛИБ ТАШЛАНДИ (2026-11-18, фойдаланувчи: «худди шу») —
+    # «Лимит» варағининг ўзида фақат танланган ҳафтада сўралганлар очиқ, қолган қаторлар ва
+    # эски ҳафта устунлари яширин гуруҳда.
 
     import io as _io
     buf = _io.BytesIO()
