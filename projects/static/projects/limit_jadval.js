@@ -373,7 +373,7 @@
           (subMi ? ('<span class="bch-belgi">↳</span><span class="bch-ota" title="Асосий блок">'+esc(blokOta(b.bolim))+' ›</span>'+
                     '<input class="wkin tx lim-bn" value="'+esc(blokBola(b.bolim))+'" placeholder="блокча номи" style="width:220px; font-weight:700;">')
                  : '<input class="wkin tx lim-bn" value="'+esc(b.bolim)+'" placeholder="бўлим номи" style="width:280px; font-weight:700;">')+
-          '<input class="wkin tx lim-bm" value="'+esc(b.masul)+'" placeholder="масъул (ихтиёрий)" style="width:190px;"></span>';
+          (subMi ? '' : '<input class="wkin tx lim-bm" value="'+esc(b.masul)+'" placeholder="масъул (ихтиёрий)" style="width:190px;">')+'</span>';
         bt.querySelector('.lim-bn').addEventListener('input', function(){
           if (subMi){ b.bolim = blokOta(b.bolim) + BLOKCHA + this.value; autoSaqla(); return; }
           // Asosiy blok qayta nomlansa — uning saqlangan blokchalari ham ergashadi
@@ -387,7 +387,8 @@
           });
           autoSaqla();
         });
-        bt.querySelector('.lim-bm').addEventListener('input', function(){ b.masul = this.value; autoSaqla(); });
+        var lbm = bt.querySelector('.lim-bm');
+        if (lbm) lbm.addEventListener('input', function(){ b.masul = this.value; autoSaqla(); });
         if (LIM_QATOR) bt.querySelectorAll('.lim-bn,.lim-bm').forEach(function(i){ i.disabled = true; i.title = '🔒 Қулф — фақат рухсат берилган қаторлар таҳрирланади'; });
       });
     }
@@ -576,7 +577,7 @@
         (subMi ? ('<span class="bch-belgi">↳</span><span class="bch-ota" title="Асосий блок">'+esc(blokOta(blk.bolim))+' ›</span>'+
                   '<input class="wkin tx yb-bolim yb-bola" value="'+esc(blokBola(blk.bolim))+'" placeholder="блокча номи (масалан: майда)" style="width:220px; font-weight:700;">') : '')+
         (subMi ? '' : '<input class="wkin tx yb-bolim" value="'+esc(blk.bolim||'')+'" placeholder="'+(TAKLIF_EDIT?'бўлим номи (бўш — «Бўлимсиз қаторлар»)':'бўлим номи (масалан: 1-этаж иш хаклари)')+'" style="width:280px; font-weight:700;">')+
-        '<input class="wkin tx yb-masul" value="'+esc(blk.masul||'')+'" placeholder="масъул (ихтиёрий)" style="width:190px;">'+
+        (subMi ? '' : '<input class="wkin tx yb-masul" value="'+esc(blk.masul||'')+'" placeholder="масъул (ихтиёрий)" style="width:190px;">')+   // блокчага масъул шарт эмас (2026-11-18)
         (TAKLIF_EDIT ? '' : '<span style="font-weight:400; font-size:11px; color:#8a5a00;">(янги блок — «Лимитни юбориш» билан занжирга кетади)</span>')+'</span></td>'+
         '<td class="ctr"><button type="button" class="del-btn" title="Блокни ўчириш">✕</button></td>';
       if ((TAKLIF_QULF && blk.rows.some(function(x){ return x.asl; })) || TAKLIF_NARX){
@@ -597,7 +598,8 @@
         }
         taklifDirty = true; hisoblaKechik(350);
       });
-      hr.querySelector('.yb-masul').addEventListener('input', function(){ blk.masul = this.value; taklifDirty = true; autoSaqla(); });
+      var ybm = hr.querySelector('.yb-masul');
+      if (ybm) ybm.addEventListener('input', function(){ blk.masul = this.value; taklifDirty = true; autoSaqla(); });
       var hdbtn = hr.querySelector('.del-btn');   // qulf (TAKLIF_QULF) blokda tugma yo'q — avval shu yerda JS yiqilib jadval bo'sh qolardi (2026-10-23)
       if (hdbtn) hdbtn.onclick = function(){
         var bor = blk.rows.some(function(x){ return (x.name||'').trim() || x.vol>0; });
