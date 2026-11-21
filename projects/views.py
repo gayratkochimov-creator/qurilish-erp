@@ -5063,8 +5063,10 @@ def limit_jadval(request, pk):
                 return _qayt()
             if q <= 0:
                 continue
-            if pr <= 0:
-                messages.error(request, f"«{nm}»: narx kiritilmagan — saqlanmadi.")
+            # Narx MAJBURIY EMAS (2026-11-21, foydalanuvchi): material ombordan, texnika o'zimizniki
+            # bo'lishi mumkin — faqat soni yoziladi, narx 0. Manfiy narx — xato.
+            if pr < 0:
+                messages.error(request, f"«{nm}»: narx manfiy bo'lmasin — saqlanmadi.")
                 return _qayt()
             bolim = bolim_toza(row.get("bolim"))[:200]
             kind = str(row.get("kind") or "material")

@@ -1233,9 +1233,11 @@
             }
           }
           var iq=tr.querySelector('.in-q'), ip=tr.querySelector('.in-p');
-          if (iq && pf(iq.value)>0 && ip && pf(ip.value)<=0){ errs.push('"'+tr.dataset.name+'": нарх киритилмаган'); xatoBor = true; }
+          // Нарх мажбурий ЭМАС (2026-11-21): материал складдан, техника ўзимизники бўлиши мумкин —
+          // фақат сони ёзилади, нарх 0. Манфий нарх эса хато.
+          if (ip && pf(ip.value) < 0){ errs.push('"'+tr.dataset.name+'": нарх манфий бўлмасин'); xatoBor = true; }
           (bolaklar[tr.dataset.key]||[]).forEach(function(b){
-            if ((b.qty||0)>0 && (b.price||0)<=0){ errs.push('"'+tr.dataset.name+'" (бўлак): нарх киритилмаган'); xatoBor = true; }
+            if ((b.price||0) < 0){ errs.push('"'+tr.dataset.name+'" (бўлак): нарх манфий бўлмасин'); xatoBor = true; }
           });
           if (xatoBor){ tr.classList.add('row-err'); setT(rn, nrk+' ⛔'); }
         }
@@ -1304,7 +1306,7 @@
         if (((x.vol||0)>0 || (x.wq||0)>0) && !(x.name||'').trim())
           errs.push('«'+blkNomi+'» блоки: иш номи ёзилмаган');
         // Умумий НАРХ мажбурий ЭМАС — занжирда СНАБЖЕНИЕ нархлайди
-        if ((x.wq||0)>0 && wnarx<=0) errs.push('«'+(x.name||blkNomi)+'» (ҳафталик): нарх киритилмаган');
+        if ((x.wp||0) < 0) errs.push('«'+(x.name||blkNomi)+'» (ҳафталик): нарх манфий бўлмасин');   // нарх 0 — мумкин (склад / ўз техникаси)
         if ((x.wq||0)>0 && (x.vol||0)>0){
           if ((x.kind||'material') === 'avans'){
             if ((x.wq||0)*wnarx > (x.vol||0)*(x.price||0)+0.5) errs.push('«'+(x.name||blkNomi)+'» (аванс): ҳафталик сумма '+fmt((x.wq||0)*wnarx)+' — умумий '+fmt((x.vol||0)*(x.price||0))+' дан ортиқ');
@@ -1334,7 +1336,7 @@
         if (r) r.classList.remove('row-err');
         var xb = false;
         if ((x.qty||0)>0 && !(x.name||'').trim()){ errs.push('Лимитда йўқ иш: номи ёзилмаган'); xb=true; }
-        if ((x.qty||0)>0 && (x.price||0)<=0){ errs.push('"'+(x.name||'янги иш')+'": нарх киритилмаган'); xb=true; }
+        if ((x.price||0) < 0){ errs.push('"'+(x.name||'янги иш')+'": нарх манфий бўлмасин'); xb=true; }   // нарх 0 — мумкин
         if (xb && r) r.classList.add('row-err');
       }
     });
